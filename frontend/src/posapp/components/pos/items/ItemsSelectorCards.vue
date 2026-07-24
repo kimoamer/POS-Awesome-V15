@@ -1,27 +1,40 @@
 <template>
 	<div class="items-card-container">
-		<div v-if="isLoading" class="items-card-grid">
-			<Skeleton v-for="n in 8" :key="n" class="mb-4" height="120" />
+		<div v-if="isLoading" class="items-card-grid items-card-skeleton-grid" aria-busy="true">
+			<div v-for="n in 8" :key="n" class="item-card-skeleton">
+				<Skeleton class="item-card-skeleton__media" height="132" />
+				<div class="item-card-skeleton__body">
+					<Skeleton height="14" width="72%" />
+					<Skeleton height="14" width="44%" />
+					<div class="item-card-skeleton__meta">
+						<Skeleton height="12" width="38%" />
+						<Skeleton height="12" width="28%" />
+					</div>
+				</div>
+			</div>
 		</div>
 		<div
 			v-else-if="displayedItems.length === 0"
-			class="d-flex flex-column align-center justify-center text-center fill-height pa-4"
-			style="height: 100%; min-height: 200px"
+			class="items-empty-state"
 		>
-			<v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-package-variant-closed</v-icon>
-			<div class="text-h6 text-medium-emphasis mb-1">
+			<div class="items-empty-state__icon">
+				<v-icon size="34">mdi-package-search-outline</v-icon>
+			</div>
+			<div class="items-empty-state__title">
 				{{ noItemsTitle }}
 			</div>
-			<div class="text-body-2 text-medium-emphasis">
+			<div class="items-empty-state__subtitle">
 				{{ noItemsSubtitle }}
 			</div>
 			<v-btn
 				v-if="showClearButton"
 				variant="text"
 				color="primary"
-				class="mt-4"
+				class="items-empty-state__action"
+				size="small"
 				@click="handleClearSearch"
 			>
+				<v-icon size="17">mdi-filter-remove-outline</v-icon>
 				{{ clearSearchLabel }}
 			</v-btn>
 		</div>
@@ -150,33 +163,52 @@ defineExpose({ scrollToItem, getScrollerElement, scrollerRef });
 </script>
 
 <style scoped>
-.item-container {
-	overflow-y: auto;
-	scrollbar-gutter: stable;
+.items-card-container {
+	--items-grid-padding: clamp(10px, 1vw, 16px);
+	--items-grid-gap: clamp(10px, 0.9vw, 16px);
+	--items-grid-scrollbar: color-mix(in srgb, var(--pos-text-muted) 28%, transparent);
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+	position: relative;
 }
 
 .items-card-grid {
 	display: grid;
-	grid-template-columns: repeat(3, 1fr);
-	gap: 16px;
-	padding: 16px;
-	height: calc(100% - 80px);
+	grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr));
+	gap: var(--items-grid-gap);
+	padding: var(--items-grid-padding);
+	height: 100%;
 	overflow-y: auto;
+	overflow-x: hidden;
+	scrollbar-gutter: stable;
 	scrollbar-width: thin;
-	scrollbar-color: rgba(var(--v-theme-on-surface), 0.2) transparent;
+	scrollbar-color: var(--items-grid-scrollbar) transparent;
+	overscroll-behavior: contain;
 	contain: layout style;
 	will-change: scroll-position;
 	transform: translate3d(0, 0, 0);
 }
 
 .virtual-scroller {
-	height: calc(100% - 80px);
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
 	overflow-y: auto;
+	overflow-x: hidden;
 	position: relative;
+	scrollbar-gutter: stable;
+	scrollbar-width: thin;
+	scrollbar-color: var(--items-grid-scrollbar) transparent;
+	overscroll-behavior: contain;
+	contain: layout style;
+	will-change: scroll-position;
 }
 
-.virtual-scroller .items-card-grid {
-	height: auto;
+.item-container {
 	overflow: visible;
 }
 
@@ -188,30 +220,181 @@ defineExpose({ scrollToItem, getScrollerElement, scrollerRef });
 	width: 8px;
 }
 
+.virtual-scroller::-webkit-scrollbar {
+	width: 8px;
+}
+
 .items-card-grid::-webkit-scrollbar-track {
 	background: transparent;
 }
 
-.items-card-grid::-webkit-scrollbar-thumb {
-	background-color: rgba(var(--v-theme-on-surface), 0.2);
-	border-radius: 4px;
+.virtual-scroller::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.items-card-grid::-webkit-scrollbar-thumb,
+.virtual-scroller::-webkit-scrollbar-thumb {
+	background-color: var(--items-grid-scrollbar);
+	border-radius: 999px;
+	border: 2px solid transparent;
+	background-clip: padding-box;
 }
 
 .virtual-scroller :deep(.items-virtual-list) {
-	padding: 16px;
+	padding: var(--items-grid-padding);
+	padding-block-end: calc(var(--items-grid-padding) + 12px);
 	contain: layout style;
 	box-sizing: border-box;
+	overflow: visible !important;
+}
+
+.items-card-skeleton-grid {
+	padding-block-end: calc(var(--items-grid-padding) + 12px);
+}
+
+.item-card-skeleton {
+	min-width: 0;
+	height: 260px;
+	border: 1px solid var(--pos-border-light);
+	border-radius: var(--pos-radius-md, 14px);
+	background: var(--pos-surface-raised);
+	overflow: hidden;
+	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.item-card-skeleton__media {
+	--sk-bg: color-mix(in srgb, var(--pos-surface-muted) 88%, var(--pos-primary-container));
+	border-radius: 0 !important;
+}
+
+.item-card-skeleton__body {
+	padding-block: 14px;
+	padding-inline: 14px;
+	display: grid;
+	gap: 10px;
+}
+
+.item-card-skeleton__body :deep(.skeleton) {
+	--sk-bg: color-mix(in srgb, var(--pos-text-muted) 16%, transparent);
+	border-radius: 999px !important;
+}
+
+.item-card-skeleton__meta {
+	margin-block-start: 8px;
+	padding-block-start: 10px;
+	border-block-start: 1px solid var(--pos-border-light);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.items-empty-state {
+	width: 100%;
+	height: 100%;
+	min-height: 220px;
+	padding-block: clamp(22px, 5vh, 52px);
+	padding-inline: clamp(16px, 3vw, 28px);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	color: var(--pos-text-muted);
+	background:
+		radial-gradient(
+			circle at center,
+			color-mix(in srgb, var(--pos-primary-container) 40%, transparent),
+			transparent 46%
+		),
+		var(--pos-card-bg);
+}
+
+.items-empty-state__icon {
+	width: 64px;
+	height: 64px;
+	margin-block-end: 14px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid color-mix(in srgb, var(--pos-primary) 18%, var(--pos-border-light));
+	border-radius: var(--pos-radius-md, 14px);
+	background: color-mix(in srgb, var(--pos-primary-container) 58%, var(--pos-surface-raised));
+	color: var(--pos-primary);
+}
+
+.items-empty-state__title {
+	max-width: 360px;
+	font-size: clamp(0.98rem, 1vw, 1.08rem);
+	font-weight: 760;
+	line-height: 1.24;
+	color: var(--pos-text-primary);
+}
+
+.items-empty-state__subtitle {
+	max-width: 360px;
+	margin-block-start: 6px;
+	font-size: 0.84rem;
+	font-weight: 520;
+	line-height: 1.45;
+	color: var(--pos-text-muted);
+}
+
+.items-empty-state__action {
+	margin-block-start: 14px;
+	min-height: 40px;
+	border-radius: var(--pos-radius-sm, 10px) !important;
+	text-transform: none !important;
+	letter-spacing: 0 !important;
+	font-weight: 700 !important;
 }
 
 @media (max-width: 1200px) {
-	.virtual-scroller :deep(.items-virtual-list) {
-		padding: 12px;
+	.items-card-container {
+		--items-grid-padding: 12px;
+		--items-grid-gap: 12px;
+	}
+
+	.item-card-skeleton {
+		height: 244px;
 	}
 }
 
 @media (max-width: 768px) {
+	.items-card-container {
+		--items-grid-padding: 10px;
+		--items-grid-gap: 10px;
+	}
+
+	.items-card-grid {
+		grid-template-columns: repeat(auto-fill, minmax(min(168px, 100%), 1fr));
+	}
+
+	.item-card-skeleton {
+		height: 228px;
+	}
+
 	.virtual-scroller :deep(.items-virtual-list) {
-		padding: 10px;
+		padding-block-end: calc(var(--items-grid-padding) + var(--bottom-safe-space, 0px) + 12px);
+	}
+
+	.items-card-skeleton-grid {
+		padding-block-end: calc(var(--items-grid-padding) + var(--bottom-safe-space, 0px) + 12px);
+	}
+}
+
+@media (max-width: 430px) {
+	.items-card-grid {
+		grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+	}
+
+	.items-empty-state {
+		min-height: 190px;
+	}
+
+	.items-empty-state__icon {
+		width: 58px;
+		height: 58px;
 	}
 }
 </style>
