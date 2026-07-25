@@ -177,7 +177,6 @@
 									:disabled="!canChangePLRate"
 									readonly
 									prepend-inner-icon="mdi-format-list-numbered"
-									:prefix="currencySymbol(pos_profile.currency)"
 								></v-text-field>
 							</div>
 							<div class="posa-form-field">
@@ -188,7 +187,7 @@
 									:label="frappe._('Total Amount')"
 									class="pos-themed-input"
 									hide-details
-									:model-value="formatCurrency(item.qty * item.rate)"
+									:model-value="formatCurrency(lineAmount)"
 									disabled
 									prepend-inner-icon="mdi-calculator"
 								></v-text-field>
@@ -429,10 +428,7 @@
 					<!-- Delivery Date Section -->
 					<div
 						class="posa-form-section mt-4"
-						v-if="
-							pos_profile.posa_allow_sales_order &&
-							['Order', 'Quotation'].includes(invoiceType || '')
-						"
+						v-if="capabilities.showDeliveryDate"
 					>
 						<div class="posa-section-header mb-3">
 							<v-icon size="small" class="section-icon mr-1">mdi-calendar-check</v-icon>
@@ -455,7 +451,7 @@
 					<!-- Additional Notes Section -->
 					<div
 						class="posa-form-section mt-4"
-						v-if="pos_profile?.posa_display_additional_notes"
+						v-if="capabilities.showAdditionalNotes"
 					>
 						<div class="posa-section-header mb-3">
 							<v-icon size="small" class="section-icon mr-1">mdi-note-text-outline</v-icon>
@@ -500,11 +496,7 @@ import { getDisplayableBatchOptions } from "../../../composables/pos/shared/useB
 import { useResponsive } from "../../../composables/core/useResponsive";
 import { resolveItemImage } from "../../../utils/itemImage";
 import {
-	canChangePriceListRate,
-	canChangeUom,
-	canEditItemDiscount,
-	canEditQty,
-	canEditRate,
+	getItemUiCapabilities,
 } from "../../../composables/pos/items/useItemPermissions";
 
 interface Props {
@@ -554,11 +546,24 @@ watch(itemImage, () => {
 	imageFailed.value = false;
 });
 
-const canEditR = computed(() => canEditRate(props.pos_profile, props.item, props.isReturnInvoice));
-const canEditDisc = computed(() => canEditItemDiscount(props.pos_profile, props.item, props.isReturnInvoice));
-const canChangePLRate = computed(() => canChangePriceListRate(props.pos_profile, props.item, props.isReturnInvoice));
-const canEditQuantity = computed(() => canEditQty(props.item, props.isReturnInvoice));
-const canChangeU = computed(() => canChangeUom(props.item, props.isReturnInvoice));
+const capabilities = computed(() =>
+	getItemUiCapabilities(props.pos_profile, props.item, {
+		isReturnInvoice: props.isReturnInvoice,
+		invoiceType: props.invoiceType,
+	}),
+);
+
+const canEditR = computed(() => capabilities.value.editRate);
+const canEditDisc = computed(() => capabilities.value.editDiscount);
+const canChangePLRate = computed(() => capabilities.value.changePriceListRate);
+const canEditQuantity = computed(() => capabilities.value.editQty);
+const canChangeU = computed(() => capabilities.value.changeUom);
+
+const lineAmount = computed(() => {
+	const amount = Number(props.item?.amount);
+	if (Number.isFinite(amount)) return amount;
+	return Number(props.item?.qty || 0) * Number(props.item?.rate || 0);
+});
 
 const canToggleOffer = computed(() => {
 	if (props.isReturnInvoice) return false;
@@ -577,6 +582,7 @@ const getBatchOptions = (item: any) => getDisplayableBatchOptions(item?.batch_no
 .details-dialog__thumb {
 	width: 36px;
 	height: 36px;
+	flex: 0 0 36px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -589,16 +595,6 @@ const getBatchOptions = (item: any) => getDisplayableBatchOptions(item?.batch_no
 	object-fit: contain !important;
 	object-position: center;
 	padding: 2px;
-}
-</style>
-
-<style scoped>
-.details-dialog__thumb {
-	width: 32px;
-	height: 32px;
-	border-radius: 6px;
-	overflow: hidden;
-	flex-shrink: 0;
 }
 
 .posa-form-row {

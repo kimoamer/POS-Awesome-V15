@@ -61,3 +61,40 @@ export function canRemoveItem(item: any): boolean {
 	if (isLockedPromotionLine(item) || item.posa_is_replace) return false;
 	return true;
 }
+
+export interface ItemUiCapabilities {
+	editQty: boolean;
+	editRate: boolean;
+	editDiscount: boolean;
+	changeUom: boolean;
+	changePriceListRate: boolean;
+	overrideItemName: boolean;
+	removeItem: boolean;
+	showAdditionalNotes: boolean;
+	showDeliveryDate: boolean;
+}
+
+export function getItemUiCapabilities(
+	posProfile: any,
+	item: any,
+	context: {
+		isReturnInvoice?: boolean;
+		invoiceType?: string;
+	} = {},
+): ItemUiCapabilities {
+	const isReturnInvoice = Boolean(context.isReturnInvoice);
+
+	return {
+		editQty: canEditQty(item, isReturnInvoice),
+		editRate: canEditRate(posProfile, item, isReturnInvoice),
+		editDiscount: canEditItemDiscount(posProfile, item, isReturnInvoice),
+		changeUom: canChangeUom(item, isReturnInvoice),
+		changePriceListRate: canChangePriceListRate(posProfile, item, isReturnInvoice),
+		overrideItemName: canOverrideItemName(posProfile, item),
+		removeItem: canRemoveItem(item),
+		showAdditionalNotes: parseBooleanSetting(posProfile?.posa_display_additional_notes),
+		showDeliveryDate:
+			parseBooleanSetting(posProfile?.posa_allow_sales_order) &&
+			["Order", "Quotation"].includes(context.invoiceType || ""),
+	};
+}

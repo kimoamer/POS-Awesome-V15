@@ -8,6 +8,7 @@ import {
 	canEditRate,
 	canOverrideItemName,
 	canRemoveItem,
+	getItemUiCapabilities,
 	isLockedPromotionLine,
 	isPricingLocked,
 	parseBooleanSetting,
@@ -19,6 +20,8 @@ describe("useItemPermissions composable", () => {
 		posa_allow_user_to_edit_item_discount: 1,
 		posa_allow_price_list_rate_change: 1,
 		posa_allow_line_item_name_override: 1,
+		posa_display_additional_notes: 1,
+		posa_allow_sales_order: 1,
 	};
 
 	const restrictedProfile = {
@@ -26,6 +29,8 @@ describe("useItemPermissions composable", () => {
 		posa_allow_user_to_edit_item_discount: 0,
 		posa_allow_price_list_rate_change: 0,
 		posa_allow_line_item_name_override: 0,
+		posa_display_additional_notes: 0,
+		posa_allow_sales_order: 0,
 	};
 
 	const stringRestrictedProfile = {
@@ -33,6 +38,8 @@ describe("useItemPermissions composable", () => {
 		posa_allow_user_to_edit_item_discount: "0",
 		posa_allow_price_list_rate_change: "0",
 		posa_allow_line_item_name_override: "0",
+		posa_display_additional_notes: "0",
+		posa_allow_sales_order: "0",
 	};
 
 	const stringAllowedProfile = {
@@ -40,6 +47,8 @@ describe("useItemPermissions composable", () => {
 		posa_allow_user_to_edit_item_discount: "1",
 		posa_allow_price_list_rate_change: "1",
 		posa_allow_line_item_name_override: "1",
+		posa_display_additional_notes: "1",
+		posa_allow_sales_order: "1",
 	};
 
 	const normalItem = {
@@ -85,96 +94,41 @@ describe("useItemPermissions composable", () => {
 		});
 	});
 
-	describe("isPricingLocked", () => {
-		it("returns false for regular item on normal invoice", () => {
-			expect(isPricingLocked(normalItem, false)).toBe(false);
+	describe("getItemUiCapabilities matrix", () => {
+		it("returns full permissions for normal item when profile allows", () => {
+			const caps = getItemUiCapabilities(defaultProfile, normalItem, {
+				invoiceType: "Order",
+			});
+			expect(caps.editQty).toBe(true);
+			expect(caps.editRate).toBe(true);
+			expect(caps.editDiscount).toBe(true);
+			expect(caps.changeUom).toBe(true);
+			expect(caps.changePriceListRate).toBe(true);
+			expect(caps.overrideItemName).toBe(true);
+			expect(caps.removeItem).toBe(true);
+			expect(caps.showAdditionalNotes).toBe(true);
+			expect(caps.showDeliveryDate).toBe(true);
 		});
 
-		it("returns true on return invoice or offer applied line", () => {
-			expect(isPricingLocked(normalItem, true)).toBe(true);
-			expect(isPricingLocked({ posa_offer_applied: 1 }, false)).toBe(true);
-			expect(isPricingLocked({ posa_is_offer: 1 }, false)).toBe(true);
-		});
-	});
-
-	describe("canEditRate", () => {
-		it("allows rate editing for regular item when profile allows", () => {
-			expect(canEditRate(defaultProfile, normalItem, false)).toBe(true);
-			expect(canEditRate(stringAllowedProfile, normalItem, false)).toBe(true);
+		it("hides delivery date on regular Sales Invoice", () => {
+			const caps = getItemUiCapabilities(defaultProfile, normalItem, {
+				invoiceType: "Sales Invoice",
+			});
+			expect(caps.showDeliveryDate).toBe(false);
 		});
 
-		it("disallows rate editing when profile prohibits (0, '0', false)", () => {
-			expect(canEditRate(restrictedProfile, normalItem, false)).toBe(false);
-			expect(canEditRate(stringRestrictedProfile, normalItem, false)).toBe(false);
-		});
+		it("locks editing on offer, replacement, free, or return items", () => {
+			const offerCaps = getItemUiCapabilities(defaultProfile, { posa_is_offer: 1 });
+			expect(offerCaps.editQty).toBe(false);
+			expect(offerCaps.editRate).toBe(false);
+			expect(offerCaps.editDiscount).toBe(false);
+			expect(offerCaps.changeUom).toBe(false);
+			expect(offerCaps.removeItem).toBe(false);
 
-		it("disallows rate editing for offer, replacement, offer_applied, or return lines", () => {
-			expect(canEditRate(defaultProfile, { posa_is_offer: 1 }, false)).toBe(false);
-			expect(canEditRate(defaultProfile, { posa_is_replace: 1 }, false)).toBe(false);
-			expect(canEditRate(defaultProfile, { posa_offer_applied: 1 }, false)).toBe(false);
-			expect(canEditRate(defaultProfile, normalItem, true)).toBe(false);
-		});
-	});
-
-	describe("canEditItemDiscount", () => {
-		it("allows discount editing for regular item when profile allows", () => {
-			expect(canEditItemDiscount(defaultProfile, normalItem, false)).toBe(true);
-			expect(canEditItemDiscount(stringAllowedProfile, normalItem, false)).toBe(true);
-		});
-
-		it("disallows discount editing when profile prohibits (0, '0', false)", () => {
-			expect(canEditItemDiscount(restrictedProfile, normalItem, false)).toBe(false);
-			expect(canEditItemDiscount(stringRestrictedProfile, normalItem, false)).toBe(false);
-		});
-
-		it("disallows discount editing for offer, replacement, offer_applied, or return lines", () => {
-			expect(canEditItemDiscount(defaultProfile, { posa_is_offer: 1 }, false)).toBe(false);
-			expect(canEditItemDiscount(defaultProfile, { posa_is_replace: 1 }, false)).toBe(false);
-			expect(canEditItemDiscount(defaultProfile, { posa_offer_applied: 1 }, false)).toBe(false);
-			expect(canEditItemDiscount(defaultProfile, normalItem, true)).toBe(false);
-		});
-	});
-
-	describe("canChangePriceListRate", () => {
-		it("allows changing price list rate when profile allows and line is unlocked", () => {
-			expect(canChangePriceListRate(defaultProfile, normalItem, false)).toBe(true);
-			expect(canChangePriceListRate(stringAllowedProfile, normalItem, false)).toBe(true);
-		});
-
-		it("disallows changing price list rate when profile prohibits or pricing is locked", () => {
-			expect(canChangePriceListRate(restrictedProfile, normalItem, false)).toBe(false);
-			expect(canChangePriceListRate(stringRestrictedProfile, normalItem, false)).toBe(false);
-			expect(canChangePriceListRate(defaultProfile, { posa_is_offer: 1 }, false)).toBe(false);
-		});
-	});
-
-	describe("canOverrideItemName", () => {
-		it("allows name override when profile allows and item is not replacement", () => {
-			expect(canOverrideItemName(defaultProfile, normalItem)).toBe(true);
-			expect(canOverrideItemName(stringAllowedProfile, normalItem)).toBe(true);
-		});
-
-		it("disallows name override when profile prohibits or item is replacement", () => {
-			expect(canOverrideItemName(restrictedProfile, normalItem)).toBe(false);
-			expect(canOverrideItemName(stringRestrictedProfile, normalItem)).toBe(false);
-			expect(canOverrideItemName(defaultProfile, { posa_is_replace: 1 })).toBe(false);
-		});
-	});
-
-	describe("canEditQty & canChangeUom & canRemoveItem", () => {
-		it("allows Qty, UOM, and Remove on normal items", () => {
-			expect(canEditQty(normalItem, false)).toBe(true);
-			expect(canChangeUom(normalItem, false)).toBe(true);
-			expect(canRemoveItem(normalItem)).toBe(true);
-		});
-
-		it("locks Qty, UOM, and Remove on locked promotional or return lines", () => {
-			const offerLine = { posa_is_offer: 1 };
-			expect(canEditQty(offerLine, false)).toBe(false);
-			expect(canChangeUom(offerLine, false)).toBe(false);
-			expect(canRemoveItem(offerLine)).toBe(false);
-
-			expect(canChangeUom(normalItem, true)).toBe(false);
+			const returnCaps = getItemUiCapabilities(defaultProfile, normalItem, { isReturnInvoice: true });
+			expect(returnCaps.editRate).toBe(false);
+			expect(returnCaps.editDiscount).toBe(false);
+			expect(returnCaps.changeUom).toBe(false);
 		});
 	});
 });

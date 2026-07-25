@@ -120,14 +120,59 @@
 
 		<!-- Rate Region -->
 		<div class="invoice-item-card__rate">
-			<bdi class="cart-item-money cart-item-rate">
-				<span class="cart-rate-label text-caption text-secondary mr-1" v-if="layoutMode !== 'row'">
+			<div
+				v-if="!isEditingRate"
+				class="invoice-item-card__rate-display"
+				:class="{
+					'is-editable': !disableRateEdit,
+					'is-disabled': disableRateEdit,
+				}"
+				:tabindex="disableRateEdit ? -1 : 0"
+				:role="disableRateEdit ? undefined : 'button'"
+				:aria-disabled="disableRateEdit"
+				:aria-label="disableRateEdit ? __('Rate') : __('Edit rate')"
+				data-pos-keyboard-target="cart-rate"
+				@click.stop="openRateEdit"
+				@keydown.enter.prevent="openRateEdit"
+				@keydown.space.prevent="openRateEdit"
+			>
+				<span v-if="layoutMode !== 'row'" class="cart-rate-label text-caption text-secondary mr-1">
 					{{ __("Rate") }}:
 				</span>
-				<span class="amount-value" :class="{ 'negative-number': isNegative(item.rate) }">
-					{{ formatMoney(item.rate, formatCurrency, currencySymbol, displayCurrency) }}
-				</span>
-			</bdi>
+
+				<bdi class="cart-item-money cart-item-rate">
+					<span class="amount-value" :class="{ 'negative-number': isNegative(item.rate) }">
+						{{ formatMoney(item.rate, formatCurrency, currencySymbol, displayCurrency) }}
+					</span>
+				</bdi>
+
+				<v-icon
+					v-if="!disableRateEdit"
+					size="14"
+					class="invoice-item-card__rate-edit-icon"
+					aria-hidden="true"
+				>
+					mdi-pencil-outline
+				</v-icon>
+			</div>
+
+			<v-text-field
+				v-else
+				ref="rateInput"
+				v-model="editingRateValue"
+				type="number"
+				inputmode="decimal"
+				density="compact"
+				variant="outlined"
+				class="invoice-item-card__rate-input"
+				:disabled="disableRateEdit"
+				:autofocus="true"
+				hide-details
+				@click.stop
+				@blur="submitRateEdit"
+				@keydown.enter.prevent="submitRateEdit"
+				@keydown.esc.prevent="cancelRateEdit"
+			/>
 		</div>
 
 		<!-- Amount Region -->
@@ -177,6 +222,7 @@ import {
 	canEditQty,
 	canOverrideItemName,
 	canRemoveItem,
+	getItemUiCapabilities,
 } from "../../../composables/pos/items/useItemPermissions";
 
 defineOptions({
@@ -225,6 +271,11 @@ const __ = (window as any).__ || ((text: string) => text);
 const isEditingQty = ref(false);
 const editingQtyValue = ref("");
 const qtyInput = ref<any>(null);
+
+const isEditingRate = ref(false);
+const editingRateValue = ref("");
+const rateInput = ref<any>(null);
+const isSubmittingRate = ref(false);
 const imageFailed = ref(false);
 
 const cardClasses = computed(() => [
@@ -251,6 +302,15 @@ watch(itemImage, () => {
 	imageFailed.value = false;
 });
 
+watch(
+	() => [props.item?.posa_row_id, props.item?.rate],
+	() => {
+		if (!isEditingRate.value) {
+			editingRateValue.value = "";
+		}
+	},
+);
+
 const itemMetaParts = computed(() => {
 	const parts: string[] = [];
 	const code = props.item?.item_code;
@@ -276,13 +336,58 @@ const hasBadges = computed(() => {
 	);
 });
 
-const canOverrideName = computed(() => canOverrideItemName(props.posProfile, props.item));
-const canEditQuantity = computed(() => canEditQty(props.item, props.isReturnInvoice));
-const canRemove = computed(() => canRemoveItem(props.item));
+const capabilities = computed(() =>
+	getItemUiCapabilities(props.posProfile, props.item, {
+		isReturnInvoice: props.isReturnInvoice,
+		invoiceType: props.invoiceType,
+	}),
+);
+
+const canOverrideName = computed(() => capabilities.value.overrideItemName);
+const canEditQuantity = computed(() => capabilities.value.editQty);
+const canEditR = computed(() => capabilities.value.editRate);
+const canRemove = computed(() => capabilities.value.removeItem);
 
 const disableDecrement = computed(() => !canEditQuantity.value);
 const disableIncrement = computed(() => !canEditQuantity.value || !!props.item?.disable_increment);
 const disableInput = computed(() => !canEditQuantity.value);
+const disableRateEdit = computed(() => !canEditR.value);
+
+function openRateEdit() {
+	if (disableRateEdit.value) return;
+	isEditingRate.value = true;
+	editingRateValue.value = String(props.item?.rate ?? 0);
+	nextTick(() => {
+		const input = rateInput.value?.$el?.querySelector?.("input") || rateInput.value;
+		input?.focus?.();
+		input?.select?.();
+	});
+}
+
+function submitRateEdit() {
+	if (!isEditingRate.value || isSubmittingRate.value) return;
+	isSubmittingRate.value = true;
+	try {
+		const rawValue = String(editingRateValue.value ?? "").trim();
+		if (rawValue !== "") {
+			const newRate = Number(rawValue);
+			if (Number.isFinite(newRate) && newRate >= 0 && newRate !== Number(props.item?.rate || 0)) {
+				emit("update-rate", props.item, newRate);
+			}
+		}
+	} finally {
+		isEditingRate.value = false;
+		editingRateValue.value = "";
+		nextTick(() => {
+			isSubmittingRate.value = false;
+		});
+	}
+}
+
+function cancelRateEdit() {
+	isEditingRate.value = false;
+	editingRateValue.value = "";
+}
 
 function openQtyEdit() {
 	if (disableInput.value) return;
@@ -494,6 +599,85 @@ function handleMinusClick() {
 	display: flex;
 	align-items: center;
 	justify-content: flex-end;
+}
+
+.invoice-item-card__rate-display {
+	display: inline-flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 4px;
+	min-width: 0;
+	min-height: 36px;
+	padding-inline: 6px;
+	border: 1px solid transparent;
+	border-radius: 7px;
+	white-space: nowrap;
+}
+
+.invoice-item-card__rate-display.is-editable {
+	cursor: pointer;
+}
+
+.invoice-item-card__rate-display.is-editable:hover,
+.invoice-item-card__rate-display.is-editable:focus-visible {
+	border-color: color-mix(in srgb, var(--pos-primary, #2563eb) 40%, transparent);
+	background: color-mix(in srgb, var(--pos-primary, #2563eb) 8%, transparent);
+	outline: none;
+}
+
+.invoice-item-card__rate-display.is-disabled {
+	cursor: default;
+	opacity: 0.88;
+}
+
+.invoice-item-card__rate-edit-icon {
+	opacity: 0;
+	color: var(--pos-primary, #2563eb);
+	transition: opacity 120ms ease;
+}
+
+.invoice-item-card__rate-display.is-editable:hover .invoice-item-card__rate-edit-icon,
+.invoice-item-card__rate-display.is-editable:focus-visible .invoice-item-card__rate-edit-icon {
+	opacity: 1;
+}
+
+.invoice-item-card__rate-input {
+	width: 100%;
+	min-width: 0;
+}
+
+.invoice-item-card__rate-input :deep(.v-field) {
+	min-height: 36px;
+	border-radius: 8px;
+}
+
+.invoice-item-card__rate-input :deep(input) {
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+}
+
+.invoice-item-card--stacked .invoice-item-card__rate-input {
+	width: min(128px, 100%);
+	justify-self: end;
+}
+
+.invoice-item-card--phone .invoice-item-card__rate {
+	width: 100%;
+	min-width: 0;
+}
+
+.invoice-item-card--phone .invoice-item-card__rate-display,
+.invoice-item-card--phone .invoice-item-card__rate-input {
+	width: 100%;
+}
+
+.invoice-item-card--phone .invoice-item-card__rate-display {
+	justify-content: space-between;
+	min-height: 44px;
+}
+
+.invoice-item-card--phone .invoice-item-card__rate-input :deep(.v-field) {
+	min-height: 44px;
 }
 
 .invoice-item-card__amount {

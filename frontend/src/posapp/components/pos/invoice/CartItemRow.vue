@@ -440,12 +440,7 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { resolveItemImage } from "../../../utils/itemImage";
 import {
-	canChangeUom,
-	canEditItemDiscount,
-	canEditQty,
-	canEditRate,
-	canOverrideItemName,
-	canRemoveItem,
+	getItemUiCapabilities,
 } from "../../../composables/pos/items/useItemPermissions";
 
 defineOptions({
@@ -572,12 +567,19 @@ const itemMetaParts = computed(() => {
 
 const itemMetaTitle = computed(() => itemMetaParts.value.join(" · ") || props.item.uom || "");
 
-const canOverrideName = computed(() => canOverrideItemName(props.posProfile, props.item));
-const canEditQuantity = computed(() => canEditQty(props.item, props.isReturnInvoice));
-const canEditR = computed(() => canEditRate(props.posProfile, props.item, props.isReturnInvoice));
-const canEditDisc = computed(() => canEditItemDiscount(props.posProfile, props.item, props.isReturnInvoice));
-const canChangeU = computed(() => canChangeUom(props.item, props.isReturnInvoice));
-const canRemove = computed(() => canRemoveItem(props.item));
+const capabilities = computed(() =>
+	getItemUiCapabilities(props.posProfile, props.item, {
+		isReturnInvoice: props.isReturnInvoice,
+		invoiceType: props.invoiceType,
+	}),
+);
+
+const canOverrideName = computed(() => capabilities.value.overrideItemName);
+const canEditQuantity = computed(() => capabilities.value.editQty);
+const canEditR = computed(() => capabilities.value.editRate);
+const canEditDisc = computed(() => capabilities.value.editDiscount);
+const canChangeU = computed(() => capabilities.value.changeUom);
+const canRemove = computed(() => capabilities.value.removeItem);
 
 const disableDecrement = computed(() => !canEditQuantity.value);
 const disableIncrement = computed(() => !canEditQuantity.value || !!props.item.disable_increment);

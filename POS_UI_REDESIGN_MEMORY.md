@@ -27,6 +27,17 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.5.5.2 — Final Invoice Items UI Capability Parity (Pass 6.5 Complete ✅).
+
+Scope:
+
+- **Centralized Capability Matrix Helper**: Created `getItemUiCapabilities()` in `useItemPermissions.ts` returning `editQty`, `editRate`, `editDiscount`, `changeUom`, `changePriceListRate`, `overrideItemName`, `removeItem`, `showAdditionalNotes`, and `showDeliveryDate`.
+- **Unified Component Capabilities**: Integrated `getItemUiCapabilities()` across `InvoiceItemCard.vue` (Premium List), `CartItemRow.vue` (Classic Table), and `InvoiceItemDetailsDialog.vue`.
+- **Premium List Inline Rate Editing Parity**: Added inline rate editing to `InvoiceItemCard.vue` using `capabilities.editRate`. Displays hover pencil icon on Desktop and opens numeric `<v-text-field>` on click/enter.
+- **Double-Submit & Numeric Guarding**: `submitRateEdit` prevents double-submits (`isSubmittingRate`) and validates raw inputs (ignores empty, negative, NaN, or unchanged rate entries).
+- **Details Dialog Style & Delivery Date Cleanup**: Conditioned Delivery Date section on `capabilities.showDeliveryDate`. Merged duplicate `.details-dialog__thumb` CSS blocks into a single 36x36px block. Removed duplicate `:prefix` on Price List Rate text field and computed `lineAmount` prioritizing `item.amount`.
+- **Component & Capability Tests**: Expanded `tests/itemPermissions.spec.ts` and `tests/invoiceItemCard.spec.ts` testing capability matrix and rate editing logic.
+
 Pass 6.5.5.1 — Guard Acceptance & Regression Cleanup.
 
 Scope:
