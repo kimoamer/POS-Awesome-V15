@@ -301,6 +301,19 @@
 body[data-page-route="posapp"] {
 	background: var(--pos-bg-secondary) !important;
 	color: var(--pos-text-primary);
+	height: 100dvh !important;
+	min-height: 0 !important;
+	overflow: hidden !important;
+}
+
+body[data-page-route="posapp"] #app,
+body[data-page-route="posapp"] #body,
+body[data-page-route="posapp"] .posapp,
+body[data-page-route="posapp"] .v-application,
+body[data-page-route="posapp"] .v-application__wrap {
+	height: 100dvh !important;
+	min-height: 0 !important;
+	overflow: hidden !important;
 }
 
 /* Utility Classes for Theme Colors - Scoped to POSApp */
@@ -783,7 +796,7 @@ body[data-page-route="posapp"] .content.page-wrapper {
 body[data-page-route="posapp"] #body {
 	display: block !important;
 	min-height: 100dvh !important;
-	height: auto !important;
+	height: 100dvh !important;
 	overflow-x: hidden !important;
 	overflow-y: hidden !important;
 }

@@ -1320,7 +1320,7 @@ export default {
 
 @media (max-width: 1199px) {
 	.invoice-shell {
-		padding-bottom: calc(var(--bottom-safe-space) + var(--dynamic-xs));
+		padding-bottom: 0;
 	}
 }
 
@@ -1433,8 +1433,8 @@ export default {
 	display: flex;
 	align-items: center;
 	width: 100%;
-	min-height: 56px;
-	padding: 6px 10px;
+	min-height: 54px;
+	padding: 4px 10px;
 	border-block-end: 1px solid var(--pos-border-light);
 	background: var(--pos-surface);
 }
@@ -1691,8 +1691,8 @@ export default {
 	}
 
 	.invoice-customer-region {
-		min-height: 54px;
-		padding: 5px 8px;
+		min-height: 52px;
+		padding: 4px 8px;
 	}
 
 	.invoice-command-region {

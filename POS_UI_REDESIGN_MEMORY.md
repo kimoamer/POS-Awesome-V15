@@ -29,6 +29,30 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 ## Current Pass
 
+Pass 6.5 Cart Workspace Completion.
+
+Scope:
+
+- Keep `ItemsTable.vue` as the data, virtualization, responsive-column, focus, and keyboard engine.
+- Use `CartItemRow.vue` and `items-table-styles.css` for the premium cart list presentation.
+- Desktop `>=1200px` keeps a light table header and compact list rows.
+- Tablet/mobile `<1200px` use dedicated cart rows with no traditional table header.
+- Collapse optional cart columns from the existing responsive source when the cart pane is too narrow or the viewport is compact.
+- Keep a single Cart scroll owner inside the Vuetify table viewport.
+- Route-level outer scroll remains locked for the POS page.
+- No qty/delete/focus/pricing/tax/discount actions, stores, APIs, props, emits, serial/batch, UOM, return behavior, multi-currency, payment behavior, `InvoiceSummary.vue`, or `InvoiceActionButtons.vue` changed.
+
+Acceptance:
+
+- Desktop split view shows Products + Cart side by side with no horizontal cart overflow.
+- Tablet landscape/portrait and mobile show Cart as a dedicated panel with stacked rows.
+- Customer, Invoice command, and Footer stay fixed while Cart Items scroll.
+- Empty cart is centered and compact inside the cart viewport.
+- Last cart row is not covered by Summary or Bottom Dock.
+- Long names, long UOM, decimal quantities, large amounts, return rows, serial/batch rows, and RTL remain usable.
+
+## Recently Completed
+
 Pass 5.5 POS Vertical Space Acceptance Fix.
 
 Scope:
@@ -160,7 +184,7 @@ Acceptance:
 
 ## Next Step
 
-After Pass 5.5 visual acceptance:
+After Pass 6.5 visual acceptance:
 
-1. Continue with Pass 6.5 Invoice Items Premium List, presentation-only.
-2. Then Pass 6.6 Invoice Summary and Action Footer, presentation-only.
+1. Continue with Pass 6.6 Invoice Summary and Action Footer, presentation-only.
+2. Then review payment dialogs and invoice management overlays against the same density tokens.

@@ -21,27 +21,25 @@ export const DATA_TABLE_EXPAND_COLUMN: TableHeader = {
 	minWidth: 44,
 };
 
+const COMPACT_COLUMN_WIDTH = 680;
+const STACKED_VIEWPORT_WIDTH = 1200;
+const STACKED_CONTAINER_WIDTH = 500;
+const COMPACT_CART_KEYS = new Set(["item_name", "qty", "rate", "amount", "actions"]);
+
 export function getResponsiveVisibleHeaders(
 	headers: TableHeader[],
 	width: number,
+	options: { collapseOptional?: boolean } = {},
 ) {
 	return headers
 		.filter((header) => {
-			if (
-				header.required ||
-				header.key === "item_name" ||
-				header.key === "qty" ||
-				header.key === "actions" ||
-				header.key === "amount"
-			) {
-				return true;
+			const shouldCollapseOptional =
+				options.collapseOptional || (width > 0 && width < COMPACT_COLUMN_WIDTH);
+
+			if (shouldCollapseOptional) {
+				return COMPACT_CART_KEYS.has(header.key);
 			}
 
-			if (width > 0 && width < 500) {
-				return ["item_name", "qty", "amount", "actions"].includes(
-					header.key,
-				);
-			}
 			return true;
 		})
 		.map((header) => ({
@@ -54,9 +52,11 @@ export function getResponsiveVisibleHeaders(
 export function buildFinalVisibleColumns(
 	headers: TableHeader[],
 	width: number,
-	options: { showExpand?: boolean } = {},
+	options: { showExpand?: boolean; collapseOptional?: boolean } = {},
 ) {
-	const visibleHeaders = getResponsiveVisibleHeaders(headers, width);
+	const visibleHeaders = getResponsiveVisibleHeaders(headers, width, {
+		collapseOptional: options.collapseOptional,
+	});
 
 	if (options.showExpand === false) {
 		return visibleHeaders;
@@ -111,6 +111,7 @@ export function useItemsTableResponsive(
 ) {
 	const containerWidth = ref(0);
 	const containerHeight = ref(0);
+	const viewportWidth = ref(typeof window !== "undefined" ? window.innerWidth : 0);
 	const breakpoint = ref("xl");
 	let resizeObserver: ResizeObserver | null = null;
 
@@ -122,11 +123,30 @@ export function useItemsTableResponsive(
 		return "xl";
 	};
 
+	const isStackedRows = computed(() => {
+		const currentViewportWidth = viewportWidth.value || 0;
+		const currentContainerWidth = containerWidth.value || 0;
+		return (
+			(currentViewportWidth > 0 && currentViewportWidth < STACKED_VIEWPORT_WIDTH) ||
+			(currentContainerWidth > 0 && currentContainerWidth < STACKED_CONTAINER_WIDTH)
+		);
+	});
+
+	const collapseOptionalColumns = computed(() => {
+		const currentContainerWidth = containerWidth.value || 0;
+		return (
+			isStackedRows.value ||
+			(currentContainerWidth > 0 && currentContainerWidth < COMPACT_COLUMN_WIDTH)
+		);
+	});
+
 	const responsiveHeaders = computed(() => {
 		const width = containerWidth.value;
 		if (!headers.value || headers.value.length === 0) return [];
 
-		return getResponsiveVisibleHeaders(headers.value, width);
+		return getResponsiveVisibleHeaders(headers.value, width, {
+			collapseOptional: collapseOptionalColumns.value,
+		});
 	});
 
 	const isColumnVisible = (key: string) => {
@@ -143,15 +163,18 @@ export function useItemsTableResponsive(
 
 	const containerClasses = computed(() => ({
 		[`breakpoint-${breakpoint.value}`]: true,
-		"compact-view": containerWidth.value < 600,
+		"compact-view": containerWidth.value < COMPACT_COLUMN_WIDTH,
 		"medium-view":
-			containerWidth.value >= 600 && containerWidth.value < 900,
+			containerWidth.value >= COMPACT_COLUMN_WIDTH && containerWidth.value < 900,
 		"large-view": containerWidth.value >= 900,
+		"cart-compact-columns": collapseOptionalColumns.value,
+		"stacked-cart-rows": isStackedRows.value,
 	}));
 
 	const tableClasses = computed(() => ({
 		[`container-${breakpoint.value}`]: true,
 		"responsive-table": true,
+		"stacked-cart-rows": isStackedRows.value,
 	}));
 
 	const expandedContentClasses = computed(() => ({
@@ -160,10 +183,14 @@ export function useItemsTableResponsive(
 	}));
 
 	const tableDensity = computed(() => {
-		if (containerWidth.value < 500) return "compact";
+		if (isStackedRows.value || containerWidth.value < 500) return "compact";
 		if (containerWidth.value < 800) return "default";
 		return "comfortable";
 	});
+
+	const updateViewportWidth = () => {
+		viewportWidth.value = typeof window !== "undefined" ? window.innerWidth : 0;
+	};
 
 	const setupResizeObserver = () => {
 		if (typeof ResizeObserver !== "undefined" && containerRef.value) {
@@ -195,6 +222,10 @@ export function useItemsTableResponsive(
 	};
 
 	onMounted(() => {
+		updateViewportWidth();
+		if (typeof window !== "undefined") {
+			window.addEventListener("resize", updateViewportWidth, { passive: true });
+		}
 		setupResizeObserver();
 	});
 
@@ -202,13 +233,19 @@ export function useItemsTableResponsive(
 		if (resizeObserver) {
 			resizeObserver.disconnect();
 		}
+		if (typeof window !== "undefined") {
+			window.removeEventListener("resize", updateViewportWidth);
+		}
 	});
 
 	return {
 		containerWidth,
 		containerHeight,
+		viewportWidth,
 		breakpoint,
 		responsiveHeaders,
+		isStackedRows,
+		collapseOptionalColumns,
 		isColumnVisible,
 		containerStyles,
 		containerClasses,

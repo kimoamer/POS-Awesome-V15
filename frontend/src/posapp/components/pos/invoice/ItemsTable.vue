@@ -247,6 +247,7 @@ const {
 	expandedContentClasses,
 	tableDensity,
 	containerHeight,
+	isStackedRows,
 } = responsive;
 
 const dynamicHeaderProps = computed(() => ({
@@ -277,7 +278,7 @@ const finalVisibleColumns = computed(() => [...responsiveHeaders.value, DATA_TAB
 
 const getColumnTrack = (columnKey: string) => {
 	const width = containerWidth.value || 0;
-	const isCompact = width > 0 && width < 500;
+	const isCompact = width > 0 && width < 680;
 	const isWide = width >= 760;
 	const tracks: Record<string, string> = {
 		item_name: isCompact ? "minmax(0, 1fr)" : isWide ? "minmax(180px, 1fr)" : "minmax(160px, 1fr)",
@@ -300,16 +301,16 @@ const cartTableColumns = computed(() =>
 );
 
 const cartRowHeight = computed(() => {
-	if (breakpoint.value === "xs") return 96;
-	if (tableDensity.value === "compact") return 58;
-	if (tableDensity.value === "comfortable") return 64;
-	return 60;
+	if (isStackedRows.value) return breakpoint.value === "xs" ? 98 : 96;
+	if (tableDensity.value === "compact") return 66;
+	if (tableDensity.value === "comfortable") return 70;
+	return 68;
 });
 
 const tableContainerStyles = computed(() => ({
 	...containerStyles.value,
 	"--cart-table-columns": cartTableColumns.value,
-	"--cart-table-header-height": "40px",
+	"--cart-table-header-height": "38px",
 	"--cart-table-row-height": `${cartRowHeight.value}px`,
 }));
 

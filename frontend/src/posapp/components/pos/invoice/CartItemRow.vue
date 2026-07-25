@@ -349,6 +349,7 @@
 						@keydown.enter.prevent="openRateEdit"
 						@keydown.space.prevent="openRateEdit"
 					>
+						<span class="cart-rate-label">{{ __("Rate") }}</span>
 						<span class="currency-symbol">{{ currencySymbol(displayCurrency) }}</span>
 						<span class="amount-value" :class="{ 'negative-number': isNegative(item.rate) }">
 							{{ formatCurrency(item.rate) }}
@@ -560,7 +561,7 @@ const itemMetaParts = computed(() => {
 	return parts;
 });
 
-const itemMetaTitle = computed(() => itemMetaParts.value.join(" / ") || props.item.uom || "");
+const itemMetaTitle = computed(() => itemMetaParts.value.join(" · ") || props.item.uom || "");
 
 const disableDecrement = computed(
 	() =>

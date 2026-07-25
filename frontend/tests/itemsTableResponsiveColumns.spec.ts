@@ -37,9 +37,9 @@ describe("items table final visible columns", () => {
 		]);
 	});
 
-	it("keeps selected optional columns visible in normal POS pane widths", () => {
-		const responsive = getResponsiveVisibleHeaders(headers, 600);
-		const finalColumns = buildFinalVisibleColumns(headers, 600);
+	it("keeps selected optional columns visible when the cart pane has enough room", () => {
+		const responsive = getResponsiveVisibleHeaders(headers, 760);
+		const finalColumns = buildFinalVisibleColumns(headers, 760);
 
 		expect(responsive.map((column) => column.key)).toEqual([
 			"item_name",
@@ -57,8 +57,8 @@ describe("items table final visible columns", () => {
 		expect(finalColumns.at(-1)?.key).toBe("data-table-expand");
 	});
 
-	it("keeps the expand column even when the responsive layout collapses optional fields", () => {
-		const finalColumns = buildFinalVisibleColumns(headers, 420);
+	it("keeps the expand column even when compact columns collapse optional fields", () => {
+		const finalColumns = buildFinalVisibleColumns(headers, 620);
 
 		expect(finalColumns.map((column) => column.key)).toEqual([
 			"item_name",
@@ -72,6 +72,21 @@ describe("items table final visible columns", () => {
 
 	it("collapses optional columns throughout the mobile cart row range", () => {
 		const finalColumns = buildFinalVisibleColumns(headers, 480);
+
+		expect(finalColumns.map((column) => column.key)).toEqual([
+			"item_name",
+			"qty",
+			"rate",
+			"amount",
+			"actions",
+			"data-table-expand",
+		]);
+	});
+
+	it("collapses optional columns when compact cart rows are forced by viewport", () => {
+		const finalColumns = buildFinalVisibleColumns(headers, 1024, {
+			collapseOptional: true,
+		});
 
 		expect(finalColumns.map((column) => column.key)).toEqual([
 			"item_name",
