@@ -141,7 +141,7 @@
 .customer-autocomplete {
 	width: 100%;
 	box-sizing: border-box;
-	border-radius: var(--pos-radius-sm, 10px);
+	border-radius: var(--pos-radius-control, 8px);
 	background: var(--pos-surface-raised, #ffffff);
 }
 
@@ -151,7 +151,7 @@
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) 44px 44px;
 	align-items: start;
-	gap: 8px;
+	gap: var(--pos-control-gap, 6px);
 	min-width: 0;
 }
 
@@ -209,35 +209,37 @@
 }
 
 .customer-autocomplete :deep(.v-field) {
-	min-height: 44px !important;
+	min-height: var(--pos-control-height, 44px) !important;
 	border: 1px solid var(--pos-border-light) !important;
-	border-radius: var(--pos-radius-sm, 10px) !important;
+	border-radius: var(--pos-radius-control, 8px) !important;
 	background: var(--pos-surface-raised, #ffffff) !important;
 	box-shadow: none !important;
 }
 
 .customer-autocomplete :deep(.v-field--focused) {
 	border-color: color-mix(in srgb, var(--pos-primary) 40%, var(--pos-border-light)) !important;
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--pos-primary) 10%, transparent) !important;
+	box-shadow: none !important;
+	outline: 2px solid color-mix(in srgb, var(--pos-primary) 12%, transparent);
+	outline-offset: 0;
 }
 
 .customer-autocomplete :deep(.v-field__input),
 .customer-autocomplete :deep(.v-field__prepend-inner),
 .customer-autocomplete :deep(.v-field__append-inner),
 .customer-autocomplete :deep(.v-field__clearable) {
-	min-height: 44px !important;
+	min-height: var(--pos-control-height, 44px) !important;
 	padding-top: 0 !important;
 	padding-bottom: 0 !important;
 }
 
 .customer-autocomplete :deep(input) {
-	font-size: 13px;
+	font-size: var(--pos-font-control, 13px);
 	font-weight: 650;
 	line-height: 1.2;
 }
 
 .customer-autocomplete :deep(.v-label) {
-	font-size: 10px;
+	font-size: var(--pos-font-meta, 11px);
 	font-weight: 700;
 	color: var(--pos-text-muted) !important;
 	opacity: 0.9;
@@ -253,7 +255,7 @@
 	min-width: 44px !important;
 	min-height: 44px !important;
 	border: 1px solid var(--pos-border-light) !important;
-	border-radius: var(--pos-radius-sm, 10px) !important;
+	border-radius: var(--pos-radius-control, 8px) !important;
 	background: var(--pos-surface-raised, #ffffff) !important;
 	color: var(--pos-primary) !important;
 	box-shadow: none !important;

@@ -1,8 +1,5 @@
 <template>
-	<div
-		class="item-filter-strip"
-		:class="{ 'item-filter-strip--dock-reserved': reserveBottomDockSpace }"
-	>
+	<div class="item-filter-strip" :class="{ 'item-filter-strip--dock-reserved': reserveBottomDockSpace }">
 		<div
 			class="category-strip-shell"
 			:class="{ 'category-strip-shell--overflowing': hasCategoryOverflow }"
@@ -119,11 +116,7 @@
 			>
 				<v-icon size="18">mdi-tag-outline</v-icon>
 				<span class="filter-action-btn__label">{{ __("Offers") }}</span>
-				<span
-					v-if="offersCount > 0"
-					class="filter-action-btn__badge"
-					aria-hidden="true"
-				>
+				<span v-if="offersCount > 0" class="filter-action-btn__badge" aria-hidden="true">
 					{{ formattedOffersCount }}
 				</span>
 				<v-tooltip activator="parent" location="bottom">
@@ -140,11 +133,7 @@
 			>
 				<v-icon size="18">mdi-ticket-percent-outline</v-icon>
 				<span class="filter-action-btn__label">{{ __("Coupons") }}</span>
-				<span
-					v-if="couponsCount > 0"
-					class="filter-action-btn__badge"
-					aria-hidden="true"
-				>
+				<span v-if="couponsCount > 0" class="filter-action-btn__badge" aria-hidden="true">
 					{{ formattedCouponsCount }}
 				</span>
 				<v-tooltip activator="parent" location="bottom">
@@ -310,8 +299,7 @@ function handleCategoryWheel(event) {
 	const el = categoryStripRef.value;
 	if (!el || !hasCategoryOverflow.value) return;
 
-	const dominantDelta =
-		Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+	const dominantDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
 	if (!dominantDelta) return;
 
 	const before = el.scrollLeft;
@@ -368,17 +356,16 @@ onBeforeUnmount(() => {
 .item-filter-strip {
 	min-width: 0;
 	width: 100%;
-	min-height: 52px;
-	max-height: 52px;
+	min-height: var(--pos-control-height, 44px);
+	max-height: var(--pos-control-height, 44px);
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto;
 	align-items: center;
-	gap: 8px;
-	padding-block: 4px;
-	padding-inline: 6px;
-	border: 1px solid var(--pos-border-light);
-	border-radius: var(--pos-radius-md, 12px);
-	background: color-mix(in srgb, var(--pos-surface-raised) 96%, transparent);
+	gap: var(--pos-control-gap, 6px);
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
 	box-shadow: none;
 	overflow: hidden;
 }
@@ -392,7 +379,7 @@ onBeforeUnmount(() => {
 .filter-actions {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: var(--pos-control-gap, 6px);
 	min-width: 0;
 }
 
@@ -400,16 +387,17 @@ onBeforeUnmount(() => {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr);
 	align-items: center;
-	gap: 6px;
+	gap: var(--pos-control-gap, 6px);
 	overflow: hidden;
 }
 
 .category-strip-shell--overflowing {
-	grid-template-columns: 38px minmax(0, 1fr) 38px;
+	grid-template-columns: 36px minmax(0, 1fr) 36px;
 }
 
 .category-strip {
-	block-size: 44px;
+	block-size: var(--pos-control-height, 44px);
+	box-sizing: border-box;
 	overflow-x: auto;
 	overflow-y: hidden;
 	overscroll-behavior-inline: contain;
@@ -426,15 +414,15 @@ onBeforeUnmount(() => {
 }
 
 .category-scroll-btn {
-	inline-size: 38px !important;
-	min-inline-size: 38px !important;
-	block-size: 38px !important;
-	min-block-size: 38px !important;
+	inline-size: 36px !important;
+	min-inline-size: 36px !important;
+	block-size: 36px !important;
+	min-block-size: 36px !important;
 	border: 1px solid var(--pos-border-light) !important;
 	border-radius: 999px !important;
 	background: var(--pos-surface-raised) !important;
 	color: var(--pos-text-primary) !important;
-	box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06) !important;
+	box-shadow: none !important;
 }
 
 .category-scroll-btn:hover,
@@ -465,7 +453,7 @@ onBeforeUnmount(() => {
 	min-inline-size: 44px !important;
 	text-transform: none !important;
 	letter-spacing: 0 !important;
-	font-size: 13px !important;
+	font-size: var(--pos-font-label, 12px) !important;
 	font-weight: 680 !important;
 }
 
@@ -474,7 +462,7 @@ onBeforeUnmount(() => {
 	max-inline-size: 168px;
 	padding: 3px !important;
 	border: 0 !important;
-	border-radius: var(--pos-radius-sm, 10px) !important;
+	border-radius: var(--pos-radius-control, 8px) !important;
 	background: transparent !important;
 	color: var(--pos-text-primary) !important;
 	box-shadow: none !important;
@@ -494,7 +482,7 @@ onBeforeUnmount(() => {
 	gap: 6px;
 	padding-inline: 12px;
 	border: 1px solid var(--pos-border-light);
-	border-radius: var(--pos-radius-sm, 10px);
+	border-radius: var(--pos-radius-control, 8px);
 	background: var(--pos-surface-raised);
 	color: inherit;
 	transition:
@@ -539,7 +527,7 @@ onBeforeUnmount(() => {
 	align-content: center;
 	gap: 2px;
 	border: 1px solid var(--pos-border-light);
-	border-radius: var(--pos-radius-sm, 10px);
+	border-radius: var(--pos-radius-control, 8px);
 	background: var(--pos-surface-raised);
 	color: var(--pos-text-primary);
 	outline: none;
@@ -547,7 +535,9 @@ onBeforeUnmount(() => {
 
 .price-list-display:focus-visible {
 	border-color: color-mix(in srgb, var(--pos-primary) 44%, var(--pos-border-light));
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--pos-primary) 10%, transparent);
+	box-shadow: none;
+	outline: 2px solid color-mix(in srgb, var(--pos-primary) 12%, transparent);
+	outline-offset: 0;
 }
 
 .price-list-display__kicker {
@@ -562,7 +552,7 @@ onBeforeUnmount(() => {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	font-size: 13px;
+	font-size: var(--pos-font-control, 13px);
 	font-weight: 760;
 	line-height: 1.12;
 }
@@ -573,7 +563,7 @@ onBeforeUnmount(() => {
 	block-size: 40px !important;
 	padding: 2px !important;
 	border: 1px solid var(--pos-border-light);
-	border-radius: var(--pos-radius-sm, 10px) !important;
+	border-radius: var(--pos-radius-control, 8px) !important;
 	background: var(--pos-surface-raised);
 	box-shadow: none;
 	overflow: hidden;
@@ -585,7 +575,7 @@ onBeforeUnmount(() => {
 	block-size: 36px !important;
 	min-block-size: 36px !important;
 	padding: 0 !important;
-	border-radius: 8px !important;
+	border-radius: calc(var(--pos-radius-control, 8px) - 2px) !important;
 	color: var(--pos-text-muted) !important;
 }
 
@@ -601,7 +591,7 @@ onBeforeUnmount(() => {
 	min-inline-size: 84px !important;
 	padding-inline: 10px !important;
 	border: 1px solid var(--pos-border-light) !important;
-	border-radius: var(--pos-radius-sm, 10px) !important;
+	border-radius: var(--pos-radius-control, 8px) !important;
 	background: var(--pos-surface-raised) !important;
 	box-shadow: none !important;
 }
@@ -621,7 +611,7 @@ onBeforeUnmount(() => {
 }
 
 .filter-action-btn__label {
-	font-size: 13px;
+	font-size: var(--pos-font-control, 13px);
 	font-weight: 690;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -650,7 +640,7 @@ onBeforeUnmount(() => {
 @media (max-width: 1279px) {
 	.item-filter-strip {
 		grid-template-columns: minmax(0, 1fr) auto;
-		gap: 6px;
+		gap: var(--pos-control-gap, 6px);
 	}
 
 	.category-chip {
@@ -681,12 +671,12 @@ onBeforeUnmount(() => {
 
 @media (max-width: 767px) {
 	.item-filter-strip {
-		max-height: 104px;
+		max-height: calc((var(--pos-control-height, 44px) * 2) + var(--pos-control-gap, 6px));
 		grid-template-columns: 1fr;
 		grid-template-rows: 44px 44px;
 		align-items: center;
-		gap: 4px;
-		padding-block: 5px;
+		gap: var(--pos-control-gap, 6px);
+		padding: 0;
 	}
 
 	.filter-actions {

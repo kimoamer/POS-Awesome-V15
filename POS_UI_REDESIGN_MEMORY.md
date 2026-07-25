@@ -29,23 +29,26 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 ## Current Pass
 
-Cart Header and Items Presentation Acceptance Fix.
+POS Workspace Surface and Density Reset.
 
 Scope:
 
-- `Invoice.vue`: customer region uses the full invoice width when delivery charges are disabled, and switches to a deliberate delivery split only when enabled.
-- `InvoiceCustomerSection.vue` and `Customer.vue`: compact customer row without duplicated external `Customer` title, keeping search/create/edit/reload behavior.
-- `InvoiceItemsActionToolbar.vue`: direct Columns button on desktop/laptop; More only when compact or when additional actions exist.
-- `ItemsTable.vue` and `items-table-styles.css`: keep the table as scroll/virtualization engine while making cart rows read visually as a premium list.
-- Do not change customer behavior, column selector logic, qty/delete/focus/pricing/tax/discount actions, stores, APIs, props, or emits.
+- `theme.css`: shared density tokens for workspace padding, pane padding, section gaps, control gaps, control height, radius, and POS typography.
+- `Pos.vue`: one workspace surface containing Browse and Invoice panes with a light divider, no nested pane cards, and preserved desktop/compact panel behavior.
+- `ItemsSelector.vue`: command, filter, results, and subview regions are flat sections inside the Browse pane.
+- `Invoice.vue`: customer, command, cart items, and footer regions are flat sections inside the Invoice pane.
+- Light CSS-only alignment in `ItemHeader.vue`, `ItemActionToolbar.vue`, `InvoiceCustomerSection.vue`, `Customer.vue`, `InvoiceItemsActionToolbar.vue`, `ItemsTable` styles, and the `InvoiceSummary` wrapper.
+- Do not change stores, APIs, calculations, actions, props, emits, filtering, virtualization, or responsive behavior.
 
 Acceptance:
 
-- Customer selector fills the invoice panel when delivery charges are off.
-- No duplicated `Customer` title/field label.
-- Desktop/laptop shows Columns directly without a duplicate More menu.
-- Mobile keeps Columns inside More.
-- Cart item rows feel like a list, not a heavy data table, while retaining the same engine and actions.
+- POS screen reads as one workspace surface, not cards nested inside cards.
+- Browse Header and Customer strip start on the same visual line.
+- Filter strip and Invoice command region use the same compact density.
+- Product results and cart items start at a visually close level.
+- Vertical divider separates Browse and Invoice on desktop/laptop.
+- Body/outer shell does not gain scroll; each pane keeps its internal scroll contract.
+- Menus/dialogs may keep elevation, but workspace/sections/inputs do not use shadows.
 
 ## Recently Completed
 

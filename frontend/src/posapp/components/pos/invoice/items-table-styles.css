@@ -9,17 +9,17 @@
 
 /* Main table container */
 .posa-cart-table {
-	border-radius: var(--pos-radius-md);
+	border-radius: 0;
 	overflow: hidden;
-	box-shadow: none;
-	border: 1px solid var(--pos-border-light);
+	box-shadow: none !important;
+	border: 0;
 	height: 100%;
 	width: 100%;
 	max-width: 100%;
 	display: flex;
 	flex-direction: column;
 	transition: all 0.3s ease;
-	background: var(--pos-surface-raised);
+	background: transparent;
 	margin: 0;
 	padding: 0;
 }
@@ -37,7 +37,7 @@
 	contain: layout style;
 	overflow: hidden;
 	--cart-table-columns: minmax(160px, 1fr) 116px 82px 96px 44px;
-	--cart-table-header-height: 36px;
+	--cart-table-header-height: 40px;
 	--cart-table-row-height: 62px;
 }
 
@@ -112,7 +112,7 @@
 	gap: 8px;
 	text-align: center;
 	color: var(--pos-text-primary);
-	background: var(--pos-surface-raised);
+	background: transparent;
 	transform: none;
 }
 
@@ -192,7 +192,7 @@
 	padding-block: 0;
 	padding-inline: 8px;
 	border-bottom: 1px solid var(--pos-border-light);
-	background-color: var(--pos-surface-raised);
+	background-color: transparent;
 	color: var(--pos-text-secondary);
 	position: sticky;
 	top: 0;
@@ -209,7 +209,8 @@
 	user-select: none;
 	cursor: default;
 	will-change: background-color, transform, box-shadow;
-	border: none;
+	border: 0;
+	border-block-end: 1px solid var(--pos-border-light);
 	outline: none;
 	box-sizing: border-box;
 	border-inline-end: none;
@@ -270,7 +271,7 @@
 .posa-cart-table tr {
 	transition: background-color 0.2s ease;
 	border-bottom: 1px solid var(--pos-border-light);
-	background: var(--pos-surface-raised);
+	background: transparent;
 	width: 100% !important;
 	max-width: 100% !important;
 	min-width: 0 !important;
@@ -280,11 +281,11 @@
 }
 
 .posa-cart-table tr:hover {
-	background-color: color-mix(in srgb, var(--pos-primary-container) 20%, var(--pos-surface-raised));
+	background-color: color-mix(in srgb, var(--pos-primary-container) 18%, transparent);
 }
 
 .posa-cart-table tbody tr:nth-child(even) {
-	background-color: var(--pos-surface-raised);
+	background-color: transparent;
 }
 
 /* Table cells */

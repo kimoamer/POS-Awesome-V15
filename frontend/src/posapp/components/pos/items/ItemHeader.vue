@@ -339,18 +339,18 @@ defineExpose({
 .sticky-header {
 	position: relative;
 	z-index: 5;
-	background: var(--pos-surface-raised, #ffffff);
+	background: transparent;
 	border: 0;
 	margin: 0;
 }
 
 .item-command-bar {
-	--item-command-height: 46px;
+	--item-command-height: var(--pos-control-height, 44px);
 	--item-command-icon-size: 44px;
-	--item-command-radius: var(--pos-radius-sm, 10px);
-	--item-command-gap: 8px;
+	--item-command-radius: var(--pos-radius-control, 8px);
+	--item-command-gap: var(--pos-control-gap, 6px);
 	display: grid;
-	gap: 8px;
+	gap: var(--pos-section-gap, 8px);
 	min-width: 0;
 	padding: 0;
 	color: var(--pos-text-primary);
@@ -404,7 +404,7 @@ defineExpose({
 	display: grid;
 	grid-template-columns: auto minmax(120px, 220px) auto;
 	align-items: center;
-	gap: 10px;
+	gap: var(--pos-control-gap, 6px);
 	padding: 0 4px;
 	color: var(--pos-text-muted);
 	animation: sync-progress-fade-in 160ms ease-out;
@@ -415,7 +415,7 @@ defineExpose({
 	align-items: center;
 	gap: 6px;
 	min-width: 0;
-	font-size: 12px;
+	font-size: var(--pos-font-label, 12px);
 	font-weight: 650;
 	line-height: 1.15;
 	color: color-mix(in srgb, var(--pos-primary, #0097a7) 70%, var(--pos-text-primary));
@@ -440,9 +440,9 @@ defineExpose({
 	display: flex;
 	align-items: center;
 	justify-content: flex-end;
-	gap: 8px;
+	gap: var(--pos-control-gap, 6px);
 	min-width: 0;
-	font-size: 12px;
+	font-size: var(--pos-font-label, 12px);
 	line-height: 1.2;
 	white-space: nowrap;
 }
@@ -587,14 +587,16 @@ defineExpose({
 
 :deep(.command-input .v-field--focused) {
 	border-color: color-mix(in srgb, var(--pos-primary) 44%, var(--pos-border-light)) !important;
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--pos-primary) 10%, transparent) !important;
+	box-shadow: none !important;
+	outline: 2px solid color-mix(in srgb, var(--pos-primary) 12%, transparent);
+	outline-offset: 0;
 }
 
 :deep(.command-input .v-field__input) {
 	min-height: var(--item-command-height) !important;
 	padding-top: 0 !important;
 	padding-bottom: 0 !important;
-	font-size: 14px;
+	font-size: var(--pos-font-control, 13px);
 	font-weight: 560;
 	line-height: 1.2;
 	color: var(--pos-text-primary);
@@ -615,7 +617,7 @@ defineExpose({
 }
 
 :deep(.command-input .v-label) {
-	font-size: 0.78rem;
+	font-size: var(--pos-font-meta, 11px);
 	font-weight: 650;
 	color: var(--pos-text-muted);
 	opacity: 0.88;
@@ -635,13 +637,13 @@ defineExpose({
 
 @media (max-width: 1279px) {
 	.item-command-bar {
-		--item-command-height: 46px;
+		--item-command-height: var(--pos-control-height, 44px);
 		--item-command-icon-size: 44px;
 	}
 
 	.item-command-bar__primary {
 		grid-template-columns: minmax(220px, 1fr) minmax(82px, 94px) auto auto;
-		gap: 8px;
+		gap: var(--pos-control-gap, 6px);
 	}
 
 	.item-command-bar__primary--no-qty {
@@ -665,15 +667,15 @@ defineExpose({
 	}
 
 	.search-sync-progress__meta {
-		font-size: 12px;
+		font-size: var(--pos-font-label, 12px);
 	}
 }
 
 @media (max-width: 768px) {
 	.item-command-bar {
-		--item-command-height: 46px;
+		--item-command-height: var(--pos-control-height, 44px);
 		--item-command-icon-size: 44px;
-		gap: 8px;
+		gap: var(--pos-section-gap, 8px);
 	}
 
 	.item-command-bar__primary {
@@ -682,7 +684,7 @@ defineExpose({
 			"search scan"
 			"qty actions";
 		align-items: center;
-		gap: 8px;
+		gap: var(--pos-control-gap, 6px);
 	}
 
 	.search-field-shell {
@@ -730,7 +732,7 @@ defineExpose({
 	}
 
 	.sync-status-chip {
-		font-size: 12px;
+		font-size: var(--pos-font-label, 12px);
 	}
 
 	.sync-status-chip__label {
@@ -743,7 +745,7 @@ defineExpose({
 
 	.search-sync-progress__meta {
 		gap: 6px;
-		font-size: 12px;
+		font-size: var(--pos-font-label, 12px);
 	}
 
 	.search-sync-progress__count {
@@ -769,7 +771,7 @@ defineExpose({
 	}
 
 	.command-actions {
-		gap: 7px;
+		gap: var(--pos-control-gap, 6px);
 	}
 
 	.command-tools-trigger {

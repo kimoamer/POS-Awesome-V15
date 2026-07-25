@@ -309,7 +309,7 @@ const cartRowHeight = computed(() => {
 const tableContainerStyles = computed(() => ({
 	...containerStyles.value,
 	"--cart-table-columns": cartTableColumns.value,
-	"--cart-table-header-height": "36px",
+	"--cart-table-header-height": "40px",
 	"--cart-table-row-height": `${cartRowHeight.value}px`,
 }));
 

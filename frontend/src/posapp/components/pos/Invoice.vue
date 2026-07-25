@@ -1303,7 +1303,7 @@ export default {
 <style scoped>
 /* Card background adjustments */
 .cards {
-	background-color: var(--pos-surface-muted) !important;
+	background-color: transparent !important;
 }
 
 .invoice-shell {
@@ -1332,6 +1332,10 @@ export default {
 	min-height: 0;
 	min-width: 0;
 	overflow: hidden !important;
+	border: 0 !important;
+	border-radius: 0 !important;
+	background: transparent !important;
+	box-shadow: none !important;
 }
 
 /* Style for selected checkbox button */
@@ -1391,10 +1395,10 @@ export default {
 
 /* Dynamic padding for responsive layout */
 .dynamic-padding {
-	padding: var(--dynamic-sm);
+	padding: 0;
 	display: grid;
 	grid-template-rows: auto auto minmax(0, 1fr) auto;
-	gap: 8px;
+	gap: var(--pos-section-gap, 8px);
 	flex: 1 1 auto;
 	height: 100%;
 	min-height: 0;
@@ -1425,7 +1429,7 @@ export default {
 .invoice-command-region {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: var(--pos-section-gap, 8px);
 }
 
 .invoice-cart-items-region {
@@ -1439,10 +1443,12 @@ export default {
 
 .invoice-footer-region {
 	flex: 0 0 auto;
+	border-block-start: 1px solid var(--pos-border-light);
+	padding-block-start: var(--pos-section-gap, 8px);
 }
 
 .invoice-status-alert {
-	border-radius: var(--pos-radius-sm, 10px);
+	border-radius: var(--pos-radius-control, 8px);
 	flex: 0 0 auto;
 }
 
@@ -1453,7 +1459,7 @@ export default {
 .invoice-top-grid {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr);
-	gap: 8px;
+	gap: var(--pos-section-gap, 8px);
 	flex: 0 0 auto;
 }
 
@@ -1464,14 +1470,14 @@ export default {
 .invoice-meta-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 8px;
+	gap: var(--pos-section-gap, 8px);
 	flex: 0 0 auto;
 }
 
 .invoice-section-card {
-	background: var(--pos-card-bg) !important;
-	border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-	border-radius: var(--pos-radius-sm, 10px);
+	background: transparent !important;
+	border: 0;
+	border-radius: 0;
 	box-shadow: none;
 	overflow: hidden;
 	flex: 0 0 auto;
@@ -1483,9 +1489,9 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 8px;
+	gap: var(--pos-control-gap, 6px);
 	min-width: 0;
-	padding: 10px 12px 6px;
+	padding: 0 0 var(--pos-control-gap, 6px);
 }
 
 .invoice-section-heading__title {
@@ -1494,7 +1500,7 @@ export default {
 	gap: 6px;
 	min-width: 0;
 	margin: 0;
-	font-size: 14px;
+	font-size: var(--pos-font-section-title, 15px);
 	font-weight: 760;
 	line-height: 1.25;
 	color: var(--pos-text-primary);
@@ -1516,25 +1522,25 @@ export default {
 	align-items: center;
 	justify-content: center;
 	min-height: 26px;
-	padding: 0 10px;
+	padding: 0 8px;
 	border: 1px solid color-mix(in srgb, var(--pos-primary) 18%, var(--pos-border-light));
 	border-radius: 999px;
 	background: color-mix(in srgb, var(--pos-primary-container) 58%, var(--pos-surface-raised));
 	color: var(--pos-primary);
-	font-size: 12px;
+	font-size: var(--pos-font-meta, 11px);
 	font-weight: 750;
 	line-height: 1;
 	white-space: nowrap;
 }
 
 .invoice-customer-region .invoice-section-card {
-	min-height: 60px;
+	min-height: var(--pos-control-height, 44px);
 }
 
 .invoice-customer-card {
 	display: flex;
 	align-items: center;
-	padding: 8px 10px;
+	padding: 0;
 }
 
 .invoice-customer-card :deep(.invoice-customer-section) {
@@ -1543,12 +1549,11 @@ export default {
 }
 
 .invoice-command-region .invoice-section-card {
-	border-color: var(--pos-border-light);
-	background: var(--pos-surface-raised, #ffffff) !important;
+	background: transparent !important;
 }
 
 .invoice-command-region .invoice-meta-grid .invoice-section-card {
-	border-radius: var(--pos-radius-sm, 10px);
+	border-radius: 0;
 }
 
 .invoice-items-card,
@@ -1569,7 +1574,10 @@ export default {
 	inset-block-end: auto !important;
 	bottom: auto !important;
 	margin: 0 !important;
-	box-shadow: 0 -6px 18px rgba(15, 23, 42, 0.045);
+	border: 0 !important;
+	border-radius: 0 !important;
+	background: transparent !important;
+	box-shadow: none !important;
 }
 
 .invoice-footer-region :deep(.sticky-summary-card--dock-safe) {
@@ -1590,7 +1598,7 @@ export default {
 	}
 
 	.dynamic-padding {
-		padding: var(--dynamic-xs);
+		padding: 0;
 		overflow: hidden;
 	}
 
@@ -1641,7 +1649,7 @@ export default {
 	}
 
 	.dynamic-padding {
-		padding: var(--dynamic-xs);
+		padding: 0;
 	}
 
 	.dynamic-padding .v-row {
@@ -1684,12 +1692,12 @@ export default {
 	align-items: center;
 	justify-content: flex-end;
 	flex-wrap: wrap;
-	gap: 8px;
-	padding: 8px 16px;
-	background-color: var(--pos-card-bg);
-	border-radius: 8px 8px 0 0;
+	gap: var(--pos-control-gap, 6px);
+	padding: 0;
+	background-color: transparent;
+	border-radius: 0;
 	box-sizing: border-box;
-	margin-bottom: 8px;
+	margin-bottom: var(--pos-section-gap, 8px);
 }
 
 .item-search-field {
@@ -1723,7 +1731,7 @@ export default {
 	position: sticky;
 	top: 0;
 	z-index: 3;
-	background: var(--pos-card-bg);
+	background: transparent;
 }
 
 :deep(.items-table-wrapper .posa-items-table-container) {

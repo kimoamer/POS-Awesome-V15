@@ -569,7 +569,7 @@ defineExpose({
 }
 
 .cards {
-	background-color: var(--pos-card-bg) !important;
+	background-color: transparent !important;
 	transition: all 0.3s ease;
 }
 
@@ -577,7 +577,9 @@ defineExpose({
 	position: sticky;
 	bottom: 0;
 	z-index: 9;
-	box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
+	border: 0 !important;
+	border-radius: 0 !important;
+	box-shadow: none;
 }
 
 .sticky-summary-card--dock-safe {
@@ -644,8 +646,8 @@ defineExpose({
 }
 
 .summary-field:hover {
-	transform: translateY(-1px);
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	transform: none;
+	box-shadow: none;
 }
 
 .summary-field--alert {

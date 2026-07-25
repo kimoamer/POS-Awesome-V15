@@ -681,7 +681,7 @@ export default {
 }
 
 .dynamic-container {
-	--pos-page-gap: clamp(8px, 0.85vw, 12px);
+	--pos-page-gap: var(--pos-workspace-padding, 10px);
 	width: 100%;
 	height: 100%;
 	min-height: 0;
@@ -708,10 +708,15 @@ export default {
 	display: grid;
 	grid-template-areas: "products cart";
 	grid-template-columns: minmax(0, 1fr) clamp(400px, 40%, 620px);
-	gap: var(--pos-page-gap);
+	gap: 0;
+	padding: 0;
 	overflow: hidden;
 	isolation: isolate;
 	box-sizing: border-box;
+	border: 1px solid var(--pos-border-light);
+	border-radius: var(--pos-radius-workspace, 14px);
+	background: var(--pos-surface-raised, #ffffff);
+	box-shadow: none;
 }
 
 .pos-workspace--rtl:not(.pos-workspace--compact) {
@@ -735,8 +740,10 @@ export default {
 	height: 100%;
 	min-width: 0;
 	min-height: 0;
+	padding: var(--pos-pane-padding, 10px);
 	overflow: hidden;
 	box-sizing: border-box;
+	background: transparent;
 }
 
 .pos-products-pane {
@@ -745,6 +752,12 @@ export default {
 
 .pos-cart-pane {
 	grid-area: cart;
+	border-inline-start: 1px solid var(--pos-border-light);
+}
+
+.pos-workspace--rtl:not(.pos-workspace--compact) .pos-cart-pane {
+	border-inline-start: 0;
+	border-inline-end: 1px solid var(--pos-border-light);
 }
 
 .pos-pane > :deep(*) {
@@ -755,6 +768,7 @@ export default {
 
 .pos-workspace--compact .pos-pane {
 	height: 100%;
+	border-inline: 0;
 }
 
 .pos-products-pane :deep(.items-selector-shell),
@@ -777,7 +791,11 @@ export default {
 	min-height: 0 !important;
 	margin-top: 0 !important;
 	resize: none !important;
-	overflow: auto !important;
+	overflow: hidden !important;
+	border: 0 !important;
+	border-radius: 0 !important;
+	background: transparent !important;
+	box-shadow: none !important;
 }
 
 .mobile-pos-stack {
@@ -935,8 +953,9 @@ export default {
 
 @media (max-width: 768px) {
 	.dynamic-container {
-		--pos-page-gap: 6px;
-		padding-bottom: calc(var(--bottom-safe-space, 176px) + 6px);
+		--pos-page-gap: 8px;
+		--pos-pane-padding: 8px;
+		padding-bottom: calc(var(--bottom-safe-space, 176px) + var(--pos-page-gap));
 	}
 }
 

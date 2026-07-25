@@ -216,16 +216,16 @@ defineExpose({
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto;
 	align-items: center;
-	gap: 8px;
+	gap: var(--pos-control-gap, 6px);
 	min-width: 0;
-	padding: 0 12px 10px;
+	padding: 0;
 	background: transparent;
 }
 
 .invoice-items-toolbar__actions {
 	display: inline-flex;
 	align-items: center;
-	gap: 8px;
+	gap: var(--pos-control-gap, 6px);
 	min-width: 0;
 }
 
@@ -235,16 +235,18 @@ defineExpose({
 }
 
 .item-search-field :deep(.v-field) {
-	min-height: 44px !important;
+	min-height: var(--pos-control-height, 44px) !important;
 	border: 1px solid var(--pos-border-light) !important;
-	border-radius: var(--pos-radius-sm, 10px) !important;
+	border-radius: var(--pos-radius-control, 8px) !important;
 	background: var(--pos-surface-raised, #ffffff) !important;
 	box-shadow: none !important;
 }
 
 .item-search-field :deep(.v-field--focused) {
 	border-color: color-mix(in srgb, var(--pos-primary) 40%, var(--pos-border-light)) !important;
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--pos-primary) 10%, transparent) !important;
+	box-shadow: none !important;
+	outline: 2px solid color-mix(in srgb, var(--pos-primary) 12%, transparent);
+	outline-offset: 0;
 }
 
 .item-search-field :deep(.v-field__overlay) {
@@ -259,19 +261,19 @@ defineExpose({
 .item-search-field :deep(.v-field__input),
 .item-search-field :deep(.v-field__prepend-inner),
 .item-search-field :deep(.v-field__clearable) {
-	min-height: 44px !important;
+	min-height: var(--pos-control-height, 44px) !important;
 	padding-top: 0 !important;
 	padding-bottom: 0 !important;
 }
 
 .item-search-field :deep(input) {
-	font-size: 13px;
+	font-size: var(--pos-font-control, 13px);
 	font-weight: 600;
 	line-height: 1.2;
 }
 
 .item-search-field :deep(.v-label) {
-	font-size: 10px;
+	font-size: var(--pos-font-meta, 11px);
 	font-weight: 700;
 	color: var(--pos-text-muted) !important;
 	opacity: 0.9;
@@ -283,7 +285,7 @@ defineExpose({
 	min-width: 44px !important;
 	min-height: 44px !important;
 	border: 1px solid var(--pos-border-light) !important;
-	border-radius: var(--pos-radius-sm, 10px) !important;
+	border-radius: var(--pos-radius-control, 8px) !important;
 	background: var(--pos-surface-raised, #ffffff) !important;
 	color: var(--pos-text-primary) !important;
 	box-shadow: none !important;
@@ -299,7 +301,7 @@ defineExpose({
 .invoice-command-menu {
 	min-width: 190px;
 	border: 1px solid var(--pos-border-light);
-	border-radius: var(--pos-radius-md, 14px) !important;
+	border-radius: var(--pos-radius-section, 10px) !important;
 	background: var(--pos-menu-bg) !important;
 	box-shadow: 0 16px 36px rgba(15, 23, 42, 0.12) !important;
 	overflow: hidden;
@@ -311,7 +313,7 @@ defineExpose({
 
 .invoice-command-menu__item {
 	min-height: 40px !important;
-	border-radius: var(--pos-radius-sm, 10px) !important;
+	border-radius: var(--pos-radius-control, 8px) !important;
 	color: var(--pos-text-primary) !important;
 	font-size: 13px;
 	font-weight: 650;
@@ -348,7 +350,7 @@ defineExpose({
 @media (max-width: 520px) {
 	.invoice-items-toolbar {
 		grid-template-columns: minmax(0, 1fr) auto;
-		padding: 0 10px 10px;
+		padding: 0;
 	}
 
 	.invoice-command-btn--columns {

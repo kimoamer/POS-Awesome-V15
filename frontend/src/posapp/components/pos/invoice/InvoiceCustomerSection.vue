@@ -79,7 +79,7 @@ const frappe = window.frappe;
 	display: grid;
 	grid-template-columns: minmax(0, 1fr);
 	align-items: center;
-	gap: 8px;
+	gap: var(--pos-control-gap, 6px);
 	min-width: 0;
 	margin: 0;
 	padding: 0;
@@ -95,11 +95,18 @@ const frappe = window.frappe;
 }
 
 .invoice-customer-section :deep(.v-field) {
-	min-height: 44px !important;
+	min-height: var(--pos-control-height, 44px) !important;
 	border: 1px solid var(--pos-border-light) !important;
-	border-radius: var(--pos-radius-sm, 10px) !important;
+	border-radius: var(--pos-radius-control, 8px) !important;
 	background: var(--pos-surface-raised, #ffffff) !important;
 	box-shadow: none !important;
+}
+
+.invoice-customer-section :deep(.v-field--focused) {
+	border-color: color-mix(in srgb, var(--pos-primary) 40%, var(--pos-border-light)) !important;
+	box-shadow: none !important;
+	outline: 2px solid color-mix(in srgb, var(--pos-primary) 12%, transparent);
+	outline-offset: 0;
 }
 
 .invoice-customer-section :deep(.v-field__overlay) {
@@ -113,16 +120,16 @@ const frappe = window.frappe;
 
 .invoice-customer-section :deep(.v-field__input),
 .invoice-customer-section :deep(input) {
-	min-height: 44px !important;
+	min-height: var(--pos-control-height, 44px) !important;
 	padding-top: 0 !important;
 	padding-bottom: 0 !important;
-	font-size: 13px;
+	font-size: var(--pos-font-control, 13px);
 	font-weight: 650;
 	color: var(--pos-text-primary);
 }
 
 .invoice-customer-section :deep(.v-label) {
-	font-size: 10px;
+	font-size: var(--pos-font-meta, 11px);
 	font-weight: 700;
 	color: var(--pos-text-muted);
 }

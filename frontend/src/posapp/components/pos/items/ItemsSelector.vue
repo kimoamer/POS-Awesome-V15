@@ -18,7 +18,9 @@
 
 			<div class="browse-panel dynamic-padding">
 				<div v-show="activeBrowsePanel === 'items'" class="browse-items-panel">
-					<section class="browse-command-region selector-section-card selector-header-card pos-themed-card">
+					<section
+						class="browse-command-region selector-section-card selector-header-card pos-themed-card"
+					>
 						<ItemHeader
 							v-model:search-input="search_input"
 							v-model:qty-input="debounce_qty"
@@ -58,14 +60,18 @@
 							:active-price-list="active_price_list"
 							:offers-count="offersCount"
 							:coupons-count="couponsCount"
-							:reserve-bottom-dock-space="context === 'pos' && responsive.windowWidth.value < 1100"
+							:reserve-bottom-dock-space="
+								context === 'pos' && responsive.windowWidth.value < 1100
+							"
 							@update:items-view="handleItemsViewUpdate"
 							@open-offers="openBrowsePanel('offers')"
 							@open-coupons="openBrowsePanel('coupons')"
 						/>
 					</section>
 
-					<section class="browse-results-region selector-section-card selector-results-card pos-themed-card">
+					<section
+						class="browse-results-region selector-section-card selector-results-card pos-themed-card"
+					>
 						<ItemsSelectorCards
 							v-if="items_view === 'card'"
 							ref="itemsContainerRef"
@@ -152,7 +158,9 @@
 							@click="returnToItems"
 						>
 							<v-icon size="22">{{ browseBackIcon }}</v-icon>
-							<v-tooltip activator="parent" location="bottom">{{ __("Back to Items") }}</v-tooltip>
+							<v-tooltip activator="parent" location="bottom">{{
+								__("Back to Items")
+							}}</v-tooltip>
 						</v-btn>
 						<div class="browse-subview-title">
 							<v-icon size="18">mdi-tag-outline</v-icon>
@@ -179,7 +187,9 @@
 							@click="returnToItems"
 						>
 							<v-icon size="22">{{ browseBackIcon }}</v-icon>
-							<v-tooltip activator="parent" location="bottom">{{ __("Back to Items") }}</v-tooltip>
+							<v-tooltip activator="parent" location="bottom">{{
+								__("Back to Items")
+							}}</v-tooltip>
 						</v-btn>
 						<div class="browse-subview-title">
 							<v-icon size="18">mdi-ticket-percent-outline</v-icon>
@@ -523,10 +533,7 @@ const applyProfileDefaultItemsView = (profile: any) => {
 		return;
 	}
 
-	const hasDefaultViewField = Object.prototype.hasOwnProperty.call(
-		profile || {},
-		"posa_default_card_view",
-	);
+	const hasDefaultViewField = Object.prototype.hasOwnProperty.call(profile || {}, "posa_default_card_view");
 	if (!hasDefaultViewField) {
 		return;
 	}
@@ -790,7 +797,8 @@ const add_item = async (item, optionsOrQty: any = {}) => {
 			selected_currency: selected_currency.value,
 			exchange_rate: selected_exchange_rate.value,
 			conversion_rate: selected_conversion_rate.value,
-			price_list_currency: item.original_currency || item.price_list_currency || pos_profile.value?.currency,
+			price_list_currency:
+				item.original_currency || item.price_list_currency || pos_profile.value?.currency,
 			itemCurrencyUtils,
 			invoiceStore,
 			eventBus,
@@ -994,7 +1002,8 @@ onMounted(async () => {
 		applyCurrencyConversionToItem: (item) => {
 			itemCurrencyUtils.applyCurrencyConversionToItem(item, {
 				pos_profile: pos_profile.value,
-				price_list_currency: item?.original_currency || item?.price_list_currency || pos_profile.value?.currency,
+				price_list_currency:
+					item?.original_currency || item?.price_list_currency || pos_profile.value?.currency,
 				selected_currency: selected_currency.value || pos_profile.value?.currency,
 				exchange_rate: selected_exchange_rate.value,
 				conversion_rate: selected_conversion_rate.value,
@@ -1439,22 +1448,25 @@ defineExpose({
 }
 
 .dynamic-padding {
-	padding: var(--dynamic-sm);
+	padding: 0;
 	display: flex;
 	flex-direction: column;
-	gap: var(--dynamic-sm);
+	gap: var(--pos-section-gap, 8px);
 }
 
 .selection-card {
-	--browse-panel-gap: clamp(8px, 0.72vw, 12px);
-	--browse-panel-padding: clamp(8px, 0.85vw, 12px);
+	--browse-panel-gap: var(--pos-section-gap, 8px);
+	--browse-panel-padding: 0px;
 	width: 100%;
 	height: 100%;
 	min-width: 0;
 	min-height: 0;
 	display: flex;
 	flex-direction: column;
-	border-radius: var(--pos-radius-lg, 18px);
+	border: 0 !important;
+	border-radius: 0;
+	background: transparent !important;
+	box-shadow: none !important;
 	overflow: hidden;
 }
 
@@ -1492,8 +1504,7 @@ defineExpose({
 }
 
 .browse-filter-region {
-	overflow-x: auto;
-	overflow-y: hidden;
+	overflow: hidden;
 	scrollbar-width: none;
 }
 
@@ -1521,11 +1532,11 @@ defineExpose({
 	display: grid;
 	grid-template-columns: 44px minmax(0, 1fr);
 	align-items: center;
-	gap: 8px;
+	gap: var(--pos-control-gap, 6px);
 	min-height: 56px;
-	padding: 8px 10px;
+	padding: 0 0 var(--pos-section-gap, 8px);
 	border-bottom: 1px solid var(--pos-border-light);
-	background: var(--pos-surface-raised, #ffffff);
+	background: transparent;
 }
 
 .browse-subview-back {
@@ -1534,7 +1545,7 @@ defineExpose({
 	min-width: 44px !important;
 	min-height: 44px !important;
 	border: 1px solid var(--pos-border-light) !important;
-	border-radius: var(--pos-radius-sm, 10px) !important;
+	border-radius: var(--pos-radius-control, 8px) !important;
 	background: var(--pos-surface-raised, #ffffff) !important;
 	color: var(--pos-text-primary) !important;
 	box-shadow: none !important;
@@ -1553,7 +1564,7 @@ defineExpose({
 	gap: 8px;
 	min-width: 0;
 	color: var(--pos-text-primary);
-	font-size: 14px;
+	font-size: var(--pos-font-section-title, 15px);
 	font-weight: 760;
 	line-height: 1.2;
 }
@@ -1598,10 +1609,10 @@ defineExpose({
 }
 
 .selector-section-card {
-	background: var(--pos-card-bg) !important;
-	border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-	border-radius: var(--pos-radius-md, 18px);
-	box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+	background: transparent !important;
+	border: 0;
+	border-radius: 0;
+	box-shadow: none;
 }
 
 .section-card-heading {
@@ -1614,7 +1625,7 @@ defineExpose({
 
 .section-card-heading__title {
 	margin: 0;
-	font-size: 1rem;
+	font-size: var(--pos-font-section-title, 15px);
 	font-weight: 700;
 	line-height: 1.25;
 	color: var(--pos-text-primary);
@@ -1754,7 +1765,7 @@ defineExpose({
 }
 
 .selection {
-	background-color: var(--pos-surface-muted) !important;
+	background-color: transparent !important;
 }
 
 .item-selection-option {
@@ -1789,17 +1800,17 @@ defineExpose({
 @media (max-width: 768px) {
 	.dynamic-padding {
 		/* Reduce spacing uniformly on smaller screens */
-		padding: var(--dynamic-xs);
+		padding: 0;
 	}
 
 	.selection-card {
-		margin-top: var(--dynamic-xs) !important;
+		margin-top: 0 !important;
 	}
 
 	.selector-header-card {
 		top: max(4px, env(safe-area-inset-top));
 		z-index: 12;
-		box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+		box-shadow: none;
 	}
 
 	.items-card-grid {
@@ -1811,7 +1822,7 @@ defineExpose({
 
 @media (max-width: 480px) {
 	.dynamic-padding {
-		padding: var(--dynamic-xs);
+		padding: 0;
 	}
 }
 
