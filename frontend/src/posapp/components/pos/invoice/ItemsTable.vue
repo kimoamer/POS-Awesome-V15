@@ -10,7 +10,7 @@
 		@dragleave="onDragLeaveFromSelector"
 	>
 		<v-data-table-virtual
-			:headers="responsiveHeaders"
+			:headers="cartTableHeaders"
 			:items="items"
 			:expanded="expanded"
 			show-expand
@@ -252,6 +252,26 @@ const {
 const dynamicHeaderProps = computed(() => ({
 	class: `responsive-header container-${breakpoint.value}`,
 }));
+
+const cartTableHeaders = computed(() =>
+	responsiveHeaders.value.map((header: any) => {
+		if (header?.key !== "actions") {
+			return header;
+		}
+
+		return {
+			...header,
+			title: "",
+			headerProps: {
+				...(header.headerProps || {}),
+				"aria-label": __("Actions"),
+				class: ["cart-table-header-cell--action", header.headerProps?.class]
+					.filter(Boolean)
+					.join(" "),
+			},
+		};
+	}),
+);
 
 const finalVisibleColumns = computed(() => [...responsiveHeaders.value, DATA_TABLE_EXPAND_COLUMN]);
 

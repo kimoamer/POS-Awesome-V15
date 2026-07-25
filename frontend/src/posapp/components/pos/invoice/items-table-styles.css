@@ -99,8 +99,12 @@
 }
 
 .posa-cart-empty-state {
-	min-height: 0;
-	padding: 22px 16px;
+	grid-column: 1 / -1;
+	inline-size: 100%;
+	block-size: 100%;
+	min-block-size: 180px;
+	margin: 0;
+	padding: 24px 16px;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -109,6 +113,7 @@
 	text-align: center;
 	color: var(--pos-text-primary);
 	background: var(--pos-surface-raised);
+	transform: none;
 }
 
 .posa-cart-empty-state__icon-wrap {
@@ -247,6 +252,18 @@
 	font-weight: 600;
 	letter-spacing: 0.02em;
 	text-shadow: none;
+}
+
+.posa-cart-table th.cart-table-header-cell--action,
+.posa-cart-table th[aria-label="Actions"] {
+	padding-inline: 0;
+}
+
+.posa-cart-table th.cart-table-header-cell--action .v-data-table-header__content,
+.posa-cart-table th[aria-label="Actions"] .v-data-table-header__content {
+	font-size: 0;
+	line-height: 0;
+	color: transparent;
 }
 
 /* Table rows */
@@ -760,6 +777,44 @@
 .posa-cart-table tbody tr:not([style*="height: 0"]) {
 	height: var(--cart-table-row-height, var(--cell-height, 60px)) !important;
 	min-height: var(--cart-table-row-height, var(--cell-height, 60px)) !important;
+}
+
+.posa-cart-table tbody tr.v-data-table-rows-no-data,
+.posa-cart-table tbody tr.v-data-table-rows-no-data:not([style*="height: 0"]) {
+	display: grid !important;
+	grid-template-columns: minmax(0, 1fr) !important;
+	inline-size: 100% !important;
+	max-inline-size: 100% !important;
+	block-size: max(
+		180px,
+		calc(var(--container-height, 360px) - var(--cart-table-header-height, 42px))
+	) !important;
+	min-block-size: max(
+		180px,
+		calc(var(--container-height, 360px) - var(--cart-table-header-height, 42px))
+	) !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	border: none !important;
+	background: var(--pos-surface-raised) !important;
+	overflow: hidden !important;
+}
+
+.posa-cart-table tbody tr.v-data-table-rows-no-data td {
+	grid-column: 1 / -1 !important;
+	display: flex !important;
+	align-items: stretch !important;
+	justify-content: stretch !important;
+	inline-size: 100% !important;
+	max-inline-size: 100% !important;
+	block-size: 100% !important;
+	min-block-size: 180px !important;
+	height: 100% !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	white-space: normal !important;
+	overflow: hidden !important;
+	text-align: center;
 }
 
 /* Clean up any unwanted spacing from virtual scrolling */
