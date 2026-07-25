@@ -386,22 +386,8 @@
 				<InvoiceItemRowActions
 					:item="item"
 					:can-remove="canRemove"
-					@open-details="$emit('open-details', item)"
-					@remove-item="$emit('remove-item', item)"
-				/>
-			</td>
-
-			<!-- Fallback for standalone expand column -->
-			<td
-				v-else-if="column.key === 'data-table-expand'"
-				class="text-center"
-				:data-column-key="'data-table-expand'"
-			>
-				<InvoiceItemRowActions
-					:item="item"
-					:can-remove="canRemove"
-					@open-details="$emit('open-details', item)"
-					@remove-item="$emit('remove-item', item)"
+					@open-details="$emit('open-details', $event)"
+					@remove-item="$emit('remove-item', $event)"
 				/>
 			</td>
 		</template>

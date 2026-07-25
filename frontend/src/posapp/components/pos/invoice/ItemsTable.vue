@@ -144,7 +144,6 @@ import InvoiceItemDetailsDialog from "./InvoiceItemDetailsDialog.vue";
 import { useItemsTableSearch } from "../../../composables/pos/items/useItemsTableSearch";
 import { useItemsTableDragDrop } from "../../../composables/pos/items/useItemsTableDragDrop";
 import {
-	DATA_TABLE_EXPAND_COLUMN,
 	useItemsTableResponsive,
 } from "../../../composables/pos/items/useItemsTableResponsive";
 import { useItemsTableMerge } from "../../../composables/pos/items/useItemsTableMerge";
@@ -371,19 +370,51 @@ const cartTableHeaders = computed(() =>
 	}),
 );
 
+const INVOICE_ACTIONS_COLUMN_WIDTH = 96;
+
+const INVOICE_ACTIONS_COLUMN = {
+	title: "",
+	key: "actions",
+	sortable: false,
+	align: "center",
+	required: true,
+	width: INVOICE_ACTIONS_COLUMN_WIDTH,
+	minWidth: INVOICE_ACTIONS_COLUMN_WIDTH,
+	headerProps: {
+		"aria-label": __("Actions"),
+		class: "cart-table-header-cell--action",
+	},
+};
+
 const finalVisibleColumns = computed(() => {
-	if (responsiveHeaders.value.some((h: any) => h?.key === "actions")) {
-		return responsiveHeaders.value;
+	const headers = responsiveHeaders.value || [];
+	if (headers.some((h: any) => h?.key === "actions")) {
+		return headers.map((h: any) =>
+			h.key === "actions" ? { ...h, ...INVOICE_ACTIONS_COLUMN } : h
+		);
 	}
-	return [...responsiveHeaders.value, DATA_TABLE_EXPAND_COLUMN];
+	return [...headers, INVOICE_ACTIONS_COLUMN];
 });
 
-const getColumnTrack = (columnKey: string) => {
+const getColumnTrack = (column: any) => {
+	const key = typeof column === "string" ? column : column?.key;
+	if (key === "item_name") {
+		const width = containerWidth.value || 0;
+		const isCompact = width > 0 && width < 680;
+		const isWide = width >= 760;
+		return isCompact ? "minmax(0, 1fr)" : isWide ? "minmax(180px, 1fr)" : "minmax(160px, 1fr)";
+	}
+
+	if (typeof column === "object" && column) {
+		const colWidth = Number(column.width || column.minWidth);
+		if (Number.isFinite(colWidth) && colWidth > 0) {
+			return `${colWidth}px`;
+		}
+	}
+
 	const width = containerWidth.value || 0;
-	const isCompact = width > 0 && width < 680;
 	const isWide = width >= 760;
 	const tracks: Record<string, string> = {
-		item_name: isCompact ? "minmax(0, 1fr)" : isWide ? "minmax(180px, 1fr)" : "minmax(160px, 1fr)",
 		qty: isWide ? "120px" : "116px",
 		uom: "72px",
 		price_list_rate: "94px",
@@ -392,10 +423,9 @@ const getColumnTrack = (columnKey: string) => {
 		rate: isWide ? "92px" : "82px",
 		amount: isWide ? "108px" : "96px",
 		posa_is_offer: "72px",
-		actions: "80px",
-		"data-table-expand": "44px",
+		actions: `${INVOICE_ACTIONS_COLUMN_WIDTH}px`,
 	};
-	return tracks[columnKey] || "82px";
+	return tracks[key] || "82px";
 };
 
 const parseColumnWidth = (track: string): number => {
@@ -405,13 +435,13 @@ const parseColumnWidth = (track: string): number => {
 
 const cartTableMinWidth = computed(() => {
 	return finalVisibleColumns.value.reduce(
-		(total: number, column: any) => total + parseColumnWidth(getColumnTrack(column.key)),
+		(total: number, column: any) => total + parseColumnWidth(getColumnTrack(column)),
 		0
 	);
 });
 
 const cartTableColumns = computed(() =>
-	finalVisibleColumns.value.map((column: any) => getColumnTrack(column?.key)).join(" "),
+	finalVisibleColumns.value.map((column: any) => getColumnTrack(column)).join(" "),
 );
 
 const cartRowHeight = computed(() => {

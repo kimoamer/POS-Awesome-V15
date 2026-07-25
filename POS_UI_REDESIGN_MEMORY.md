@@ -27,6 +27,17 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.6.3 — Final Invoice Row Actions & Column Contract Cleanup (Complete ✅).
+
+Scope:
+
+- **Single Source of Truth Sizing (`96px`)**: Standardized `INVOICE_ACTIONS_COLUMN_WIDTH = 96` across `useItemsTableResponsive.ts`, `ItemsTable.vue` CSS Grid track builder, and `items-table-styles.css`.
+- **System Required Actions Column**: Defined `INVOICE_ACTIONS_COLUMN` (`key: "actions"`, `width: 96`, `required: true`). Actions column is always attached and can never be hidden by Column Selector.
+- **Removed Legacy Expand Column**: Completely removed `DATA_TABLE_EXPAND_COLUMN`, `"data-table-expand"` tracks, and fallback cells from `ItemsTable.vue`, `CartItemRow.vue`, and `useItemsTableResponsive.ts`.
+- **Mobile Touch Sizing (`44x44px`)**: Set explicit `44x44px` touch targets for mobile viewports in `InvoiceItemRowActions.vue`.
+- **Cleaned Up Unused Imports & Double Filtering**: Removed unused capability imports from `InvoiceItemCard.vue` and removed unused `:search` / `:custom-filter` double-filtering props from `InvoiceItemsTableView.vue`.
+- **Automated Tests**: Updated `tests/itemsTableResponsiveColumns.spec.ts` and `tests/cartItemRowActions.spec.ts` confirming exact 96px column width, absence of `data-table-expand`, and event payload forwarding.
+
 Pass 6.6.2 — Invoice Action Integrity & Item Row Actions Fix (Complete ✅).
 
 Scope:

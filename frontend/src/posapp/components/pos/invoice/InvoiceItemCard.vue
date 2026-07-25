@@ -190,8 +190,8 @@
 				<InvoiceItemRowActions
 					:item="item"
 					:can-remove="canRemove"
-					@open-details="$emit('open-details', item)"
-					@remove-item="$emit('remove-item', item)"
+					@open-details="$emit('open-details', $event)"
+					@remove-item="$emit('remove-item', $event)"
 				/>
 			</div>
 		</div>
@@ -203,12 +203,7 @@ import { computed, nextTick, ref, watch } from "vue";
 import { formatMoney } from "../../../composables/pos/shared/useMoneyFormatter";
 import { resolveItemImage } from "../../../utils/itemImage";
 import InvoiceItemRowActions from "./InvoiceItemRowActions.vue";
-import {
-	canEditQty,
-	canOverrideItemName,
-	canRemoveItem,
-	getItemUiCapabilities,
-} from "../../../composables/pos/items/useItemPermissions";
+import { getItemUiCapabilities } from "../../../composables/pos/items/useItemPermissions";
 
 defineOptions({
 	name: "InvoiceItemCard",

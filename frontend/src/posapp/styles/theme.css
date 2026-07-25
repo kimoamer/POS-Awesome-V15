@@ -329,18 +329,23 @@ body[data-page-route="posapp"] .v-application__wrap {
 .posapp .pos-bg-primary {
 	background-color: var(--pos-bg-primary) !important;
 }
+
 .posapp .pos-bg-secondary {
 	background-color: var(--pos-bg-secondary) !important;
 }
+
 .posapp .pos-bg-surface {
 	background-color: var(--pos-surface) !important;
 }
+
 .posapp .pos-bg-card {
 	background-color: var(--pos-card-bg) !important;
 }
+
 .posapp .pos-bg-raised {
 	background-color: var(--pos-surface-raised) !important;
 }
+
 .posapp .pos-bg-muted {
 	background-color: var(--pos-surface-muted) !important;
 }
@@ -348,6 +353,7 @@ body[data-page-route="posapp"] .v-application__wrap {
 .posapp .pos-text-primary {
 	color: var(--pos-text-primary) !important;
 }
+
 .posapp .pos-text-secondary {
 	color: var(--pos-text-secondary) !important;
 }
@@ -355,6 +361,7 @@ body[data-page-route="posapp"] .v-application__wrap {
 .posapp .pos-border {
 	border-color: var(--pos-border) !important;
 }
+
 .posapp .pos-border-light {
 	border-color: var(--pos-border-light) !important;
 }
@@ -363,7 +370,6 @@ body[data-page-route="posapp"] .v-application__wrap {
 .posapp .pos-themed-card {
 	background-color: var(--pos-surface-raised);
 	color: var(--pos-text-primary);
-	border: 1px solid var(--pos-border);
 	border-radius: var(--pos-radius-md);
 	box-shadow: 0 10px 24px var(--pos-shadow-light);
 }
@@ -506,8 +512,8 @@ body[data-page-route="posapp"] .v-application__wrap {
 	outline-offset: 2px;
 }
 
-body[data-page-route="posapp"] .v-overlay__content > .v-card,
-body[data-page-route="posapp"] .v-overlay__content > .v-sheet,
+body[data-page-route="posapp"] .v-overlay__content>.v-card,
+body[data-page-route="posapp"] .v-overlay__content>.v-sheet,
 body[data-page-route="posapp"] .v-overlay__content .v-card {
 	background-color: var(--pos-card-bg) !important;
 	color: var(--pos-text-primary) !important;
@@ -536,8 +542,8 @@ body[data-page-route="posapp"] .v-overlay__content .text-caption {
 	color: var(--pos-text-secondary) !important;
 }
 
-body[data-page-route="posapp"] .v-tooltip > .v-overlay__content,
-body[data-page-route="posapp"] .v-overlay-container .v-tooltip > .v-overlay__content,
+body[data-page-route="posapp"] .v-tooltip>.v-overlay__content,
+body[data-page-route="posapp"] .v-overlay-container .v-tooltip>.v-overlay__content,
 body[data-page-route="posapp"] .v-tooltip .v-overlay__content,
 body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip {
 	--v-theme-on-surface: 33, 33, 33;
@@ -553,17 +559,17 @@ body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip {
 	opacity: 1 !important;
 }
 
-[data-theme="dark"] body[data-page-route="posapp"] .v-overlay-container .v-tooltip > .v-overlay__content,
+[data-theme="dark"] body[data-page-route="posapp"] .v-overlay-container .v-tooltip>.v-overlay__content,
 [data-theme="dark"] body[data-page-route="posapp"] .v-tooltip .v-overlay__content,
 [data-theme="dark"] body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip,
-[data-theme-mode="dark"] body[data-page-route="posapp"] .v-overlay-container .v-tooltip > .v-overlay__content,
+[data-theme-mode="dark"] body[data-page-route="posapp"] .v-overlay-container .v-tooltip>.v-overlay__content,
 [data-theme-mode="dark"] body[data-page-route="posapp"] .v-tooltip .v-overlay__content,
 [data-theme-mode="dark"] body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip {
 	--v-theme-on-surface: 255, 255, 255;
 	--v-theme-on-surface-variant: 255, 255, 255;
 }
 
-body[data-page-route="posapp"] .v-overlay-container .v-tooltip > .v-overlay__content *,
+body[data-page-route="posapp"] .v-overlay-container .v-tooltip>.v-overlay__content *,
 body[data-page-route="posapp"] .v-tooltip .v-overlay__content *,
 body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip * {
 	color: var(--pos-text-primary) !important;
@@ -571,18 +577,18 @@ body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip * {
 	opacity: 1 !important;
 }
 
-body[data-page-route="posapp"] .v-overlay-container .v-tooltip > .v-overlay__content > span,
-body[data-page-route="posapp"] .v-overlay-container .v-tooltip > .v-overlay__content > div,
-body[data-page-route="posapp"] .v-tooltip .v-overlay__content > span,
-body[data-page-route="posapp"] .v-tooltip .v-overlay__content > div,
-body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip > span,
-body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip > div {
+body[data-page-route="posapp"] .v-overlay-container .v-tooltip>.v-overlay__content>span,
+body[data-page-route="posapp"] .v-overlay-container .v-tooltip>.v-overlay__content>div,
+body[data-page-route="posapp"] .v-tooltip .v-overlay__content>span,
+body[data-page-route="posapp"] .v-tooltip .v-overlay__content>div,
+body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip>span,
+body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip>div {
 	color: var(--pos-text-primary) !important;
 	-webkit-text-fill-color: var(--pos-text-primary) !important;
 }
 
-body[data-page-route="posapp"] .v-overlay-container .v-tooltip > .v-overlay__content .text-medium-emphasis,
-body[data-page-route="posapp"] .v-overlay-container .v-tooltip > .v-overlay__content .text-caption,
+body[data-page-route="posapp"] .v-overlay-container .v-tooltip>.v-overlay__content .text-medium-emphasis,
+body[data-page-route="posapp"] .v-overlay-container .v-tooltip>.v-overlay__content .text-caption,
 body[data-page-route="posapp"] .v-tooltip .v-overlay__content .text-medium-emphasis,
 body[data-page-route="posapp"] .v-tooltip .v-overlay__content .text-caption,
 body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip .text-medium-emphasis,
@@ -644,6 +650,7 @@ body[data-page-route="posapp"] .v-overlay__scrim {
 		color 0.01s linear,
 		border-color 0.01s linear !important;
 }
+
 /* Fix for view toggle buttons text color in dark mode */
 [data-theme="dark"] .view-toggle-btn .v-btn--selected .v-btn__content {
 	color: #ffffff !important;

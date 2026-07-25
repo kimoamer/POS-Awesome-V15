@@ -12,15 +12,6 @@ export interface TableHeader {
 	[key: string]: any;
 }
 
-export const DATA_TABLE_EXPAND_COLUMN: TableHeader = {
-	title: "",
-	key: "data-table-expand",
-	sortable: false,
-	align: "center",
-	width: 44,
-	minWidth: 44,
-};
-
 const COMPACT_COLUMN_WIDTH = 680;
 const STACKED_VIEWPORT_WIDTH = 1200;
 const STACKED_CONTAINER_WIDTH = 500;
@@ -65,17 +56,11 @@ export function getResponsiveVisibleHeaders(
 export function buildFinalVisibleColumns(
 	headers: TableHeader[],
 	width: number,
-	options: { showExpand?: boolean; collapseOptional?: CollapseOptionalSetting } = {},
+	options: { collapseOptional?: CollapseOptionalSetting } = {},
 ) {
-	const visibleHeaders = getResponsiveVisibleHeaders(headers, width, {
+	return getResponsiveVisibleHeaders(headers, width, {
 		collapseOptional: options.collapseOptional,
 	});
-
-	if (options.showExpand === false) {
-		return visibleHeaders;
-	}
-
-	return [...visibleHeaders, DATA_TABLE_EXPAND_COLUMN];
 }
 
 const calculateColumnWidth = (header: TableHeader, width: number) => {

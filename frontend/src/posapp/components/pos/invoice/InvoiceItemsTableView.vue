@@ -10,8 +10,6 @@
 			:density="tableDensity"
 			hide-default-footer
 			:header-props="headerProps"
-			:search="itemSearch"
-			:custom-filter="customFilter"
 		>
 			<template #no-data>
 				<div class="posa-cart-empty-state">
@@ -108,11 +106,6 @@ defineProps({
 		default: "comfortable",
 	},
 	headerProps: Object,
-	itemSearch: String,
-	customFilter: {
-		type: [Function, Object] as any,
-		default: undefined,
-	},
 	emptyStateTitle: String,
 	emptyStateSubtitle: String,
 	emptyStateIcon: String,

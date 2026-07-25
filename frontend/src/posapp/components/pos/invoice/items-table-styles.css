@@ -1700,14 +1700,16 @@
 	}
 }
 
-/* Actions Column Overflow Rules */
-.posa-cart-table td[data-column-key="actions"],
-.posa-cart-table td[data-column-key="data-table-expand"] {
-	padding-inline: 2px !important;
+/* Actions Column Rules */
+.posa-cart-table td[data-column-key="actions"] {
+	width: 96px !important;
+	min-width: 96px !important;
+	padding-inline: 8px !important;
 	overflow: visible !important;
 }
 
-.posa-cart-table td[data-column-key="actions"] > .invoice-row-actions,
-.posa-cart-table td[data-column-key="data-table-expand"] > .invoice-row-actions {
+.posa-cart-table td[data-column-key="actions"] > .invoice-row-actions {
+	width: 100%;
+	justify-content: center;
 	overflow: visible !important;
 }

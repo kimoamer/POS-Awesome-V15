@@ -1,5 +1,5 @@
 <template>
-	<div class="invoice-row-actions" :class="{ 'invoice-row-actions--compact': compact }">
+	<div class="invoice-row-actions">
 		<!-- Details Action Button -->
 		<v-btn
 			icon
@@ -39,12 +39,10 @@
 interface Props {
 	item: any;
 	canRemove?: boolean;
-	compact?: boolean;
 }
 
 withDefaults(defineProps<Props>(), {
 	canRemove: true,
-	compact: false,
 });
 
 defineEmits<{
@@ -105,10 +103,11 @@ const __ = (window as any).__ || ((s: string) => s);
 
 @media (max-width: 767px) {
 	.invoice-row-action {
-		width: 42px !important;
-		height: 42px !important;
-		min-width: 42px !important;
-		flex: 0 0 42px;
+		width: 44px !important;
+		height: 44px !important;
+		min-width: 44px !important;
+		min-height: 44px !important;
+		flex: 0 0 44px;
 	}
 }
 </style>

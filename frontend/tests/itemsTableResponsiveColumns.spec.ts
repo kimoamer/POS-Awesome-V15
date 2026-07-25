@@ -15,11 +15,11 @@ const headers = [
 	{ key: "rate", title: "Rate", required: true },
 	{ key: "amount", title: "Amount", required: true },
 	{ key: "posa_is_offer", title: "Offer?" },
-	{ key: "actions", title: "Actions", required: true },
+	{ key: "actions", title: "Actions", required: true, width: 96 },
 ];
 
 describe("items table final visible columns", () => {
-	it("keeps the body column order aligned with the responsive header order and appends expand", () => {
+	it("keeps the body column order aligned with the responsive header order without data-table-expand", () => {
 		const visible = buildFinalVisibleColumns(headers, 1200);
 
 		expect(visible.map((column) => column.key)).toEqual([
@@ -33,8 +33,8 @@ describe("items table final visible columns", () => {
 			"amount",
 			"posa_is_offer",
 			"actions",
-			"data-table-expand",
 		]);
+		expect(visible.find((col) => col.key === "actions")?.width).toBe(96);
 	});
 
 	it("keeps selected optional columns visible when the cart pane has enough room", () => {
@@ -53,11 +53,10 @@ describe("items table final visible columns", () => {
 			"posa_is_offer",
 			"actions",
 		]);
-		expect(finalColumns.slice(0, -1)).toEqual(responsive);
-		expect(finalColumns.at(-1)?.key).toBe("data-table-expand");
+		expect(finalColumns).toEqual(responsive);
 	});
 
-	it("keeps the expand column even when compact columns collapse optional fields", () => {
+	it("keeps actions column when compact columns collapse optional fields", () => {
 		const finalColumns = buildFinalVisibleColumns(headers, 620);
 
 		expect(finalColumns.map((column) => column.key)).toEqual([
@@ -66,7 +65,6 @@ describe("items table final visible columns", () => {
 			"rate",
 			"amount",
 			"actions",
-			"data-table-expand",
 		]);
 	});
 
@@ -79,7 +77,6 @@ describe("items table final visible columns", () => {
 			"rate",
 			"amount",
 			"actions",
-			"data-table-expand",
 		]);
 	});
 
@@ -94,7 +91,6 @@ describe("items table final visible columns", () => {
 			"rate",
 			"amount",
 			"actions",
-			"data-table-expand",
 		]);
 	});
 
@@ -114,7 +110,6 @@ describe("items table final visible columns", () => {
 			"amount",
 			"posa_is_offer",
 			"actions",
-			"data-table-expand",
 		]);
 	});
 });
