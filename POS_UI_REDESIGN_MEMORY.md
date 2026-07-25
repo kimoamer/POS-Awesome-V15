@@ -29,26 +29,28 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 ## Current Pass
 
-POS Workspace Surface and Density Reset.
+Invoice Customer and Responsive Panel Acceptance Fix.
 
 Scope:
 
-- `theme.css`: shared density tokens for workspace padding, pane padding, section gaps, control gaps, control height, radius, and POS typography.
-- `Pos.vue`: one workspace surface containing Browse and Invoice panes with a light divider, no nested pane cards, and preserved desktop/compact panel behavior.
-- `ItemsSelector.vue`: command, filter, results, and subview regions are flat sections inside the Browse pane.
-- `Invoice.vue`: customer, command, cart items, and footer regions are flat sections inside the Invoice pane.
-- Light CSS-only alignment in `ItemHeader.vue`, `ItemActionToolbar.vue`, `InvoiceCustomerSection.vue`, `Customer.vue`, `InvoiceItemsActionToolbar.vue`, `ItemsTable` styles, and the `InvoiceSummary` wrapper.
-- Do not change stores, APIs, calculations, actions, props, emits, filtering, virtualization, or responsive behavior.
+- Desktop split view is now `>= 1200px` only.
+- Tablet landscape, tablet portrait, and mobile use the existing `compactPanel` flow: Browse view OR Cart view, not products and cart side by side.
+- Compact Cart view has a dedicated Back to products header while preserving the bottom dock flow.
+- `Invoice.vue` uses explicit rows for Customer, Invoice command, Cart items, and Footer so Customer cannot be clipped by Invoice Items.
+- Customer and Invoice command regions reserve their real height and use `overflow: visible`.
+- Delivery Charges remain behaviorally unchanged, but the presentation can sit beside Customer on wide desktop and stack at tablet/mobile widths.
+- Browse, Cart, and Summary bottom-dock safe spacing now follow the `1200px` compact breakpoint.
+- No stores, APIs, calculations, actions, props, emits, filtering, virtualization, customer behavior, delivery charge logic, or payment behavior changed.
 
 Acceptance:
 
-- POS screen reads as one workspace surface, not cards nested inside cards.
-- Browse Header and Customer strip start on the same visual line.
-- Filter strip and Invoice command region use the same compact density.
-- Product results and cart items start at a visually close level.
-- Vertical divider separates Browse and Invoice on desktop/laptop.
-- Body/outer shell does not gain scroll; each pane keeps its internal scroll contract.
-- Menus/dialogs may keep elevation, but workspace/sections/inputs do not use shadows.
+- Customer selector, Add, and Actions are fully visible and do not overlap Invoice Items.
+- Invoice Items begins after the Customer region with a consistent gap/border.
+- `1440px` and `1280px` show Products + Cart side by side.
+- `1024px`, `768px`, `430px`, and `390px` show Browse or Cart as a dedicated full panel.
+- Returning from Cart keeps Browse state because the selector remains mounted with `v-show`.
+- Cart footer respects the bottom dock safe area below `1200px`.
+- RTL uses intentional Back arrow direction and keeps customer/cart regions intact.
 
 ## Recently Completed
 

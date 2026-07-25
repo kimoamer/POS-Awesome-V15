@@ -61,7 +61,7 @@
 							:offers-count="offersCount"
 							:coupons-count="couponsCount"
 							:reserve-bottom-dock-space="
-								context === 'pos' && responsive.windowWidth.value < 1100
+								context === 'pos' && responsive.windowWidth.value < 1200
 							"
 							@update:items-view="handleItemsViewUpdate"
 							@open-offers="openBrowsePanel('offers')"

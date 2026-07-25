@@ -266,7 +266,7 @@ const additionalDiscountDisplay = ref(normalizeAdditionalDiscountDisplay(props.a
 const additionalDiscountPercentageDisplay = ref(
 	normalizeDiscountDisplay(props.additional_discount_percentage),
 );
-const useCompactSaleDock = computed(() => responsive.windowWidth.value < 1100);
+const useCompactSaleDock = computed(() => responsive.windowWidth.value < 1200);
 const showDesktopDrafts = computed(() => Boolean(responsive.isDesktop.value));
 const showReturnDiscountAlert = computed(
 	() =>
@@ -670,7 +670,7 @@ defineExpose({
 	}
 }
 
-@media (max-width: 1099px) {
+@media (max-width: 1199px) {
 	.sticky-summary-card--dock-safe {
 		margin-bottom: calc(var(--bottom-safe-space) + 12px);
 	}

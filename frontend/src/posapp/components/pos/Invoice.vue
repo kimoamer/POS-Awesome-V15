@@ -1318,7 +1318,7 @@ export default {
 	overflow: hidden;
 }
 
-@media (max-width: 1099px) {
+@media (max-width: 1199px) {
 	.invoice-shell {
 		padding-bottom: calc(var(--bottom-safe-space) + var(--dynamic-xs));
 	}
@@ -1397,7 +1397,7 @@ export default {
 .dynamic-padding {
 	padding: 0;
 	display: grid;
-	grid-template-rows: auto auto minmax(0, 1fr) auto;
+	grid-template-rows: minmax(56px, auto) minmax(96px, auto) minmax(0, 1fr) auto;
 	gap: var(--pos-section-gap, 8px);
 	flex: 1 1 auto;
 	height: 100%;
@@ -1408,7 +1408,7 @@ export default {
 
 .invoice-workspace {
 	display: grid;
-	grid-template-rows: auto auto minmax(0, 1fr) auto;
+	grid-template-rows: minmax(56px, auto) minmax(96px, auto) minmax(0, 1fr) auto;
 	height: 100%;
 	min-height: 0;
 	min-width: 0;
@@ -1416,20 +1416,41 @@ export default {
 }
 
 .invoice-region {
+	position: relative;
 	min-width: 0;
 	min-height: 0;
+	box-sizing: border-box;
 }
 
 .invoice-customer-region,
-.invoice-command-region,
+.invoice-command-region {
+	min-width: 0;
+	overflow: visible;
+}
+
+.invoice-customer-region {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	min-height: 60px;
+	padding: 8px 10px;
+	border-block-end: 1px solid var(--pos-border-light);
+	background: var(--pos-surface);
+}
+
 .invoice-footer-region {
 	overflow: hidden;
 }
 
 .invoice-command-region {
-	display: flex;
-	flex-direction: column;
-	gap: var(--pos-section-gap, 8px);
+	display: grid;
+	grid-template-rows: auto;
+	align-content: start;
+	gap: var(--pos-control-gap, 6px);
+	min-height: 96px;
+	padding: 8px 10px;
+	border-block-end: 1px solid var(--pos-border-light);
+	background: var(--pos-surface);
 }
 
 .invoice-cart-items-region {
@@ -1461,10 +1482,12 @@ export default {
 	grid-template-columns: minmax(0, 1fr);
 	gap: var(--pos-section-gap, 8px);
 	flex: 0 0 auto;
+	width: 100%;
+	min-width: 0;
 }
 
 .invoice-top-grid--with-delivery {
-	grid-template-columns: minmax(0, 1fr) minmax(220px, 0.7fr);
+	grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
 }
 
 .invoice-meta-grid {
@@ -1479,7 +1502,7 @@ export default {
 	border: 0;
 	border-radius: 0;
 	box-shadow: none;
-	overflow: hidden;
+	overflow: visible;
 	flex: 0 0 auto;
 	min-height: 0;
 	min-width: 0;
@@ -1491,7 +1514,8 @@ export default {
 	justify-content: space-between;
 	gap: var(--pos-control-gap, 6px);
 	min-width: 0;
-	padding: 0 0 var(--pos-control-gap, 6px);
+	min-height: 26px;
+	padding: 0;
 }
 
 .invoice-section-heading__title {
@@ -1541,6 +1565,8 @@ export default {
 	display: flex;
 	align-items: center;
 	padding: 0;
+	width: 100%;
+	min-width: 0;
 }
 
 .invoice-customer-card :deep(.invoice-customer-section) {
@@ -1562,11 +1588,12 @@ export default {
 	flex-direction: column;
 	flex: 0 0 auto;
 	min-height: 0;
-	overflow: hidden;
+	overflow: visible;
 }
 
 .invoice-items-command-card {
 	padding-block-end: 0;
+	gap: var(--pos-control-gap, 6px);
 }
 
 .invoice-footer-region :deep(.sticky-summary-card) {
@@ -1582,6 +1609,114 @@ export default {
 
 .invoice-footer-region :deep(.sticky-summary-card--dock-safe) {
 	margin-block-end: 0 !important;
+}
+
+.delivery-charges-card {
+	min-width: 0;
+}
+
+.delivery-charges-card :deep(.items) {
+	display: grid !important;
+	grid-template-columns: minmax(0, 1fr) minmax(88px, 110px);
+	align-items: center !important;
+	gap: var(--pos-control-gap, 6px);
+	width: 100%;
+	min-width: 0;
+	margin: 0 !important;
+	padding: 0 !important;
+}
+
+.delivery-charges-card :deep(.v-col) {
+	flex: 0 1 auto !important;
+	width: auto !important;
+	max-width: none !important;
+	min-width: 0;
+	padding: 0 !important;
+	margin: 0 !important;
+}
+
+.delivery-charges-card :deep(.v-field) {
+	min-height: var(--pos-control-height, 44px) !important;
+	border: 1px solid var(--pos-border-light) !important;
+	border-radius: var(--pos-radius-control, 8px) !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
+	box-shadow: none !important;
+}
+
+.delivery-charges-card :deep(.v-field__overlay) {
+	display: none !important;
+}
+
+.delivery-charges-card :deep(.v-field__outline) {
+	--v-field-border-opacity: 0 !important;
+	color: transparent !important;
+}
+
+.delivery-charges-card :deep(.v-field__input),
+.delivery-charges-card :deep(input) {
+	min-height: var(--pos-control-height, 44px) !important;
+	padding-block: 0 !important;
+	font-size: var(--pos-font-control, 13px);
+	font-weight: 650;
+}
+
+.delivery-charges-card :deep(.v-label) {
+	font-size: var(--pos-font-meta, 11px);
+	font-weight: 700;
+}
+
+@media (max-width: 1279px) {
+	.invoice-customer-region,
+	.invoice-command-region {
+		padding-inline: 8px;
+	}
+
+	.invoice-section-heading__title {
+		font-size: 14px;
+	}
+}
+
+@media (max-width: 1024px) {
+	.invoice-top-grid--with-delivery {
+		grid-template-columns: 1fr;
+	}
+}
+
+@media (max-width: 767px) {
+	.invoice-workspace,
+	.dynamic-padding {
+		grid-template-rows: minmax(54px, auto) minmax(88px, auto) minmax(0, 1fr) auto;
+		gap: 6px;
+	}
+
+	.invoice-customer-region {
+		min-height: 54px;
+		padding: 5px 8px;
+	}
+
+	.invoice-command-region {
+		min-height: 88px;
+		padding: 6px 8px;
+		gap: 5px;
+	}
+
+	.invoice-section-heading {
+		min-height: 24px;
+	}
+
+	.invoice-section-heading__title {
+		font-size: 14px;
+	}
+
+	.invoice-section-heading__count {
+		min-height: 22px;
+		padding-inline: 7px;
+		font-size: 10.5px;
+	}
+
+	.delivery-charges-card :deep(.items) {
+		grid-template-columns: 1fr;
+	}
 }
 
 /* Responsive breakpoints */

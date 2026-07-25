@@ -150,7 +150,7 @@
 	width: 100%;
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) 44px 44px;
-	align-items: start;
+	align-items: center;
 	gap: var(--pos-control-gap, 6px);
 	min-width: 0;
 }

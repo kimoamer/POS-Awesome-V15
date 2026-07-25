@@ -64,8 +64,23 @@
 			<section
 				v-show="!useCompactPosSwitcher || compactPanel === 'invoice'"
 				class="pos pos-pane pos-cart-pane dynamic-col dynamic-col--invoice"
+				:class="{ 'pos-cart-pane--dedicated': useCompactPosSwitcher }"
 				data-pos-region="cart"
 			>
+				<div v-if="useCompactPosSwitcher" class="compact-cart-header">
+					<button
+						type="button"
+						class="compact-cart-header__back"
+						:aria-label="__('Back to products')"
+						@click="setSelectorView('items')"
+					>
+						<v-icon :icon="isRtl ? 'mdi-arrow-right' : 'mdi-arrow-left'" size="18" />
+					</button>
+					<div class="compact-cart-header__title">
+						<strong>{{ __("Cart") }}</strong>
+						<span>{{ itemsCount }} {{ itemsCount === 1 ? __("item") : __("items") }}</span>
+					</div>
+				</div>
 				<Invoice ref="invoicePanel"></Invoice>
 			</section>
 		</div>
@@ -226,10 +241,10 @@ export default {
 			additionalDiscountPercentage,
 		} = storeToRefs(invoiceStore);
 		const usePaymentDialog = computed(() => responsive.windowWidth.value >= 992);
-		const useCompactPosSwitcher = computed(() => responsive.windowWidth.value < 1100);
+		const useCompactPosSwitcher = computed(() => responsive.windowWidth.value < 1200);
 		const compactPanel = ref("selector");
 		const isPhone = computed(() => responsive.isPhone.value);
-		const showBottomDock = computed(() => !dialog.value && responsive.windowWidth.value < 1100);
+		const showBottomDock = computed(() => !dialog.value && responsive.windowWidth.value < 1200);
 		const bottomDockHeight = ref(0);
 		let mobileDockObserver = null;
 		const isEditingAdditionalDiscount = ref(false);
@@ -725,7 +740,8 @@ export default {
 }
 
 .pos-workspace--compact {
-	display: block;
+	display: flex;
+	flex-direction: column;
 }
 
 .dynamic-col {
@@ -771,6 +787,75 @@ export default {
 	border-inline: 0;
 }
 
+.pos-cart-pane--dedicated {
+	gap: var(--pos-section-gap, 8px);
+}
+
+.compact-cart-header {
+	display: flex;
+	align-items: center;
+	gap: var(--pos-control-gap, 6px);
+	flex: 0 0 auto;
+	min-height: 44px;
+	min-width: 0;
+	padding: 0;
+	border-block-end: 1px solid var(--pos-border-light);
+	background: transparent;
+}
+
+.compact-cart-header__back {
+	inline-size: 44px;
+	block-size: 44px;
+	min-inline-size: 44px;
+	border: 1px solid var(--pos-border-light);
+	border-radius: var(--pos-radius-control, 8px);
+	background: var(--pos-surface-raised, #ffffff);
+	color: var(--pos-text-primary);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+}
+
+.compact-cart-header__back:hover,
+.compact-cart-header__back:focus-visible {
+	border-color: color-mix(in srgb, var(--pos-primary) 36%, var(--pos-border-light));
+	background: color-mix(in srgb, var(--pos-primary-container) 62%, var(--pos-surface-raised));
+	color: var(--pos-primary);
+	outline: none;
+}
+
+.compact-cart-header__title {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+	flex: 1 1 auto;
+	min-width: 0;
+	font-size: var(--pos-font-body, 13px);
+	color: var(--pos-text-primary);
+}
+
+.compact-cart-header__title strong,
+.compact-cart-header__title span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.compact-cart-header__title strong {
+	font-size: var(--pos-font-section-title, 15px);
+	font-weight: 760;
+}
+
+.compact-cart-header__title span {
+	flex: 0 0 auto;
+	font-size: var(--pos-font-meta, 11px);
+	font-weight: 750;
+	color: var(--pos-primary);
+}
+
 .pos-products-pane :deep(.items-selector-shell),
 .pos-cart-pane :deep(.invoice-shell) {
 	width: 100%;
@@ -796,6 +881,14 @@ export default {
 	border-radius: 0 !important;
 	background: transparent !important;
 	box-shadow: none !important;
+}
+
+.pos-cart-pane--dedicated > .compact-cart-header {
+	flex: 0 0 auto;
+}
+
+.pos-cart-pane--dedicated > :deep(.invoice-shell) {
+	flex: 1 1 auto;
 }
 
 .mobile-pos-stack {
@@ -959,7 +1052,7 @@ export default {
 	}
 }
 
-@media (max-width: 1360px) and (min-width: 1100px) {
+@media (max-width: 1360px) and (min-width: 1200px) {
 	.dynamic-container {
 		--pos-page-gap: 10px;
 	}
@@ -970,20 +1063,6 @@ export default {
 
 	.pos-workspace--rtl:not(.pos-workspace--compact) {
 		grid-template-columns: clamp(380px, 42%, 560px) minmax(0, 1fr);
-	}
-}
-
-@media (max-width: 1180px) and (min-width: 1100px) {
-	.dynamic-container {
-		--pos-page-gap: 8px;
-	}
-
-	.pos-workspace {
-		grid-template-columns: minmax(0, 1fr) clamp(360px, 44%, 520px);
-	}
-
-	.pos-workspace--rtl:not(.pos-workspace--compact) {
-		grid-template-columns: clamp(360px, 44%, 520px) minmax(0, 1fr);
 	}
 }
 
