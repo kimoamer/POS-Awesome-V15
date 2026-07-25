@@ -137,7 +137,7 @@
 						@keydown.enter.prevent="openQtyEdit"
 						@keydown.space.prevent="openQtyEdit"
 					>
-						{{ formatFloat(item.qty) }}
+						{{ formatFloat(item.qty, hideQtyDecimals ? 0 : undefined) }}
 					</div>
 					<v-text-field
 						v-else
@@ -188,6 +188,8 @@
 						v-else
 						:model-value="item.uom"
 						:items="item.item_uoms || [item.uom]"
+						item-title="uom"
+						item-value="uom"
 						density="compact"
 						variant="outlined"
 						class="posa-cart-table__editor-input"

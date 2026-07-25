@@ -10,6 +10,7 @@ import {
 	canRemoveItem,
 	isLockedPromotionLine,
 	isPricingLocked,
+	parseBooleanSetting,
 } from "../src/posapp/composables/pos/items/useItemPermissions";
 
 describe("useItemPermissions composable", () => {
@@ -27,11 +28,50 @@ describe("useItemPermissions composable", () => {
 		posa_allow_line_item_name_override: 0,
 	};
 
+	const stringRestrictedProfile = {
+		posa_allow_user_to_edit_rate: "0",
+		posa_allow_user_to_edit_item_discount: "0",
+		posa_allow_price_list_rate_change: "0",
+		posa_allow_line_item_name_override: "0",
+	};
+
+	const stringAllowedProfile = {
+		posa_allow_user_to_edit_rate: "1",
+		posa_allow_user_to_edit_item_discount: "1",
+		posa_allow_price_list_rate_change: "1",
+		posa_allow_line_item_name_override: "1",
+	};
+
 	const normalItem = {
 		item_code: "ITEM-001",
 		rate: 100,
 		qty: 1,
 	};
+
+	describe("parseBooleanSetting", () => {
+		it("normalizes boolean values", () => {
+			expect(parseBooleanSetting(true)).toBe(true);
+			expect(parseBooleanSetting(false)).toBe(false);
+		});
+
+		it("normalizes number values", () => {
+			expect(parseBooleanSetting(1)).toBe(true);
+			expect(parseBooleanSetting(0)).toBe(false);
+		});
+
+		it("normalizes string values ('0', '1', 'false', 'true')", () => {
+			expect(parseBooleanSetting("1")).toBe(true);
+			expect(parseBooleanSetting("0")).toBe(false);
+			expect(parseBooleanSetting("true")).toBe(true);
+			expect(parseBooleanSetting("false")).toBe(false);
+			expect(parseBooleanSetting(" 0 ")).toBe(false);
+		});
+
+		it("handles undefined and null safely", () => {
+			expect(parseBooleanSetting(undefined)).toBe(false);
+			expect(parseBooleanSetting(null)).toBe(false);
+		});
+	});
 
 	describe("isLockedPromotionLine", () => {
 		it("returns false for regular item", () => {
@@ -60,10 +100,12 @@ describe("useItemPermissions composable", () => {
 	describe("canEditRate", () => {
 		it("allows rate editing for regular item when profile allows", () => {
 			expect(canEditRate(defaultProfile, normalItem, false)).toBe(true);
+			expect(canEditRate(stringAllowedProfile, normalItem, false)).toBe(true);
 		});
 
-		it("disallows rate editing when profile prohibits", () => {
+		it("disallows rate editing when profile prohibits (0, '0', false)", () => {
 			expect(canEditRate(restrictedProfile, normalItem, false)).toBe(false);
+			expect(canEditRate(stringRestrictedProfile, normalItem, false)).toBe(false);
 		});
 
 		it("disallows rate editing for offer, replacement, offer_applied, or return lines", () => {
@@ -77,10 +119,12 @@ describe("useItemPermissions composable", () => {
 	describe("canEditItemDiscount", () => {
 		it("allows discount editing for regular item when profile allows", () => {
 			expect(canEditItemDiscount(defaultProfile, normalItem, false)).toBe(true);
+			expect(canEditItemDiscount(stringAllowedProfile, normalItem, false)).toBe(true);
 		});
 
-		it("disallows discount editing when profile prohibits", () => {
+		it("disallows discount editing when profile prohibits (0, '0', false)", () => {
 			expect(canEditItemDiscount(restrictedProfile, normalItem, false)).toBe(false);
+			expect(canEditItemDiscount(stringRestrictedProfile, normalItem, false)).toBe(false);
 		});
 
 		it("disallows discount editing for offer, replacement, offer_applied, or return lines", () => {
@@ -94,10 +138,12 @@ describe("useItemPermissions composable", () => {
 	describe("canChangePriceListRate", () => {
 		it("allows changing price list rate when profile allows and line is unlocked", () => {
 			expect(canChangePriceListRate(defaultProfile, normalItem, false)).toBe(true);
+			expect(canChangePriceListRate(stringAllowedProfile, normalItem, false)).toBe(true);
 		});
 
 		it("disallows changing price list rate when profile prohibits or pricing is locked", () => {
 			expect(canChangePriceListRate(restrictedProfile, normalItem, false)).toBe(false);
+			expect(canChangePriceListRate(stringRestrictedProfile, normalItem, false)).toBe(false);
 			expect(canChangePriceListRate(defaultProfile, { posa_is_offer: 1 }, false)).toBe(false);
 		});
 	});
@@ -105,10 +151,12 @@ describe("useItemPermissions composable", () => {
 	describe("canOverrideItemName", () => {
 		it("allows name override when profile allows and item is not replacement", () => {
 			expect(canOverrideItemName(defaultProfile, normalItem)).toBe(true);
+			expect(canOverrideItemName(stringAllowedProfile, normalItem)).toBe(true);
 		});
 
 		it("disallows name override when profile prohibits or item is replacement", () => {
 			expect(canOverrideItemName(restrictedProfile, normalItem)).toBe(false);
+			expect(canOverrideItemName(stringRestrictedProfile, normalItem)).toBe(false);
 			expect(canOverrideItemName(defaultProfile, { posa_is_replace: 1 })).toBe(false);
 		});
 	});

@@ -86,6 +86,7 @@
 		<InvoiceItemDetailsDialog
 			v-model="detailsDialog"
 			:item="detailsItem"
+			:catalog-item="itemMediaByCode?.get?.(detailsItem?.item_code)"
 			:pos_profile="pos_profile"
 			:invoice-type="invoiceType"
 			:is-return-invoice="isReturnInvoice"

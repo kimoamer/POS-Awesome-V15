@@ -10,10 +10,16 @@
 		<v-card class="pos-themed-card details-dialog-card" v-if="item">
 			<v-card-title class="details-dialog__header d-flex align-center py-3 px-4">
 				<div class="d-flex align-center gap-3 min-w-0">
-					<div class="details-dialog__thumb" v-if="itemImage">
-						<v-img :src="itemImage" :alt="itemTitle" cover />
+					<div class="details-dialog__thumb">
+						<v-img
+							v-if="itemImage && !imageFailed"
+							:src="itemImage"
+							:alt="itemTitle"
+							class="details-dialog__thumb-image"
+							@error="imageFailed = true"
+						/>
+						<v-icon v-else color="primary" size="24">mdi-package-variant-closed</v-icon>
 					</div>
-					<v-icon v-else color="primary" size="24">mdi-package-variant-closed</v-icon>
 					<div class="d-flex flex-column min-w-0">
 						<span class="text-subtitle-1 font-weight-bold text-truncate line-height-1-2">
 							{{ itemTitle }}
@@ -489,9 +495,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { getDisplayableBatchOptions } from "../../../composables/pos/shared/useBatchSerial";
 import { useResponsive } from "../../../composables/core/useResponsive";
+import { resolveItemImage } from "../../../utils/itemImage";
 import {
 	canChangePriceListRate,
 	canChangeUom,
@@ -503,6 +510,7 @@ import {
 interface Props {
 	modelValue: boolean;
 	item: any;
+	catalogItem?: any;
 	pos_profile: any;
 	invoiceType?: string;
 	isReturnInvoice?: boolean;
@@ -538,15 +546,13 @@ const useFullscreenDetails = computed(() => windowWidth.value <= 767);
 const __ = (window as any).__ || ((s: string) => s);
 const frappe = (window as any).frappe || { _: (s: string) => s };
 
+const imageFailed = ref(false);
 const itemTitle = computed(() => props.item?.item_name || props.item?.item_code || __("Item Details"));
-const itemImage = computed(
-	() =>
-		props.item?.image ||
-		props.item?.item_image ||
-		props.item?.thumbnail ||
-		props.item?.item_image_url ||
-		"",
-);
+const itemImage = computed(() => resolveItemImage(props.item, props.catalogItem));
+
+watch(itemImage, () => {
+	imageFailed.value = false;
+});
 
 const canEditR = computed(() => canEditRate(props.pos_profile, props.item, props.isReturnInvoice));
 const canEditDisc = computed(() => canEditItemDiscount(props.pos_profile, props.item, props.isReturnInvoice));
@@ -555,6 +561,7 @@ const canEditQuantity = computed(() => canEditQty(props.item, props.isReturnInvo
 const canChangeU = computed(() => canChangeUom(props.item, props.isReturnInvoice));
 
 const canToggleOffer = computed(() => {
+	if (props.isReturnInvoice) return false;
 	return !props.item?.is_free_item && !props.item?.posa_is_replace;
 });
 
@@ -565,6 +572,25 @@ const onQtyChange = (item: any, event: any) => {
 const getRaw = (item: any) => item?.raw || {};
 const getBatchOptions = (item: any) => getDisplayableBatchOptions(item?.batch_no_data);
 </script>
+
+<style scoped>
+.details-dialog__thumb {
+	width: 36px;
+	height: 36px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	border-radius: var(--pos-radius-sm, 6px);
+	background: var(--pos-surface-muted, #f4f5f7);
+}
+
+.details-dialog__thumb-image :deep(.v-img__img) {
+	object-fit: contain !important;
+	object-position: center;
+	padding: 2px;
+}
+</style>
 
 <style scoped>
 .details-dialog__thumb {

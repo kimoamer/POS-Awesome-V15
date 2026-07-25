@@ -27,6 +27,17 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.5.5.1 — Guard Acceptance & Regression Cleanup.
+
+Scope:
+
+- **Qty Decimal Formatting Parity**: Restored `hideQtyDecimals` formatting contract in `CartItemRow.vue` (`formatFloat(item.qty, hideQtyDecimals ? 0 : undefined)`).
+- **UOM Select Value Contract**: Restored `item-title="uom"` and `item-value="uom"` on `<v-select>` in `CartItemRow.vue` ensuring `submitUomEdit` receives string UOM names.
+- **Details Dialog Image Resolver**: Updated `InvoiceItemDetailsDialog.vue` to use `resolveItemImage(item, catalogItem)`, error state `@error="imageFailed = true"`, and `object-fit: contain`. Passed `:catalog-item` from `itemMediaByCode` in `ItemsTable.vue`.
+- **Boolean Setting Normalization**: Added `parseBooleanSetting` helper in `useItemPermissions.ts` to normalize `"0"`, `"1"`, `"false"`, `"true"`, `0`, `1`, `false`, and `true`.
+- **Offer Action Button Guard**: `canToggleOffer` in `InvoiceItemDetailsDialog.vue` hides/disables offer actions on Return, Replacement, and Free Item lines.
+- **Fixtures Verification**: Verified `POS Profile-posa_allow_price_list_rate_change` and `POS Profile-posa_allow_line_item_name_override` exist as complete JSON objects in `posawesome/fixtures/custom_field.json` and are listed under `fixtures` in `hooks.py`.
+
 Pass 6.5.5 — POS Profile UI & Item Action Guard Audit.
 
 Scope:
