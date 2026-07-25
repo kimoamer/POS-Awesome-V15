@@ -1,5 +1,5 @@
 <template>
-	<div class="invoice-item-card pos-themed-card" :class="{ 'is-return-item': isReturnInvoice }">
+	<div :class="cardClasses" class="pos-themed-card">
 		<!-- Product Identity Region -->
 		<div class="invoice-item-card__identity">
 			<div class="cart-item-thumb" aria-hidden="true">
@@ -115,10 +115,11 @@
 		<!-- Rate Region -->
 		<div class="invoice-item-card__rate">
 			<bdi class="cart-item-money cart-item-rate">
-				<span class="cart-rate-label">{{ __("Rate") }}</span>
-				<span class="currency-symbol">{{ currencySymbol(displayCurrency) }}</span>
+				<span class="cart-rate-label text-caption text-secondary mr-1" v-if="layoutMode !== 'row'">
+					{{ __("Rate") }}:
+				</span>
 				<span class="amount-value" :class="{ 'negative-number': isNegative(item.rate) }">
-					{{ formatCurrency(item.rate) }}
+					{{ formatMoney(item.rate, formatCurrency, currencySymbol, displayCurrency) }}
 				</span>
 			</bdi>
 		</div>
@@ -126,9 +127,8 @@
 		<!-- Amount Region -->
 		<div class="invoice-item-card__amount">
 			<bdi class="cart-item-money cart-item-amount">
-				<span class="currency-symbol">{{ currencySymbol(displayCurrency) }}</span>
-				<span class="amount-value" :class="{ 'negative-number': isNegative(item.qty * item.rate) }">
-					{{ formatCurrency(item.qty * item.rate) }}
+				<span class="amount-value" :class="{ 'negative-number': isNegative(lineAmount) }">
+					{{ formatMoney(lineAmount, formatCurrency, currencySymbol, displayCurrency) }}
 				</span>
 			</bdi>
 		</div>
@@ -165,42 +165,31 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref } from "vue";
+import { formatMoney } from "../../../composables/pos/shared/useMoneyFormatter";
 
 defineOptions({
 	name: "InvoiceItemCard",
 });
 
-const props = defineProps({
-	item: {
-		type: Object,
-		required: true,
-	},
-	posProfile: {
-		type: Object,
-		default: () => ({}),
-	},
-	isReturnInvoice: Boolean,
-	invoiceType: String,
-	displayCurrency: String,
-	formatFloat: {
-		type: Function,
-		required: true,
-	},
-	formatCurrency: {
-		type: Function,
-		required: true,
-	},
-	currencySymbol: {
-		type: Function,
-		required: true,
-	},
-	isNumber: Function,
-	isNegative: {
-		type: Function,
-		required: true,
-	},
-	hideQtyDecimals: Boolean,
-	isRTL: Boolean,
+export interface InvoiceItemCardProps {
+	item: any;
+	layoutMode?: "row" | "stacked" | "phone";
+	posProfile?: any;
+	isReturnInvoice?: boolean;
+	invoiceType?: string;
+	displayCurrency?: string;
+	formatFloat: (val: any, precision?: number) => string;
+	formatCurrency: (val: any, precision?: number) => string;
+	currencySymbol: (currency?: string) => string;
+	isNumber?: (val: any) => boolean | string;
+	isNegative: (val: any) => boolean;
+	hideQtyDecimals?: boolean;
+	isRTL?: boolean;
+}
+
+const props = withDefaults(defineProps<InvoiceItemCardProps>(), {
+	layoutMode: "row",
+	posProfile: () => ({}),
 });
 
 const emit = defineEmits([
@@ -224,7 +213,21 @@ const isEditingQty = ref(false);
 const editingQtyValue = ref("");
 const qtyInput = ref<any>(null);
 
+const cardClasses = computed(() => [
+	"invoice-item-card",
+	`invoice-item-card--${props.layoutMode}`,
+	{ "is-return-item": props.isReturnInvoice },
+]);
+
 const qtyLength = computed(() => String(Math.abs(props.item?.qty || 0)).replace(".", "").length);
+
+const lineAmount = computed(() => {
+	const amt = Number(props.item?.amount);
+	if (Number.isFinite(amt)) {
+		return amt;
+	}
+	return Number(props.item?.qty || 0) * Number(props.item?.rate || 0);
+});
 
 const itemTitle = computed(() => props.item?.item_name || props.item?.item_code || __("Unnamed item"));
 
@@ -312,12 +315,6 @@ function handleMinusClick() {
 
 <style scoped>
 .invoice-item-card {
-	display: grid;
-	grid-template-columns: minmax(180px, 1fr) 120px 100px 112px 88px;
-	align-items: center;
-	gap: 8px;
-	min-height: 68px;
-	padding: 8px 12px;
 	border-bottom: 1px solid var(--pos-border-light, #e2e8f0);
 	background: var(--pos-surface-raised, #ffffff);
 	transition: background-color 0.2s ease;
@@ -327,6 +324,90 @@ function handleMinusClick() {
 
 .invoice-item-card:hover {
 	background: color-mix(in srgb, var(--pos-primary-container, #eff6ff) 14%, var(--pos-surface-raised, #ffffff));
+}
+
+.invoice-item-card--row {
+	display: grid;
+	grid-template-columns: minmax(145px, 1fr) 108px 82px 98px 76px;
+	align-items: center;
+	gap: 6px;
+	min-height: 68px;
+	padding: 8px;
+}
+
+.invoice-item-card--stacked {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto auto;
+	grid-template-areas:
+		"identity amount amount"
+		"qty rate actions";
+	gap: 8px 10px;
+	padding: 10px;
+	min-height: 104px;
+}
+
+.invoice-item-card--stacked .invoice-item-card__identity {
+	grid-area: identity;
+}
+
+.invoice-item-card--stacked .invoice-item-card__qty {
+	grid-area: qty;
+	justify-content: flex-start;
+}
+
+.invoice-item-card--stacked .invoice-item-card__rate {
+	grid-area: rate;
+	display: flex;
+	align-items: center;
+}
+
+.invoice-item-card--stacked .invoice-item-card__amount {
+	grid-area: amount;
+	justify-content: flex-end;
+	align-self: flex-start;
+}
+
+.invoice-item-card--stacked .invoice-item-card__actions {
+	grid-area: actions;
+	justify-content: flex-end;
+}
+
+.invoice-item-card--phone {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-areas:
+		"identity amount"
+		"qty actions"
+		"rate rate";
+	gap: 8px;
+	padding: 10px;
+	min-height: 112px;
+}
+
+.invoice-item-card--phone .invoice-item-card__identity {
+	grid-area: identity;
+}
+
+.invoice-item-card--phone .invoice-item-card__qty {
+	grid-area: qty;
+	justify-content: flex-start;
+}
+
+.invoice-item-card--phone .invoice-item-card__rate {
+	grid-area: rate;
+	display: flex;
+	align-items: center;
+}
+
+.invoice-item-card--phone .invoice-item-card__amount {
+	grid-area: amount;
+	justify-content: flex-end;
+	align-self: flex-start;
+}
+
+.invoice-item-card--phone .invoice-item-card__actions {
+	grid-area: actions;
+	justify-content: flex-end;
 }
 
 .invoice-item-card__identity {
@@ -417,6 +498,8 @@ function handleMinusClick() {
 	display: flex;
 	align-items: center;
 	justify-content: flex-end;
+	font-weight: 750;
+	color: var(--pos-primary, #2563eb);
 }
 
 .invoice-item-card__actions {
@@ -446,55 +529,5 @@ function handleMinusClick() {
 .delete-action-btn:hover {
 	color: var(--pos-error, #ef4444) !important;
 	background: color-mix(in srgb, var(--pos-error, #ef4444) 10%, transparent) !important;
-}
-
-@media (max-width: 1199px) {
-	.invoice-item-card {
-		display: grid;
-		grid-template-columns: 40px minmax(0, 1fr) auto;
-		grid-template-areas:
-			"image identity amount"
-			"image meta amount"
-			"qty qty actions";
-		min-height: 104px;
-		gap: 6px 10px;
-		padding: 10px;
-	}
-
-	.invoice-item-card__identity {
-		grid-area: identity;
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.cart-item-thumb {
-		grid-area: image;
-	}
-
-	.invoice-item-card__amount {
-		grid-area: amount;
-		align-self: flex-start;
-	}
-
-	.invoice-item-card__qty {
-		grid-area: qty;
-		justify-content: flex-start;
-		align-self: center;
-	}
-
-	.invoice-item-card__rate {
-		display: none;
-	}
-
-	.invoice-item-card__actions {
-		grid-area: actions;
-		justify-content: flex-end;
-		align-self: center;
-	}
-
-	.cart-rate-label {
-		display: inline-flex;
-	}
 }
 </style>

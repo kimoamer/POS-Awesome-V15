@@ -65,14 +65,15 @@
 				<v-card class="invoice-command-menu pos-themed-card" elevation="8">
 					<v-list density="compact" nav class="invoice-command-menu__list">
 						<v-list-item
-							v-if="currentView === 'table'"
+							v-for="action in menuActions"
+							:key="action"
 							class="invoice-command-menu__item"
-							@click="openColumnSelectorFromMenu"
+							@click="runMenuAction(action)"
 						>
 							<template #prepend>
-								<v-icon size="18">mdi-view-column-outline</v-icon>
+								<v-icon size="18" v-if="action === 'columns'">mdi-view-column-outline</v-icon>
 							</template>
-							<v-list-item-title>{{ __("Columns") }}</v-list-item-title>
+							<v-list-item-title v-if="action === 'columns'">{{ __("Columns") }}</v-list-item-title>
 						</v-list-item>
 					</v-list>
 				</v-card>
@@ -132,6 +133,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
+type ToolbarActionKey = "columns";
+
 const props = defineProps({
 	itemSearch: {
 		type: String,
@@ -166,9 +169,25 @@ const toolbarRoot = ref<HTMLElement | null>(null);
 const isMobileToolbar = ref(false);
 let resizeObserver: ResizeObserver | null = null;
 
-const hasAdditionalActions = computed(() => props.currentView === "table");
-const showDirectColumns = computed(() => !isMobileToolbar.value && props.currentView === "table");
-const showMoreButton = computed(() => isMobileToolbar.value || hasAdditionalActions.value);
+const canManageColumns = computed(() => props.currentView === "table");
+const showDirectColumns = computed(() => canManageColumns.value && !isMobileToolbar.value);
+
+const menuActions = computed<ToolbarActionKey[]>(() => {
+	const actions: ToolbarActionKey[] = [];
+	if (canManageColumns.value && isMobileToolbar.value) {
+		actions.push("columns");
+	}
+	return actions;
+});
+
+const showMoreButton = computed(() => menuActions.value.length > 0);
+
+const runMenuAction = (action: ToolbarActionKey) => {
+	moreOpen.value = false;
+	if (action === "columns") {
+		toggleColumnSelection();
+	}
+};
 
 const toggleColumnSelection = () => {
 	tempSelectedColumns.value = normalizeColumns(props.selectedColumns);

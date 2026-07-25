@@ -5,6 +5,7 @@
 				v-for="item in items"
 				:key="item.posa_row_id || item.item_code"
 				:item="item"
+				:layout-mode="layoutMode"
 				:pos-profile="posProfile"
 				:is-return-invoice="isReturnInvoice"
 				:invoice-type="invoiceType"
@@ -47,49 +48,32 @@ defineOptions({
 	name: "InvoiceItemsListView",
 });
 
-defineProps({
-	items: {
-		type: Array as () => any[],
-		default: () => [],
-	},
-	posProfile: {
-		type: Object,
-		default: () => ({}),
-	},
-	isReturnInvoice: Boolean,
-	invoiceType: String,
-	displayCurrency: String,
-	formatFloat: {
-		type: Function,
-		required: true,
-	},
-	formatCurrency: {
-		type: Function,
-		required: true,
-	},
-	currencySymbol: {
-		type: Function,
-		required: true,
-	},
-	isNumber: Function,
-	isNegative: {
-		type: Function,
-		required: true,
-	},
-	hideQtyDecimals: Boolean,
-	isRTL: Boolean,
-	emptyStateTitle: {
-		type: String,
-		default: "No items in cart",
-	},
-	emptyStateSubtitle: {
-		type: String,
-		default: "Add products from the selector to start this sale.",
-	},
-	emptyStateIcon: {
-		type: String,
-		default: "mdi-cart-outline",
-	},
+export interface InvoiceItemsListViewProps {
+	items?: any[];
+	layoutMode?: "row" | "stacked" | "phone";
+	posProfile?: any;
+	isReturnInvoice?: boolean;
+	invoiceType?: string;
+	displayCurrency?: string;
+	formatFloat: (val: any, precision?: number) => string;
+	formatCurrency: (val: any, precision?: number) => string;
+	currencySymbol: (currency?: string) => string;
+	isNumber?: (val: any) => boolean | string;
+	isNegative: (val: any) => boolean;
+	hideQtyDecimals?: boolean;
+	isRTL?: boolean;
+	emptyStateTitle?: string;
+	emptyStateSubtitle?: string;
+	emptyStateIcon?: string;
+}
+
+const props = withDefaults(defineProps<InvoiceItemsListViewProps>(), {
+	items: () => [],
+	layoutMode: "row",
+	posProfile: () => ({}),
+	emptyStateTitle: "No items in cart",
+	emptyStateSubtitle: "Add products from the selector to start this sale.",
+	emptyStateIcon: "mdi-cart-outline",
 });
 
 defineEmits([

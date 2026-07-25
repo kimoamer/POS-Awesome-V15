@@ -2,7 +2,8 @@
 	<v-dialog
 		:model-value="modelValue"
 		@update:model-value="$emit('update:modelValue', $event)"
-		max-width="720px"
+		:fullscreen="useFullscreenDetails"
+		:max-width="useFullscreenDetails ? undefined : '840px'"
 		scrollable
 		class="invoice-item-details-dialog"
 	>
@@ -208,6 +209,20 @@
 								>
 									<v-icon size="small" class="mr-1">mdi-pencil</v-icon>
 									{{ __("Change Price") }}
+								</v-btn>
+							</div>
+							<div class="posa-form-field" v-if="canToggleOffer">
+								<v-btn
+									size="small"
+									:color="item.posa_is_offer ? 'error' : 'success'"
+									variant="tonal"
+									class="offer-action-btn"
+									@click.stop="$emit('toggle-offer', item)"
+								>
+									<v-icon size="small" class="mr-1">
+										{{ item.posa_is_offer ? 'mdi-tag-remove' : 'mdi-tag-plus' }}
+									</v-icon>
+									{{ item.posa_is_offer ? __("Remove Offer") : __("Apply Offer") }}
 								</v-btn>
 							</div>
 						</div>
@@ -462,6 +477,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { getDisplayableBatchOptions } from "../../../composables/pos/shared/useBatchSerial";
+import { useResponsive } from "../../../composables/core/useResponsive";
 
 interface Props {
 	modelValue: boolean;
@@ -492,7 +508,11 @@ const props = defineProps<Props>();
 const emit = defineEmits<{
 	"update:modelValue": [val: boolean];
 	"qty-change": [item: any, event: any];
+	"toggle-offer": [item: any];
 }>();
+
+const { windowWidth } = useResponsive();
+const useFullscreenDetails = computed(() => windowWidth.value <= 767);
 
 const __ = (window as any).__ || ((s: string) => s);
 const frappe = (window as any).frappe || { _: (s: string) => s };
@@ -506,6 +526,10 @@ const itemImage = computed(
 		props.item?.item_image_url ||
 		"",
 );
+
+const canToggleOffer = computed(() => {
+	return !props.item?.is_free_item && !props.item?.posa_is_replace;
+});
 
 const onQtyChange = (item: any, event: any) => {
 	emit("qty-change", item, event);

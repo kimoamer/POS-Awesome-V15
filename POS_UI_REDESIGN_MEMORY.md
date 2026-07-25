@@ -27,19 +27,18 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
-## Recently Completed
-
-Pass 6.5.1 — Invoice Items Dual View + Responsive Cart Screen Architecture.
+Pass 6.5.3 — Dual View Final Functional, Responsive and POS Profile Acceptance.
 
 Scope:
 
-- **Dual View Architecture**: Separated cart presentation into independent components: `InvoiceItemsListView.vue` (card list) and `InvoiceItemsTableView.vue` (classic table view), controlled by `ItemsTable.vue`.
-- **View Mode Persistence**: User choice (`list` vs `table`) on Desktop (`>= 1200px`) is saved per POS Profile in `localStorage` key `posa_invoice_items_view:${posProfileName}`.
-- **Responsive Sizing Guard (< 1200px)**: `effectiveInvoiceItemsView` forces `list` mode on tablet/mobile screens without overwriting saved desktop preferences.
-- **Toolbar View Toggle**: Added `[ ☷ List ] [ ▦ Table ]` segmented toggle to `InvoiceItemsActionToolbar.vue` on Desktop `>= 1200px`. `Columns` button is shown ONLY in `table` view mode.
-- **Modal Item Details**: Replaced inline table expanded rows with `InvoiceItemDetailsDialog.vue` (modal dialog on desktop/tablet, full-screen sheet on mobile) containing basic info, pricing, stock, batch, and serial numbers.
-- **Responsive Screen Stack (< 1200px)**: Browse (Products) and Cart (Invoice) views remain mounted in a CSS panel stack (`compact-panel-stack`), preserving product scroll, categories, search text, customer selection, and invoice state across screen switches.
-- **Preserved All Core Logic**: All stores, APIs, Qty steppers, direct inputs, discounts, taxes, UOM, serial/batch, return items, offers, multi-currency, props, emits, and calculations remain 100% intact.
+- **Toolbar Contract**: Resolved columns button duplication. On wide toolbar (`table` view), renders `[ List | Table ] [ Columns ]` (No More button). On narrow toolbar (`table` view), renders `[ List | Table ] [ More -> Columns ]`. In `list` view, renders `[ List | Table ]` (No Columns, No More button). On Tablet/Mobile (< 1200px), renders only `[ Search ]`.
+- **Single-Source Search**: Search filtering performed once in `ItemsTable.vue` via `filteredItems` and passed to both `InvoiceItemsListView` and `InvoiceItemsTableView`. Double-filtering removed from table view.
+- **Viewport Guard vs Layout Mode**: Window width (`< 1200px`) forces `list` mode and hides view toggle. Container width (`< 620px`) controls card layout modes (`row`, `stacked`, `phone`).
+- **Card Layout & Rate Visibility**: Direct grid mapping for `.invoice-item-card--row`, `--stacked`, and `--phone`. **Rate remains visible** across all layouts and responsive breakpoints.
+- **Unified Money Formatter**: Created `useMoneyFormatter.ts` with `formatMoney` helper to prevent duplicate currency symbols and maintain proper RTL/LTR bidi alignment.
+- **Line Amount Priority**: Prioritizes `item.amount` over `qty * rate` calculation.
+- **POS Profile Matrix & Offers**: All POS Profile permissions respected (Name override, Rate edit, Discount edit, Price list rate change). Added `Apply Offer` / `Remove Offer` action button inside `InvoiceItemDetailsDialog.vue`.
+- **Responsive Dialog / Sheet**: `InvoiceItemDetailsDialog.vue` becomes fullscreen on Mobile (`<= 767px`) with sticky header and footer.
 
 ## Current Pass
 

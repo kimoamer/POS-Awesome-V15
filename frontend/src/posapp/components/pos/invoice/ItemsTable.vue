@@ -12,7 +12,8 @@
 		<!-- Card List Presentation (Default & forced on Tablet/Mobile < 1200px) -->
 		<InvoiceItemsListView
 			v-if="effectiveInvoiceItemsView === 'list'"
-			:items="items"
+			:items="filteredItems"
+			:layout-mode="invoiceCardLayout"
 			:pos-profile="pos_profile"
 			:is-return-invoice="isReturnInvoice"
 			:invoice-type="invoiceType"
@@ -44,7 +45,7 @@
 		<!-- Classic Data Table Presentation (Desktop >= 1200px optional) -->
 		<InvoiceItemsTableView
 			v-else
-			:items="items"
+			:items="filteredItems"
 			:headers="finalVisibleColumns"
 			:pos-profile="pos_profile"
 			:is-return-invoice="isReturnInvoice"
@@ -60,8 +61,6 @@
 			:table-classes="tableClasses"
 			:table-density="tableDensity"
 			:header-props="dynamicHeaderProps"
-			:item-search="itemSearch"
-			:custom-filter="customItemFilter"
 			:empty-state-title="emptyStateTitle"
 			:empty-state-subtitle="emptyStateSubtitle"
 			:empty-state-icon="emptyStateIcon"
@@ -103,6 +102,7 @@
 			:set-batch-qty="setBatchQty"
 			:validate-due-date="validateDueDate"
 			@qty-change="handleQtyChange"
+			@toggle-offer="toggleOffer"
 		/>
 
 		<!-- Edit name dialog -->
@@ -147,6 +147,7 @@ import { useItemsTableMerge } from "../../../composables/pos/items/useItemsTable
 import { useItemsTableNameEdit } from "../../../composables/pos/items/useItemsTableNameEdit";
 import { useFormatters } from "../../../composables/core/useFormatters";
 import { useRtl } from "../../../composables/core/useRtl";
+import { useResponsive } from "../../../composables/core/useResponsive";
 import {
 	focusCartItemField,
 	type CartFieldFocusOptions,
@@ -207,6 +208,7 @@ const tableContainer = ref<HTMLElement | null>(null);
 const { customItemFilter } = useItemsTableSearch();
 const dragDropHandlers = useItemsTableDragDrop(emit, eventBus);
 const { isRtl } = useRtl();
+const { windowWidth } = useResponsive();
 const { memoizedFormatFloat, memoizedFormatCurrency, clearFormatCache } = useFormatters({
 	formatFloat: props.formatFloat,
 	formatCurrency: props.formatCurrency,
@@ -221,6 +223,17 @@ const nameEdit = useItemsTableNameEdit();
 
 // Computed
 const items = computed(() => invoiceStore.items);
+
+const filteredItems = computed(() => {
+	const search = props.itemSearch?.trim() || "";
+	if (!search) {
+		return items.value || [];
+	}
+	return (items.value || []).filter((item: any) =>
+		customItemFilter(item, search, item),
+	);
+});
+
 const invoice_doc = computed(() => invoiceStore.invoiceDoc || {});
 const hasItemSearch = computed(() => !!props.itemSearch?.trim());
 const emptyStateIcon = computed(() => (hasItemSearch.value ? "mdi-cart-search" : "mdi-cart-outline"));
@@ -283,7 +296,20 @@ watch(
 	},
 );
 
-const isCompactViewport = computed(() => isStackedRows.value);
+const isCompactViewport = computed(() => windowWidth.value < 1200);
+const cartContainerWidth = computed(() => containerWidth.value || 0);
+
+type InvoiceCardLayout = "row" | "stacked" | "phone";
+
+const invoiceCardLayout = computed<InvoiceCardLayout>(() => {
+	if (windowWidth.value <= 600) {
+		return "phone";
+	}
+	if (isCompactViewport.value || cartContainerWidth.value < 620) {
+		return "stacked";
+	}
+	return "row";
+});
 
 const effectiveInvoiceItemsView = computed(() => {
 	if (isCompactViewport.value) {
