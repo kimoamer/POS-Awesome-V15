@@ -103,12 +103,15 @@ defineProps({
 	isRTL: Boolean,
 	tableClasses: Object,
 	tableDensity: {
-		type: String,
+		type: String as () => "default" | "comfortable" | "compact",
 		default: "comfortable",
 	},
 	headerProps: Object,
 	itemSearch: String,
-	customFilter: Function,
+	customFilter: {
+		type: [Function, Object] as any,
+		default: undefined,
+	},
 	emptyStateTitle: String,
 	emptyStateSubtitle: String,
 	emptyStateIcon: String,

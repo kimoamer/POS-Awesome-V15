@@ -101,7 +101,7 @@
 						>
 							<v-switch
 								:model-value="isTempColumnSelected(column.key)"
-								@update:model-value="(value) => setTempColumnSelection(column.key, value)"
+								@update:model-value="(value) => setTempColumnSelection(column.key, !!value)"
 								:label="column.title"
 								hide-details
 								density="compact"
@@ -138,11 +138,11 @@ const props = defineProps({
 		default: "",
 	},
 	availableColumns: {
-		type: Array,
+		type: Array as () => any[],
 		default: () => [],
 	},
 	selectedColumns: {
-		type: Array,
+		type: Array as () => string[],
 		default: () => [],
 	},
 	currentView: {
@@ -157,14 +157,14 @@ const props = defineProps({
 
 const emit = defineEmits(["update:itemSearch", "update:selectedColumns", "update:currentView"]);
 
-const __ = (window as any).__ || ((s) => s);
+const __ = (window as any).__ || ((s: string) => s);
 const showColumnSelector = ref(false);
 const moreOpen = ref(false);
-const tempSelectedColumns = ref([]);
-const itemSearchField = ref(null);
-const toolbarRoot = ref(null);
+const tempSelectedColumns = ref<string[]>([]);
+const itemSearchField = ref<any>(null);
+const toolbarRoot = ref<HTMLElement | null>(null);
 const isMobileToolbar = ref(false);
-let resizeObserver = null;
+let resizeObserver: ResizeObserver | null = null;
 
 const hasAdditionalActions = computed(() => props.currentView === "table");
 const showDirectColumns = computed(() => !isMobileToolbar.value && props.currentView === "table");
@@ -200,12 +200,12 @@ const updateToolbarMode = () => {
 	isMobileToolbar.value = width > 0 && width < 520;
 };
 
-const normalizeColumns = (columns) =>
+const normalizeColumns = (columns: any): string[] =>
 	Array.isArray(columns) ? [...new Set(columns.filter((column) => typeof column === "string"))] : [];
 
-const isTempColumnSelected = (key) => tempSelectedColumns.value.includes(key);
+const isTempColumnSelected = (key: string): boolean => tempSelectedColumns.value.includes(key);
 
-const setTempColumnSelection = (key, selected) => {
+const setTempColumnSelection = (key: string, selected: boolean | null) => {
 	const next = new Set(tempSelectedColumns.value);
 	if (selected) {
 		next.add(key);
