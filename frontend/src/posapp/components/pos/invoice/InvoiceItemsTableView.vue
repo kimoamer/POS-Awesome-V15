@@ -39,7 +39,6 @@
 					:isNegative="isNegative"
 					:hideQtyDecimals="hideQtyDecimals"
 					:isRTL="isRTL"
-					:is-expanded="false"
 					@update-qty="(item, qty) => $emit('update-qty', item, qty)"
 					@qty-edit-submitted="$emit('qty-edit-submitted', $event)"
 					@minus-click="$emit('minus-click', $event)"
@@ -52,7 +51,7 @@
 					@open-name-dialog="$emit('open-name-dialog', $event)"
 					@reset-item-name="$emit('reset-item-name', $event)"
 					@toggle-offer="$emit('toggle-offer', $event)"
-					@toggle-expand="$emit('open-details', $event)"
+					@open-details="$emit('open-details', $event)"
 					@remove-item="$emit('remove-item', $event)"
 				/>
 			</template>

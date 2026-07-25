@@ -1699,3 +1699,15 @@
 		max-inline-size: 106px !important;
 	}
 }
+
+/* Actions Column Overflow Rules */
+.posa-cart-table td[data-column-key="actions"],
+.posa-cart-table td[data-column-key="data-table-expand"] {
+	padding-inline: 2px !important;
+	overflow: visible !important;
+}
+
+.posa-cart-table td[data-column-key="actions"] > .invoice-row-actions,
+.posa-cart-table td[data-column-key="data-table-expand"] > .invoice-row-actions {
+	overflow: visible !important;
+}

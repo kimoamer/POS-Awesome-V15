@@ -62,6 +62,12 @@ export function canRemoveItem(item: any): boolean {
 	return true;
 }
 
+export function canToggleOffer(item: any, isReturnInvoice?: boolean): boolean {
+	if (!item) return false;
+	if (isReturnInvoice || isLockedPromotionLine(item)) return false;
+	return true;
+}
+
 export interface ItemUiCapabilities {
 	editQty: boolean;
 	editRate: boolean;
@@ -70,6 +76,7 @@ export interface ItemUiCapabilities {
 	changePriceListRate: boolean;
 	overrideItemName: boolean;
 	removeItem: boolean;
+	toggleOffer: boolean;
 	showAdditionalNotes: boolean;
 	showDeliveryDate: boolean;
 }
@@ -92,6 +99,7 @@ export function getItemUiCapabilities(
 		changePriceListRate: canChangePriceListRate(posProfile, item, isReturnInvoice),
 		overrideItemName: canOverrideItemName(posProfile, item),
 		removeItem: canRemoveItem(item),
+		toggleOffer: canToggleOffer(item, isReturnInvoice),
 		showAdditionalNotes: parseBooleanSetting(posProfile?.posa_display_additional_notes),
 		showDeliveryDate:
 			parseBooleanSetting(posProfile?.posa_allow_sales_order) &&

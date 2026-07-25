@@ -210,12 +210,11 @@
 				:data-column-key="'price_list_rate'"
 			>
 				<bdi class="cart-item-money">
-					<span class="currency-symbol">{{ currencySymbol(displayCurrency) }}</span>
 					<span
 						class="amount-value"
 						:class="{ 'negative-number': isNegative(item.price_list_rate) }"
 					>
-						{{ formatCurrency(item.price_list_rate) }}
+						{{ formatMoney(item.price_list_rate, formatCurrency || ((v) => String(v)), currencySymbol || (() => ''), displayCurrency) }}
 					</span>
 				</bdi>
 			</td>
@@ -290,10 +289,9 @@
 						@keydown.space.prevent="openDiscountAmountEdit"
 					>
 						<bdi class="cart-item-money">
-							<span class="currency-symbol">{{ currencySymbol(displayCurrency) }}</span>
-							<span class="amount-value">{{
-								formatCurrency(Math.abs(item.discount_amount || 0))
-							}}</span>
+							<span class="amount-value">
+								{{ formatMoney(Math.abs(item.discount_amount || 0), formatCurrency || ((v) => String(v)), currencySymbol || (() => ''), displayCurrency) }}
+							</span>
 						</bdi>
 					</div>
 					<v-text-field
@@ -330,10 +328,8 @@
 						@keydown.space.prevent="openRateEdit"
 					>
 						<bdi class="cart-item-money cart-item-rate">
-							<span class="cart-rate-label">{{ __("Rate") }}</span>
-							<span class="currency-symbol">{{ currencySymbol(displayCurrency) }}</span>
 							<span class="amount-value" :class="{ 'negative-number': isNegative(item.rate) }">
-								{{ formatCurrency(item.rate) }}
+								{{ formatMoney(item.rate, formatCurrency || ((v) => String(v)), currencySymbol || (() => ''), displayCurrency) }}
 							</span>
 						</bdi>
 					</div>
@@ -358,12 +354,11 @@
 			<!-- Amount Column -->
 			<td v-else-if="column.key === 'amount'" class="text-center" :data-column-key="'amount'">
 				<bdi class="cart-item-money cart-item-amount right-aligned">
-					<span class="currency-symbol">{{ currencySymbol(displayCurrency) }}</span>
 					<span
 						class="amount-value"
-						:class="{ 'negative-number': isNegative(item.qty * item.rate) }"
+						:class="{ 'negative-number': isNegative(lineAmount) }"
 					>
-						{{ formatCurrency(item.qty * item.rate) }}
+						{{ formatMoney(lineAmount, formatCurrency || ((v) => String(v)), currencySymbol || (() => ''), displayCurrency) }}
 					</span>
 				</bdi>
 			</td>
@@ -379,38 +374,21 @@
 					color="primary"
 					variant="tonal"
 					class="ma-0 pa-0"
+					:disabled="!capabilities.toggleOffer"
 					@click.stop="$emit('toggle-offer', item)"
 				>
 					{{ item.posa_offer_applied ? __("Remove Offer") : __("Apply Offer") }}
 				</v-btn>
 			</td>
 
-			<!-- Actions Column (Delete + Expand cluster) -->
+			<!-- Actions Column (Unified Row Actions) -->
 			<td v-else-if="column.key === 'actions'" class="text-center" :data-column-key="'actions'">
-				<div class="cart-item-actions">
-					<v-btn
-						:disabled="!canRemove"
-						size="small"
-						variant="text"
-						class="cart-item-action delete-action-btn"
-						@click.stop="$emit('remove-item', item)"
-						:aria-label="__('Remove item')"
-					>
-						<v-icon size="small">mdi-delete-outline</v-icon>
-					</v-btn>
-					<v-btn
-						icon
-						size="small"
-						variant="text"
-						class="cart-item-action expand-action-btn"
-						@click.stop="$emit('toggle-expand')"
-						:aria-label="isExpanded ? __('Collapse item details') : __('Expand item details')"
-					>
-						<v-icon size="small">
-							{{ isExpanded ? "mdi-chevron-up" : "mdi-chevron-down" }}
-						</v-icon>
-					</v-btn>
-				</div>
+				<InvoiceItemRowActions
+					:item="item"
+					:can-remove="canRemove"
+					@open-details="$emit('open-details', item)"
+					@remove-item="$emit('remove-item', item)"
+				/>
 			</td>
 
 			<!-- Fallback for standalone expand column -->
@@ -419,18 +397,12 @@
 				class="text-center"
 				:data-column-key="'data-table-expand'"
 			>
-				<v-btn
-					icon
-					size="small"
-					variant="text"
-					class="cart-item-action expand-action-btn"
-					@click.stop="$emit('toggle-expand')"
-					:aria-label="isExpanded ? __('Collapse item details') : __('Expand item details')"
-				>
-					<v-icon size="small">
-						{{ isExpanded ? "mdi-chevron-up" : "mdi-chevron-down" }}
-					</v-icon>
-				</v-btn>
+				<InvoiceItemRowActions
+					:item="item"
+					:can-remove="canRemove"
+					@open-details="$emit('open-details', item)"
+					@remove-item="$emit('remove-item', item)"
+				/>
 			</td>
 		</template>
 	</tr>
@@ -439,9 +411,9 @@
 <script setup>
 import { computed, nextTick, ref, watch } from "vue";
 import { resolveItemImage } from "../../../utils/itemImage";
-import {
-	getItemUiCapabilities,
-} from "../../../composables/pos/items/useItemPermissions";
+import { getItemUiCapabilities } from "../../../composables/pos/items/useItemPermissions";
+import { formatMoney } from "../../../composables/pos/shared/useMoneyFormatter";
+import InvoiceItemRowActions from "./InvoiceItemRowActions.vue";
 
 defineOptions({
 	name: "CartItemRow",
@@ -471,7 +443,6 @@ const props = defineProps({
 	isNegative: Function,
 	hideQtyDecimals: Boolean,
 	isRTL: Boolean,
-	isExpanded: Boolean,
 });
 
 const emit = defineEmits([
@@ -487,7 +458,7 @@ const emit = defineEmits([
 	"qty-edit-submitted",
 	"discount-percent-edit-submitted",
 	"toggle-offer",
-	"toggle-expand",
+	"open-details",
 	"remove-item",
 ]);
 
@@ -509,6 +480,13 @@ const rateInput = ref(null);
 const discountPercentInput = ref(null);
 const discountAmountInput = ref(null);
 const uomSelect = ref(null);
+
+const capabilities = computed(() =>
+	getItemUiCapabilities(props.posProfile, props.item, {
+		isReturnInvoice: props.isReturnInvoice,
+		invoiceType: props.invoiceType,
+	}),
+);
 
 const memoDeps = computed(() => {
 	return [
@@ -532,9 +510,15 @@ const memoDeps = computed(() => {
 		props.item.posa_offer_applied,
 		props.item.is_free_item,
 		props.item.price_list_rate,
-		props.isExpanded,
 		props.visibleColumns.map((column) => column?.key).join("|"),
-		// Include edit states to ensure UI updates when switching modes
+		capabilities.value.editQty,
+		capabilities.value.editRate,
+		capabilities.value.editDiscount,
+		capabilities.value.changeUom,
+		capabilities.value.changePriceListRate,
+		capabilities.value.overrideItemName,
+		capabilities.value.removeItem,
+		capabilities.value.toggleOffer,
 		isEditingQty.value,
 		isEditingRate.value,
 		isEditingUom.value,
@@ -543,7 +527,13 @@ const memoDeps = computed(() => {
 	];
 });
 
-const qtyLength = computed(() => String(Math.abs(props.item.qty || 0)).replace(".", "").length);
+const lineAmount = computed(() => {
+	const amount = Number(props.item?.amount);
+	if (Number.isFinite(amount)) {
+		return amount;
+	}
+	return Number(props.item?.qty || 0) * Number(props.item?.rate || 0);
+});
 
 const itemTitle = computed(() => props.item.item_name || props.item.item_code || __("Unnamed item"));
 
@@ -566,13 +556,6 @@ const itemMetaParts = computed(() => {
 });
 
 const itemMetaTitle = computed(() => itemMetaParts.value.join(" · ") || props.item.uom || "");
-
-const capabilities = computed(() =>
-	getItemUiCapabilities(props.posProfile, props.item, {
-		isReturnInvoice: props.isReturnInvoice,
-		invoiceType: props.invoiceType,
-	}),
-);
 
 const canOverrideName = computed(() => capabilities.value.overrideItemName);
 const canEditQuantity = computed(() => capabilities.value.editQty);
@@ -611,7 +594,6 @@ function closeQtyEdit(options = {}) {
 		let didUpdate = false;
 		if (editingQtyValue.value !== "" && editingQtyValue.value != null) {
 			const newQty = parseFloat(editingQtyValue.value);
-			// Emit event to update parent state
 			const val = !newQty || newQty <= 0 ? 1 : newQty;
 			emit("update-qty", props.item, val);
 			didUpdate = true;
@@ -633,31 +615,20 @@ function handleMinusClick() {
 	emit("minus-click", props.item);
 }
 
-function changeUom(direction) {
-	if (disableUomEdit.value) return;
-	const uoms = props.item.item_uoms.map((u) => u.uom);
-	const currentIndex = uoms.indexOf(props.item.uom);
-	let newIndex = currentIndex + direction;
-
-	if (newIndex < 0) {
-		newIndex = uoms.length - 1;
-	} else if (newIndex >= uoms.length) {
-		newIndex = 0;
-	}
-
-	const newUom = uoms[newIndex];
-	if (newUom !== props.item.uom) {
-		emit("calc-uom", props.item, newUom);
-	}
-}
-
-function handleUomSelect(newUom) {
+function submitUomEdit(newUom) {
 	if (disableUomEdit.value) return;
 	if (newUom && newUom !== props.item.uom) {
 		emit("calc-uom", props.item, newUom);
 	}
-	// Find the correct component instance to blur - ref is local now
-	uomSelect.value?.blur();
+	closeUomEdit();
+}
+
+function closeUomEdit() {
+	isEditingUom.value = false;
+}
+
+function cancelUomEdit() {
+	isEditingUom.value = false;
 }
 
 function openRateEdit() {
@@ -674,9 +645,6 @@ function closeRateEdit() {
 		if (editingRateValue.value !== "" && editingRateValue.value != null) {
 			const newRate = parseFloat(editingRateValue.value);
 			if (Number.isFinite(newRate) && newRate !== props.item.rate) {
-				// We need to pass the "event-like" object that useDiscounts expects or handle it in parent
-				// For isolation, let's emit value and let parent handler construct event if needed
-				// But ItemsTable methods expect (item, value, event)
 				emit("update-rate", props.item, newRate);
 			}
 		}
@@ -751,7 +719,6 @@ function cancelDiscountAmountEdit() {
 </script>
 
 <style scoped>
-/* Local styles specific to the row only */
 .currency-display {
 	display: flex;
 	align-items: center;
@@ -789,62 +756,5 @@ function cancelDiscountAmountEdit() {
 
 .amount-value.right-aligned {
 	text-align: center;
-}
-
-.currency-symbol {
-	opacity: 0.7;
-	margin-inline-end: 2px;
-	font-size: 0.78em;
-	flex: 0 0 auto;
-}
-
-.negative-number {
-	color: var(--pos-error) !important;
-	font-weight: 600;
-}
-
-td {
-	padding: 0;
-	vertical-align: middle;
-	height: var(--cart-table-row-height, 60px);
-	text-align: center;
-	color: var(--pos-text-primary);
-	position: relative;
-	min-width: 0;
-	overflow: hidden;
-}
-
-.posa-cart-table__delete-btn,
-.posa-cart-table__expand-btn {
-	inline-size: 44px !important;
-	block-size: 44px !important;
-	min-inline-size: 44px !important;
-	border-radius: 10px !important;
-	box-shadow: none !important;
-}
-
-.posa-cart-table__delete-btn {
-	color: var(--pos-error) !important;
-	background: transparent !important;
-}
-
-.posa-cart-table__delete-btn:hover {
-	background: color-mix(in srgb, var(--pos-error) 9%, transparent) !important;
-}
-
-.posa-cart-table__expand-btn {
-	color: var(--pos-text-secondary) !important;
-}
-
-/* Keyboard focus styles */
-/* Keyboard focus styles */
-.posa-cart-table__qty-display:focus-visible,
-.posa-cart-table__editor-display:focus-visible,
-.posa-cart-table__delete-btn:focus-visible,
-.posa-cart-table__expand-btn:focus-visible,
-.cart-item-name-action:focus-visible {
-	outline: 2px solid var(--pos-primary);
-	outline-offset: 2px;
-	z-index: 10;
 }
 </style>

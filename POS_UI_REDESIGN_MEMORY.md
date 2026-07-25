@@ -27,6 +27,17 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.6.2 — Invoice Action Integrity & Item Row Actions Fix (Complete ✅).
+
+Scope:
+
+- **Unified Action Cluster (`InvoiceItemRowActions.vue`)**: Standardized item row action buttons (`Details` primary tonal `mdi-tune-variant`, `Delete` error tonal `mdi-delete-outline`) across Premium List and Classic Table.
+- **Fixed Table Event Contract**: Removed old `isExpanded` prop, `toggle-expand` emit, and inline chevron icons from `CartItemRow.vue` and `InvoiceItemsTableView.vue`. Details button now directly emits `open-details(item)` so the exact item is passed to Details Dialog.
+- **Widened Actions Column**: Increased `actions` column width in `useItemsTableResponsive.ts` to `96px` and added `overflow: visible` styling in `items-table-styles.css`.
+- **v-memo Reactivity & Offer Guard**: Included all capabilities in `memoDeps` (`editQty`, `editRate`, `editDiscount`, `changeUom`, `changePriceListRate`, `overrideItemName`, `removeItem`, `toggleOffer`). Added `toggleOffer` capability guard in `useItemPermissions.ts`.
+- **Table Money Parity**: Updated `CartItemRow.vue` line amount calculation (`item.amount` priority) and formatted all amounts via `formatMoney(...)`.
+- **Automated Tests**: Created `tests/cartItemRowActions.spec.ts` testing row action emits, promotional item locks, offer capabilities, and footer event regression tests.
+
 Pass 6.6.1 — Footer Reactivity & Action Safety Acceptance (Complete ✅).
 
 Scope:

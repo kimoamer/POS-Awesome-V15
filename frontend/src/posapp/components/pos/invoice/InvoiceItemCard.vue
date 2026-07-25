@@ -187,28 +187,12 @@
 		<!-- Action Cluster Region -->
 		<div class="invoice-item-card__actions">
 			<div class="cart-item-actions">
-				<v-btn
-					icon
-					size="small"
-					variant="text"
-					class="cart-item-action details-action-btn"
-					@click.stop="$emit('open-details', item)"
-					:aria-label="__('Item details')"
-				>
-					<v-icon size="small">mdi-dots-vertical</v-icon>
-					<v-tooltip activator="parent" location="bottom">{{ __("Details") }}</v-tooltip>
-				</v-btn>
-				<v-btn
-					:disabled="!canRemove"
-					size="small"
-					variant="text"
-					class="cart-item-action delete-action-btn"
-					@click.stop="$emit('remove-item', item)"
-					:aria-label="__('Remove item')"
-				>
-					<v-icon size="small">mdi-delete-outline</v-icon>
-					<v-tooltip activator="parent" location="bottom">{{ __("Remove") }}</v-tooltip>
-				</v-btn>
+				<InvoiceItemRowActions
+					:item="item"
+					:can-remove="canRemove"
+					@open-details="$emit('open-details', item)"
+					@remove-item="$emit('remove-item', item)"
+				/>
 			</div>
 		</div>
 	</div>
@@ -218,6 +202,7 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { formatMoney } from "../../../composables/pos/shared/useMoneyFormatter";
 import { resolveItemImage } from "../../../utils/itemImage";
+import InvoiceItemRowActions from "./InvoiceItemRowActions.vue";
 import {
 	canEditQty,
 	canOverrideItemName,

@@ -71,4 +71,25 @@ describe("useInvoiceFooterActions composable & reactive footer logic", () => {
 		expect(Math.abs(Number(qtyPositive || 0)) > 0).toBe(true);
 		expect(Math.abs(Number(qtyNegative || 0)) > 0).toBe(true);
 	});
+
+	it("preserves all required invoice footer event mappings", () => {
+		const { footerActions } = useInvoiceFooterActions({
+			posProfile: {
+				custom_allow_select_sales_order: 1,
+				posa_allow_return: 1,
+				posa_allow_print_draft_invoices: 1,
+				posa_enable_customer_display: 1,
+			},
+		});
+
+		const allKeys = footerActions.value.map((a) => a.key);
+		expect(allKeys).toContain("save");
+		expect(allKeys).toContain("drafts");
+		expect(allKeys).toContain("select-order");
+		expect(allKeys).toContain("invoice-management");
+		expect(allKeys).toContain("return");
+		expect(allKeys).toContain("print");
+		expect(allKeys).toContain("customer-display");
+		expect(allKeys).toContain("cancel");
+	});
 });
