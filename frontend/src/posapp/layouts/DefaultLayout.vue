@@ -1258,19 +1258,21 @@ const adjust_frappe_sidebar_offset = () => {
 	max-width: 100%;
 	min-width: 0;
 	min-height: 0;
-	height: 100%;
+	height: 100dvh;
 	display: flex;
 	flex-direction: column;
+	overflow: hidden;
 }
 
 .page-content {
 	flex: 1 1 auto;
+	width: 100%;
 	min-width: 0;
 	min-height: 0;
-	overflow: auto;
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
 	overscroll-behavior: contain;
-	padding-block-start: var(--pos-page-content-padding-top, 8px);
-	padding-inline: var(--pos-page-content-padding-inline, 0px);
 }
 
 .bootstrap-warning-snackbar :deep(.v-snackbar__wrapper) {
@@ -1321,7 +1323,7 @@ const adjust_frappe_sidebar_offset = () => {
 	}
 
 	.page-content {
-		overflow: auto;
+		overflow: hidden;
 		min-height: 0;
 	}
 

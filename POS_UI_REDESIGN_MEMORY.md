@@ -29,6 +29,25 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 ## Current Pass
 
+Pass 5.5 POS Vertical Space Acceptance Fix.
+
+Scope:
+
+- Desktop `showBottomDock === false` now forces `--bottom-safe-space: 0px`.
+- POS workspace vertical padding is removed on desktop; only inline page gap remains.
+- Bottom Dock safe spacing is applied only below `1200px`.
+- `--pos-page-content-padding-top` is now `0px`.
+- DefaultLayout main/page content now use a full-height flex contract with hidden outer overflow.
+- No fixed Browse view stack, Offers/Coupons navigation, product scroll restoration, product column calculation, `RecycleScroller`, stores, APIs, or item actions changed.
+
+Acceptance:
+
+- `1200px+` desktop should have no white top gap between header and workspace.
+- `1200px+` desktop should have no reserved bottom gap below workspace.
+- `1199px`, tablet, and mobile should keep Bottom Dock safe space so the last product/cart row is not covered.
+
+## Recently Completed
+
 Pass 5.4 Browse View Stability & Adaptive Product Grid.
 
 Scope:
@@ -48,8 +67,6 @@ Acceptance:
 - Tablet full Browse view can use the whole products pane and is not capped by viewport-based column limits.
 - Product grid does not leave large unused side gaps or create horizontal overflow.
 - Visual acceptance still needs screenshots/checks at `1440px`, `1280px`, `1199px`, `1024px`, `768px`, `430px`, and `390px`.
-
-## Recently Completed
 
 POS Responsive Layout + Customer Region + Browse Subviews Acceptance Fix.
 
@@ -143,7 +160,7 @@ Acceptance:
 
 ## Next Step
 
-After Pass 5.4 visual acceptance:
+After Pass 5.5 visual acceptance:
 
 1. Continue with Pass 6.5 Invoice Items Premium List, presentation-only.
 2. Then Pass 6.6 Invoice Summary and Action Footer, presentation-only.

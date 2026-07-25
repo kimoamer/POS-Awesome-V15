@@ -430,10 +430,14 @@ export default {
 			bottomDockHeight.value = dockElement.offsetHeight + 20;
 		};
 		const layoutStyleOverrides = computed(() => {
+			if (!showBottomDock.value) {
+				return {
+					"--bottom-safe-space": "0px",
+				};
+			}
+
 			const fallbackBottomSpace = getFallbackBottomSpace();
-			const effectiveBottomSpace = showBottomDock.value
-				? Math.max(bottomDockHeight.value, fallbackBottomSpace)
-				: fallbackBottomSpace;
+			const effectiveBottomSpace = Math.max(bottomDockHeight.value, fallbackBottomSpace);
 			return {
 				"--bottom-safe-space": `${effectiveBottomSpace}px`,
 			};
@@ -704,8 +708,8 @@ export default {
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
-	padding: var(--pos-page-gap);
-	padding-bottom: calc(var(--bottom-safe-space, 24px) + var(--pos-page-gap));
+	padding-block: 0;
+	padding-inline: var(--pos-page-gap);
 	box-sizing: border-box;
 }
 
@@ -1044,11 +1048,23 @@ export default {
 	text-align: center;
 }
 
+@media (max-width: 1199px) {
+	.dynamic-container {
+		padding-bottom: calc(var(--bottom-safe-space, 0px) + var(--pos-page-gap));
+	}
+}
+
+@media (min-width: 1200px) {
+	.dynamic-container {
+		padding-top: 0;
+		padding-bottom: 0;
+	}
+}
+
 @media (max-width: 768px) {
 	.dynamic-container {
 		--pos-page-gap: 8px;
 		--pos-pane-padding: 8px;
-		padding-bottom: calc(var(--bottom-safe-space, 176px) + var(--pos-page-gap));
 	}
 }
 
