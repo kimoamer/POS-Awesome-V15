@@ -29,17 +29,17 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 ## Recently Completed
 
-Pass 6.5.1 — Cart Row Visual Acceptance & Expansion Fix.
+Pass 6.5.1 — Invoice Items Dual View + Responsive Cart Screen Architecture.
 
 Scope:
 
-- `CartItemRow.vue`: Refactored into a true Premium list row. 40×40px thumbnail, clean item title/meta, compact Qty stepper, subtle Rate, prominent Amount (`pos-primary`, font-weight 750), and unified Delete + Expand action cluster in a single cell.
-- `ItemsTable.vue`: Header and cell alignment configured for 5 columns (`item_name`, `qty`, `rate`, `amount`, `actions`).
-- Desktop Column Contract: `--cart-row-columns: minmax(180px, 1fr) 120px 92px 108px 80px`.
-- Expanded Details Fix: `ItemsTableExpandedRow.vue` spans `grid-column: 1 / -1`, `width: 100%`, `height: auto`, and `padding: 10px 12px 12px 58px`. No clipping or 68px height constraints.
-- Currency Bidi Isolation: All monetary rates and amounts wrapped in `<bdi class="cart-item-money">` with `direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums` to prevent symbol/number flipping or duplicating in RTL/LTR.
-- Tablet & Mobile (< 1200px): Table header hidden, stacked layout for identity, quantity, rate, amount, actions, and expanded details.
-- Preserved: All handlers, Qty stepper & direct editing, UOM, rate, discounts, serial/batch, return items, offers, keyboard focus, stores, APIs, props, and emits.
+- **Dual View Architecture**: Separated cart presentation into independent components: `InvoiceItemsListView.vue` (card list) and `InvoiceItemsTableView.vue` (classic table view), controlled by `ItemsTable.vue`.
+- **View Mode Persistence**: User choice (`list` vs `table`) on Desktop (`>= 1200px`) is saved per POS Profile in `localStorage` key `posa_invoice_items_view:${posProfileName}`.
+- **Responsive Sizing Guard (< 1200px)**: `effectiveInvoiceItemsView` forces `list` mode on tablet/mobile screens without overwriting saved desktop preferences.
+- **Toolbar View Toggle**: Added `[ ☷ List ] [ ▦ Table ]` segmented toggle to `InvoiceItemsActionToolbar.vue` on Desktop `>= 1200px`. `Columns` button is shown ONLY in `table` view mode.
+- **Modal Item Details**: Replaced inline table expanded rows with `InvoiceItemDetailsDialog.vue` (modal dialog on desktop/tablet, full-screen sheet on mobile) containing basic info, pricing, stock, batch, and serial numbers.
+- **Responsive Screen Stack (< 1200px)**: Browse (Products) and Cart (Invoice) views remain mounted in a CSS panel stack (`compact-panel-stack`), preserving product scroll, categories, search text, customer selection, and invoice state across screen switches.
+- **Preserved All Core Logic**: All stores, APIs, Qty steppers, direct inputs, discounts, taxes, UOM, serial/batch, return items, offers, multi-currency, props, emits, and calculations remain 100% intact.
 
 ## Current Pass
 

@@ -16,6 +16,26 @@
 			autocomplete="off"
 		></v-text-field>
 		<div class="invoice-items-toolbar__actions">
+			<!-- Segmented List / Table Toggle (Desktop >= 1200px) -->
+			<v-btn-toggle
+				v-if="showViewToggle"
+				:model-value="currentView"
+				@update:model-value="$emit('update:currentView', $event)"
+				mandatory
+				density="compact"
+				color="primary"
+				class="view-mode-toggle pos-themed-toggle"
+			>
+				<v-btn value="list" size="small" class="view-mode-toggle__btn">
+					<v-icon size="18" class="mr-1">mdi-view-headline</v-icon>
+					<span>{{ __("List") }}</span>
+				</v-btn>
+				<v-btn value="table" size="small" class="view-mode-toggle__btn">
+					<v-icon size="18" class="mr-1">mdi-table</v-icon>
+					<span>{{ __("Table") }}</span>
+				</v-btn>
+			</v-btn-toggle>
+
 			<v-btn
 				v-if="showDirectColumns"
 				icon
@@ -44,7 +64,11 @@
 				</template>
 				<v-card class="invoice-command-menu pos-themed-card" elevation="8">
 					<v-list density="compact" nav class="invoice-command-menu__list">
-						<v-list-item class="invoice-command-menu__item" @click="openColumnSelectorFromMenu">
+						<v-list-item
+							v-if="currentView === 'table'"
+							class="invoice-command-menu__item"
+							@click="openColumnSelectorFromMenu"
+						>
 							<template #prepend>
 								<v-icon size="18">mdi-view-column-outline</v-icon>
 							</template>
@@ -105,7 +129,7 @@
 	</div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps({
@@ -121,10 +145,19 @@ const props = defineProps({
 		type: Array,
 		default: () => [],
 	},
+	currentView: {
+		type: String,
+		default: "list",
+	},
+	showViewToggle: {
+		type: Boolean,
+		default: true,
+	},
 });
 
-const emit = defineEmits(["update:itemSearch", "update:selectedColumns"]);
+const emit = defineEmits(["update:itemSearch", "update:selectedColumns", "update:currentView"]);
 
+const __ = (window as any).__ || ((s) => s);
 const showColumnSelector = ref(false);
 const moreOpen = ref(false);
 const tempSelectedColumns = ref([]);
@@ -133,8 +166,8 @@ const toolbarRoot = ref(null);
 const isMobileToolbar = ref(false);
 let resizeObserver = null;
 
-const hasAdditionalActions = computed(() => false);
-const showDirectColumns = computed(() => !isMobileToolbar.value);
+const hasAdditionalActions = computed(() => props.currentView === "table");
+const showDirectColumns = computed(() => !isMobileToolbar.value && props.currentView === "table");
 const showMoreButton = computed(() => isMobileToolbar.value || hasAdditionalActions.value);
 
 const toggleColumnSelection = () => {
@@ -274,6 +307,35 @@ defineExpose({
 	font-weight: 700;
 	color: var(--pos-text-muted) !important;
 	opacity: 0.9;
+}
+
+.view-mode-toggle {
+	height: 44px !important;
+	border: 1px solid var(--pos-border-light) !important;
+	border-radius: var(--pos-radius-control, 8px) !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
+	padding: 3px !important;
+	gap: 2px !important;
+	box-shadow: none !important;
+}
+
+.view-mode-toggle__btn {
+	height: 36px !important;
+	min-height: 36px !important;
+	border-radius: 6px !important;
+	font-size: 12px !important;
+	font-weight: 700 !important;
+	text-transform: none !important;
+	letter-spacing: 0 !important;
+	padding-inline: 10px !important;
+	color: var(--pos-text-secondary) !important;
+}
+
+.view-mode-toggle__btn--active,
+.view-mode-toggle :deep(.v-btn--active) {
+	background: color-mix(in srgb, var(--pos-primary) 12%, var(--pos-surface-raised)) !important;
+	color: var(--pos-primary) !important;
+	font-weight: 760 !important;
 }
 
 .invoice-command-btn {

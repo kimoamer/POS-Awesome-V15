@@ -9,96 +9,101 @@
 		@dragenter="onDragEnterFromSelector"
 		@dragleave="onDragLeaveFromSelector"
 	>
-		<v-data-table
-			:headers="cartTableHeaders"
+		<!-- Card List Presentation (Default & forced on Tablet/Mobile < 1200px) -->
+		<InvoiceItemsListView
+			v-if="effectiveInvoiceItemsView === 'list'"
 			:items="items"
-			:expanded="expanded"
-			show-expand
-			item-value="posa_row_id"
-			class="posa-cart-table elevation-2 pos-themed-card"
-			:class="tableClasses"
-			expand-on-click
-			fixed-header
-			:density="tableDensity"
-			hide-default-footer
-			:single-expand="true"
+			:pos-profile="pos_profile"
+			:is-return-invoice="isReturnInvoice"
+			:invoice-type="invoiceType"
+			:display-currency="displayCurrency"
+			:format-float="memoizedFormatFloat"
+			:format-currency="memoizedFormatCurrency"
+			:currency-symbol="currencySymbol"
+			:is-number="isNumber"
+			:is-negative="memoizedIsNegative"
+			:hide-qty-decimals="hide_qty_decimals"
+			:is-r-t-l="isRtl"
+			:empty-state-title="emptyStateTitle"
+			:empty-state-subtitle="emptyStateSubtitle"
+			:empty-state-icon="emptyStateIcon"
+			@update-qty="handleQtyUpdate"
+			@minus-click="handleMinusClick"
+			@add-one="addOne"
+			@calc-uom="calcUom"
+			@update-rate="handleRateUpdate"
+			@update-discount-percent="handleDiscountPercentUpdate"
+			@update-discount-amount="handleDiscountAmountUpdate"
+			@open-name-dialog="openNameDialog"
+			@reset-item-name="resetItemName"
+			@toggle-offer="toggleOffer"
+			@open-details="openItemDetails"
+			@remove-item="removeItem"
+		/>
+
+		<!-- Classic Data Table Presentation (Desktop >= 1200px optional) -->
+		<InvoiceItemsTableView
+			v-else
+			:items="items"
+			:headers="finalVisibleColumns"
+			:pos-profile="pos_profile"
+			:is-return-invoice="isReturnInvoice"
+			:invoice-type="invoiceType"
+			:display-currency="displayCurrency"
+			:format-float="memoizedFormatFloat"
+			:format-currency="memoizedFormatCurrency"
+			:currency-symbol="currencySymbol"
+			:is-number="isNumber"
+			:is-negative="memoizedIsNegative"
+			:hide-qty-decimals="hide_qty_decimals"
+			:is-r-t-l="isRtl"
+			:table-classes="tableClasses"
+			:table-density="tableDensity"
 			:header-props="dynamicHeaderProps"
-			@update:expanded="handleExpandedUpdate"
-			:search="itemSearch"
+			:item-search="itemSearch"
 			:custom-filter="customItemFilter"
-		>
-			<template #no-data>
-				<div class="posa-cart-empty-state">
-					<div class="posa-cart-empty-state__icon-wrap">
-						<v-icon :icon="emptyStateIcon" size="32" class="posa-cart-empty-state__icon" />
-					</div>
-					<div class="posa-cart-empty-state__title">{{ emptyStateTitle }}</div>
-					<div class="posa-cart-empty-state__subtitle">{{ emptyStateSubtitle }}</div>
-				</div>
-			</template>
+			:empty-state-title="emptyStateTitle"
+			:empty-state-subtitle="emptyStateSubtitle"
+			:empty-state-icon="emptyStateIcon"
+			@update-qty="handleQtyUpdate"
+			@qty-edit-submitted="handleQtyEditSubmitted"
+			@minus-click="handleMinusClick"
+			@add-one="addOne"
+			@calc-uom="calcUom"
+			@update-rate="handleRateUpdate"
+			@update-discount-percent="handleDiscountPercentUpdate"
+			@update-discount-amount="handleDiscountAmountUpdate"
+			@discount-percent-edit-submitted="handleDiscountEditSubmitted"
+			@open-name-dialog="openNameDialog"
+			@reset-item-name="resetItemName"
+			@toggle-offer="toggleOffer"
+			@open-details="openItemDetails"
+			@remove-item="removeItem"
+		/>
 
-			<template v-slot:item="{ item, toggleExpand, internalItem }">
-				<CartItemRow
-					:item="item"
-					:visible-columns="finalVisibleColumns"
-					:posProfile="pos_profile"
-					:isReturnInvoice="isReturnInvoice"
-					:invoiceType="invoiceType"
-					:displayCurrency="displayCurrency"
-					:formatFloat="memoizedFormatFloat"
-					:formatCurrency="memoizedFormatCurrency"
-					:currencySymbol="currencySymbol"
-					:isNumber="isNumber"
-					:isNegative="memoizedIsNegative"
-					:hideQtyDecimals="hide_qty_decimals"
-					:isRTL="isRtl"
-					:is-expanded="isItemExpanded(item.posa_row_id)"
-					@update-qty="handleQtyUpdate"
-					@qty-edit-submitted="handleQtyEditSubmitted"
-					@minus-click="handleMinusClick"
-					@add-one="addOne"
-					@calc-uom="calcUom"
-					@update-rate="handleRateUpdate"
-					@update-discount-percent="handleDiscountPercentUpdate"
-					@update-discount-amount="handleDiscountAmountUpdate"
-					@discount-percent-edit-submitted="handleDiscountEditSubmitted"
-					@open-name-dialog="openNameDialog"
-					@reset-item-name="resetItemName"
-					@toggle-offer="toggleOffer"
-					@toggle-expand="handleToggleExpand(internalItem, toggleExpand)"
-					@remove-item="removeItem"
-					@click="handleRowClick($event, item, toggleExpand, internalItem)"
-				/>
-			</template>
-
-			<!-- Expanded row -->
-			<template v-slot:expanded-row="{ item }">
-				<ItemsTableExpandedRow
-					:item="item"
-					:is-expanded="isItemExpanded(item.posa_row_id)"
-					:colspan="finalVisibleColumns.length"
-					:pos_profile="pos_profile"
-					:invoice-type="invoiceType"
-					:is-return-invoice="isReturnInvoice"
-					:invoice_doc="invoice_doc"
-					:hide_qty_decimals="hide_qty_decimals"
-					:expanded-content-classes="expandedContentClasses"
-					:format-float="memoizedFormatFloat"
-					:format-currency="memoizedFormatCurrency"
-					:currency-symbol="currencySymbol"
-					:is-number="isNumber"
-					:set-formated-currency="setFormatedCurrency"
-					:calc-prices="calcPrices"
-					:calc-uom="calcUom"
-					:change-price-list-rate="changePriceListRate"
-					:get-serial-options="getSerialOptions"
-					:set-serial-no="setSerialNo"
-					:set-batch-qty="setBatchQty"
-					:validate-due-date="validateDueDate"
-					@qty-change="handleQtyChange"
-				/>
-			</template>
-		</v-data-table>
+		<!-- Item Details Modal Dialog -->
+		<InvoiceItemDetailsDialog
+			v-model="detailsDialog"
+			:item="detailsItem"
+			:pos_profile="pos_profile"
+			:invoice-type="invoiceType"
+			:is-return-invoice="isReturnInvoice"
+			:invoice_doc="invoice_doc"
+			:hide_qty_decimals="hide_qty_decimals"
+			:format-float="memoizedFormatFloat"
+			:format-currency="memoizedFormatCurrency"
+			:currency-symbol="currencySymbol"
+			:is-number="isNumber"
+			:set-formated-currency="setFormatedCurrency"
+			:calc-prices="calcPrices"
+			:calc-uom="calcUom"
+			:change-price-list-rate="changePriceListRate"
+			:get-serial-options="getSerialOptions"
+			:set-serial-no="setSerialNo"
+			:set-batch-qty="setBatchQty"
+			:validate-due-date="validateDueDate"
+			@qty-change="handleQtyChange"
+		/>
 
 		<!-- Edit name dialog -->
 		<v-dialog v-model="editNameDialog" max-width="400">
@@ -128,8 +133,9 @@ import { ref, computed, onBeforeUnmount, onMounted, watch, getCurrentInstance } 
 import { useInvoiceStore } from "../../../stores/invoiceStore";
 import { loadItemSelectorSettings } from "../../../utils/itemSelectorSettings";
 import { logComponentRender } from "../../../utils/perf";
-import CartItemRow from "./CartItemRow.vue";
-import ItemsTableExpandedRow from "./ItemsTableExpandedRow.vue";
+import InvoiceItemsListView from "./InvoiceItemsListView.vue";
+import InvoiceItemsTableView from "./InvoiceItemsTableView.vue";
+import InvoiceItemDetailsDialog from "./InvoiceItemDetailsDialog.vue";
 
 import { useItemsTableSearch } from "../../../composables/pos/items/useItemsTableSearch";
 import { useItemsTableDragDrop } from "../../../composables/pos/items/useItemsTableDragDrop";
@@ -246,6 +252,52 @@ const {
 	containerHeight,
 	isStackedRows,
 } = responsive;
+
+// View Controller & Persistence State
+const detailsDialog = ref(false);
+const detailsItem = ref<any>(null);
+
+const getStoredInvoiceItemsView = (): "list" | "table" => {
+	const profileName = props.pos_profile?.name || "default";
+	try {
+		const stored = localStorage.getItem(`posa_invoice_items_view:${profileName}`);
+		if (stored === "table" || stored === "list") return stored;
+	} catch (e) {}
+	return "list";
+};
+
+const invoiceItemsView = ref<"list" | "table">(getStoredInvoiceItemsView());
+
+const setInvoiceItemsView = (view: "list" | "table") => {
+	invoiceItemsView.value = view;
+	const profileName = props.pos_profile?.name || "default";
+	try {
+		localStorage.setItem(`posa_invoice_items_view:${profileName}`, view);
+	} catch (e) {}
+};
+
+watch(
+	() => props.pos_profile?.name,
+	() => {
+		invoiceItemsView.value = getStoredInvoiceItemsView();
+	},
+);
+
+const isCompactViewport = computed(() => isStackedRows.value);
+
+const effectiveInvoiceItemsView = computed(() => {
+	if (isCompactViewport.value) {
+		return "list";
+	}
+	return invoiceItemsView.value;
+});
+
+const showViewToggle = computed(() => !isCompactViewport.value);
+
+const openItemDetails = (item: any) => {
+	detailsItem.value = item;
+	detailsDialog.value = true;
+};
 
 const dynamicHeaderProps = computed(() => ({
 	class: `responsive-header container-${breakpoint.value}`,
@@ -471,6 +523,11 @@ onBeforeUnmount(() => {
 
 defineExpose({
 	focusItemField,
+	invoiceItemsView,
+	effectiveInvoiceItemsView,
+	showViewToggle,
+	setInvoiceItemsView,
+	openItemDetails,
 });
 </script>
 

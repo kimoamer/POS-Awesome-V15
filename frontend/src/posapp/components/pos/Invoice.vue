@@ -164,6 +164,8 @@
 							:itemSearch="itemSearch"
 							:availableColumns="available_columns"
 							:selectedColumns="selected_columns"
+							:currentView="itemsTableRef?.effectiveInvoiceItemsView || 'list'"
+							:showViewToggle="itemsTableRef?.showViewToggle ?? true"
 							@update:itemSearch="itemSearch = $event"
 							@update:selectedColumns="
 								(cols) => {
@@ -171,6 +173,7 @@
 									saveColumnPreferences();
 								}
 							"
+							@update:currentView="itemsTableRef?.setInvoiceItemsView($event)"
 						/>
 					</v-card>
 				</section>
