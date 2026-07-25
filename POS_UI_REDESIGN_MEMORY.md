@@ -27,6 +27,19 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.7.0 — Payment Flow Audit and Contract Freeze (Complete ✅).
+
+Scope:
+
+- **Audit Document (`PAYMENT_FLOW_AUDIT.md`)**: Documented entry point sequence, component hierarchy (`Payments.vue`, `PaymentSummary.vue`, `PaymentMethods.vue`, `PaymentRedemption.vue`, `PaymentOptions.vue`), store dependencies, API endpoints, math formulas (`diff_payment`, `change_due`), POS Profile payment settings matrix, return/refund rules, customer credit, loyalty, multi-currency, and submission lifecycle.
+- **Contract Freeze Guarantees**: Guaranteed zero changes to payment UI, calculations, APIs, event names, or accounting logic in Pass 6.7.0.
+- **Sub-Pass Architecture**:
+  - Pass 6.7.1 — Payment Screen Shell & Responsive Layout
+  - Pass 6.7.2 — Payment Methods & Amount Allocation
+  - Pass 6.7.3 — Credit, Loyalty, References & Returns
+  - Pass 6.7.4 — Submission, Success & Regression Acceptance
+- **Contract Tests**: Created `tests/paymentCalculationsContract.spec.ts`, `tests/paymentFlowContract.spec.ts`, and `tests/paymentProfileMatrix.spec.ts`.
+
 Pass 6.6.3 — Final Invoice Row Actions & Column Contract Cleanup (Complete ✅).
 
 Scope:
