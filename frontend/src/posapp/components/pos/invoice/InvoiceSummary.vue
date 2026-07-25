@@ -1,105 +1,116 @@
 <template>
 	<v-card
-		class="cards sticky-summary-card mb-0 py-2 px-3 rounded-lg pos-themed-card"
-		:class="{ 'sticky-summary-card--dock-safe': useCompactSaleDock }"
+		class="invoice-summary-card py-2 px-3 pos-themed-card"
+		:class="{ 'invoice-summary-card--compact': useCompactSaleDock }"
 	>
-		<v-row dense class="summary-content">
-			<v-col
-				v-if="!useCompactSaleDock || showReturnDiscountAlert"
-				cols="12"
-				:md="useCompactSaleDock ? 12 : 7"
+		<div class="invoice-summary-layout">
+			<!-- Prorated Return Discount Alert (if active) -->
+			<v-alert
+				v-if="showReturnDiscountAlert && return_discount_meta"
+				density="compact"
+				type="info"
+				variant="tonal"
+				class="summary-field summary-field--alert mb-2"
 			>
-				<v-alert
-					v-if="showReturnDiscountAlert"
-					density="compact"
-					type="info"
-					variant="tonal"
-					class="summary-field summary-field--alert"
-				>
-					{{ __("Prorated return discount") }}: {{ formatRatio(return_discount_meta.ratio) }} -
-					{{ __("Original") }}: {{ formatCurrency(return_discount_meta.original_discount) }},
-					{{ __("Applied") }}:
-					{{ formatCurrency(return_discount_meta.prorated_discount) }}
-				</v-alert>
+				{{ __("Prorated return discount") }}: {{ formatRatio(return_discount_meta.ratio) }} -
+				{{ __("Original") }}: {{ formatCurrency ? formatCurrency(return_discount_meta.original_discount) : return_discount_meta.original_discount }},
+				{{ __("Applied") }}: {{ formatCurrency ? formatCurrency(return_discount_meta.prorated_discount) : return_discount_meta.prorated_discount }}
+			</v-alert>
 
-				<div v-if="!useCompactSaleDock" class="summary-hero">
-					<div class="summary-hero__copy">
+			<!-- Summary Breakdown Region (Desktop Always Visible, Mobile/Tablet Expandable) -->
+			<div class="summary-hero mb-2">
+				<div class="summary-hero__copy">
+					<div class="summary-hero__eyebrow-row">
 						<span class="summary-hero__eyebrow">{{ __("Active sale") }}</span>
-						<strong class="summary-hero__amount">
-							{{ currencySymbol(displayCurrency) }}{{ formatCurrency(subtotal) }}
-						</strong>
-						<div class="summary-hero__meta">
-							<span
-								>{{ formatFloat(total_qty, hide_qty_decimals ? 0 : undefined) }}
-								{{ __("qty") }}</span
-							>
-							<span>
-								{{ currencySymbol(displayCurrency)
-								}}{{ formatCurrency(total_items_discount_amount) }}
-								{{ __("discount") }}
-							</span>
-						</div>
+						<v-btn
+							v-if="useCompactSaleDock"
+							size="x-small"
+							variant="text"
+							class="summary-hero__expand-btn"
+							@click="expandedBreakdown = !expandedBreakdown"
+							:aria-label="expandedBreakdown ? __('Collapse details') : __('Expand details')"
+						>
+							<v-icon size="small">
+								{{ expandedBreakdown ? "mdi-chevron-up" : "mdi-chevron-down" }}
+							</v-icon>
+						</v-btn>
 					</div>
 
-					<div class="summary-hero__field-wrap">
-						<v-text-field
-							v-if="!pos_profile.posa_use_percentage_discount"
-							ref="additionalDiscountField"
-							v-model="additionalDiscountDisplay"
-							@update:model-value="handleAdditionalDiscountUpdate"
-							@focus="handleAdditionalDiscountFocus"
-							@blur="handleAdditionalDiscountBlur"
-							:label="frappe._('Additional Discount')"
-							prepend-inner-icon="mdi-cash-minus"
-							variant="solo"
-							density="compact"
-							color="warning"
-							:prefix="currencySymbol(pos_profile.currency)"
-							:disabled="
-								!pos_profile.posa_allow_user_to_edit_additional_discount ||
-								!!discount_percentage_offer_name
-							"
-							class="summary-field summary-field--dock"
-						/>
+					<strong class="summary-hero__amount">
+						{{ formatMoney(subtotal, formatCurrency || ((v) => String(v)), currencySymbol || (() => ""), displayCurrency) }}
+					</strong>
 
-						<v-text-field
-							v-else
-							ref="additionalDiscountField"
-							v-model="additionalDiscountPercentageDisplay"
-							@update:model-value="handleAdditionalDiscountPercentageUpdate"
-							@change="$emit('update_discount_umount')"
-							@focus="handleAdditionalDiscountPercentageFocus"
-							@blur="handleAdditionalDiscountPercentageBlur"
-							:rules="[isNumber]"
-							:label="frappe._('Additional Discount %')"
-							suffix="%"
-							prepend-inner-icon="mdi-percent"
-							variant="solo"
-							density="compact"
-							color="warning"
-							:disabled="
-								!pos_profile.posa_allow_user_to_edit_additional_discount ||
-								!!discount_percentage_offer_name
-							"
-							class="summary-field summary-field--dock"
-						/>
+					<div class="summary-hero__meta" v-if="!useCompactSaleDock || expandedBreakdown">
+						<span>
+							{{ formatFloat ? formatFloat(total_qty, hide_qty_decimals ? 0 : undefined) : total_qty }} {{ __("qty") }}
+						</span>
+						<span v-if="total_items_discount_amount">
+							· {{ formatMoney(total_items_discount_amount, formatCurrency || ((v) => String(v)), currencySymbol || (() => ""), displayCurrency) }}
+							{{ __("discount") }}
+						</span>
 					</div>
 				</div>
-			</v-col>
 
-			<v-col cols="12" :md="useCompactSaleDock ? 12 : 5" class="invoice-summary-actions">
+				<div
+					class="summary-hero__field-wrap"
+					v-if="!useCompactSaleDock || expandedBreakdown"
+				>
+					<v-text-field
+						v-if="!usePercentageDiscount"
+						ref="additionalDiscountField"
+						v-model="additionalDiscountDisplay"
+						@update:model-value="handleAdditionalDiscountUpdate"
+						@focus="handleAdditionalDiscountFocus"
+						@blur="handleAdditionalDiscountBlur"
+						:label="frappe._('Additional Discount')"
+						prepend-inner-icon="mdi-cash-minus"
+						variant="outlined"
+						density="compact"
+						color="primary"
+						:disabled="!canEditAdditionalDiscount"
+						class="summary-field"
+						hide-details
+					/>
+
+					<v-text-field
+						v-else
+						ref="additionalDiscountField"
+						v-model="additionalDiscountPercentageDisplay"
+						@update:model-value="handleAdditionalDiscountPercentageUpdate"
+						@change="$emit('update_discount_umount')"
+						@focus="handleAdditionalDiscountPercentageFocus"
+						@blur="handleAdditionalDiscountPercentageBlur"
+						:rules="isNumber ? [isNumber] : []"
+						:label="frappe._('Additional Discount %')"
+						suffix="%"
+						prepend-inner-icon="mdi-percent"
+						variant="outlined"
+						density="compact"
+						color="primary"
+						:disabled="!canEditAdditionalDiscount"
+						class="summary-field"
+						hide-details
+					/>
+				</div>
+			</div>
+
+			<!-- Actions Region -->
+			<div class="invoice-summary-actions">
 				<InvoiceActionButtons
 					:pos_profile="pos_profile"
 					:saveLoading="saveLoading"
 					:loadDraftsLoading="loadDraftsLoading"
 					:selectOrderLoading="selectOrderLoading"
-					:selectPurchaseOrderLoading="selectPurchaseOrderLoading"
 					:cancelLoading="cancelLoading"
 					:invoiceManagementLoading="invoiceManagementLoading"
 					:returnsLoading="returnsLoading"
 					:printLoading="printLoading"
 					:paymentLoading="paymentLoading"
 					:customerDisplayLoading="customerDisplayLoading"
+					:subtotal="subtotal"
+					:displayCurrency="displayCurrency"
+					:formatCurrency="formatCurrency"
+					:currencySymbol="currencySymbol"
 					@save-and-clear="handleSaveAndClear"
 					@load-drafts="handleLoadDrafts"
 					@select-order="handleSelectOrder"
@@ -110,10 +121,11 @@
 					@show-payment="handleShowPayment"
 					@open-customer-display="handleOpenCustomerDisplay"
 				/>
-			</v-col>
-		</v-row>
+			</div>
+		</div>
 	</v-card>
 
+	<!-- Desktop Navigation Drawer for Drafts -->
 	<v-navigation-drawer
 		v-if="showDesktopDrafts"
 		v-model="desktopDraftsDrawer"
@@ -134,8 +146,8 @@
 			<ParkedOrdersList
 				ref="desktopDraftsList"
 				:parked-orders="allDrafts"
-				:format-currency="formatCurrency"
-				:currency-symbol="currencySymbol"
+				:format-currency="formatCurrency || ((v) => String(v))"
+				:currency-symbol="currencySymbol || (() => '')"
 				:show-manage-all="true"
 				:loading="loadDraftsLoading"
 				:loading-title="__(currentDraftSourceOption.loadingLabel)"
@@ -151,6 +163,7 @@
 		</div>
 	</v-navigation-drawer>
 
+	<!-- Mobile / Tablet Dialog for Drafts -->
 	<v-dialog v-else v-model="mobileDraftsDialog" max-width="680" scrollable data-test="mobile-drafts-dialog">
 		<v-card class="pos-themed-card">
 			<v-card-title class="d-flex align-center justify-space-between">
@@ -171,8 +184,8 @@
 				<ParkedOrdersList
 					ref="mobileDraftsList"
 					:parked-orders="allDrafts"
-					:format-currency="formatCurrency"
-					:currency-symbol="currencySymbol"
+					:format-currency="formatCurrency || ((v) => String(v))"
+					:currency-symbol="currencySymbol || (() => '')"
 					:show-manage-all="true"
 					:loading="loadDraftsLoading"
 					:loading-title="__(currentDraftSourceOption.loadingLabel)"
@@ -190,12 +203,14 @@
 	</v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { loadItemSelectorSettings } from "../../../utils/itemSelectorSettings";
 import { useResponsive } from "../../../composables/core/useResponsive";
 import { useUIStore } from "../../../stores/uiStore";
+import { parseBooleanSetting } from "../../../composables/pos/items/useItemPermissions";
+import { formatMoney } from "../../../composables/pos/shared/useMoneyFormatter";
 import {
 	getAvailableDocumentSources,
 	getDefaultDocumentSource,
@@ -210,20 +225,24 @@ defineOptions({
 	name: "InvoiceSummary",
 });
 
-const props = defineProps({
-	pos_profile: Object,
-	total_qty: [Number, String],
-	additional_discount: Number,
-	additional_discount_percentage: Number,
-	total_items_discount_amount: Number,
-	subtotal: Number,
-	displayCurrency: String,
-	formatFloat: Function,
-	formatCurrency: Function,
-	currencySymbol: Function,
-	discount_percentage_offer_name: [String, Number],
-	isNumber: Function,
-	return_discount_meta: Object,
+interface Props {
+	pos_profile?: any;
+	total_qty?: number | string;
+	additional_discount?: number;
+	additional_discount_percentage?: number;
+	total_items_discount_amount?: number;
+	subtotal?: number;
+	displayCurrency?: string;
+	formatFloat?: (_val: any, _precision?: number) => string;
+	formatCurrency?: (_val: any, _precision?: number) => string;
+	currencySymbol?: (_currency?: string) => string;
+	discount_percentage_offer_name?: string | number;
+	isNumber?: (_val: any) => boolean | string;
+	return_discount_meta?: any;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+	pos_profile: () => ({}),
 });
 
 const emit = defineEmits([
@@ -253,14 +272,18 @@ const paymentLoading = ref(false);
 const customerDisplayLoading = ref(false);
 const isEditingAdditionalDiscount = ref(false);
 const isEditingAdditionalDiscountPercentage = ref(false);
-const additionalDiscountField = ref(null);
+const additionalDiscountField = ref<any>(null);
 const desktopDraftsDrawer = ref(false);
 const mobileDraftsDialog = ref(false);
-const desktopDraftsList = ref(null);
-const mobileDraftsList = ref(null);
+const desktopDraftsList = ref<any>(null);
+const mobileDraftsList = ref<any>(null);
+const expandedBreakdown = ref(false);
 const responsive = useResponsive();
 const uiStore = useUIStore();
 const { parkedOrders, draftSource } = storeToRefs(uiStore);
+
+const __ = (window as any).__ || ((s: string) => s);
+const frappe = (window as any).frappe || { _: (s: string) => s };
 
 const additionalDiscountDisplay = ref(normalizeAdditionalDiscountDisplay(props.additional_discount));
 const additionalDiscountPercentageDisplay = ref(
@@ -268,12 +291,26 @@ const additionalDiscountPercentageDisplay = ref(
 );
 const useCompactSaleDock = computed(() => responsive.windowWidth.value < 1200);
 const showDesktopDrafts = computed(() => Boolean(responsive.isDesktop.value));
+
+const allowAdditionalDiscount = computed(() =>
+	parseBooleanSetting(props.pos_profile?.posa_allow_user_to_edit_additional_discount),
+);
+
+const usePercentageDiscount = computed(() =>
+	parseBooleanSetting(props.pos_profile?.posa_use_percentage_discount),
+);
+
+const canEditAdditionalDiscount = computed(
+	() => allowAdditionalDiscount.value && !props.discount_percentage_offer_name,
+);
+
 const showReturnDiscountAlert = computed(
 	() =>
 		!!props.return_discount_meta &&
-		!props.pos_profile?.posa_use_percentage_discount &&
+		!usePercentageDiscount.value &&
 		!isFullReturnDiscount(props.return_discount_meta?.ratio),
 );
+
 const allDrafts = computed(() => (Array.isArray(parkedOrders.value) ? parkedOrders.value : []));
 const availableDraftSources = computed(() => getAvailableDocumentSources(props.pos_profile));
 const showDraftSourceSelector = computed(() => shouldShowDocumentSourceSelector(availableDraftSources.value));
@@ -342,7 +379,7 @@ function normalizeAdditionalDiscountDisplay(value) {
 	if (value === 0 || value === "0") {
 		return "";
 	}
-	if (props.return_discount_meta && !props.pos_profile?.posa_use_percentage_discount) {
+	if (props.return_discount_meta && !usePercentageDiscount.value) {
 		const proratedValue = Number(props.return_discount_meta.prorated_discount);
 		if (Number.isFinite(proratedValue)) {
 			return Math.abs(proratedValue);
@@ -356,7 +393,7 @@ function normalizeAdditionalDiscountDisplay(value) {
 }
 
 function normalizeAdditionalDiscountInput(value) {
-	if (props.return_discount_meta && !props.pos_profile?.posa_use_percentage_discount) {
+	if (props.return_discount_meta && !usePercentageDiscount.value) {
 		const numericValue = Number(value);
 		if (Number.isFinite(numericValue)) {
 			const originalStoredValue = Number(props.additional_discount);
@@ -427,7 +464,7 @@ function handleLoadDrafts() {
 	emit("load-drafts", nextSource);
 }
 
-function openDraftsSurface(options = {}) {
+function openDraftsSurface(options: { focus?: boolean } = {}) {
 	if (showDesktopDrafts.value) {
 		desktopDraftsDrawer.value = true;
 		if (options.focus !== false) {
@@ -547,6 +584,67 @@ defineExpose({
 </script>
 
 <style scoped>
+.invoice-summary-card {
+	position: relative;
+	width: 100%;
+	border-radius: var(--pos-radius-lg, 12px) !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
+	border: 1px solid var(--pos-border-light, #e2e8f0) !important;
+	box-shadow: var(--pos-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.05)) !important;
+}
+
+.summary-hero {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 10px 14px;
+	border-radius: var(--pos-radius-md, 10px);
+	background: color-mix(in srgb, var(--pos-primary, #2563eb) 6%, var(--pos-surface-muted, #f8fafc));
+	border: 1px solid color-mix(in srgb, var(--pos-primary, #2563eb) 12%, transparent);
+}
+
+.summary-hero__copy {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.summary-hero__eyebrow-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.summary-hero__eyebrow {
+	font-size: 0.72rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--pos-text-secondary, #64748b);
+}
+
+.summary-hero__amount {
+	font-size: 1.35rem;
+	font-weight: 800;
+	line-height: 1.15;
+	color: var(--pos-text-primary, #0f172a);
+}
+
+.summary-hero__meta {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 0.78rem;
+	font-weight: 550;
+	color: var(--pos-text-secondary, #64748b);
+}
+
+.summary-hero__field-wrap {
+	width: min(220px, 100%);
+}
+
 .drafts-drawer :deep(.v-navigation-drawer__content) {
 	padding: 12px;
 	background: var(--pos-surface-muted);
@@ -568,145 +666,16 @@ defineExpose({
 	border-radius: 16px;
 }
 
-.cards {
-	background-color: transparent !important;
-	transition: all 0.3s ease;
-}
-
-.sticky-summary-card {
-	position: sticky;
-	bottom: 0;
-	z-index: 9;
-	border: 0 !important;
-	border-radius: 0 !important;
-	box-shadow: none;
-}
-
-.sticky-summary-card--dock-safe {
-	margin-bottom: calc(var(--bottom-safe-space) + 8px);
-}
-
-.summary-content {
-	row-gap: 6px;
-}
-
-.summary-hero {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 14px;
-	padding: 14px 16px;
-	border-radius: 20px;
-	background:
-		linear-gradient(135deg, rgba(var(--v-theme-primary), 0.12), rgba(var(--v-theme-success), 0.08)),
-		var(--pos-surface-muted);
-	border: 1px solid rgba(var(--v-theme-primary), 0.12);
-}
-
-.summary-hero__copy {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	min-width: 0;
-}
-
-.summary-hero__eyebrow {
-	font-size: 0.72rem;
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.08em;
-	color: var(--pos-text-secondary);
-}
-
-.summary-hero__amount {
-	font-size: clamp(1.2rem, 2vw, 1.8rem);
-	line-height: 1.1;
-	color: var(--pos-text-primary);
-}
-
-.summary-hero__meta {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px 14px;
-	font-size: 0.84rem;
-	color: var(--pos-text-secondary);
-}
-
-.summary-hero__field-wrap {
-	width: min(260px, 100%);
-}
-
-.invoice-summary-actions {
-	position: sticky;
-	bottom: 0;
-}
-
-.summary-field {
-	transition: all 0.2s ease;
-}
-
-.summary-field:hover {
-	transform: none;
-	box-shadow: none;
-}
-
-.summary-field--alert {
-	margin-bottom: 10px;
-}
-
-.summary-field--dock :deep(.v-field) {
-	background: rgba(var(--v-theme-surface), 0.92);
-}
-
-@media (max-width: 1279px) {
-	.sticky-summary-card {
-		position: static;
-		bottom: auto;
-		box-shadow: none;
-	}
-
-	.invoice-summary-actions {
-		position: static;
-	}
-}
-
 @media (max-width: 1199px) {
-	.sticky-summary-card--dock-safe {
-		margin-bottom: calc(var(--bottom-safe-space) + 12px);
-	}
-}
-
-@media (max-width: 768px) {
-	.sticky-summary-card {
-		position: static;
-		bottom: auto;
-		box-shadow: none;
-	}
-
 	.summary-hero {
 		flex-direction: column;
 		align-items: stretch;
-		padding: 12px;
+		padding: 8px 10px;
 	}
 
 	.summary-hero__field-wrap {
 		width: 100%;
-	}
-
-	.invoice-summary-actions {
-		position: static;
-	}
-
-	.cards {
-		padding: 10px 12px !important;
-	}
-
-	.summary-field {
-		font-size: 0.875rem;
-	}
-
-	.sticky-summary-card--dock-safe {
-		margin-bottom: calc(var(--bottom-safe-space) + 8px);
+		margin-top: 4px;
 	}
 }
 </style>

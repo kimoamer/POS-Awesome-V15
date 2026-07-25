@@ -27,6 +27,16 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.6 — Invoice Summary & Action Footer Redesign (Complete ✅).
+
+Scope:
+
+- **Redesigned Action Footer (`InvoiceActionButtons.vue`)**: Replaced the multi-colored button grid with a clean action bar: Primary `Pay` button (`Pay · formatMoney(...)`), direct secondary buttons (`Save & Clear`, `Drafts`), and `More` overflow dropdown menu.
+- **Action Descriptor Architecture (`useInvoiceFooterActions.ts`)**: Created `useInvoiceFooterActions` composable returning `footerActions`, `directActions`, and `menuActions` descriptors dynamically filtered by POS Profile permissions.
+- **POS Profile Permission Matrix**: Action visibility driven by `parseBooleanSetting` (`select-order`: `custom_allow_select_sales_order`, `return`: `posa_allow_return`, `print`: `posa_allow_print_draft_invoices`, `customer-display`: `posa_enable_customer_display`). `Cancel Sale` placed in danger section inside `More` menu.
+- **Always-Visible Total & Summary (`InvoiceSummary.vue`)**: Guaranteed Total and Summary remain visible across Desktop (`>=1200px`), Tablet (`768-1199px`), and Mobile (`<=767px`) with expandable breakdown panel for compact viewports.
+- **Automated Tests**: Created `tests/invoiceSummaryFooter.spec.ts` testing descriptor matrix, permission parsing, and additional discount rules.
+
 Pass 6.5.5.2 — Final Invoice Items UI Capability Parity (Pass 6.5 Complete ✅).
 
 Scope:
