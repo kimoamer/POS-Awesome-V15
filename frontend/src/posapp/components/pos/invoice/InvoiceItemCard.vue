@@ -3,7 +3,13 @@
 		<!-- Product Identity Region -->
 		<div class="invoice-item-card__identity">
 			<div class="cart-item-thumb" aria-hidden="true">
-				<v-img v-if="itemImage" :src="itemImage" :alt="itemTitle" cover class="cart-item-thumb__image" />
+				<v-img
+					v-if="itemImage && !imageFailed"
+					:src="itemImage"
+					:alt="itemTitle"
+					class="cart-item-thumb__image"
+					@error="imageFailed = true"
+				/>
 				<v-icon v-else size="20" class="cart-item-thumb__icon">mdi-package-variant-closed</v-icon>
 			</div>
 			<div class="cart-item-copy">
@@ -164,8 +170,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { formatMoney } from "../../../composables/pos/shared/useMoneyFormatter";
+import { resolveItemImage } from "../../../utils/itemImage";
 
 defineOptions({
 	name: "InvoiceItemCard",
@@ -173,6 +180,7 @@ defineOptions({
 
 export interface InvoiceItemCardProps {
 	item: any;
+	catalogItem?: any;
 	layoutMode?: "row" | "stacked" | "phone";
 	posProfile?: any;
 	isReturnInvoice?: boolean;
@@ -212,6 +220,7 @@ const __ = (window as any).__ || ((text: string) => text);
 const isEditingQty = ref(false);
 const editingQtyValue = ref("");
 const qtyInput = ref<any>(null);
+const imageFailed = ref(false);
 
 const cardClasses = computed(() => [
 	"invoice-item-card",
@@ -231,10 +240,11 @@ const lineAmount = computed(() => {
 
 const itemTitle = computed(() => props.item?.item_name || props.item?.item_code || __("Unnamed item"));
 
-const itemImage = computed(
-	() =>
-		props.item?.image || props.item?.item_image || props.item?.thumbnail || props.item?.item_image_url || "",
-);
+const itemImage = computed(() => resolveItemImage(props.item, props.catalogItem));
+
+watch(itemImage, () => {
+	imageFailed.value = false;
+});
 
 const itemMetaParts = computed(() => {
 	const parts: string[] = [];

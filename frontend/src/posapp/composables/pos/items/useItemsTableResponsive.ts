@@ -26,15 +26,28 @@ const STACKED_VIEWPORT_WIDTH = 1200;
 const STACKED_CONTAINER_WIDTH = 500;
 const COMPACT_CART_KEYS = new Set(["item_name", "qty", "rate", "amount", "actions"]);
 
+export type CollapseOptionalSetting = boolean | "auto";
+
+export function resolveCollapseOptional(
+	value: CollapseOptionalSetting | undefined,
+	width: number,
+): boolean {
+	if (value === true) return true;
+	if (value === false) return false;
+	return width > 0 && width < COMPACT_COLUMN_WIDTH;
+}
+
 export function getResponsiveVisibleHeaders(
 	headers: TableHeader[],
 	width: number,
-	options: { collapseOptional?: boolean } = {},
+	options: { collapseOptional?: CollapseOptionalSetting } = {},
 ) {
 	return headers
 		.filter((header) => {
-			const shouldCollapseOptional =
-				options.collapseOptional || (width > 0 && width < COMPACT_COLUMN_WIDTH);
+			const shouldCollapseOptional = resolveCollapseOptional(
+				options.collapseOptional,
+				width,
+			);
 
 			if (shouldCollapseOptional) {
 				return COMPACT_CART_KEYS.has(header.key);
@@ -52,7 +65,7 @@ export function getResponsiveVisibleHeaders(
 export function buildFinalVisibleColumns(
 	headers: TableHeader[],
 	width: number,
-	options: { showExpand?: boolean; collapseOptional?: boolean } = {},
+	options: { showExpand?: boolean; collapseOptional?: CollapseOptionalSetting } = {},
 ) {
 	const visibleHeaders = getResponsiveVisibleHeaders(headers, width, {
 		collapseOptional: options.collapseOptional,
@@ -108,6 +121,7 @@ const calculateMinColumnWidth = (header: TableHeader) => {
 export function useItemsTableResponsive(
 	containerRef: Ref<HTMLElement | null>,
 	headers: Ref<TableHeader[]>,
+	options: { collapseOptional?: CollapseOptionalSetting | Ref<CollapseOptionalSetting> } = {},
 ) {
 	const containerWidth = ref(0);
 	const containerHeight = ref(0);
@@ -144,8 +158,13 @@ export function useItemsTableResponsive(
 		const width = containerWidth.value;
 		if (!headers.value || headers.value.length === 0) return [];
 
+		const collapseSetting =
+			typeof options.collapseOptional === "object" && options.collapseOptional && "value" in options.collapseOptional
+				? options.collapseOptional.value
+				: options.collapseOptional;
+
 		return getResponsiveVisibleHeaders(headers.value, width, {
-			collapseOptional: collapseOptionalColumns.value,
+			collapseOptional: collapseSetting !== undefined ? collapseSetting : collapseOptionalColumns.value,
 		});
 	});
 

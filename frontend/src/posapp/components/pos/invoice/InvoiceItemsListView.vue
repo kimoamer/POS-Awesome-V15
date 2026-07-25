@@ -5,6 +5,7 @@
 				v-for="item in items"
 				:key="item.posa_row_id || item.item_code"
 				:item="item"
+				:catalog-item="itemMediaByCode?.get?.(item.item_code)"
 				:layout-mode="layoutMode"
 				:pos-profile="posProfile"
 				:is-return-invoice="isReturnInvoice"
@@ -51,6 +52,7 @@ defineOptions({
 export interface InvoiceItemsListViewProps {
 	items?: any[];
 	layoutMode?: "row" | "stacked" | "phone";
+	itemMediaByCode?: any;
 	posProfile?: any;
 	isReturnInvoice?: boolean;
 	invoiceType?: string;

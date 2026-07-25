@@ -27,6 +27,17 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.5.4 — Product Media & Classic Table Column Contract Fix.
+
+Scope:
+
+- **Shared Product Image Resolver**: Created `itemImage.ts` (`resolveItemImage`, `normalizeItemImageUrl`) supporting `image`, `item_image`, `thumbnail`, `item_image_url`, `website_image`, `image_url`.
+- **URL Normalization**: Normalizes relative `files/` and `private/files/` by prepending `/`, preserving absolute URLs (`http://`, `https://`, `data:`, `blob:`, `/`).
+- **Image Presentation & Error Handling**: Updated `ItemCard.vue`, `InvoiceItemCard.vue`, and `CartItemRow.vue` to use `contain` (no cover cropping!) and package variant icon on image load failure.
+- **Loaded Invoice Media Index**: Computed `itemMediaByCode` in `ItemsTable.vue` from `itemsStore.items` catalog cache to supply missing images on loaded Draft, Order, and Return rows without N+1 API calls.
+- **Classic Table Selected Columns Contract**: Refactored `collapseOptional` in `useItemsTableResponsive.ts` to support tri-state (`boolean | "auto"`). On Desktop Table mode (`>= 1200px`), `collapseOptional` is set to `false`, guaranteeing user-selected columns stay visible even when cart container width is < 680px.
+- **Internal Table Horizontal Scroll**: Calculated `--cart-table-min-width` from `finalVisibleColumns` and enabled internal horizontal scrolling in `.v-table__wrapper` without scrolling main workspace.
+
 Pass 6.5.3 — Dual View Final Functional, Responsive and POS Profile Acceptance.
 
 Scope:

@@ -97,4 +97,24 @@ describe("items table final visible columns", () => {
 			"data-table-expand",
 		]);
 	});
+
+	it("preserves selected optional columns when collapseOptional is false even if container width is below 680px", () => {
+		const finalColumns = buildFinalVisibleColumns(headers, 600, {
+			collapseOptional: false,
+		});
+
+		expect(finalColumns.map((column) => column.key)).toEqual([
+			"item_name",
+			"qty",
+			"uom",
+			"price_list_rate",
+			"discount_percentage",
+			"discount_amount",
+			"rate",
+			"amount",
+			"posa_is_offer",
+			"actions",
+			"data-table-expand",
+		]);
+	});
 });

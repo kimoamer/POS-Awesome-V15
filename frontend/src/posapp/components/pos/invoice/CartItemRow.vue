@@ -6,10 +6,11 @@
 				<div class="cart-item-identity">
 					<div class="cart-item-thumb" aria-hidden="true">
 						<v-img
-							v-if="itemImage"
+							v-if="itemImage && !imageFailed"
 							:src="itemImage"
 							:alt="itemTitle"
 							class="cart-item-thumb__image"
+							@error="imageFailed = true"
 						/>
 						<v-icon v-else size="20" class="cart-item-thumb__icon">
 							mdi-package-variant-closed
@@ -459,7 +460,8 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
+import { resolveItemImage } from "../../../utils/itemImage";
 
 defineOptions({
 	name: "CartItemRow",
@@ -470,13 +472,14 @@ const props = defineProps({
 		type: Object,
 		required: true,
 	},
+	catalogItem: Object,
 	visibleColumns: {
 		type: Array,
 		default: () => [],
 	},
 	posProfile: {
 		type: Object,
-		required: true,
+		default: () => ({}),
 	},
 	isReturnInvoice: Boolean,
 	invoiceType: String,
@@ -519,6 +522,7 @@ const isEditingDiscountPercent = ref(false);
 const editingDiscountPercentValue = ref("");
 const isEditingDiscountAmount = ref(false);
 const editingDiscountAmountValue = ref("");
+const imageFailed = ref(false);
 
 const qtyInput = ref(null);
 const rateInput = ref(null);
@@ -563,10 +567,11 @@ const qtyLength = computed(() => String(Math.abs(props.item.qty || 0)).replace("
 
 const itemTitle = computed(() => props.item.item_name || props.item.item_code || __("Unnamed item"));
 
-const itemImage = computed(
-	() =>
-		props.item.image || props.item.item_image || props.item.thumbnail || props.item.item_image_url || "",
-);
+const itemImage = computed(() => resolveItemImage(props.item, props.catalogItem));
+
+watch(itemImage, () => {
+	imageFailed.value = false;
+});
 
 const itemMetaParts = computed(() => {
 	const parts = [];

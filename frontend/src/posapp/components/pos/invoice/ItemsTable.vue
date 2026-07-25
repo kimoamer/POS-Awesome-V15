@@ -14,6 +14,7 @@
 			v-if="effectiveInvoiceItemsView === 'list'"
 			:items="filteredItems"
 			:layout-mode="invoiceCardLayout"
+			:item-media-by-code="itemMediaByCode"
 			:pos-profile="pos_profile"
 			:is-return-invoice="isReturnInvoice"
 			:invoice-type="invoiceType"
@@ -47,6 +48,7 @@
 			v-else
 			:items="filteredItems"
 			:headers="finalVisibleColumns"
+			:item-media-by-code="itemMediaByCode"
 			:pos-profile="pos_profile"
 			:is-return-invoice="isReturnInvoice"
 			:invoice-type="invoiceType"
@@ -131,6 +133,7 @@
 <script setup lang="ts">
 import { ref, computed, onBeforeUnmount, onMounted, watch, getCurrentInstance } from "vue";
 import { useInvoiceStore } from "../../../stores/invoiceStore";
+import { useItemsStore } from "../../../stores/itemsStore";
 import { loadItemSelectorSettings } from "../../../utils/itemSelectorSettings";
 import { logComponentRender } from "../../../utils/perf";
 import InvoiceItemsListView from "./InvoiceItemsListView.vue";
@@ -202,6 +205,7 @@ const emit = defineEmits<{
 const { proxy } = getCurrentInstance() as any;
 const eventBus = proxy?.eventBus;
 const invoiceStore = useInvoiceStore();
+const itemsStore = useItemsStore();
 const tableContainer = ref<HTMLElement | null>(null);
 
 // Composables
@@ -214,15 +218,72 @@ const { memoizedFormatFloat, memoizedFormatCurrency, clearFormatCache } = useFor
 	formatCurrency: props.formatCurrency,
 });
 
+// View Controller & Persistence State
+const detailsDialog = ref(false);
+const detailsItem = ref<any>(null);
+
+const getStoredInvoiceItemsView = (): "list" | "table" => {
+	const profileName = props.pos_profile?.name || "default";
+	try {
+		const stored = localStorage.getItem(`posa_invoice_items_view:${profileName}`);
+		if (stored === "table" || stored === "list") return stored;
+	} catch (e) {}
+	return "list";
+};
+
+const invoiceItemsView = ref<"list" | "table">(getStoredInvoiceItemsView());
+
+const setInvoiceItemsView = (view: "list" | "table") => {
+	invoiceItemsView.value = view;
+	const profileName = props.pos_profile?.name || "default";
+	try {
+		localStorage.setItem(`posa_invoice_items_view:${profileName}`, view);
+	} catch (e) {}
+};
+
+watch(
+	() => props.pos_profile?.name,
+	() => {
+		invoiceItemsView.value = getStoredInvoiceItemsView();
+	},
+);
+
+const isCompactViewport = computed(() => windowWidth.value < 1200);
+
+const effectiveInvoiceItemsView = computed(() => {
+	if (isCompactViewport.value) {
+		return "list";
+	}
+	return invoiceItemsView.value;
+});
+
+const showViewToggle = computed(() => !isCompactViewport.value);
+
+const preserveClassicTableColumns = computed(
+	() => effectiveInvoiceItemsView.value === "table" && !isCompactViewport.value
+);
+
 const responsive = useItemsTableResponsive(
 	tableContainer,
 	computed(() => props.headers || []),
+	{ collapseOptional: computed(() => (preserveClassicTableColumns.value ? false : "auto")) },
 );
 const merge = useItemsTableMerge(computed(() => invoiceStore.items));
 const nameEdit = useItemsTableNameEdit();
 
 // Computed
 const items = computed(() => invoiceStore.items);
+
+const itemMediaByCode = computed(() => {
+	const map = new Map<string, any>();
+	const catalogItems = itemsStore.items || [];
+	for (const item of catalogItems) {
+		if (item?.item_code) {
+			map.set(item.item_code, item);
+		}
+	}
+	return map;
+});
 
 const filteredItems = computed(() => {
 	const search = props.itemSearch?.trim() || "";
@@ -266,37 +327,6 @@ const {
 	isStackedRows,
 } = responsive;
 
-// View Controller & Persistence State
-const detailsDialog = ref(false);
-const detailsItem = ref<any>(null);
-
-const getStoredInvoiceItemsView = (): "list" | "table" => {
-	const profileName = props.pos_profile?.name || "default";
-	try {
-		const stored = localStorage.getItem(`posa_invoice_items_view:${profileName}`);
-		if (stored === "table" || stored === "list") return stored;
-	} catch (e) {}
-	return "list";
-};
-
-const invoiceItemsView = ref<"list" | "table">(getStoredInvoiceItemsView());
-
-const setInvoiceItemsView = (view: "list" | "table") => {
-	invoiceItemsView.value = view;
-	const profileName = props.pos_profile?.name || "default";
-	try {
-		localStorage.setItem(`posa_invoice_items_view:${profileName}`, view);
-	} catch (e) {}
-};
-
-watch(
-	() => props.pos_profile?.name,
-	() => {
-		invoiceItemsView.value = getStoredInvoiceItemsView();
-	},
-);
-
-const isCompactViewport = computed(() => windowWidth.value < 1200);
 const cartContainerWidth = computed(() => containerWidth.value || 0);
 
 type InvoiceCardLayout = "row" | "stacked" | "phone";
@@ -310,15 +340,6 @@ const invoiceCardLayout = computed<InvoiceCardLayout>(() => {
 	}
 	return "row";
 });
-
-const effectiveInvoiceItemsView = computed(() => {
-	if (isCompactViewport.value) {
-		return "list";
-	}
-	return invoiceItemsView.value;
-});
-
-const showViewToggle = computed(() => !isCompactViewport.value);
 
 const openItemDetails = (item: any) => {
 	detailsItem.value = item;
@@ -376,6 +397,18 @@ const getColumnTrack = (columnKey: string) => {
 	return tracks[columnKey] || "82px";
 };
 
+const parseColumnWidth = (track: string): number => {
+	const match = track ? track.match(/(\d+)px/) : null;
+	return match && match[1] ? parseInt(match[1], 10) : 80;
+};
+
+const cartTableMinWidth = computed(() => {
+	return finalVisibleColumns.value.reduce(
+		(total: number, column: any) => total + parseColumnWidth(getColumnTrack(column.key)),
+		0
+	);
+});
+
 const cartTableColumns = computed(() =>
 	finalVisibleColumns.value.map((column: any) => getColumnTrack(column?.key)).join(" "),
 );
@@ -390,6 +423,7 @@ const cartRowHeight = computed(() => {
 const tableContainerStyles = computed(() => ({
 	...containerStyles.value,
 	"--cart-table-columns": cartTableColumns.value,
+	"--cart-table-min-width": `${cartTableMinWidth.value}px`,
 	"--cart-table-header-height": "38px",
 	"--cart-table-row-height": `${cartRowHeight.value}px`,
 }));

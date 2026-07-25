@@ -26,6 +26,7 @@
 			<template v-slot:item="{ item }">
 				<CartItemRow
 					:item="item"
+					:catalog-item="itemMediaByCode?.get?.(item.item_code)"
 					:visible-columns="headers"
 					:posProfile="posProfile"
 					:isReturnInvoice="isReturnInvoice"
@@ -51,7 +52,7 @@
 					@open-name-dialog="$emit('open-name-dialog', $event)"
 					@reset-item-name="$emit('reset-item-name', $event)"
 					@toggle-offer="$emit('toggle-offer', $event)"
-					@toggle-expand="$emit('open-details', item)"
+					@toggle-expand="$emit('open-details', $event)"
 					@remove-item="$emit('remove-item', $event)"
 				/>
 			</template>
@@ -75,6 +76,7 @@ defineProps({
 		type: Array as () => any[],
 		default: () => [],
 	},
+	itemMediaByCode: Object,
 	posProfile: {
 		type: Object,
 		default: () => ({}),
@@ -141,5 +143,15 @@ defineEmits([
 	min-height: 0;
 	width: 100%;
 	overflow: hidden;
+}
+
+.invoice-items-table-view :deep(.v-table__wrapper) {
+	overflow-x: auto !important;
+	overflow-y: auto !important;
+	overscroll-behavior: contain;
+}
+
+.invoice-items-table-view :deep(table) {
+	min-width: var(--cart-table-min-width, 600px);
 }
 </style>

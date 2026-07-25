@@ -13,9 +13,11 @@
 	>
 		<div class="card-item-image-container">
 			<v-img
-				:src="item.image || placeholderImage"
+				v-if="resolvedImage && !imageFailed"
+				:src="resolvedImage"
 				class="card-item-image"
-				:alt="item.item_name"
+				:alt="item.item_name || item.item_code"
+				@error="imageFailed = true"
 			>
 				<template #placeholder>
 					<div class="image-placeholder">
@@ -23,6 +25,9 @@
 					</div>
 				</template>
 			</v-img>
+			<div v-else class="image-placeholder">
+				<v-icon size="40" color="grey-lighten-2"> mdi-package-variant-closed </v-icon>
+			</div>
 		</div>
 		<div class="card-item-content">
 			<div class="card-item-header">
@@ -94,8 +99,8 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
-import placeholderImage from "../placeholder-image.png";
+import { computed, ref, watch } from "vue";
+import { resolveItemImage } from "../../../utils/itemImage";
 import ItemRateInfoMenu from "./ItemRateInfoMenu.vue";
 import { priceListToSelectedCurrency } from "../../../utils/erpnextCurrency";
 
@@ -123,6 +128,13 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["click", "dragstart", "dragend"]);
+
+const imageFailed = ref(false);
+const resolvedImage = computed(() => resolveItemImage(props.item));
+
+watch(resolvedImage, () => {
+	imageFailed.value = false;
+});
 
 const addItemLabel = computed(() => __("Add item"));
 
