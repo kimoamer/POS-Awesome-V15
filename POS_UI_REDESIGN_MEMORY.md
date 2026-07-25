@@ -29,7 +29,7 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 ## Current Pass
 
-Invoice Customer and Responsive Panel Acceptance Fix.
+POS Responsive Layout + Customer Region + Browse Subviews Acceptance Fix.
 
 Scope:
 
@@ -51,6 +51,7 @@ Acceptance:
 - Returning from Cart keeps Browse state because the selector remains mounted with `v-show`.
 - Cart footer respects the bottom dock safe area below `1200px`.
 - RTL uses intentional Back arrow direction and keeps customer/cart regions intact.
+- Follow-up acceptance cleanup removed floating labels from POS/cart search fields, removed duplicate native titles from Columns/subview Back tooltips, tightened Customer strip top spacing, and hid legacy Offers/Coupons inner titles/back buttons inside the modern Browse subview frame.
 
 ## Recently Completed
 

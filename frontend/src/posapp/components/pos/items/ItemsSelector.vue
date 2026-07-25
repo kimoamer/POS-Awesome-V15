@@ -154,7 +154,6 @@
 							color="primary"
 							class="browse-subview-back"
 							:aria-label="__('Back to Items')"
-							:title="__('Back to Items')"
 							@click="returnToItems"
 						>
 							<v-icon size="22">{{ browseBackIcon }}</v-icon>
@@ -183,7 +182,6 @@
 							color="primary"
 							class="browse-subview-back"
 							:aria-label="__('Back to Items')"
-							:title="__('Back to Items')"
 							@click="returnToItems"
 						>
 							<v-icon size="22">{{ browseBackIcon }}</v-icon>
@@ -1586,6 +1584,16 @@ defineExpose({
 	overflow: hidden;
 }
 
+.browse-subview-body :deep(> *) {
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
 .browse-subview-body :deep(.selection) {
 	width: 100% !important;
 	height: 100% !important;
@@ -1594,9 +1602,26 @@ defineExpose({
 	border: 0 !important;
 	border-radius: 0 !important;
 	box-shadow: none !important;
+	display: flex !important;
+	flex-direction: column !important;
+	min-height: 0 !important;
+	overflow: hidden !important;
+}
+
+.browse-subview-body :deep(.selection > .v-card-title) {
+	display: none !important;
+}
+
+.browse-subview-body :deep(.selection > .overflow-y-auto) {
+	flex: 1 1 auto;
+	min-height: 0;
+	max-height: none !important;
+	overflow-y: auto !important;
+	overflow-x: hidden !important;
 }
 
 .browse-subview-body :deep(.cards) {
+	display: none !important;
 	margin: 0 !important;
 }
 

@@ -16,7 +16,6 @@
 					variant="outlined"
 					color="primary"
 					class="pos-themed-input command-input command-input--search"
-					:label="frappe._('Search, scan or browse item')"
 					:placeholder="searchPlaceholder"
 					:aria-label="searchPlaceholder"
 					aria-autocomplete="list"

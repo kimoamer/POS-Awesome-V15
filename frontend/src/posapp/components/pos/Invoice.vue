@@ -1331,6 +1331,7 @@ export default {
 	height: 100%;
 	min-height: 0;
 	min-width: 0;
+	margin-top: 0 !important;
 	overflow: hidden !important;
 	border: 0 !important;
 	border-radius: 0 !important;
@@ -1432,8 +1433,8 @@ export default {
 	display: flex;
 	align-items: center;
 	width: 100%;
-	min-height: 60px;
-	padding: 8px 10px;
+	min-height: 56px;
+	padding: 6px 10px;
 	border-block-end: 1px solid var(--pos-border-light);
 	background: var(--pos-surface);
 }

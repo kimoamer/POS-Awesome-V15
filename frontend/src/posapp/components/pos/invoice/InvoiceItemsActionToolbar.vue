@@ -8,7 +8,6 @@
 			variant="outlined"
 			color="primary"
 			class="item-search-field pos-themed-input"
-			:label="__('Search items in cart or scan barcode...')"
 			:placeholder="__('Search items in cart or scan barcode...')"
 			:aria-label="__('Search items in cart or scan barcode')"
 			prepend-inner-icon="mdi-magnify"
@@ -25,7 +24,6 @@
 				@click="toggleColumnSelection"
 				class="invoice-command-btn invoice-command-btn--columns"
 				:aria-label="__('Columns')"
-				:title="__('Columns')"
 			>
 				<v-icon size="18">mdi-view-column-outline</v-icon>
 				<v-tooltip activator="parent" location="bottom">{{ __("Columns") }}</v-tooltip>
@@ -39,7 +37,6 @@
 						color="primary"
 						class="invoice-command-btn"
 						:aria-label="__('More invoice item actions')"
-						:title="__('More')"
 					>
 						<v-icon size="20">mdi-dots-vertical</v-icon>
 						<v-tooltip activator="parent" location="bottom">{{ __("More") }}</v-tooltip>
