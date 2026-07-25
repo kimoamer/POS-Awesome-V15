@@ -18,10 +18,7 @@
 				</div>
 			</div>
 		</div>
-		<div
-			v-else-if="displayedItems.length === 0"
-			class="items-empty-state"
-		>
+		<div v-else-if="displayedItems.length === 0" class="items-empty-state">
 			<div class="items-empty-state__icon">
 				<v-icon size="34">mdi-package-search-outline</v-icon>
 			</div>
@@ -173,7 +170,22 @@ const getScrollerElement = () => {
 	return ref?.$el || ref;
 };
 
-defineExpose({ scrollToItem, getScrollerElement, scrollerRef });
+const scrollToPosition = (position) => {
+	const ref = scrollerRef.value;
+	if (typeof ref?.scrollToPosition === "function") {
+		ref.scrollToPosition(position);
+		return true;
+	}
+
+	const scrollerElement = getScrollerElement();
+	if (scrollerElement && "scrollTop" in scrollerElement) {
+		scrollerElement.scrollTop = position;
+		return true;
+	}
+	return false;
+};
+
+defineExpose({ scrollToItem, scrollToPosition, getScrollerElement, scrollerRef });
 </script>
 
 <style scoped>

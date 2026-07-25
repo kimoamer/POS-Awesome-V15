@@ -17,203 +17,213 @@
 			></v-progress-linear>
 
 			<div class="browse-panel dynamic-padding">
-				<div v-show="activeBrowsePanel === 'items'" class="browse-items-panel">
+				<div class="browse-view-stack">
 					<section
-						class="browse-command-region selector-section-card selector-header-card pos-themed-card"
+						class="browse-view browse-view--items"
+						:class="{ 'browse-view--active': activeBrowsePanel === 'items' }"
+						:aria-hidden="activeBrowsePanel !== 'items'"
 					>
-						<ItemHeader
-							v-model:search-input="search_input"
-							v-model:qty-input="debounce_qty"
-							:pos-profile="pos_profile"
-							:scanner-locked="scannerLocked"
-							:enable-background-sync="enable_background_sync"
-							:last-sync-time="lastSyncTimeLabel"
-							:sync-status="syncStatus"
-							:show-sync-progress="showSearchSyncProgress"
-							:sync-progress="syncProgressValue"
-							:sync-items-count="syncItemsCount"
-							:context="context"
-							@esc="esc_event"
-							@enter="onEnter"
-							@search-keydown="handleSearchKeydown"
-							@clear-search="clearSearch"
-							@clear-search-and-qty="clearSearchAndQty"
-							@search-input="handleSearchInput"
-							@search-paste="handleSearchPaste"
-							@focus="handleItemSearchFocus"
-							@clear-qty="clearQty"
-							@blur-qty="onQtyBlur"
-							@start-camera="startCameraScanning"
-							@open-new-item="openNewItemDialog"
-							@toggle-settings="toggleItemSettings"
-							@reload-items="forceReloadItems"
-							ref="itemHeader"
-						/>
+						<div class="browse-items-panel">
+							<section
+								class="browse-command-region selector-section-card selector-header-card pos-themed-card"
+							>
+								<ItemHeader
+									v-model:search-input="search_input"
+									v-model:qty-input="debounce_qty"
+									:pos-profile="pos_profile"
+									:scanner-locked="scannerLocked"
+									:enable-background-sync="enable_background_sync"
+									:last-sync-time="lastSyncTimeLabel"
+									:sync-status="syncStatus"
+									:show-sync-progress="showSearchSyncProgress"
+									:sync-progress="syncProgressValue"
+									:sync-items-count="syncItemsCount"
+									:context="context"
+									@esc="esc_event"
+									@enter="onEnter"
+									@search-keydown="handleSearchKeydown"
+									@clear-search="clearSearch"
+									@clear-search-and-qty="clearSearchAndQty"
+									@search-input="handleSearchInput"
+									@search-paste="handleSearchPaste"
+									@focus="handleItemSearchFocus"
+									@clear-qty="clearQty"
+									@blur-qty="onQtyBlur"
+									@start-camera="startCameraScanning"
+									@open-new-item="openNewItemDialog"
+									@toggle-settings="toggleItemSettings"
+									@reload-items="forceReloadItems"
+									ref="itemHeader"
+								/>
+							</section>
+
+							<section class="browse-filter-region">
+								<ItemActionToolbar
+									v-model="item_group"
+									:items-group="items_group"
+									:items-view="items_view"
+									:pos-profile="pos_profile"
+									:active-price-list="active_price_list"
+									:offers-count="offersCount"
+									:coupons-count="couponsCount"
+									:reserve-bottom-dock-space="
+										context === 'pos' && responsive.windowWidth.value < 1200
+									"
+									@update:items-view="handleItemsViewUpdate"
+									@open-offers="openBrowsePanel('offers')"
+									@open-coupons="openBrowsePanel('coupons')"
+								/>
+							</section>
+
+							<section
+								class="browse-results-region selector-section-card selector-results-card pos-themed-card"
+							>
+								<ItemsSelectorCards
+									v-if="items_view === 'card'"
+									ref="itemsContainerRef"
+									:displayed-items="displayedItems"
+									:is-loading="isLoadingOrSyncing"
+									:search-input="search_input"
+									:item-group="item_group"
+									:is-overflowing="isOverflowing"
+									:card-slot-height="cardSlotHeight"
+									:card-columns="cardColumns"
+									:card-slot-width="cardSlotWidth"
+									:card-column-width="cardColumnWidth"
+									:card-row-height="cardRowHeight"
+									:card-gap="cardGap"
+									:card-padding="cardPadding"
+									:virtual-scroll-buffer="virtualScrollBuffer"
+									:pos-profile="pos_profile"
+									:context="context"
+									:selected-currency="selected_currency"
+									:selected-exchange-rate="selected_exchange_rate"
+									:selected-conversion-rate="selected_conversion_rate"
+									:hide-qty-decimals="hide_qty_decimals"
+									:show-rate-info="show_last_invoice_rate"
+									:get-item-rate-info="getItemRateInfo"
+									:is-item-highlighted="isItemHighlighted"
+									:currency-symbol="currencySymbol"
+									:format-currency="memoizedFormatCurrency"
+									:format-number="memoizedFormatNumber"
+									:rate-precision="ratePrecision"
+									:is-negative="isNegative"
+									:no-items-title="__('No items found')"
+									:no-items-subtitle="__('Try adjusting your search or filters')"
+									:clear-search-label="__('Clear Search')"
+									@select-item="select_item"
+									@dragstart="onDragStart"
+									@dragend="onDragEnd"
+									@virtual-range-update="onVirtualRangeUpdate"
+									@clear-search="clearSearch"
+								/>
+								<ItemsSelectorTable
+									v-else
+									ref="itemsTable"
+									:headers="headers"
+									:displayed-items="displayedItems"
+									:header-props="headerProps"
+									:context="context"
+									:pos-profile="pos_profile"
+									:selected-currency="selected_currency"
+									:selected-exchange-rate="selected_exchange_rate"
+									:selected-conversion-rate="selected_conversion_rate"
+									:hide-qty-decimals="hide_qty_decimals"
+									:show-rate-info="show_last_invoice_rate"
+									:currency-symbol="currencySymbol"
+									:format-currency="memoizedFormatCurrency"
+									:format-number="memoizedFormatNumber"
+									:rate-precision="ratePrecision"
+									:get-item-rate-info="getItemRateInfo"
+									:is-negative="isNegative"
+									:item-class="getItemRowClass"
+									:row-props="getItemRowProps"
+									:no-data-text="__('No items found')"
+									:multi-select="multiSelect"
+									:selected-keys="selectedKeys"
+									@row-click="click_item_row"
+									@list-scroll="onListScroll"
+									@toggle-selection="toggleItemSelection"
+									@select-all="handleSelectAll"
+								/>
+							</section>
+						</div>
+
+						<div class="browse-bulk-action-region">
+							<v-expand-transition>
+								<div v-if="multiSelect" class="multi-select-bar">
+									<v-btn
+										color="primary"
+										size="large"
+										:disabled="selectedItems.size === 0"
+										class="px-6"
+										@click="emitAddSelected"
+									>
+										{{ __("Add Selected") }} ({{ selectedItems.size }})
+									</v-btn>
+								</div>
+							</v-expand-transition>
+						</div>
 					</section>
 
-					<section class="browse-filter-region">
-						<ItemActionToolbar
-							v-model="item_group"
-							:items-group="items_group"
-							:items-view="items_view"
-							:pos-profile="pos_profile"
-							:active-price-list="active_price_list"
-							:offers-count="offersCount"
-							:coupons-count="couponsCount"
-							:reserve-bottom-dock-space="
-								context === 'pos' && responsive.windowWidth.value < 1200
-							"
-							@update:items-view="handleItemsViewUpdate"
-							@open-offers="openBrowsePanel('offers')"
-							@open-coupons="openBrowsePanel('coupons')"
-						/>
+					<section
+						class="browse-view browse-subview-panel selector-section-card pos-themed-card"
+						:class="{ 'browse-view--active': activeBrowsePanel === 'offers' }"
+						:aria-hidden="activeBrowsePanel !== 'offers'"
+					>
+						<header class="browse-subview-header">
+							<v-btn
+								icon
+								variant="text"
+								color="primary"
+								class="browse-subview-back"
+								:aria-label="__('Back to Items')"
+								@click="returnToItems"
+							>
+								<v-icon size="22">{{ browseBackIcon }}</v-icon>
+								<v-tooltip activator="parent" location="bottom">{{
+									__("Back to Items")
+								}}</v-tooltip>
+							</v-btn>
+							<div class="browse-subview-title">
+								<v-icon size="18">mdi-tag-outline</v-icon>
+								<span>{{ __("Offers") }}</span>
+							</div>
+						</header>
+						<div class="browse-subview-body">
+							<PosOffers />
+						</div>
 					</section>
 
 					<section
-						class="browse-results-region selector-section-card selector-results-card pos-themed-card"
+						class="browse-view browse-subview-panel selector-section-card pos-themed-card"
+						:class="{ 'browse-view--active': activeBrowsePanel === 'coupons' }"
+						:aria-hidden="activeBrowsePanel !== 'coupons'"
 					>
-						<ItemsSelectorCards
-							v-if="items_view === 'card'"
-							ref="itemsContainerRef"
-							:displayed-items="displayedItems"
-							:is-loading="isLoadingOrSyncing"
-							:search-input="search_input"
-							:item-group="item_group"
-							:is-overflowing="isOverflowing"
-							:card-slot-height="cardSlotHeight"
-							:card-columns="cardColumns"
-							:card-slot-width="cardSlotWidth"
-							:card-column-width="cardColumnWidth"
-							:card-row-height="cardRowHeight"
-							:card-gap="cardGap"
-							:card-padding="cardPadding"
-							:virtual-scroll-buffer="virtualScrollBuffer"
-							:pos-profile="pos_profile"
-							:context="context"
-							:selected-currency="selected_currency"
-							:selected-exchange-rate="selected_exchange_rate"
-							:selected-conversion-rate="selected_conversion_rate"
-							:hide-qty-decimals="hide_qty_decimals"
-							:show-rate-info="show_last_invoice_rate"
-							:get-item-rate-info="getItemRateInfo"
-							:is-item-highlighted="isItemHighlighted"
-							:currency-symbol="currencySymbol"
-							:format-currency="memoizedFormatCurrency"
-							:format-number="memoizedFormatNumber"
-							:rate-precision="ratePrecision"
-							:is-negative="isNegative"
-							:no-items-title="__('No items found')"
-							:no-items-subtitle="__('Try adjusting your search or filters')"
-							:clear-search-label="__('Clear Search')"
-							@select-item="select_item"
-							@dragstart="onDragStart"
-							@dragend="onDragEnd"
-							@virtual-range-update="onVirtualRangeUpdate"
-							@clear-search="clearSearch"
-						/>
-						<ItemsSelectorTable
-							v-else
-							ref="itemsTable"
-							:headers="headers"
-							:displayed-items="displayedItems"
-							:header-props="headerProps"
-							:context="context"
-							:pos-profile="pos_profile"
-							:selected-currency="selected_currency"
-							:selected-exchange-rate="selected_exchange_rate"
-							:selected-conversion-rate="selected_conversion_rate"
-							:hide-qty-decimals="hide_qty_decimals"
-							:show-rate-info="show_last_invoice_rate"
-							:currency-symbol="currencySymbol"
-							:format-currency="memoizedFormatCurrency"
-							:format-number="memoizedFormatNumber"
-							:rate-precision="ratePrecision"
-							:get-item-rate-info="getItemRateInfo"
-							:is-negative="isNegative"
-							:item-class="getItemRowClass"
-							:row-props="getItemRowProps"
-							:no-data-text="__('No items found')"
-							:multi-select="multiSelect"
-							:selected-keys="selectedKeys"
-							@row-click="click_item_row"
-							@list-scroll="onListScroll"
-							@toggle-selection="toggleItemSelection"
-							@select-all="handleSelectAll"
-						/>
+						<header class="browse-subview-header">
+							<v-btn
+								icon
+								variant="text"
+								color="primary"
+								class="browse-subview-back"
+								:aria-label="__('Back to Items')"
+								@click="returnToItems"
+							>
+								<v-icon size="22">{{ browseBackIcon }}</v-icon>
+								<v-tooltip activator="parent" location="bottom">{{
+									__("Back to Items")
+								}}</v-tooltip>
+							</v-btn>
+							<div class="browse-subview-title">
+								<v-icon size="18">mdi-ticket-percent-outline</v-icon>
+								<span>{{ __("Coupons") }}</span>
+							</div>
+						</header>
+						<div class="browse-subview-body">
+							<PosCoupons />
+						</div>
 					</section>
 				</div>
-
-				<section
-					v-show="activeBrowsePanel === 'offers'"
-					class="browse-subview-panel selector-section-card pos-themed-card"
-				>
-					<header class="browse-subview-header">
-						<v-btn
-							icon
-							variant="text"
-							color="primary"
-							class="browse-subview-back"
-							:aria-label="__('Back to Items')"
-							@click="returnToItems"
-						>
-							<v-icon size="22">{{ browseBackIcon }}</v-icon>
-							<v-tooltip activator="parent" location="bottom">{{
-								__("Back to Items")
-							}}</v-tooltip>
-						</v-btn>
-						<div class="browse-subview-title">
-							<v-icon size="18">mdi-tag-outline</v-icon>
-							<span>{{ __("Offers") }}</span>
-						</div>
-					</header>
-					<div class="browse-subview-body">
-						<PosOffers />
-					</div>
-				</section>
-
-				<section
-					v-show="activeBrowsePanel === 'coupons'"
-					class="browse-subview-panel selector-section-card pos-themed-card"
-				>
-					<header class="browse-subview-header">
-						<v-btn
-							icon
-							variant="text"
-							color="primary"
-							class="browse-subview-back"
-							:aria-label="__('Back to Items')"
-							@click="returnToItems"
-						>
-							<v-icon size="22">{{ browseBackIcon }}</v-icon>
-							<v-tooltip activator="parent" location="bottom">{{
-								__("Back to Items")
-							}}</v-tooltip>
-						</v-btn>
-						<div class="browse-subview-title">
-							<v-icon size="18">mdi-ticket-percent-outline</v-icon>
-							<span>{{ __("Coupons") }}</span>
-						</div>
-					</header>
-					<div class="browse-subview-body">
-						<PosCoupons />
-					</div>
-				</section>
-			</div>
-
-			<div v-show="activeBrowsePanel === 'items'" class="browse-bulk-action-region">
-				<v-expand-transition>
-					<div v-if="multiSelect" class="multi-select-bar">
-						<v-btn
-							color="primary"
-							size="large"
-							:disabled="selectedItems.size === 0"
-							class="px-6"
-							@click="emitAddSelected"
-						>
-							{{ __("Add Selected") }} ({{ selectedItems.size }})
-						</v-btn>
-					</div>
-				</v-expand-transition>
 			</div>
 		</v-card>
 
@@ -269,6 +279,7 @@ import {
 	getCurrentInstance,
 	onMounted,
 	onBeforeUnmount,
+	nextTick,
 	ref,
 	computed,
 	watch,
@@ -427,6 +438,8 @@ const search_input = ref("");
 const first_search = ref("");
 const items_view = ref("list");
 const lastDefaultViewProfileKey = ref<string | null>(null);
+const itemsTable = ref<any>(null);
+const savedItemsScrollTop = ref(0);
 const itemsPerPage = ref(50);
 const clearingSearch = ref(false);
 const isDragging = ref(false);
@@ -547,16 +560,90 @@ const handleItemsViewUpdate = (view: string) => {
 	items_view.value = view;
 };
 
-const openBrowsePanel = (panel: BrowsePanel) => {
-	activeBrowsePanel.value = panel;
-	if (activeView.value !== panel) {
-		uiStore.setActiveView(panel);
+const waitForAnimationFrame = () =>
+	new Promise<void>((resolve) => {
+		if (typeof requestAnimationFrame === "function") {
+			requestAnimationFrame(() => resolve());
+			return;
+		}
+		setTimeout(() => resolve(), 0);
+	});
+
+const getItemsScrollerElement = (): HTMLElement | null => {
+	const cardRef = itemsContainerRef.value as any;
+	const cardElement = cardRef?.getScrollerElement?.() || cardRef?.$el || cardRef;
+	const tableRef = itemsTable.value as any;
+	const tableElement = tableRef?.getTableElement?.() || tableRef?.$el || tableRef;
+	const activeElement = items_view.value === "card" ? cardElement : tableElement;
+
+	if (!activeElement) return null;
+	return (
+		(activeElement.querySelector?.(".virtual-scroller") as HTMLElement | null) ||
+		(activeElement.querySelector?.(".items-card-grid") as HTMLElement | null) ||
+		(activeElement.querySelector?.(".v-table__wrapper") as HTMLElement | null) ||
+		(activeElement as HTMLElement)
+	);
+};
+
+const captureItemsScrollPosition = () => {
+	const scroller = getItemsScrollerElement();
+	savedItemsScrollTop.value = scroller?.scrollTop || 0;
+};
+
+const restoreItemsScrollPosition = () => {
+	const cardRef = itemsContainerRef.value as any;
+	if (items_view.value === "card" && cardRef?.scrollToPosition?.(savedItemsScrollTop.value)) {
+		return;
+	}
+
+	const scroller = getItemsScrollerElement();
+	if (scroller) {
+		scroller.scrollTop = savedItemsScrollTop.value;
 	}
 };
 
-const returnToItems = () => {
-	openBrowsePanel("items");
-	requestItemSearchFocus();
+const refreshItemsLayoutAfterActivation = async (focusSearch = false) => {
+	await nextTick();
+	await waitForAnimationFrame();
+	await waitForAnimationFrame();
+	await refreshLayoutMetrics();
+	restoreItemsScrollPosition();
+
+	const cardRef = itemsContainerRef.value as any;
+	const scrollerInstance = cardRef?.scrollerRef?.value || cardRef?.scrollerRef;
+	scrollerInstance?.$forceUpdate?.();
+	cardRef?.$forceUpdate?.();
+
+	if (focusSearch) {
+		requestItemSearchFocus();
+	}
+};
+
+const setBrowsePanel = async (
+	panel: BrowsePanel,
+	options: { syncStore?: boolean; focusSearch?: boolean } = {},
+) => {
+	const { syncStore = true, focusSearch = false } = options;
+	if (activeBrowsePanel.value === "items" && panel !== "items") {
+		captureItemsScrollPosition();
+	}
+
+	activeBrowsePanel.value = panel;
+	if (syncStore && activeView.value !== panel) {
+		uiStore.setActiveView(panel);
+	}
+
+	if (panel === "items") {
+		await refreshItemsLayoutAfterActivation(focusSearch);
+	}
+};
+
+const openBrowsePanel = (panel: BrowsePanel) => {
+	void setBrowsePanel(panel);
+};
+
+const returnToItems = async () => {
+	await setBrowsePanel("items", { focusSearch: true });
 };
 
 const handleBrowseEscape = (event: KeyboardEvent) => {
@@ -565,7 +652,7 @@ const handleBrowseEscape = (event: KeyboardEvent) => {
 	}
 	event.preventDefault();
 	event.stopPropagation();
-	returnToItems();
+	void returnToItems();
 };
 
 const {
@@ -747,6 +834,7 @@ const {
 	cardSlotWidth,
 	cardColumnWidth,
 	checkItemContainerOverflow,
+	refreshLayoutMetrics,
 	scheduleCardMetricsUpdate,
 	onListScroll: handleListScroll,
 } = useItemSelectorLayout({
@@ -1196,10 +1284,7 @@ watch(
 
 watch(activeView, (view) => {
 	if (isBrowsePanel(view)) {
-		activeBrowsePanel.value = view;
-	}
-	if (view === "items") {
-		requestItemSearchFocus();
+		void setBrowsePanel(view, { syncStore: false, focusSearch: view === "items" });
 	}
 });
 
@@ -1472,9 +1557,45 @@ defineExpose({
 	flex: 1 1 auto;
 	min-width: 0;
 	min-height: 0;
-	display: block;
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
 	padding: var(--browse-panel-padding);
 	overflow: hidden;
+}
+
+.browse-view-stack {
+	position: relative;
+	flex: 1 1 auto;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.browse-view {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+	visibility: hidden;
+	opacity: 0;
+	pointer-events: none;
+	overflow: hidden;
+}
+
+.browse-view--active {
+	visibility: visible;
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.browse-view--items {
+	display: block;
 }
 
 .browse-items-panel {
@@ -1581,7 +1702,8 @@ defineExpose({
 .browse-subview-body {
 	min-width: 0;
 	min-height: 0;
-	overflow: hidden;
+	overflow-y: auto;
+	overflow-x: hidden;
 }
 
 .browse-subview-body :deep(> *) {
@@ -1626,7 +1748,16 @@ defineExpose({
 }
 
 .browse-bulk-action-region {
-	flex: 0 0 auto;
+	position: absolute;
+	z-index: 4;
+	inset-inline: 0;
+	inset-block-end: 0;
+	padding-inline: var(--browse-panel-padding);
+	pointer-events: none;
+}
+
+.browse-bulk-action-region > * {
+	pointer-events: auto;
 }
 
 .browse-overlay-region {
@@ -1705,6 +1836,7 @@ defineExpose({
 	height: 100%;
 	min-width: 0;
 	min-height: 0;
+	max-height: none !important;
 	overflow: hidden;
 }
 

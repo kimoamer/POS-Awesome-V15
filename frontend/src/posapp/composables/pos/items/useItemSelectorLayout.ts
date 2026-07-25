@@ -29,7 +29,9 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 	let resizeObserver: ResizeObserver | null = null;
 
 	// Computed Metrics
-	const measuredWidth = computed(() => containerWidth.value || getFallbackContainerWidth());
+	const measuredWidth = computed(
+		() => containerWidth.value || getFallbackContainerWidth(),
+	);
 	const cardGap = computed(() => getCardGap(measuredWidth.value));
 	const cardPadding = computed(() => getCardPadding(measuredWidth.value));
 
@@ -41,9 +43,11 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 		const padding = cardPadding.value;
 		const availableWidth = Math.max(0, width - padding * 2);
 		const minimumColumnWidth = getMinimumColumnWidth(width);
-		const rawColumns = Math.floor((availableWidth + gap) / (minimumColumnWidth + gap));
+		const rawColumns = Math.floor(
+			(availableWidth + gap) / (minimumColumnWidth + gap),
+		);
 		const minColumns = width >= 320 ? 2 : 1;
-		const maxColumns = getMaximumColumns(width, windowWidth.value);
+		const maxColumns = getMaximumColumns(width);
 		return clamp(rawColumns || minColumns, minColumns, maxColumns);
 	});
 
@@ -61,17 +65,13 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 	});
 
 	const cardRowHeight = computed(() => {
+		const container = measuredWidth.value;
 		const width = cardColumnWidth.value;
-		if (windowWidth.value <= 767 || measuredWidth.value <= 520) {
-			return width < 158 ? 210 : 216;
-		}
-		if (windowWidth.value <= 1279 || measuredWidth.value <= 920) {
-			return width < 188 ? 232 : 240;
-		}
-		if (width >= 240) {
-			return 258;
-		}
-		return 250;
+
+		if (container < 560) return width < 170 ? 208 : 216;
+		if (container < 900) return width < 175 ? 220 : 228;
+		if (container < 1100) return width < 180 ? 226 : 234;
+		return width >= 210 ? 248 : 238;
 	});
 
 	const cardSlotHeight = computed(() => cardRowHeight.value + cardGap.value);
@@ -82,16 +82,23 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 		windowWidth.value = window.innerWidth;
 	};
 
-	const scheduleCardMetricsUpdate = _.debounce(() => {
+	const refreshLayoutMetrics = async () => {
+		await nextTick();
 		updateWindowWidth();
 		updateContainerWidth();
 		checkItemContainerOverflow();
+	};
+
+	const scheduleCardMetricsUpdate = _.debounce(() => {
+		void refreshLayoutMetrics();
 	}, resizeDebounce);
 
 	const getItemsContainerElement = (): HTMLElement | null => {
 		if (!itemsContainerRef.value) {
 			if (typeof document === "undefined") return null;
-			return document.querySelector(".items-card-container") as HTMLElement | null;
+			return document.querySelector(
+				".items-card-container",
+			) as HTMLElement | null;
 		}
 		// Handle both Vue component ref and raw element
 		return (itemsContainerRef.value.$el ||
@@ -106,7 +113,9 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 		}
 
 		const width = el.getBoundingClientRect().width || el.clientWidth || 0;
-		containerWidth.value = Math.max(0, Math.round(width));
+		if (width > 0) {
+			containerWidth.value = Math.max(0, Math.round(width));
+		}
 	};
 
 	const disconnectResizeObserver = () => {
@@ -130,8 +139,13 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 
 		resizeObserver = new ResizeObserver((entries) => {
 			const entry = entries[0];
-			const nextWidth = entry?.contentRect?.width || el.getBoundingClientRect().width || 0;
-			containerWidth.value = Math.max(0, Math.round(nextWidth));
+			const nextWidth =
+				entry?.contentRect?.width ||
+				el.getBoundingClientRect().width ||
+				0;
+			if (nextWidth > 0) {
+				containerWidth.value = Math.max(0, Math.round(nextWidth));
+			}
 			checkItemContainerOverflow();
 		});
 		resizeObserver.observe(el);
@@ -144,28 +158,15 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 			return;
 		}
 
-		const containerHeight = parseFloat(
-			getComputedStyle(el).getPropertyValue("--container-height"),
-		);
-		if (isNaN(containerHeight)) {
-			isOverflowing.value = false;
-			return;
-		}
+		el.style.removeProperty("max-height");
+		const scrollElement =
+			(el.querySelector(".virtual-scroller") as HTMLElement | null) ||
+			(el.querySelector(".items-card-grid") as HTMLElement | null) ||
+			(el.querySelector(".v-table__wrapper") as HTMLElement | null) ||
+			el;
 
-		const stickyHeader = el
-			.closest(".dynamic-padding")
-			?.querySelector(".sticky-header") as HTMLElement | null;
-		const headerHeight = stickyHeader ? stickyHeader.offsetHeight : 0;
-		const availableHeight = containerHeight - headerHeight;
-
-		// Only apply if calculated height is valid
-		if (availableHeight > 0) {
-			el.style.maxHeight = `${availableHeight}px`;
-			isOverflowing.value = el.scrollHeight > availableHeight;
-		}
-
-		// Also schedule metrics update as this might affect layout
-		// But be careful of infinite loops; separate updateWindowWidth logic if needed
+		isOverflowing.value =
+			scrollElement.scrollHeight > scrollElement.clientHeight + 1;
 	};
 
 	const onListScroll = (event: Event) => {
@@ -222,33 +223,29 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 	});
 
 	function getFallbackContainerWidth(): number {
-		if (windowWidth.value <= 767) {
+		if (windowWidth.value < 560) {
 			return Math.max(0, windowWidth.value - 20);
 		}
-		if (windowWidth.value <= 1279) {
+		if (windowWidth.value < 1200) {
 			return Math.max(0, windowWidth.value - 32);
 		}
 		return Math.max(0, windowWidth.value * 0.58);
 	}
 
 	function getMinimumColumnWidth(width: number): number {
-		if (width <= 520) {
-			return 148;
-		}
-		if (width <= 920) {
-			return 168;
-		}
-		return 186;
+		if (width < 560) return 148;
+		if (width < 900) return 158;
+		if (width < 1100) return 168;
+		return 176;
 	}
 
-	function getMaximumColumns(width: number, viewportWidth: number): number {
-		if (viewportWidth <= 767 || width <= 520) {
-			return 2;
-		}
-		if (viewportWidth <= 1279 || width <= 920) {
-			return 4;
-		}
-		return 5;
+	function getMaximumColumns(width: number): number {
+		if (width < 320) return 1;
+		if (width < 560) return 2;
+		if (width < 740) return 3;
+		if (width < 900) return 4;
+		if (width < 1100) return 5;
+		return 6;
 	}
 
 	function clamp(value: number, min: number, max: number): number {
@@ -273,6 +270,7 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 
 		// Methods
 		checkItemContainerOverflow,
+		refreshLayoutMetrics,
 		scheduleCardMetricsUpdate,
 		onListScroll,
 	};

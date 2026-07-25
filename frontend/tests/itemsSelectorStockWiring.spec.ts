@@ -52,7 +52,9 @@ vi.mock("../src/posapp/composables/pos/items/useCartValidation", () => ({
 }));
 
 vi.mock("../src/posapp/composables/pos/items/useItemsIntegration", () => {
-	const items = ref([{ item_code: "ITEM-1", item_name: "Test Item", actual_qty: 10 }]);
+	const items = ref([
+		{ item_code: "ITEM-1", item_name: "Test Item", actual_qty: 10 },
+	]);
 	const filteredItems = ref(items.value);
 	const filteredItemsSearchTerm = ref("");
 	const itemGroup = ref("ALL");
@@ -186,6 +188,7 @@ vi.mock("../src/posapp/composables/pos/items/useItemSelectorLayout", () => ({
 		cardSlotWidth: ref(280),
 		cardColumnWidth: ref(280),
 		checkItemContainerOverflow: vi.fn(),
+		refreshLayoutMetrics: vi.fn(async () => {}),
 		scheduleCardMetricsUpdate: vi.fn(),
 		onListScroll: vi.fn(),
 	}),
@@ -338,7 +341,9 @@ vi.mock("../src/posapp/utils/stock", () => ({
 			return false;
 		}
 		if (typeof value === "string") {
-			return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+			return ["1", "true", "yes", "on"].includes(
+				value.trim().toLowerCase(),
+			);
 		}
 		if (typeof value === "number") {
 			return value === 1;
@@ -444,9 +449,9 @@ describe("ItemsSelector stock wiring", () => {
 			emit: vi.fn(),
 		};
 
-		const ItemsSelector = (await import(
-			"../src/posapp/components/pos/items/ItemsSelector.vue"
-		)).default;
+		const ItemsSelector = (
+			await import("../src/posapp/components/pos/items/ItemsSelector.vue")
+		).default;
 
 		const wrapper = shallowMount(ItemsSelector, {
 			global: {
@@ -540,7 +545,9 @@ describe("ItemsSelector stock wiring", () => {
 
 		wrapper.vm.search_input = "cola";
 		wrapper.vm.item_group = "Beverages";
-		const cardsBefore = wrapper.findComponent({ name: "ItemsSelectorCards" }).vm;
+		const cardsBefore = wrapper.findComponent({
+			name: "ItemsSelectorCards",
+		}).vm;
 
 		wrapper.vm.openBrowsePanel("offers");
 		await wrapper.vm.$nextTick();
@@ -557,7 +564,9 @@ describe("ItemsSelector stock wiring", () => {
 		expect(wrapper.vm.item_group).toBe("Beverages");
 		expect(wrapper.vm.items_view).toBe("card");
 		expect(wrapper.vm.active_price_list).toBe("Standard Selling");
-		expect(wrapper.findComponent({ name: "ItemsSelectorCards" }).vm).toBe(cardsBefore);
+		expect(wrapper.findComponent({ name: "ItemsSelectorCards" }).vm).toBe(
+			cardsBefore,
+		);
 	});
 
 	it("returns from coupons with Escape without clearing browse state", async () => {
@@ -570,7 +579,9 @@ describe("ItemsSelector stock wiring", () => {
 		wrapper.vm.openBrowsePanel("coupons");
 		await wrapper.vm.$nextTick();
 
-		document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", cancelable: true }));
+		document.dispatchEvent(
+			new KeyboardEvent("keydown", { key: "Escape", cancelable: true }),
+		);
 		await wrapper.vm.$nextTick();
 
 		expect(wrapper.vm.activeBrowsePanel).toBe("items");
@@ -596,9 +607,9 @@ describe("ItemsSelector stock wiring", () => {
 			emit: vi.fn(),
 		};
 
-		const ItemsSelector = (await import(
-			"../src/posapp/components/pos/items/ItemsSelector.vue"
-		)).default;
+		const ItemsSelector = (
+			await import("../src/posapp/components/pos/items/ItemsSelector.vue")
+		).default;
 
 		const wrapper = shallowMount(ItemsSelector, {
 			global: {
@@ -636,9 +647,11 @@ describe("ItemsSelector stock wiring", () => {
 		});
 	});
 
-	it('parses string supervisor flags before exposing supervisor-only rate info', async () => {
+	it("parses string supervisor flags before exposing supervisor-only rate info", async () => {
 		const { useUIStore } = await import("../src/posapp/stores/uiStore");
-		const { useEmployeeStore } = await import("../src/posapp/stores/employeeStore");
+		const { useEmployeeStore } = await import(
+			"../src/posapp/stores/employeeStore"
+		);
 		const uiStore = useUIStore();
 		const employeeStore = useEmployeeStore();
 
@@ -659,9 +672,9 @@ describe("ItemsSelector stock wiring", () => {
 			emit: vi.fn(),
 		};
 
-		const ItemsSelector = (await import(
-			"../src/posapp/components/pos/items/ItemsSelector.vue"
-		)).default;
+		const ItemsSelector = (
+			await import("../src/posapp/components/pos/items/ItemsSelector.vue")
+		).default;
 
 		const wrapper = shallowMount(ItemsSelector, {
 			global: {
@@ -687,7 +700,9 @@ describe("ItemsSelector stock wiring", () => {
 
 	it("exposes supervisor-only rate info when the cashier flag is a string one", async () => {
 		const { useUIStore } = await import("../src/posapp/stores/uiStore");
-		const { useEmployeeStore } = await import("../src/posapp/stores/employeeStore");
+		const { useEmployeeStore } = await import(
+			"../src/posapp/stores/employeeStore"
+		);
 		const uiStore = useUIStore();
 		const employeeStore = useEmployeeStore();
 
@@ -708,9 +723,9 @@ describe("ItemsSelector stock wiring", () => {
 			emit: vi.fn(),
 		};
 
-		const ItemsSelector = (await import(
-			"../src/posapp/components/pos/items/ItemsSelector.vue"
-		)).default;
+		const ItemsSelector = (
+			await import("../src/posapp/components/pos/items/ItemsSelector.vue")
+		).default;
 
 		const wrapper = shallowMount(ItemsSelector, {
 			global: {

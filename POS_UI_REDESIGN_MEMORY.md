@@ -29,6 +29,28 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 ## Current Pass
 
+Pass 5.4 Browse View Stability & Adaptive Product Grid.
+
+Scope:
+
+- Browse, Offers, and Coupons now share a fixed view stack with equal space.
+- Inactive browse views remain mounted without `display: none`, preserving product grid measurement.
+- Returning from Offers/Coupons refreshes layout metrics after two animation frames and restores product scroll.
+- Product card metrics are driven by measured `.items-card-container` width.
+- Adaptive product grid targets: 1 column below 320px, 2 below 560px, 3 below 740px, 4 below 900px, 5 below 1100px, 6 at 1100px+ measured container width.
+- `checkItemContainerOverflow` no longer writes stale inline `max-height`; height comes from the CSS grid/flex contract.
+- No filtering, item actions, stores, APIs, props, emits, card/list state, or `RecycleScroller` behavior changed.
+
+Acceptance:
+
+- Offers/Coupons do not change Browse height when opened or closed.
+- Back to Items preserves selected item group, search text, card/list view, price list, loaded items, and product scroll.
+- Tablet full Browse view can use the whole products pane and is not capped by viewport-based column limits.
+- Product grid does not leave large unused side gaps or create horizontal overflow.
+- Visual acceptance still needs screenshots/checks at `1440px`, `1280px`, `1199px`, `1024px`, `768px`, `430px`, and `390px`.
+
+## Recently Completed
+
 POS Responsive Layout + Customer Region + Browse Subviews Acceptance Fix.
 
 Scope:
@@ -121,6 +143,7 @@ Acceptance:
 
 ## Next Step
 
-After this acceptance fix:
+After Pass 5.4 visual acceptance:
 
-1. Continue with Pass 6.5 Invoice Summary and Action Footer, presentation-only.
+1. Continue with Pass 6.5 Invoice Items Premium List, presentation-only.
+2. Then Pass 6.6 Invoice Summary and Action Footer, presentation-only.
