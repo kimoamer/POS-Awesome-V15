@@ -27,29 +27,28 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
-## Current Pass
+## Recently Completed
 
-Pass 6.5 Cart Workspace Completion.
+Pass 6.5.1 — Cart Row Visual Acceptance & Expansion Fix.
 
 Scope:
 
-- Keep `ItemsTable.vue` as the data, virtualization, responsive-column, focus, and keyboard engine.
-- Use `CartItemRow.vue` and `items-table-styles.css` for the premium cart list presentation.
-- Desktop `>=1200px` keeps a light table header and compact list rows.
-- Tablet/mobile `<1200px` use dedicated cart rows with no traditional table header.
-- Collapse optional cart columns from the existing responsive source when the cart pane is too narrow or the viewport is compact.
-- Keep a single Cart scroll owner inside the Vuetify table viewport.
-- Route-level outer scroll remains locked for the POS page.
-- No qty/delete/focus/pricing/tax/discount actions, stores, APIs, props, emits, serial/batch, UOM, return behavior, multi-currency, payment behavior, `InvoiceSummary.vue`, or `InvoiceActionButtons.vue` changed.
+- `CartItemRow.vue`: Refactored into a true Premium list row. 40×40px thumbnail, clean item title/meta, compact Qty stepper, subtle Rate, prominent Amount (`pos-primary`, font-weight 750), and unified Delete + Expand action cluster in a single cell.
+- `ItemsTable.vue`: Header and cell alignment configured for 5 columns (`item_name`, `qty`, `rate`, `amount`, `actions`).
+- Desktop Column Contract: `--cart-row-columns: minmax(180px, 1fr) 120px 92px 108px 80px`.
+- Expanded Details Fix: `ItemsTableExpandedRow.vue` spans `grid-column: 1 / -1`, `width: 100%`, `height: auto`, and `padding: 10px 12px 12px 58px`. No clipping or 68px height constraints.
+- Currency Bidi Isolation: All monetary rates and amounts wrapped in `<bdi class="cart-item-money">` with `direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums` to prevent symbol/number flipping or duplicating in RTL/LTR.
+- Tablet & Mobile (< 1200px): Table header hidden, stacked layout for identity, quantity, rate, amount, actions, and expanded details.
+- Preserved: All handlers, Qty stepper & direct editing, UOM, rate, discounts, serial/batch, return items, offers, keyboard focus, stores, APIs, props, and emits.
 
-Acceptance:
+## Current Pass
 
-- Desktop split view shows Products + Cart side by side with no horizontal cart overflow.
-- Tablet landscape/portrait and mobile show Cart as a dedicated panel with stacked rows.
-- Customer, Invoice command, and Footer stay fixed while Cart Items scroll.
-- Empty cart is centered and compact inside the cart viewport.
-- Last cart row is not covered by Summary or Bottom Dock.
-- Long names, long UOM, decimal quantities, large amounts, return rows, serial/batch rows, and RTL remain usable.
+Pass 6.6 — Invoice Summary and Action Footer.
+
+Scope:
+
+- Redesign `InvoiceSummary.vue` and `InvoiceActionButtons.vue` into a modern compact POS footer.
+- Clear out obsolete "Active Sale" headers and legacy grid layouts.
 
 ## Recently Completed
 

@@ -72,12 +72,12 @@ const calculateColumnWidth = (header: TableHeader, width: number) => {
 	> = {
 		item_name: { min: 160, max: 280, ratio: 0.34 },
 		qty: { min: 116, max: 124, ratio: 0.14 },
-		rate: { min: 82, max: 88, ratio: 0.1 },
-		amount: { min: 96, max: 104, ratio: 0.12 },
+		rate: { min: 82, max: 92, ratio: 0.1 },
+		amount: { min: 96, max: 108, ratio: 0.12 },
 		discount_percentage: { min: 90, max: 120, ratio: 0.1 },
 		discount_amount: { min: 90, max: 120, ratio: 0.11 },
 		price_list_rate: { min: 120, max: 140, ratio: 0.13 },
-		actions: { min: 44, max: 44, ratio: 0.06 },
+		actions: { min: 80, max: 80, ratio: 0.1 },
 		posa_is_offer: { min: 70, max: 90, ratio: 0.06 },
 	};
 
@@ -99,7 +99,7 @@ const calculateMinColumnWidth = (header: TableHeader) => {
 		discount_percentage: 90,
 		discount_amount: 90,
 		price_list_rate: 120,
-		actions: 44,
+		actions: 80,
 		posa_is_offer: 70,
 	};
 	return minWidths[header.key] || 80;

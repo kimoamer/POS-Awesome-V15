@@ -234,7 +234,7 @@
 				class="text-end"
 				:data-column-key="'price_list_rate'"
 			>
-				<div class="currency-display right-aligned">
+				<bdi class="cart-item-money right-aligned">
 					<span class="currency-symbol">{{ currencySymbol(displayCurrency) }}</span>
 					<span
 						class="amount-value"
@@ -242,7 +242,7 @@
 					>
 						{{ formatCurrency(item.price_list_rate) }}
 					</span>
-				</div>
+				</bdi>
 			</td>
 
 			<!-- Discount % (Optional) -->
@@ -312,10 +312,12 @@
 						@keydown.enter.prevent="openDiscountAmountEdit"
 						@keydown.space.prevent="openDiscountAmountEdit"
 					>
-						<span class="currency-symbol">{{ currencySymbol(displayCurrency) }}</span>
-						<span class="amount-value">{{
-							formatCurrency(Math.abs(item.discount_amount || 0))
-						}}</span>
+						<bdi class="cart-item-money">
+							<span class="currency-symbol">{{ currencySymbol(displayCurrency) }}</span>
+							<span class="amount-value">{{
+								formatCurrency(Math.abs(item.discount_amount || 0))
+							}}</span>
+						</bdi>
 					</div>
 					<v-text-field
 						v-else
@@ -349,11 +351,13 @@
 						@keydown.enter.prevent="openRateEdit"
 						@keydown.space.prevent="openRateEdit"
 					>
-						<span class="cart-rate-label">{{ __("Rate") }}</span>
-						<span class="currency-symbol">{{ currencySymbol(displayCurrency) }}</span>
-						<span class="amount-value" :class="{ 'negative-number': isNegative(item.rate) }">
-							{{ formatCurrency(item.rate) }}
-						</span>
+						<bdi class="cart-item-money cart-item-rate">
+							<span class="cart-rate-label">{{ __("Rate") }}</span>
+							<span class="currency-symbol">{{ currencySymbol(displayCurrency) }}</span>
+							<span class="amount-value" :class="{ 'negative-number': isNegative(item.rate) }">
+								{{ formatCurrency(item.rate) }}
+							</span>
+						</bdi>
 					</div>
 					<v-text-field
 						v-else
@@ -375,7 +379,7 @@
 
 			<!-- Amount Column -->
 			<td v-else-if="column.key === 'amount'" class="text-center" :data-column-key="'amount'">
-				<div class="currency-display right-aligned">
+				<bdi class="cart-item-money cart-item-amount right-aligned">
 					<span class="currency-symbol">{{ currencySymbol(displayCurrency) }}</span>
 					<span
 						class="amount-value"
@@ -383,7 +387,7 @@
 					>
 						{{ formatCurrency(item.qty * item.rate) }}
 					</span>
-				</div>
+				</bdi>
 			</td>
 
 			<!-- Offer Toggle (Optional) -->
@@ -403,20 +407,35 @@
 				</v-btn>
 			</td>
 
-			<!-- Actions -->
+			<!-- Actions Column (Delete + Expand cluster) -->
 			<td v-else-if="column.key === 'actions'" class="text-center" :data-column-key="'actions'">
-				<v-btn
-					:disabled="!!item.posa_is_replace"
-					size="small"
-					variant="flat"
-					class="posa-cart-table__delete-btn delete-action-btn"
-					@click.stop="$emit('remove-item', item)"
-					:aria-label="__('Remove item')"
-				>
-					<v-icon size="small">mdi-delete-outline</v-icon>
-				</v-btn>
+				<div class="cart-item-actions">
+					<v-btn
+						:disabled="!!item.posa_is_replace"
+						size="small"
+						variant="text"
+						class="cart-item-action delete-action-btn"
+						@click.stop="$emit('remove-item', item)"
+						:aria-label="__('Remove item')"
+					>
+						<v-icon size="small">mdi-delete-outline</v-icon>
+					</v-btn>
+					<v-btn
+						icon
+						size="small"
+						variant="text"
+						class="cart-item-action expand-action-btn"
+						@click.stop="$emit('toggle-expand')"
+						:aria-label="isExpanded ? __('Collapse item details') : __('Expand item details')"
+					>
+						<v-icon size="small">
+							{{ isExpanded ? "mdi-chevron-up" : "mdi-chevron-down" }}
+						</v-icon>
+					</v-btn>
+				</div>
 			</td>
 
+			<!-- Fallback for standalone expand column -->
 			<td
 				v-else-if="column.key === 'data-table-expand'"
 				class="text-center"
@@ -426,7 +445,7 @@
 					icon
 					size="small"
 					variant="text"
-					class="posa-cart-table__expand-btn"
+					class="cart-item-action expand-action-btn"
 					@click.stop="$emit('toggle-expand')"
 					:aria-label="isExpanded ? __('Collapse item details') : __('Expand item details')"
 				>

@@ -9,7 +9,7 @@
 		@dragenter="onDragEnterFromSelector"
 		@dragleave="onDragLeaveFromSelector"
 	>
-		<v-data-table-virtual
+		<v-data-table
 			:headers="cartTableHeaders"
 			:items="items"
 			:expanded="expanded"
@@ -17,9 +17,6 @@
 			item-value="posa_row_id"
 			class="posa-cart-table elevation-2 pos-themed-card"
 			:class="tableClasses"
-			:items-per-page="virtualScrollConfig.itemsPerPage"
-			:item-height="virtualScrollConfig.itemHeight"
-			:buffer-size="virtualScrollConfig.bufferSize"
 			expand-on-click
 			fixed-header
 			:density="tableDensity"
@@ -101,7 +98,7 @@
 					@qty-change="handleQtyChange"
 				/>
 			</template>
-		</v-data-table-virtual>
+		</v-data-table>
 
 		<!-- Edit name dialog -->
 		<v-dialog v-model="editNameDialog" max-width="400">
@@ -274,7 +271,12 @@ const cartTableHeaders = computed(() =>
 	}),
 );
 
-const finalVisibleColumns = computed(() => [...responsiveHeaders.value, DATA_TABLE_EXPAND_COLUMN]);
+const finalVisibleColumns = computed(() => {
+	if (responsiveHeaders.value.some((h: any) => h?.key === "actions")) {
+		return responsiveHeaders.value;
+	}
+	return [...responsiveHeaders.value, DATA_TABLE_EXPAND_COLUMN];
+});
 
 const getColumnTrack = (columnKey: string) => {
 	const width = containerWidth.value || 0;
@@ -282,18 +284,18 @@ const getColumnTrack = (columnKey: string) => {
 	const isWide = width >= 760;
 	const tracks: Record<string, string> = {
 		item_name: isCompact ? "minmax(0, 1fr)" : isWide ? "minmax(180px, 1fr)" : "minmax(160px, 1fr)",
-		qty: isWide ? "minmax(0, 124px)" : "minmax(0, 116px)",
-		uom: "minmax(0, 72px)",
-		price_list_rate: "minmax(0, 94px)",
-		discount_percentage: "minmax(0, 86px)",
-		discount_amount: "minmax(0, 98px)",
-		rate: isWide ? "minmax(0, 88px)" : "minmax(0, 82px)",
-		amount: isWide ? "minmax(0, 104px)" : "minmax(0, 96px)",
-		posa_is_offer: "minmax(0, 72px)",
-		actions: "44px",
+		qty: isWide ? "120px" : "116px",
+		uom: "72px",
+		price_list_rate: "94px",
+		discount_percentage: "86px",
+		discount_amount: "98px",
+		rate: isWide ? "92px" : "82px",
+		amount: isWide ? "108px" : "96px",
+		posa_is_offer: "72px",
+		actions: "80px",
 		"data-table-expand": "44px",
 	};
-	return tracks[columnKey] || "minmax(0, 82px)";
+	return tracks[columnKey] || "82px";
 };
 
 const cartTableColumns = computed(() =>

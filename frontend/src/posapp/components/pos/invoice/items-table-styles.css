@@ -36,9 +36,9 @@
 	will-change: width, height;
 	contain: layout style;
 	overflow: hidden;
-	--cart-table-columns: minmax(160px, 1fr) 116px 82px 96px 44px;
+	--cart-table-columns: minmax(180px, 1fr) 120px 92px 108px 80px;
 	--cart-table-header-height: 40px;
-	--cart-table-row-height: 62px;
+	--cart-table-row-height: 68px;
 }
 
 /* Items table container */
@@ -934,25 +934,30 @@
 	padding: 0 !important;
 	width: 100% !important;
 	max-width: 100% !important;
+	grid-column: 1 / -1 !important;
+	height: auto !important;
+	min-height: 0 !important;
 	overflow: visible;
 	box-sizing: border-box;
 	position: relative;
 }
 
 .posa-expanded-content {
-	padding: 24px;
+	padding: 10px 12px 12px 58px;
 	width: 100% !important;
 	max-width: 100% !important;
+	grid-column: 1 / -1 !important;
 	box-sizing: border-box;
-	background: var(--pos-card-bg);
+	background: var(--pos-surface-muted, #f8fafc);
 	border-radius: 0 0 8px 8px;
-	border: 1px solid var(--pos-border);
-	border-top: none;
+	border: 1px solid var(--pos-border-light);
+	border-top: 1px solid var(--pos-border-light);
 	animation: expandIn 0.3s ease forwards;
 	container-type: inline-size;
 	container-name: expanded-content;
 	margin: 0;
 	position: relative;
+	height: auto !important;
 	overflow: visible;
 }
 
@@ -1350,6 +1355,7 @@
 .posa-cart-table .cart-item-title {
 	display: -webkit-box !important;
 	-webkit-line-clamp: 2;
+	line-clamp: 2;
 	-webkit-box-orient: vertical;
 	white-space: normal !important;
 	overflow: hidden !important;
@@ -1417,39 +1423,43 @@
 	font-weight: 700 !important;
 }
 
+.cart-item-money,
 .posa-cart-table .currency-display {
-	display: flex;
-	align-items: center;
-	justify-content: flex-end;
-	gap: 3px;
-	inline-size: 100%;
-	min-inline-size: 0;
-	font-variant-numeric: lining-nums tabular-nums;
+	display: inline-flex !important;
+	align-items: baseline !important;
+	justify-content: flex-end !important;
+	gap: 3px !important;
+	min-inline-size: 0 !important;
+	white-space: nowrap !important;
+	direction: ltr !important;
+	unicode-bidi: isolate !important;
+	font-variant-numeric: lining-nums tabular-nums !important;
 	font-feature-settings:
 		"tnum" 1,
-		"lnum" 1;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
+		"lnum" 1 !important;
 }
 
+.cart-item-money .amount-value,
 .posa-cart-table .currency-display .amount-value {
 	min-inline-size: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
-.posa-cart-table td[data-column-key="amount"] .amount-value {
-	font-size: var(--cart-list-amount-size) !important;
-	font-weight: 800 !important;
+.cart-item-amount,
+.posa-cart-table td[data-column-key="amount"] .amount-value,
+.posa-cart-table td[data-column-key="amount"] .cart-item-money {
+	font-size: 14px !important;
+	font-weight: 750 !important;
 	color: var(--pos-primary) !important;
 }
 
+.cart-item-rate,
 .posa-cart-table td[data-column-key="rate"] .amount-value,
 .posa-cart-table td[data-column-key="price_list_rate"] .amount-value {
-	font-size: 12.5px !important;
-	font-weight: 700 !important;
-	color: var(--pos-text-primary) !important;
+	font-size: 12px !important;
+	font-weight: 600 !important;
+	color: var(--pos-text-secondary) !important;
 }
 
 .cart-rate-label {
@@ -1460,18 +1470,42 @@
 	line-height: 1;
 }
 
-.posa-cart-table__delete-btn,
-.posa-cart-table__expand-btn {
-	inline-size: 38px !important;
-	block-size: 38px !important;
-	min-inline-size: 38px !important;
-	min-block-size: 38px !important;
-	border-radius: 9px !important;
+.cart-item-actions {
+	display: flex !important;
+	align-items: center !important;
+	justify-content: flex-end !important;
+	gap: 2px !important;
+	width: 100% !important;
 }
 
-.posa-cart-table__delete-btn .v-icon,
-.posa-cart-table__expand-btn .v-icon {
-	font-size: 18px !important;
+.cart-item-action {
+	inline-size: 36px !important;
+	block-size: 36px !important;
+	min-inline-size: 36px !important;
+	min-block-size: 36px !important;
+	border-radius: 8px !important;
+	box-shadow: none !important;
+	padding: 0 !important;
+}
+
+.cart-item-action.delete-action-btn {
+	color: var(--pos-text-secondary) !important;
+	background: transparent !important;
+}
+
+.cart-item-action.delete-action-btn:hover {
+	color: var(--pos-error) !important;
+	background: color-mix(in srgb, var(--pos-error) 10%, transparent) !important;
+}
+
+.cart-item-action.expand-action-btn {
+	color: var(--pos-text-secondary) !important;
+	background: transparent !important;
+}
+
+.cart-item-action.expand-action-btn:hover {
+	color: var(--pos-primary) !important;
+	background: color-mix(in srgb, var(--pos-primary) 10%, transparent) !important;
 }
 
 .posa-responsive-table-container.stacked-cart-rows {
