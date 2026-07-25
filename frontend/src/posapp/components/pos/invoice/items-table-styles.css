@@ -37,7 +37,7 @@
 	contain: layout style;
 	overflow: hidden;
 	--cart-table-columns: minmax(160px, 1fr) 116px 82px 96px 44px;
-	--cart-table-header-height: 42px;
+	--cart-table-header-height: 36px;
 	--cart-table-row-height: 62px;
 }
 
@@ -186,13 +186,13 @@
 	min-height: var(--cart-table-header-height);
 	height: var(--cart-table-header-height);
 	font-weight: 720;
-	font-size: 12.5px;
+	font-size: 11.5px;
 	text-transform: none;
 	letter-spacing: 0;
 	padding-block: 0;
-	padding-inline: 10px;
+	padding-inline: 8px;
 	border-bottom: 1px solid var(--pos-border-light);
-	background-color: var(--pos-surface-muted);
+	background-color: var(--pos-surface-raised);
 	color: var(--pos-text-secondary);
 	position: sticky;
 	top: 0;
@@ -212,7 +212,7 @@
 	border: none;
 	outline: none;
 	box-sizing: border-box;
-	border-inline-end: 1px solid var(--pos-border-light);
+	border-inline-end: none;
 	contain: layout style;
 }
 
@@ -222,7 +222,7 @@
 
 /* Header hover effects */
 .posa-cart-table th:hover {
-	background-color: var(--pos-surface-muted);
+	background-color: var(--pos-surface-raised);
 	transform: none;
 	box-shadow: none;
 	z-index: 2;
@@ -270,6 +270,7 @@
 .posa-cart-table tr {
 	transition: background-color 0.2s ease;
 	border-bottom: 1px solid var(--pos-border-light);
+	background: var(--pos-surface-raised);
 	width: 100% !important;
 	max-width: 100% !important;
 	min-width: 0 !important;
@@ -279,11 +280,11 @@
 }
 
 .posa-cart-table tr:hover {
-	background-color: rgba(25, 118, 210, 0.04);
+	background-color: color-mix(in srgb, var(--pos-primary-container) 20%, var(--pos-surface-raised));
 }
 
 .posa-cart-table tbody tr:nth-child(even) {
-	background-color: var(--pos-surface-muted);
+	background-color: var(--pos-surface-raised);
 }
 
 /* Table cells */
@@ -303,6 +304,11 @@
 	white-space: nowrap;
 	font-size: 13px;
 	line-height: 1.25;
+}
+
+.posa-cart-table tbody tr.posa-cart-item-row {
+	border-bottom: 1px solid var(--pos-border-light);
+	box-shadow: none;
 }
 
 .posa-cart-table td > div {
@@ -457,7 +463,7 @@
 }
 
 .posa-cart-table td[data-column-key="amount"] .amount-value {
-	color: var(--pos-text-primary);
+	color: var(--pos-primary);
 	font-weight: 760;
 }
 
@@ -474,6 +480,36 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.posa-cart-table__delete-btn,
+.posa-cart-table__expand-btn {
+	inline-size: 34px !important;
+	block-size: 34px !important;
+	min-inline-size: 34px !important;
+	min-block-size: 34px !important;
+	border-radius: 9px !important;
+	box-shadow: none !important;
+}
+
+.posa-cart-table__delete-btn {
+	background: transparent !important;
+	color: var(--pos-error) !important;
+}
+
+.posa-cart-table__delete-btn:hover,
+.posa-cart-table__delete-btn:focus-visible {
+	background: color-mix(in srgb, var(--pos-error) 10%, transparent) !important;
+}
+
+.posa-cart-table__expand-btn {
+	color: var(--pos-text-secondary) !important;
+}
+
+.posa-cart-table__expand-btn:hover,
+.posa-cart-table__expand-btn:focus-visible {
+	background: color-mix(in srgb, var(--pos-primary-container) 28%, transparent) !important;
+	color: var(--pos-primary) !important;
 }
 
 /* =================================================================

@@ -1,5 +1,5 @@
 <template>
-	<div class="invoice-items-toolbar">
+	<div ref="toolbarRoot" class="invoice-items-toolbar">
 		<v-text-field
 			ref="itemSearchField"
 			:model-value="itemSearch"
@@ -18,6 +18,7 @@
 		></v-text-field>
 		<div class="invoice-items-toolbar__actions">
 			<v-btn
+				v-if="showDirectColumns"
 				icon
 				variant="text"
 				color="primary"
@@ -29,7 +30,7 @@
 				<v-icon size="18">mdi-view-column-outline</v-icon>
 				<v-tooltip activator="parent" location="bottom">{{ __("Columns") }}</v-tooltip>
 			</v-btn>
-			<v-menu v-model="moreOpen" location="bottom end" :offset="[0, 8]">
+			<v-menu v-if="showMoreButton" v-model="moreOpen" location="bottom end" :offset="[0, 8]">
 				<template #activator="{ props }">
 					<v-btn
 						v-bind="props"
@@ -79,9 +80,7 @@
 						>
 							<v-switch
 								:model-value="isTempColumnSelected(column.key)"
-								@update:model-value="
-									(value) => setTempColumnSelection(column.key, value)
-								"
+								@update:model-value="(value) => setTempColumnSelection(column.key, value)"
 								:label="column.title"
 								hide-details
 								density="compact"
@@ -110,7 +109,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps({
 	itemSearch: {
@@ -133,6 +132,13 @@ const showColumnSelector = ref(false);
 const moreOpen = ref(false);
 const tempSelectedColumns = ref([]);
 const itemSearchField = ref(null);
+const toolbarRoot = ref(null);
+const isMobileToolbar = ref(false);
+let resizeObserver = null;
+
+const hasAdditionalActions = computed(() => false);
+const showDirectColumns = computed(() => !isMobileToolbar.value);
+const showMoreButton = computed(() => isMobileToolbar.value || hasAdditionalActions.value);
 
 const toggleColumnSelection = () => {
 	tempSelectedColumns.value = normalizeColumns(props.selectedColumns);
@@ -157,10 +163,15 @@ const focusSearch = () => {
 	itemSearchField.value?.focus?.();
 };
 
+const updateToolbarMode = () => {
+	const width =
+		toolbarRoot.value?.getBoundingClientRect?.().width ||
+		(typeof window !== "undefined" ? window.innerWidth : 0);
+	isMobileToolbar.value = width > 0 && width < 520;
+};
+
 const normalizeColumns = (columns) =>
-	Array.isArray(columns)
-		? [...new Set(columns.filter((column) => typeof column === "string"))]
-		: [];
+	Array.isArray(columns) ? [...new Set(columns.filter((column) => typeof column === "string"))] : [];
 
 const isTempColumnSelected = (key) => tempSelectedColumns.value.includes(key);
 
@@ -173,6 +184,27 @@ const setTempColumnSelection = (key, selected) => {
 	}
 	tempSelectedColumns.value = [...next];
 };
+
+onMounted(() => {
+	updateToolbarMode();
+	if (typeof ResizeObserver !== "undefined" && toolbarRoot.value) {
+		resizeObserver = new ResizeObserver(updateToolbarMode);
+		resizeObserver.observe(toolbarRoot.value);
+		return;
+	}
+
+	window.addEventListener("resize", updateToolbarMode, { passive: true });
+});
+
+onBeforeUnmount(() => {
+	if (resizeObserver) {
+		resizeObserver.disconnect();
+		resizeObserver = null;
+		return;
+	}
+
+	window.removeEventListener("resize", updateToolbarMode);
+});
 
 defineExpose({
 	focusSearch,

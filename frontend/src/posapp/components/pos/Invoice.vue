@@ -23,14 +23,14 @@
 		>
 			<div class="invoice-workspace dynamic-padding">
 				<section class="invoice-customer-region invoice-region">
-					<div class="invoice-top-grid">
-						<v-card flat class="invoice-section-card pos-themed-card">
-							<div class="invoice-section-heading">
-								<h3 class="invoice-section-heading__title">
-									<v-icon size="16" class="invoice-section-heading__icon">mdi-account-outline</v-icon>
-									<span>{{ __("Customer") }}</span>
-								</h3>
-							</div>
+					<div
+						class="invoice-top-grid"
+						:class="{
+							'invoice-top-grid--with-delivery':
+								pos_profile && pos_profile.posa_use_delivery_charges,
+						}"
+					>
+						<v-card flat class="invoice-section-card invoice-customer-card pos-themed-card">
 							<InvoiceCustomerSection
 								ref="customerSection"
 								:pos_profile="pos_profile"
@@ -42,7 +42,7 @@
 						<v-card
 							v-if="pos_profile.posa_use_delivery_charges"
 							flat
-							class="invoice-section-card pos-themed-card"
+							class="invoice-section-card delivery-charges-card pos-themed-card"
 						>
 							<div class="invoice-section-heading">
 								<h3 class="invoice-section-heading__title">{{ __("Delivery Charges") }}</h3>
@@ -207,9 +207,7 @@
 							@update:expanded="handleExpandedUpdate"
 							@reorder-items="handleItemReorder"
 							@add-item-from-drag="handleItemDrop"
-							@show-drop-feedback="
-								(isDragging) => showDropFeedback(isDragging, itemsTableRef)
-							"
+							@show-drop-feedback="(isDragging) => showDropFeedback(isDragging, itemsTableRef)"
 							@item-dropped="showDropFeedback(false, itemsTableRef)"
 							@view-packed="openPackedItems"
 						/>
@@ -1454,9 +1452,13 @@ export default {
 
 .invoice-top-grid {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
+	grid-template-columns: minmax(0, 1fr);
 	gap: 8px;
 	flex: 0 0 auto;
+}
+
+.invoice-top-grid--with-delivery {
+	grid-template-columns: minmax(0, 1fr) minmax(220px, 0.7fr);
 }
 
 .invoice-meta-grid {
@@ -1526,16 +1528,18 @@ export default {
 }
 
 .invoice-customer-region .invoice-section-card {
-	min-height: 64px;
+	min-height: 60px;
 }
 
-.invoice-customer-region .invoice-section-heading {
-	padding: 6px 10px 2px;
+.invoice-customer-card {
+	display: flex;
+	align-items: center;
+	padding: 8px 10px;
 }
 
-.invoice-customer-region .invoice-section-heading__title {
-	font-size: 12px;
-	line-height: 1.15;
+.invoice-customer-card :deep(.invoice-customer-section) {
+	width: 100%;
+	padding: 0;
 }
 
 .invoice-command-region .invoice-section-card {
@@ -1606,6 +1610,10 @@ export default {
 		grid-template-columns: 1fr;
 	}
 
+	.invoice-top-grid--with-delivery {
+		grid-template-columns: 1fr;
+	}
+
 	.invoice-sections {
 		overflow: hidden;
 	}
@@ -1649,6 +1657,10 @@ export default {
 	}
 
 	.invoice-top-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.invoice-top-grid--with-delivery {
 		grid-template-columns: 1fr;
 	}
 

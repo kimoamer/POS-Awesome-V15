@@ -82,7 +82,7 @@ const frappe = window.frappe;
 	gap: 8px;
 	min-width: 0;
 	margin: 0;
-	padding: 0 10px 6px;
+	padding: 0;
 }
 
 .invoice-customer-section--with-type {
@@ -131,7 +131,7 @@ const frappe = window.frappe;
 	.invoice-customer-section,
 	.invoice-customer-section--with-type {
 		grid-template-columns: 1fr;
-		padding: 0 10px 8px;
+		padding: 0;
 	}
 }
 </style>

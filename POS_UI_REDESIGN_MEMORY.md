@@ -29,20 +29,33 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 ## Current Pass
 
+Cart Header and Items Presentation Acceptance Fix.
+
+Scope:
+
+- `Invoice.vue`: customer region uses the full invoice width when delivery charges are disabled, and switches to a deliberate delivery split only when enabled.
+- `InvoiceCustomerSection.vue` and `Customer.vue`: compact customer row without duplicated external `Customer` title, keeping search/create/edit/reload behavior.
+- `InvoiceItemsActionToolbar.vue`: direct Columns button on desktop/laptop; More only when compact or when additional actions exist.
+- `ItemsTable.vue` and `items-table-styles.css`: keep the table as scroll/virtualization engine while making cart rows read visually as a premium list.
+- Do not change customer behavior, column selector logic, qty/delete/focus/pricing/tax/discount actions, stores, APIs, props, or emits.
+
+Acceptance:
+
+- Customer selector fills the invoice panel when delivery charges are off.
+- No duplicated `Customer` title/field label.
+- Desktop/laptop shows Columns directly without a duplicate More menu.
+- Mobile keeps Columns inside More.
+- Cart item rows feel like a list, not a heavy data table, while retaining the same engine and actions.
+
+## Recently Completed
+
 Pass 6.4.1 Cart Table Visual Acceptance Fix.
 
 Scope:
 
-- `ItemsTable.vue`: hide the visual `Action` column label while preserving the column and accessibility label.
-- `items-table-styles.css`: make the no-data row span and center within the full cart table body area.
-- Do not change column contract, `CartItemRow.vue`, qty/delete behavior, responsive logic, stores, APIs, props, or emits.
-
-Acceptance:
-
-- Empty cart state is centered in the available cart table body, not clipped under the header.
-- Empty cart state spans all columns.
-- The 44px action column does not render the text `Action`.
-- Header/row columns, mobile visibility, qty/delete/focus, and calculations remain unchanged.
+- `ItemsTable.vue`: hid the visual `Action` column label while preserving the column and accessibility label.
+- `items-table-styles.css`: made the no-data row span and center within the full cart table body area.
+- Column contract, `CartItemRow.vue`, qty/delete behavior, responsive logic, stores, APIs, props, and emits remained unchanged.
 
 ## Recently Completed
 
@@ -102,7 +115,6 @@ Acceptance:
 
 ## Next Step
 
-After Pass 6.4.1 acceptance:
+After this acceptance fix:
 
-1. Commit the focused empty-state/action-header fix.
-2. Continue with Pass 6.5 Invoice Summary and Action Footer, presentation-only.
+1. Continue with Pass 6.5 Invoice Summary and Action Footer, presentation-only.

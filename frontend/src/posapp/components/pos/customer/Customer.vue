@@ -7,10 +7,11 @@
 				class="customer-autocomplete sleek-field pos-themed-input"
 				density="compact"
 				clearable
-				variant="solo"
+				variant="outlined"
 				color="primary"
 				:label="customerFieldLabel"
 				:placeholder="customerFieldPlaceholder"
+				:aria-label="__('Customer')"
 				:loading="isCustomerSearchLocked"
 				v-model="internalCustomer"
 				:items="filteredCustomers"
@@ -81,7 +82,7 @@
 						:aria-label="__('Customer actions')"
 						:title="__('Customer actions')"
 					>
-						<v-icon size="20">mdi-chevron-down</v-icon>
+						<v-icon size="20">mdi-dots-vertical</v-icon>
 					</v-btn>
 				</template>
 				<v-card class="customer-actions-menu pos-themed-card" elevation="8">
@@ -113,17 +114,11 @@
 				class="customer-load-bar"
 				rounded
 			/>
-			<div
-				v-if="showCustomerLoadProgress"
-				class="customer-load-status"
-				aria-live="polite"
-			>
+			<div v-if="showCustomerLoadProgress" class="customer-load-status" aria-live="polite">
 				<span class="customer-load-status__count">
 					{{ customerLoadedCountLabel }}
 				</span>
-				<span class="customer-load-status__percent">
-					{{ customerLoadPercent }}%
-				</span>
+				<span class="customer-load-status__percent"> {{ customerLoadPercent }}% </span>
 			</div>
 		</div>
 		<!-- Update customer modal -->
@@ -369,18 +364,13 @@ export default {
 			Math.max(0, Math.min(100, Math.round(loadProgress.value || 0))),
 		);
 		const customerLoadedCountLabel = computed(
-			() =>
-				`${Number(loadedCustomerCount.value || 0).toLocaleString()} ${__("customers")}`,
+			() => `${Number(loadedCustomerCount.value || 0).toLocaleString()} ${__("customers")}`,
 		);
 		const customerFieldLabel = computed(() =>
-			showCustomerLoadProgress.value
-				? frappe._("Loading customers")
-				: frappe._("Customer"),
+			showCustomerLoadProgress.value ? frappe._("Loading customers") : "",
 		);
 		const customerFieldPlaceholder = computed(() =>
-			showCustomerLoadProgress.value
-				? __("Loading customers...")
-				: __("Search customer"),
+			showCustomerLoadProgress.value ? __("Loading customers...") : __("Search or select customer..."),
 		);
 		const customerNoDataText = computed(() =>
 			showCustomerLoadProgress.value
