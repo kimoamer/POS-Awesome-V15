@@ -66,7 +66,7 @@
 									:model-value="formatFloat(item.qty, hide_qty_decimals ? 0 : undefined)"
 									@change="onQtyChange(item, $event)"
 									:rules="[isNumber]"
-									:disabled="!!item.posa_is_replace"
+									:disabled="!canEditQuantity"
 									prepend-inner-icon="mdi-numeric"
 								></v-text-field>
 								<div v-if="item.max_qty !== undefined" class="text-caption mt-1">
@@ -89,9 +89,7 @@
 									item-value="uom"
 									hide-details
 									@update:model-value="calcUom(item, $event)"
-									:disabled="
-										!!item.posa_is_replace || (isReturnInvoice && invoice_doc?.return_against)
-									"
+									:disabled="!canChangeU"
 									prepend-inner-icon="mdi-weight"
 								></v-select>
 							</div>
@@ -119,9 +117,7 @@
 										setFormatedCurrency(item, 'rate', null, false, $event),
 										calcPrices(item, $event.target.value, $event),
 									]"
-									:disabled="
-										!pos_profile.posa_allow_user_to_edit_rate || !!item.posa_is_replace
-									"
+									:disabled="!canEditR"
 									prepend-inner-icon="mdi-currency-usd"
 								></v-text-field>
 							</div>
@@ -139,11 +135,7 @@
 										setFormatedCurrency(item, 'discount_percentage', null, false, $event),
 										calcPrices(item, $event.target.value, $event),
 									]"
-									:disabled="
-										!pos_profile.posa_allow_user_to_edit_item_discount ||
-										!!item.posa_is_replace ||
-										!!item.posa_offer_applied
-									"
+									:disabled="!canEditDisc"
 									prepend-inner-icon="mdi-percent"
 								></v-text-field>
 							</div>
@@ -161,11 +153,7 @@
 										setFormatedCurrency(item, 'discount_amount', null, false, $event),
 										calcPrices(item, $event.target.value, $event),
 									]"
-									:disabled="
-										!pos_profile.posa_allow_user_to_edit_item_discount ||
-										!!item.posa_is_replace ||
-										!!item.posa_offer_applied
-									"
+									:disabled="!canEditDisc"
 									prepend-inner-icon="mdi-tag-minus"
 								></v-text-field>
 							</div>
@@ -180,7 +168,7 @@
 									class="pos-themed-input"
 									hide-details
 									:model-value="formatCurrency(item.price_list_rate ?? 0)"
-									:disabled="!pos_profile.posa_allow_price_list_rate_change"
+									:disabled="!canChangePLRate"
 									readonly
 									prepend-inner-icon="mdi-format-list-numbered"
 									:prefix="currencySymbol(pos_profile.currency)"
@@ -199,7 +187,7 @@
 									prepend-inner-icon="mdi-calculator"
 								></v-text-field>
 							</div>
-							<div class="posa-form-field" v-if="pos_profile.posa_allow_price_list_rate_change">
+							<div class="posa-form-field" v-if="canChangePLRate">
 								<v-btn
 									size="small"
 									color="primary"
@@ -457,6 +445,32 @@
 							</div>
 						</div>
 					</div>
+
+					<!-- Additional Notes Section -->
+					<div
+						class="posa-form-section mt-4"
+						v-if="pos_profile?.posa_display_additional_notes"
+					>
+						<div class="posa-section-header mb-3">
+							<v-icon size="small" class="section-icon mr-1">mdi-note-text-outline</v-icon>
+							<span class="posa-section-title font-weight-bold">{{ __("Additional Notes") }}</span>
+						</div>
+						<div class="posa-form-row">
+							<div class="posa-form-field full-width">
+								<v-textarea
+									v-model="item.posa_notes"
+									:label="frappe._('Additional Notes')"
+									rows="2"
+									auto-grow
+									variant="outlined"
+									density="compact"
+									color="primary"
+									class="pos-themed-input"
+									hide-details
+								/>
+							</div>
+						</div>
+					</div>
 				</div>
 			</v-card-text>
 			<v-divider></v-divider>
@@ -478,6 +492,13 @@
 import { computed } from "vue";
 import { getDisplayableBatchOptions } from "../../../composables/pos/shared/useBatchSerial";
 import { useResponsive } from "../../../composables/core/useResponsive";
+import {
+	canChangePriceListRate,
+	canChangeUom,
+	canEditItemDiscount,
+	canEditQty,
+	canEditRate,
+} from "../../../composables/pos/items/useItemPermissions";
 
 interface Props {
 	modelValue: boolean;
@@ -526,6 +547,12 @@ const itemImage = computed(
 		props.item?.item_image_url ||
 		"",
 );
+
+const canEditR = computed(() => canEditRate(props.pos_profile, props.item, props.isReturnInvoice));
+const canEditDisc = computed(() => canEditItemDiscount(props.pos_profile, props.item, props.isReturnInvoice));
+const canChangePLRate = computed(() => canChangePriceListRate(props.pos_profile, props.item, props.isReturnInvoice));
+const canEditQuantity = computed(() => canEditQty(props.item, props.isReturnInvoice));
+const canChangeU = computed(() => canChangeUom(props.item, props.isReturnInvoice));
 
 const canToggleOffer = computed(() => {
 	return !props.item?.is_free_item && !props.item?.posa_is_replace;

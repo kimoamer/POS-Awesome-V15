@@ -35,7 +35,7 @@
 				</div>
 				<div class="cart-item-meta-row">
 					<span class="cart-item-meta" :title="itemMetaTitle">{{ itemMetaTitle }}</span>
-					<div class="cart-item-name-actions" v-if="posProfile.posa_allow_line_item_name_override && !item.posa_is_replace">
+					<div class="cart-item-name-actions" v-if="canOverrideName">
 						<v-btn
 							icon
 							size="x-small"
@@ -154,7 +154,7 @@
 					<v-tooltip activator="parent" location="bottom">{{ __("Details") }}</v-tooltip>
 				</v-btn>
 				<v-btn
-					:disabled="!!item.posa_is_replace"
+					:disabled="!canRemove"
 					size="small"
 					variant="text"
 					class="cart-item-action delete-action-btn"
@@ -173,6 +173,11 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { formatMoney } from "../../../composables/pos/shared/useMoneyFormatter";
 import { resolveItemImage } from "../../../utils/itemImage";
+import {
+	canEditQty,
+	canOverrideItemName,
+	canRemoveItem,
+} from "../../../composables/pos/items/useItemPermissions";
 
 defineOptions({
 	name: "InvoiceItemCard",
@@ -271,26 +276,13 @@ const hasBadges = computed(() => {
 	);
 });
 
-const disableDecrement = computed(
-	() =>
-		!!props.item?.posa_is_replace ||
-		(props.isReturnInvoice &&
-			(props.item?.is_free_item || props.item?.posa_is_offer || props.item?.posa_is_replace)),
-);
+const canOverrideName = computed(() => canOverrideItemName(props.posProfile, props.item));
+const canEditQuantity = computed(() => canEditQty(props.item, props.isReturnInvoice));
+const canRemove = computed(() => canRemoveItem(props.item));
 
-const disableIncrement = computed(
-	() =>
-		!!props.item?.posa_is_replace ||
-		props.item?.disable_increment ||
-		(props.isReturnInvoice &&
-			(props.item?.is_free_item || props.item?.posa_is_offer || props.item?.posa_is_replace)),
-);
-
-const disableInput = computed(
-	() =>
-		props.isReturnInvoice &&
-		(props.item?.is_free_item || props.item?.posa_is_offer || props.item?.posa_is_replace),
-);
+const disableDecrement = computed(() => !canEditQuantity.value);
+const disableIncrement = computed(() => !canEditQuantity.value || !!props.item?.disable_increment);
+const disableInput = computed(() => !canEditQuantity.value);
 
 function openQtyEdit() {
 	if (disableInput.value) return;

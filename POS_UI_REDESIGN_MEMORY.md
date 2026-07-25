@@ -27,6 +27,16 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.5.5 — POS Profile UI & Item Action Guard Audit.
+
+Scope:
+
+- **Centralized Item UI Permission Guards**: Created `useItemPermissions.ts` providing `isLockedPromotionLine`, `isPricingLocked`, `canEditRate`, `canEditItemDiscount`, `canChangePriceListRate`, `canOverrideItemName`, `canEditQty`, `canChangeUom`, and `canRemoveItem`.
+- **Consistent Guarding across All Views**: Integrated `useItemPermissions` into `InvoiceItemCard.vue` (Premium List), `CartItemRow.vue` (Classic Table), and `InvoiceItemDetailsDialog.vue`.
+- **Strict Upstream Parity**: Disallows Rate and Discount editing for Offer, Replacement, Offer Applied, and Return lines. Locks Qty, UOM, and Delete actions on promotional/replacement lines.
+- **Restored Additional Notes UI**: Restored POS Profile-driven `item.posa_notes` section in `InvoiceItemDetailsDialog.vue` when `pos_profile.posa_display_additional_notes` is enabled (`1`/`true`).
+- **Fixtures Audit**: Added `"POS Profile-posa_allow_price_list_rate_change"` and `"POS Profile-posa_allow_line_item_name_override"` to the `fixtures` Custom Field filter list in `hooks.py`.
+
 Pass 6.5.4 — Product Media & Classic Table Column Contract Fix.
 
 Scope:
