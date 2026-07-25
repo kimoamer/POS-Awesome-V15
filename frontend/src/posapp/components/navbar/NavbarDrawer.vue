@@ -1,69 +1,56 @@
 <template>
 	<v-navigation-drawer
 		v-model="drawerOpen"
-		:rail="mini"
-		expand-on-hover
-		width="220"
+		width="320"
 		:class="['drawer-custom', { 'drawer-visible': drawerOpen }, rtlClasses]"
-		@mouseleave="handleMouseLeave"
 		temporary
 		:location="isRtl ? 'right' : 'left'"
 		:scrim="scrimColor"
 	>
 		<div class="drawer-shell">
-			<div>
-				<div v-if="!mini" class="drawer-header">
-					<v-avatar size="40">
-						<v-img :src="companyImg" alt="Company logo" />
-					</v-avatar>
-					<span class="drawer-company">{{ company }}</span>
-				</div>
-				<div v-else class="drawer-header-mini">
-					<v-avatar size="40">
-						<v-img :src="companyImg" alt="Company logo" />
-					</v-avatar>
-				</div>
-
-				<v-divider />
-
-				<v-list density="compact" nav v-model:selected="activeItem" selected-class="active-item">
-					<v-list-item
-						v-for="(item, index) in items"
-						:key="item.text"
-						:value="index"
-						:to="item.to"
-						@click="handleItemClick"
-						class="drawer-item"
-						active-class="active-item"
-					>
-						<template v-slot:prepend>
-							<v-icon class="drawer-icon">{{ item.icon }}</v-icon>
-						</template>
-						<v-list-item-title class="drawer-item-title">{{ item.text }}</v-list-item-title>
-					</v-list-item>
-				</v-list>
-				<!-- Sport section, hidden by default -->
-				<div v-if="showSport">
-					<!-- Sport content goes here -->
-				</div>
-			</div>
-
-			<div v-if="footerAction" class="drawer-footer" data-test="drawer-footer-settings">
-				<v-divider class="drawer-footer-divider" />
-				<button
-					type="button"
-					class="drawer-footer-action"
-					data-test="drawer-footer-action"
-					@click="handleFooterActionClick"
+			<v-list density="compact" nav v-model:selected="activeItem" selected-class="active-item" class="drawer-nav-list">
+				<v-list-item
+					v-for="(item, index) in items"
+					:key="item.text"
+					:value="index"
+					:to="item.to"
+					@click="handleItemClick"
+					class="drawer-item"
+					active-class="active-item"
 				>
-					<span class="drawer-footer-action__icon">
-						<v-icon class="drawer-icon">{{ footerAction.icon }}</v-icon>
-					</span>
-					<span v-if="!mini" class="drawer-footer-action__copy">
-						<span class="drawer-footer-action__title">{{ footerAction.text }}</span>
-						<span v-if="footerAction.subtitle" class="drawer-footer-action__subtitle">
-							{{ footerAction.subtitle }}
+					<template v-slot:prepend>
+						<span class="drawer-icon-shell">
+							<v-icon class="drawer-icon" size="18">{{ item.icon }}</v-icon>
 						</span>
+					</template>
+					<v-list-item-title class="drawer-item-title">{{ item.text }}</v-list-item-title>
+				</v-list-item>
+			</v-list>
+
+			<div v-if="mobileActions.length" class="drawer-quick-actions">
+				<button
+					v-for="action in mobileActions"
+					:key="action.id"
+					type="button"
+					class="drawer-quick-action"
+					:class="{
+						'drawer-quick-action--danger': action.tone === 'danger',
+						'drawer-quick-action--disabled': action.disabled,
+					}"
+					:disabled="action.disabled"
+					@click="handleMobileActionClick(action)"
+				>
+					<span class="drawer-quick-action__icon">
+						<v-icon size="18">{{ action.icon }}</v-icon>
+					</span>
+					<span class="drawer-quick-action__copy">
+						<span class="drawer-quick-action__title">{{ action.text }}</span>
+						<span v-if="action.subtitle" class="drawer-quick-action__subtitle">
+							{{ action.subtitle }}
+						</span>
+					</span>
+					<span v-if="action.badge" class="drawer-quick-action__badge">
+						{{ action.badge }}
 					</span>
 				</button>
 			</div>
@@ -81,25 +68,20 @@ defineOptions({
 
 const props = defineProps({
 	drawer: Boolean,
-	company: String,
-	companyImg: String,
 	items: Array,
 	item: Number,
 	isDark: Boolean,
-	footerAction: {
-		type: Object,
-		default: null,
+	mobileActions: {
+		type: Array,
+		default: () => [],
 	},
 });
 
-const emit = defineEmits(["update:drawer", "update:item", "open-settings"]);
+const emit = defineEmits(["update:drawer", "update:item", "mobile-action"]);
 const { isRtl, rtlClasses } = useRtl();
 
-const mini = ref(false);
 const drawerOpen = ref(props.drawer);
 const activeItem = ref(props.item);
-const showSport = ref(true);
-let closeTimeout = null;
 
 const scrimColor = computed(() => {
 	// Use an opaque background in light mode so that
@@ -111,9 +93,6 @@ watch(
 	() => props.drawer,
 	(val) => {
 		drawerOpen.value = val;
-		if (val) {
-			mini.value = false;
-		}
 	},
 );
 
@@ -133,15 +112,6 @@ watch(activeItem, (val) => {
 	emit("update:item", val);
 });
 
-function handleMouseLeave() {
-	if (!drawerOpen.value) return;
-	clearTimeout(closeTimeout);
-	closeTimeout = setTimeout(() => {
-		drawerOpen.value = false;
-		mini.value = true;
-	}, 250);
-}
-
 function handleItemClick() {
 	// Close drawer after selection if mobile
 	if (window.innerWidth < 1024) {
@@ -149,225 +119,247 @@ function handleItemClick() {
 	}
 }
 
-function handleFooterActionClick() {
-	emit("open-settings");
-	closeDrawer();
+function handleMobileActionClick(action) {
+	if (!action || action.disabled) {
+		return;
+	}
+	emit("mobile-action", action.id, action);
+	if (!action.keepOpen) {
+		closeDrawer();
+	}
 }
 
 function closeDrawer() {
 	drawerOpen.value = false;
-	mini.value = true;
 }
 </script>
 
 <style scoped>
-/* Custom styling for the navigation drawer */
 .drawer-custom {
-	background-color: var(--surface-secondary, #ffffff);
-	transition: var(--transition-normal, all 0.3s ease);
-	z-index: 1005 !important; /* Higher than navbar but lower than dialogs */
+	width: min(320px, 86vw) !important;
+	background: color-mix(in srgb, var(--pos-navbar-bg) 96%, transparent) !important;
+	color: var(--pos-text-primary) !important;
+	border-inline-end: 1px solid var(--pos-border-light) !important;
+	box-shadow: 0 18px 42px rgba(15, 23, 42, 0.14) !important;
+	backdrop-filter: blur(16px);
+	transition: transform 0.2s ease !important;
+	z-index: 1005 !important;
 }
 
 .drawer-shell {
 	height: 100%;
-	display: flex;
-	flex-direction: column;
-	justify-content: space-between;
-}
-
-/* Styling for the header section of the expanded navigation drawer */
-.drawer-header {
-	display: flex;
-	align-items: center;
-	height: 64px;
-	padding: 0 16px;
-	background: linear-gradient(135deg, #f8f9fa 0%, #e3f2fd 100%);
-	border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-/* Styling for the header section of the mini navigation drawer */
-.drawer-header-mini {
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	height: 64px;
-	background: linear-gradient(135deg, #f8f9fa 0%, #e3f2fd 100%);
-	border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-/* Styling for the company name text within the drawer header */
-.drawer-company {
-	margin-left: 12px;
-	flex: 1;
-	font-weight: 500;
-	font-size: 1rem;
-	color: #0097a7;
-	font-family: "Roboto", sans-serif;
-}
-
-/* Styling for icons within the navigation drawer list items */
-.drawer-icon {
-	font-size: 24px;
-	color: var(--pos-primary);
-}
-
-/* Styling for the title text of navigation drawer list items */
-.drawer-item-title {
-	margin-left: 8px;
-	font-weight: 500;
-	font-size: 0.95rem;
-	color: var(--pos-text-primary) !important;
-	font-family: "Roboto", sans-serif;
-}
-
-/* Hover effect for all list items in the navigation drawer */
-.v-list-item:hover {
-	background-color: rgba(25, 118, 210, 0.08) !important;
-}
-
-.drawer-footer {
-	padding: 10px 12px 14px;
+	min-height: 0;
 	display: grid;
-	gap: 12px;
+	align-content: start;
+	gap: var(--pos-header-gap, 7px);
+	padding: var(--pos-header-padding-y, 8px) var(--pos-header-padding-x, 12px);
+	overflow-y: auto;
+	overscroll-behavior: contain;
 }
 
-.drawer-footer-action {
-	width: 100%;
-	border: 1px solid var(--pos-border);
-	border-radius: 16px;
-	background: var(--pos-card-bg);
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	padding: 12px 14px;
-	text-align: left;
+.drawer-custom :deep(a),
+.drawer-custom :deep(.v-list-item),
+.drawer-custom :deep(.v-list-item-title) {
+	text-decoration: none !important;
+}
+
+.drawer-nav-list {
+	display: grid;
+	gap: 5px;
+	padding: 0 !important;
+	background: transparent !important;
+}
+
+.drawer-item {
+	min-height: var(--pos-header-control-size, 38px) !important;
+	padding: 0 8px !important;
+	border: 1px solid transparent !important;
+	border-radius: 12px !important;
+	color: var(--pos-text-muted) !important;
+	font-size: var(--pos-header-nav-font-size, 12px) !important;
+	font-weight: 750 !important;
+	letter-spacing: 0 !important;
+	text-decoration: none !important;
 	transition:
-		transform 0.18s ease,
+		background-color 0.18s ease,
 		border-color 0.18s ease,
-		box-shadow 0.18s ease;
+		color 0.18s ease,
+		transform 0.18s ease;
 }
 
-.drawer-footer-action:hover {
-	transform: translateY(-1px);
-	border-color: var(--pos-primary);
-	box-shadow: 0 6px 16px var(--pos-shadow);
+.drawer-item:deep(a),
+.drawer-item :deep(a),
+.drawer-item :deep(.v-list-item__content),
+.drawer-item :deep(.v-list-item-title) {
+	text-decoration: none !important;
 }
 
-.drawer-footer-action__icon {
-	width: 36px;
-	height: 36px;
-	border-radius: 12px;
+.drawer-item :deep(.v-list-item__prepend) {
+	margin-inline-end: 8px !important;
+	width: 30px;
+	min-width: 30px;
+}
+
+.drawer-icon-shell {
+	width: 28px;
+	height: 28px;
+	border-radius: 9px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
-	flex-shrink: 0;
+	color: currentColor;
+	background: transparent;
+	flex: 0 0 28px;
 }
 
-.drawer-footer-action__copy {
-	display: grid;
-	gap: 3px;
-	min-width: 0;
+.drawer-icon {
+	color: currentColor;
 }
 
-.drawer-footer-action__title {
-	font-size: 13px;
-	font-weight: 700;
-	color: var(--pos-text-primary);
+.drawer-item-title {
+	margin: 0;
+	font-size: var(--pos-header-nav-font-size, 12px);
+	font-weight: 750;
+	line-height: 1.2;
+	letter-spacing: 0;
+	color: currentColor !important;
+	white-space: normal;
+	overflow-wrap: anywhere;
 }
 
-.drawer-footer-action__subtitle {
-	font-size: 11px;
-	line-height: 1.35;
-	color: var(--pos-text-secondary);
-}
-
-/* Styling for the actively selected list item in the navigation drawer */
+.drawer-item:hover,
 .active-item {
-	background-color: rgba(25, 118, 210, 0.12) !important;
-	border-right: 3px solid #1976d2;
+	background: color-mix(in srgb, var(--pos-primary) 10%, var(--pos-surface)) !important;
+	border-color: color-mix(in srgb, var(--pos-primary) 18%, var(--pos-border-light)) !important;
+	color: var(--pos-primary);
+	transform: translateY(-1px);
 }
 
-/* Theme-aware drawer styling */
-.drawer-custom {
-	background-color: var(--pos-navbar-bg) !important;
-	color: var(--pos-text-primary) !important;
+.active-item .drawer-icon-shell {
+	background: color-mix(in srgb, var(--pos-primary) 14%, var(--pos-surface));
 }
 
-.drawer-header,
-.drawer-header-mini {
-	background: var(--pos-navbar-bg) !important;
-	border-bottom: 1px solid var(--pos-border);
+.drawer-quick-actions {
+	display: grid;
+	gap: 6px;
+	padding-top: 7px;
+	margin-top: 3px;
+	border-top: 1px solid var(--pos-border-light);
 }
 
-:deep([data-theme="dark"]) .drawer-item-title,
-:deep(.v-theme--dark) .drawer-item-title {
-	color: var(--pos-text-primary) !important;
+.drawer-quick-action {
+	width: 100%;
+	border: 1px solid var(--pos-border-light);
+	border-radius: 12px;
+	background: var(--pos-surface-raised);
+	color: var(--pos-text-primary);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: var(--pos-header-control-size, 38px);
+	padding: 6px 8px;
+	text-align: start;
+	text-decoration: none;
+	transition:
+		transform 0.18s ease,
+		border-color 0.18s ease,
+		box-shadow 0.18s ease,
+		background-color 0.18s ease;
+}
+
+.drawer-quick-action:hover {
+	transform: translateY(-1px);
+	border-color: color-mix(in srgb, var(--pos-primary) 24%, var(--pos-border-light));
+	background: var(--pos-hover-bg);
+	box-shadow: 0 6px 14px rgba(15, 23, 42, 0.055);
+}
+
+.drawer-quick-action--danger:hover {
+	border-color: color-mix(in srgb, var(--pos-error) 26%, var(--pos-border-light));
+}
+
+.drawer-quick-action--disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+.drawer-quick-action__icon {
+	width: 28px;
+	height: 28px;
+	border-radius: 9px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--pos-primary);
+	background: color-mix(in srgb, var(--pos-primary) 10%, var(--pos-surface));
+	flex: 0 0 28px;
+}
+
+.drawer-quick-action--danger .drawer-quick-action__icon {
+	color: var(--pos-error);
+	background: color-mix(in srgb, var(--pos-error) 10%, var(--pos-surface));
+}
+
+.drawer-quick-action__copy {
+	min-width: 0;
+	display: grid;
+	gap: 1px;
+}
+
+.drawer-quick-action__title {
+	font-size: var(--pos-header-nav-font-size, 12px);
+	font-weight: 750;
+	line-height: 1.15;
+	color: var(--pos-text-primary);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.drawer-quick-action__subtitle {
+	font-size: 10.5px;
 	font-weight: 500;
-	font-size: 0.95rem;
-	font-family: "Roboto", sans-serif;
+	line-height: 1.2;
+	color: var(--pos-text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
-:deep([data-theme="dark"]) .drawer-company,
-:deep(.v-theme--dark) .drawer-company {
-	color: var(--text-primary, #ffffff) !important;
-	font-weight: 500;
-	font-size: 1rem;
-	font-family: "Roboto", sans-serif;
+.drawer-quick-action__badge {
+	min-width: 20px;
+	height: 20px;
+	padding: 0 6px;
+	border-radius: 999px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 10.5px;
+	font-weight: 800;
+	color: var(--pos-on-primary);
+	background: var(--pos-primary);
+	flex: 0 0 auto;
 }
 
-:deep([data-theme="dark"]) .drawer-icon,
-:deep(.v-theme--dark) .drawer-icon {
-	color: var(--pos-primary) !important;
-	font-size: 24px;
-}
-
-:deep([data-theme="dark"]) .v-list-item:hover,
-:deep(.v-theme--dark) .v-list-item:hover {
-	background-color: rgba(144, 202, 249, 0.08) !important;
-}
-
-:deep([data-theme="dark"]) .active-item,
-:deep(.v-theme--dark) .active-item {
-	background-color: rgba(144, 202, 249, 0.12) !important;
-	border-right: 3px solid #90caf9;
-}
-
-:deep([data-theme="dark"]) .v-divider,
-:deep(.v-theme--dark) .v-divider {
-	border-color: rgba(255, 255, 255, 0.12) !important;
-}
-
-/* Hide drawer by default, show only when activated */
 .drawer-custom {
 	display: none !important;
 }
+
 .drawer-custom.drawer-visible {
 	display: block !important;
 }
 
-/* Responsive adjustments for width and dark theme */
 @media (max-width: 900px) and (orientation: landscape) {
 	.drawer-custom.drawer-visible {
-		width: 180px !important;
+		width: min(280px, 82vw) !important;
 	}
 }
 
-@media (min-width: 601px) and (max-width: 1024px) {
-	.drawer-custom.drawer-visible {
-		width: 240px !important;
-	}
-}
-
-@media (min-width: 1025px) {
-	.drawer-custom.drawer-visible {
-		width: 300px !important;
-	}
-}
-
-@media (max-width: 1024px) {
-	.drawer-custom.drawer-visible {
-		background-color: var(--pos-navbar-bg) !important;
+@media (prefers-reduced-motion: reduce) {
+	.drawer-custom,
+	.drawer-item,
+	.drawer-quick-action {
+		transition: none !important;
 	}
 }
 </style>

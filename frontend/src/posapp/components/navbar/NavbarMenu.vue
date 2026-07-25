@@ -884,35 +884,35 @@ export default {
 <style scoped>
 /* Elite Menu Button - Refined Navbar Integration */
 .menu-btn-compact {
-	margin-left: 8px;
-	margin-right: 4px;
-	padding: 6px 16px;
-	border-radius: 20px;
-	font-weight: 500;
+	margin: 0 !important;
+	padding: 0 11px;
+	border-radius: 11px !important;
+	font-weight: 750;
 	text-transform: none;
-	font-size: 13px;
-	letter-spacing: 0.5px;
-	box-shadow: none;
+	font-size: var(--pos-header-action-font-size, 12px);
+	letter-spacing: 0;
+	box-shadow: 0 6px 14px rgba(15, 23, 42, 0.055) !important;
 	transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-	background: var(--pos-hover-bg) !important;
-	border: 1px solid var(--pos-border);
+	background: var(--pos-surface-raised) !important;
+	border: 1px solid var(--pos-border-light) !important;
 	backdrop-filter: blur(8px);
-	min-width: 90px;
-	height: 36px;
-	color: var(--pos-primary) !important;
+	min-width: 78px;
+	height: var(--pos-header-control-size, 44px) !important;
+	min-height: var(--pos-header-control-size, 44px) !important;
+	color: var(--pos-text-primary) !important;
 }
 
 /* Mobile Menu Button Styles */
 .mobile-menu-btn {
 	margin: 0 !important;
-	padding: 6px !important;
-	border-radius: 12px !important;
-	min-width: 36px !important;
-	max-width: 36px !important;
-	width: 36px !important;
-	height: 36px !important;
-	background: var(--pos-hover-bg) !important;
-	border: 1px solid var(--pos-border) !important;
+	padding: 0 !important;
+	border-radius: 11px !important;
+	min-width: var(--pos-header-control-size-compact, 40px) !important;
+	max-width: var(--pos-header-control-size-compact, 40px) !important;
+	width: var(--pos-header-control-size-compact, 40px) !important;
+	height: var(--pos-header-control-size-compact, 40px) !important;
+	background: var(--pos-surface-raised) !important;
+	border: 1px solid var(--pos-border-light) !important;
 }
 
 .mobile-menu-btn:hover {
@@ -928,19 +928,19 @@ export default {
 
 /* Elite menu button text and icon colors */
 .menu-btn-compact .v-btn__content {
-	color: var(--pos-primary) !important;
-	font-weight: 500;
+	color: var(--pos-text-primary) !important;
+	font-weight: 750;
 }
 
 .menu-btn-compact .pos-text-primary,
 .menu-btn-compact .v-icon {
-	color: var(--pos-primary) !important;
+	color: var(--pos-text-primary) !important;
 	transition: color 0.25s ease;
 }
 
 .menu-btn-compact:hover {
 	transform: translateY(-1px);
-	box-shadow: 0 4px 12px var(--pos-shadow);
+	box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07) !important;
 	background: var(--pos-focus-bg) !important;
 	border-color: var(--pos-primary);
 }

@@ -35,6 +35,7 @@ vi.mock("../src/posapp/composables/core/useResponsive", () => ({
 vi.mock("../src/posapp/composables/core/useRtl", () => ({
 	useRtl: () => ({
 		rtlClasses: ref([]),
+		isRtl: ref(false),
 	}),
 }));
 
@@ -53,20 +54,24 @@ vi.mock("../src/posapp/composables/pos/items/useCartValidation", () => ({
 vi.mock("../src/posapp/composables/pos/items/useItemsIntegration", () => {
 	const items = ref([{ item_code: "ITEM-1", item_name: "Test Item", actual_qty: 10 }]);
 	const filteredItems = ref(items.value);
+	const filteredItemsSearchTerm = ref("");
+	const itemGroup = ref("ALL");
+	const searchTerm = ref("");
 	const posProfile = ref(null as any);
 	return {
 		useItemsIntegration: () => ({
 			itemsStore: {},
 			items,
 			filteredItems,
+			filteredItemsSearchTerm,
 			itemGroups: ref(["ALL"]),
 			isLoading: ref(false),
 			isBackgroundLoading: ref(false),
 			loadProgress: ref(0),
 			totalItemCount: ref(1),
 			itemsLoaded: ref(true),
-			searchTerm: ref(""),
-			itemGroup: ref("ALL"),
+			searchTerm,
+			itemGroup,
 			posProfile,
 			customer: ref(null),
 			customerPriceList: ref(null),
@@ -81,18 +86,25 @@ vi.mock("../src/posapp/composables/pos/items/useItemsIntegration", () => {
 			loading: computed(() => false),
 			items_loaded: computed(() => true),
 			item_group: computed({
-				get: () => "ALL",
-				set: () => {},
+				get: () => itemGroup.value,
+				set: (value) => {
+					itemGroup.value = String(value || "ALL");
+				},
 			}),
 			search: computed({
-				get: () => "",
-				set: () => {},
+				get: () => searchTerm.value,
+				set: (value) => {
+					searchTerm.value = String(value || "");
+				},
 			}),
 			filtered_items: computed(() => filteredItems.value),
 			customer_price_list: computed(() => null),
 			active_price_list: computed(() => "Standard Selling"),
 			initializeStore: vi.fn(async (profile: any) => {
 				posProfile.value = profile;
+				itemGroup.value = "ALL";
+				searchTerm.value = "";
+				filteredItemsSearchTerm.value = "";
 			}),
 			get_items: vi.fn(async () => items.value),
 			searchItems: vi.fn(async () => filteredItems.value),
@@ -392,6 +404,14 @@ vi.mock("../src/posapp/components/pos/items/ScanErrorDialog.vue", () => ({
 	default: stubComponent("ScanErrorDialog"),
 }));
 
+vi.mock("../src/posapp/components/pos/offers/PosOffers.vue", () => ({
+	default: stubComponent("PosOffers"),
+}));
+
+vi.mock("../src/posapp/components/pos/offers/PosCoupons.vue", () => ({
+	default: stubComponent("PosCoupons"),
+}));
+
 describe("ItemsSelector stock wiring", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -406,6 +426,156 @@ describe("ItemsSelector stock wiring", () => {
 			},
 		};
 		(globalThis as any).frappe = (window as any).frappe;
+	});
+
+	const mountItemsSelector = async (profile: Record<string, any>) => {
+		const { useUIStore } = await import("../src/posapp/stores/uiStore");
+		const uiStore = useUIStore();
+		uiStore.setActiveView("items");
+		uiStore.setPosProfile({
+			currency: "PKR",
+			selling_price_list: "Standard Selling",
+			...profile,
+		} as any);
+
+		const eventBus = {
+			on: vi.fn(),
+			off: vi.fn(),
+			emit: vi.fn(),
+		};
+
+		const ItemsSelector = (await import(
+			"../src/posapp/components/pos/items/ItemsSelector.vue"
+		)).default;
+
+		const wrapper = shallowMount(ItemsSelector, {
+			global: {
+				provide: {
+					eventBus,
+				},
+			},
+		});
+
+		await Promise.resolve();
+		await wrapper.vm.$nextTick();
+
+		return { wrapper, uiStore, eventBus };
+	};
+
+	it("applies POS Profile default card view once per profile", async () => {
+		const { wrapper, uiStore } = await mountItemsSelector({
+			name: "POS-CARD",
+			posa_default_card_view: 1,
+		});
+
+		expect(wrapper.vm.items_view).toBe("card");
+
+		wrapper.vm.handleItemsViewUpdate("list");
+		expect(wrapper.vm.items_view).toBe("list");
+
+		uiStore.setPosProfile({
+			name: "POS-CARD",
+			currency: "PKR",
+			selling_price_list: "Standard Selling",
+			posa_default_card_view: 1,
+			modified: "background-sync-refresh",
+		} as any);
+		await wrapper.vm.$nextTick();
+
+		expect(wrapper.vm.items_view).toBe("list");
+
+		uiStore.setPosProfile({
+			name: "POS-LIST",
+			currency: "PKR",
+			selling_price_list: "Standard Selling",
+			posa_default_card_view: 0,
+		} as any);
+		await wrapper.vm.$nextTick();
+
+		expect(wrapper.vm.items_view).toBe("list");
+
+		uiStore.setPosProfile({
+			name: "POS-CARD-2",
+			currency: "PKR",
+			selling_price_list: "Standard Selling",
+			posa_default_card_view: 1,
+		} as any);
+		await wrapper.vm.$nextTick();
+
+		expect(wrapper.vm.items_view).toBe("card");
+	});
+
+	it("starts in list view when POS Profile default card view is disabled", async () => {
+		const { wrapper } = await mountItemsSelector({
+			name: "POS-LIST-ONLY",
+			posa_default_card_view: 0,
+		});
+
+		expect(wrapper.vm.items_view).toBe("list");
+	});
+
+	it("waits for the POS Profile default view field before marking a profile applied", async () => {
+		const { wrapper, uiStore } = await mountItemsSelector({
+			name: "POS-DELAYED-FIELD",
+		});
+
+		expect(wrapper.vm.items_view).toBe("list");
+
+		uiStore.setPosProfile({
+			name: "POS-DELAYED-FIELD",
+			currency: "PKR",
+			selling_price_list: "Standard Selling",
+			posa_default_card_view: 1,
+		} as any);
+		await wrapper.vm.$nextTick();
+
+		expect(wrapper.vm.items_view).toBe("card");
+	});
+
+	it("keeps browse state and mounted product cards while navigating offers", async () => {
+		const { wrapper, uiStore } = await mountItemsSelector({
+			name: "POS-BROWSE-OFFERS",
+			posa_default_card_view: 1,
+		});
+
+		wrapper.vm.search_input = "cola";
+		wrapper.vm.item_group = "Beverages";
+		const cardsBefore = wrapper.findComponent({ name: "ItemsSelectorCards" }).vm;
+
+		wrapper.vm.openBrowsePanel("offers");
+		await wrapper.vm.$nextTick();
+
+		expect(wrapper.vm.activeBrowsePanel).toBe("offers");
+		expect(uiStore.activeView).toBe("offers");
+
+		wrapper.vm.returnToItems();
+		await wrapper.vm.$nextTick();
+
+		expect(wrapper.vm.activeBrowsePanel).toBe("items");
+		expect(uiStore.activeView).toBe("items");
+		expect(wrapper.vm.search_input).toBe("cola");
+		expect(wrapper.vm.item_group).toBe("Beverages");
+		expect(wrapper.vm.items_view).toBe("card");
+		expect(wrapper.vm.active_price_list).toBe("Standard Selling");
+		expect(wrapper.findComponent({ name: "ItemsSelectorCards" }).vm).toBe(cardsBefore);
+	});
+
+	it("returns from coupons with Escape without clearing browse state", async () => {
+		const { wrapper, uiStore } = await mountItemsSelector({
+			name: "POS-BROWSE-COUPONS",
+			posa_default_card_view: 1,
+		});
+
+		wrapper.vm.search_input = "coupon item";
+		wrapper.vm.openBrowsePanel("coupons");
+		await wrapper.vm.$nextTick();
+
+		document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", cancelable: true }));
+		await wrapper.vm.$nextTick();
+
+		expect(wrapper.vm.activeBrowsePanel).toBe("items");
+		expect(uiStore.activeView).toBe("items");
+		expect(wrapper.vm.search_input).toBe("coupon item");
 	});
 
 	it("initializes item availability and subscribes to cart and stock adjustment events", async () => {

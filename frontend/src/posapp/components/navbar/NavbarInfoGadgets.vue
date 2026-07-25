@@ -8,7 +8,7 @@
 					class="pos-themed-button info-gadgets-btn"
 					:aria-label="__('System Information')"
 				>
-					<v-icon class="pos-text-primary">mdi-information-outline</v-icon>
+					<v-icon class="pos-text-primary" size="18">mdi-information-outline</v-icon>
 				</v-btn>
 			</template>
 
@@ -57,27 +57,32 @@ const menu = ref(false);
 .info-gadgets-container {
 	display: flex;
 	align-items: center;
+	justify-content: center;
 }
 
 .info-gadgets-btn {
-	min-width: 40px;
-	min-height: 40px;
-	background: rgba(25, 118, 210, 0.08) !important;
-	border: 1px solid rgba(25, 118, 210, 0.12);
-	border-radius: 12px;
+	width: var(--pos-header-control-size, 44px) !important;
+	height: var(--pos-header-control-size, 44px) !important;
+	min-width: var(--pos-header-control-size, 44px) !important;
+	min-height: var(--pos-header-control-size, 44px) !important;
+	background: var(--pos-surface-raised) !important;
+	border: 1px solid var(--pos-border-light) !important;
+	border-radius: 11px !important;
+	box-shadow: 0 6px 14px rgba(15, 23, 42, 0.055) !important;
+	color: var(--pos-text-primary) !important;
 	backdrop-filter: blur(8px);
 	transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .info-gadgets-btn:hover {
 	transform: translateY(-1px);
-	background: rgba(25, 118, 210, 0.12) !important;
-	border-color: rgba(25, 118, 210, 0.2);
-	box-shadow: 0 4px 12px rgba(25, 118, 210, 0.15);
+	background: var(--pos-hover-bg) !important;
+	border-color: color-mix(in srgb, var(--pos-primary) 28%, var(--pos-border-light)) !important;
+	box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07) !important;
 }
 
 .info-gadgets-btn .pos-text-primary {
-	color: #1976d2 !important;
+	color: var(--pos-primary) !important;
 }
 
 .gadget-item {
@@ -88,5 +93,14 @@ const menu = ref(false);
 .gadget-item :deep(> *) {
 	width: 100%;
 	justify-content: space-between;
+}
+
+@media (max-width: 1279px) {
+	.info-gadgets-btn {
+		width: var(--pos-header-control-size-compact, 40px) !important;
+		height: var(--pos-header-control-size-compact, 40px) !important;
+		min-width: var(--pos-header-control-size-compact, 40px) !important;
+		min-height: var(--pos-header-control-size-compact, 40px) !important;
+	}
 }
 </style>

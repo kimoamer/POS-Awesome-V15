@@ -28,49 +28,8 @@
 				:virtual-scroll="true"
 				:virtual-scroll-item-height="48"
 			>
-				<!-- Edit icon (left) -->
 				<template #prepend-inner>
-					<v-tooltip :text="__('Edit customer')" content-class="posa-theme-tooltip">
-						<template #activator="{ props }">
-							<v-icon
-								v-bind="props"
-								class="icon-button"
-								@mousedown.prevent.stop
-								@click.stop="edit_customer"
-							>
-								mdi-account-edit
-							</v-icon>
-						</template>
-					</v-tooltip>
-					<v-tooltip :text="__('Reload customers')" content-class="posa-theme-tooltip">
-						<template #activator="{ props }">
-							<v-icon
-								v-bind="props"
-								class="icon-button ml-1"
-								:class="{ 'disabled-icon': !networkOnline }"
-								@mousedown.prevent.stop
-								@click.stop="reload_customers"
-							>
-								mdi-reload
-							</v-icon>
-						</template>
-					</v-tooltip>
-				</template>
-
-				<!-- Add icon (right) -->
-				<template #append-inner>
-					<v-tooltip :text="__('Add new customer')" content-class="posa-theme-tooltip">
-						<template #activator="{ props }">
-							<v-icon
-								v-bind="props"
-								class="icon-button"
-								@mousedown.prevent.stop
-								@click.stop="new_customer"
-							>
-								mdi-plus
-							</v-icon>
-						</template>
-					</v-tooltip>
+					<v-icon class="customer-field-icon" size="18">mdi-account-outline</v-icon>
 				</template>
 
 				<!-- Dropdown display -->
@@ -94,6 +53,58 @@
 					</v-list-item>
 				</template>
 			</v-autocomplete>
+			<v-tooltip :text="__('Add new customer')" content-class="posa-theme-tooltip">
+				<template #activator="{ props }">
+					<v-btn
+						v-bind="props"
+						icon
+						variant="text"
+						color="primary"
+						class="customer-action-btn"
+						:aria-label="__('Add new customer')"
+						:title="__('Add new customer')"
+						@mousedown.prevent.stop
+						@click.stop="new_customer"
+					>
+						<v-icon size="20">mdi-plus</v-icon>
+					</v-btn>
+				</template>
+			</v-tooltip>
+			<v-menu v-model="customerActionsOpen" location="bottom end" :offset="[0, 8]">
+				<template #activator="{ props }">
+					<v-btn
+						v-bind="props"
+						icon
+						variant="text"
+						color="primary"
+						class="customer-action-btn"
+						:aria-label="__('Customer actions')"
+						:title="__('Customer actions')"
+					>
+						<v-icon size="20">mdi-chevron-down</v-icon>
+					</v-btn>
+				</template>
+				<v-card class="customer-actions-menu pos-themed-card" elevation="8">
+					<v-list density="compact" nav class="customer-actions-list">
+						<v-list-item class="customer-actions-item" @click="edit_customer">
+							<template #prepend>
+								<v-icon size="18">mdi-account-edit-outline</v-icon>
+							</template>
+							<v-list-item-title>{{ __("Edit customer") }}</v-list-item-title>
+						</v-list-item>
+						<v-list-item
+							class="customer-actions-item"
+							:disabled="!networkOnline"
+							@click="reload_customers"
+						>
+							<template #prepend>
+								<v-icon size="18">mdi-refresh</v-icon>
+							</template>
+							<v-list-item-title>{{ __("Reload customers") }}</v-list-item-title>
+						</v-list-item>
+					</v-list>
+				</v-card>
+			</v-menu>
 			<v-progress-linear
 				v-if="showCustomerLoadProgress"
 				:model-value="customerLoadPercent"
@@ -116,7 +127,7 @@
 			</div>
 		</div>
 		<!-- Update customer modal -->
-		<div class="mt-4">
+		<div class="customer-dialog-host">
 			<UpdateCustomer />
 		</div>
 	</div>
@@ -126,8 +137,6 @@
 .customer-input-wrapper {
 	width: 100%;
 	max-width: 100%;
-	padding-right: 1.5rem;
-	/* Elegant space at the right edge */
 	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
@@ -137,35 +146,39 @@
 .customer-autocomplete {
 	width: 100%;
 	box-sizing: border-box;
-	border-radius: 12px;
-	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-	transition: box-shadow 0.3s ease;
-	background-color: var(--pos-input-bg);
+	border-radius: var(--pos-radius-sm, 10px);
+	background: var(--pos-surface-raised, #ffffff);
 }
 
 .customer-field-shell {
 	position: relative;
 	width: 100%;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 44px 44px;
+	align-items: start;
+	gap: 8px;
+	min-width: 0;
 }
 
 .customer-load-bar {
-	position: absolute;
-	left: 10px;
-	right: 10px;
-	bottom: 6px;
-	z-index: 2;
+	grid-column: 1 / -1;
+	position: relative;
+	inset-inline: auto;
+	inset-block-end: auto;
 	opacity: 0.95;
+	margin: -2px 4px 0;
 }
 
 .customer-load-status {
+	grid-column: 1 / -1;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	gap: 12px;
 	width: 100%;
-	margin-top: 6px;
-	padding: 0 10px;
-	font-size: 0.72rem;
+	margin-top: -2px;
+	padding: 0 4px;
+	font-size: 12px;
 	font-weight: 700;
 	line-height: 1.25;
 	color: rgb(var(--v-theme-primary));
@@ -184,10 +197,6 @@
 	font-variant-numeric: tabular-nums;
 }
 
-.customer-autocomplete:hover {
-	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-}
-
 /* Theme-aware internal field colors */
 .customer-autocomplete :deep(.v-field__input),
 .customer-autocomplete :deep(input),
@@ -196,19 +205,90 @@
 }
 
 .customer-autocomplete :deep(.v-field__overlay) {
-	background-color: var(--pos-input-bg) !important;
+	display: none !important;
 }
 
-.icon-button {
-	cursor: pointer;
-	font-size: 20px;
-	opacity: 0.7;
-	transition: all 0.2s ease;
+.customer-autocomplete :deep(.v-field__outline) {
+	--v-field-border-opacity: 0 !important;
+	color: transparent !important;
 }
 
-.icon-button:hover {
-	opacity: 1;
-	color: var(--v-theme-primary);
+.customer-autocomplete :deep(.v-field) {
+	min-height: 44px !important;
+	border: 1px solid var(--pos-border-light) !important;
+	border-radius: var(--pos-radius-sm, 10px) !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
+	box-shadow: none !important;
+}
+
+.customer-autocomplete :deep(.v-field--focused) {
+	border-color: color-mix(in srgb, var(--pos-primary) 40%, var(--pos-border-light)) !important;
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--pos-primary) 10%, transparent) !important;
+}
+
+.customer-autocomplete :deep(.v-field__input),
+.customer-autocomplete :deep(.v-field__prepend-inner),
+.customer-autocomplete :deep(.v-field__append-inner),
+.customer-autocomplete :deep(.v-field__clearable) {
+	min-height: 44px !important;
+	padding-top: 0 !important;
+	padding-bottom: 0 !important;
+}
+
+.customer-autocomplete :deep(input) {
+	font-size: 13px;
+	font-weight: 650;
+	line-height: 1.2;
+}
+
+.customer-autocomplete :deep(.v-label) {
+	font-size: 10px;
+	font-weight: 700;
+	color: var(--pos-text-muted) !important;
+	opacity: 0.9;
+}
+
+.customer-field-icon {
+	color: var(--pos-text-muted);
+}
+
+.customer-action-btn {
+	width: 44px !important;
+	height: 44px !important;
+	min-width: 44px !important;
+	min-height: 44px !important;
+	border: 1px solid var(--pos-border-light) !important;
+	border-radius: var(--pos-radius-sm, 10px) !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
+	color: var(--pos-primary) !important;
+	box-shadow: none !important;
+}
+
+.customer-action-btn:hover,
+.customer-action-btn:focus-visible {
+	border-color: color-mix(in srgb, var(--pos-primary) 36%, var(--pos-border-light)) !important;
+	background: color-mix(in srgb, var(--pos-primary-container) 62%, var(--pos-surface-raised)) !important;
+}
+
+.customer-actions-menu {
+	min-width: 210px;
+	border: 1px solid var(--pos-border-light);
+	border-radius: var(--pos-radius-md, 14px) !important;
+	background: var(--pos-menu-bg) !important;
+	box-shadow: 0 16px 36px rgba(15, 23, 42, 0.12) !important;
+	overflow: hidden;
+}
+
+.customer-actions-list {
+	padding: 6px !important;
+}
+
+.customer-actions-item {
+	min-height: 40px !important;
+	border-radius: var(--pos-radius-sm, 10px) !important;
+	color: var(--pos-text-primary) !important;
+	font-size: 13px;
+	font-weight: 650;
 }
 
 .disabled-icon {
@@ -217,9 +297,13 @@
 	cursor: not-allowed;
 }
 
+.customer-dialog-host {
+	display: contents;
+}
+
 @media (max-width: 768px) {
 	.customer-input-wrapper {
-		padding-right: 0;
+		padding-inline-end: 0;
 	}
 
 	.customer-load-status {
@@ -268,6 +352,7 @@ export default {
 		const internalCustomer = ref(null);
 		const tempSelectedCustomer = ref(null);
 		const isMenuOpen = ref(false);
+		const customerActionsOpen = ref(false);
 		const customerDropdown = ref(null);
 		const readonlyState = ref(false);
 
@@ -479,14 +564,17 @@ export default {
 		};
 
 		const new_customer = () => {
+			customerActionsOpen.value = false;
 			customersStore.openUpdateCustomerDialog(null);
 		};
 
 		const edit_customer = () => {
+			customerActionsOpen.value = false;
 			customersStore.openUpdateCustomerDialog(customerInfo.value || {});
 		};
 
 		const reload_customers = async () => {
+			customerActionsOpen.value = false;
 			if (!networkOnline.value) return;
 			await customersStore.reloadCustomers();
 		};
@@ -601,6 +689,7 @@ export default {
 			customerFieldPlaceholder,
 			customerNoDataText,
 			internalCustomer,
+			customerActionsOpen,
 			effectiveReadonly,
 			onCustomerMenuToggle,
 			onCustomerChange,

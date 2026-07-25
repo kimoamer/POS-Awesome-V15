@@ -1,5 +1,5 @@
 <template>
-	<div class="status-section-enhanced mx-1">
+	<div class="status-section-enhanced">
 		<v-tooltip location="bottom" max-width="320">
 			<template #activator="{ props: tooltipProps }">
 				<v-btn
@@ -27,7 +27,7 @@
 						data-test="status-bootstrap-warning-indicator"
 						class="status-bootstrap-warning-indicator"
 					/>
-					<v-icon :color="statusColor">{{ statusIcon }}</v-icon>
+					<v-icon :color="statusColor" size="18">{{ statusIcon }}</v-icon>
 				</v-btn>
 			</template>
 			<div class="status-tooltip">
@@ -48,20 +48,6 @@
 				</div>
 			</div>
 		</v-tooltip>
-		<div class="status-info-always-visible">
-			<div
-				class="status-title-inline"
-				:class="{
-					'status-connected': statusColor === 'green',
-					'status-offline': statusColor === 'red',
-				}"
-			>
-				{{ connectivityLabel }}
-			</div>
-			<div v-if="props.serverConnecting" class="status-subtitle-inline">
-				{{ __("Rechecking connection") }}
-			</div>
-		</div>
 	</div>
 </template>
 
@@ -224,26 +210,6 @@ const combinedStatusText = computed(() =>
 	[statusText.value, ...bootstrapWarningTooltipLines.value].join(" "),
 );
 
-const connectivityLabel = computed(() => {
-	/**
-	 * Short, user-friendly connectivity label for the navbar.
-	 * @returns {string}
-	 */
-	if (props.serverConnecting) {
-		return __("Checking...");
-	}
-
-	if (!props.networkOnline) {
-		return __("Offline");
-	}
-
-	if (props.networkOnline && props.serverOnline) {
-		return __("Online");
-	}
-
-	// Network is available but server is not responding
-	return __("Limited");
-});
 </script>
 
 <style scoped>
@@ -251,24 +217,32 @@ const connectivityLabel = computed(() => {
 .status-section-enhanced {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	/* Reduced gap */
-	margin-right: 8px;
-	/* Reduced margin */
+	justify-content: center;
+	gap: 0;
+	margin: 0 !important;
 }
 
 .status-btn-enhanced {
-	background: var(--pos-hover-bg) !important;
-	border: 1px solid var(--pos-border);
-	transition: all 0.3s ease;
-	padding: 4px;
+	width: var(--pos-header-control-size, 44px) !important;
+	height: var(--pos-header-control-size, 44px) !important;
+	min-width: var(--pos-header-control-size, 44px) !important;
+	min-height: var(--pos-header-control-size, 44px) !important;
+	background: var(--pos-surface-raised) !important;
+	border: 1px solid var(--pos-border-light);
+	border-radius: 11px !important;
+	box-shadow: 0 6px 14px rgba(15, 23, 42, 0.055);
+	transition:
+		background-color 0.18s ease,
+		border-color 0.18s ease,
+		transform 0.18s ease;
+	padding: 0;
 	position: relative;
-	/* Reduced padding */
 }
 
 .status-btn-enhanced:hover {
-	background: var(--pos-focus-bg) !important;
-	transform: scale(1.05);
+	background: var(--pos-hover-bg) !important;
+	border-color: color-mix(in srgb, var(--pos-primary) 28%, var(--pos-border-light));
+	transform: translateY(-1px);
 }
 
 .status-btn-enhanced--checking {
@@ -295,13 +269,6 @@ const connectivityLabel = computed(() => {
 	background: #ff9800;
 	box-shadow: 0 0 0 2px var(--pos-hover-bg);
 	pointer-events: none;
-}
-
-.status-info-always-visible {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	min-width: 120px;
 }
 
 .status-tooltip {
@@ -331,38 +298,21 @@ const connectivityLabel = computed(() => {
 	color: rgba(255, 152, 0, 0.98);
 }
 
-.status-title-inline {
-	font-size: 12px;
-	font-weight: 600;
-	line-height: 1.2;
-	transition: color 0.3s ease;
-}
-
-.status-title-inline.status-connected {
-	color: #4caf50;
-}
-
-.status-title-inline.status-offline {
-	color: #f44336;
-}
-
-.status-subtitle-inline {
-	font-size: 11px;
-	line-height: 1.15;
-	color: rgba(255, 152, 0, 0.92);
-	letter-spacing: 0.01em;
-}
-
-.status-section-enhanced .status-info-always-visible {
-	min-width: unset;
-}
-
 @keyframes status-spin {
 	from {
 		transform: rotate(0deg);
 	}
 	to {
 		transform: rotate(360deg);
+	}
+}
+
+@media (max-width: 1279px) {
+	.status-btn-enhanced {
+		width: var(--pos-header-control-size-compact, 40px) !important;
+		height: var(--pos-header-control-size-compact, 40px) !important;
+		min-width: var(--pos-header-control-size-compact, 40px) !important;
+		min-height: var(--pos-header-control-size-compact, 40px) !important;
 	}
 }
 </style>

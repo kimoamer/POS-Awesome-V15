@@ -3,6 +3,9 @@
 		<!-- Use the modular NavbarAppBar component -->
 		<NavbarAppBar
 			:pos-profile="posProfile"
+			:company="company"
+			:company-img="companyImg"
+			:navigation-items="items"
 			:cashier-name="currentCashierDisplay"
 			:pending-invoices="pendingInvoices"
 			:loading-progress="loadingProgress"
@@ -13,6 +16,7 @@
 			@go-desk="goDesk"
 			@show-offline-invoices="showOfflineInvoices = true"
 			@open-employee-switch="openEmployeeSwitch"
+			@open-settings="openSettingsPanel"
 		>
 			<!-- Slot for status indicator -->
 			<template #status-indicator>
@@ -92,11 +96,9 @@
 		<NavbarDrawer
 			v-model:drawer="drawer"
 			v-model:item="item"
-			:company="company"
-			:company-img="companyImg"
 			:items="items"
-			:footer-action="drawerFooterAction"
-			@open-settings="openSettingsPanel"
+			:mobile-actions="drawerMobileActions"
+			@mobile-action="handleDrawerMobileAction"
 			@change-page="changePage"
 		/>
 		<NavbarSettingsPanel
@@ -295,16 +297,15 @@ export default {
 	data() {
 		return {
 			drawer: false,
-			mini: true,
 			item: 0,
 			baseItems: [
-				{ text: "POS", icon: "mdi-network-pos", to: "/pos" },
-				{ text: "Payments", icon: "mdi-credit-card", to: "/payments" },
-				{ text: "Purchase Order", icon: "mdi-cart-plus", to: "/orders" },
-				{ text: "Barcode Printing", icon: "mdi-barcode", to: "/barcode" },
+				{ text: "POS", icon: "mdi-monitor-dashboard", to: "/pos" },
+				{ text: "Payments", icon: "mdi-credit-card-check-outline", to: "/payments" },
+				{ text: "Purchase Order", icon: "mdi-basket-plus-outline", to: "/orders" },
+				{ text: "Barcode Printing", icon: "mdi-barcode-scan", to: "/barcode" },
 			],
 			items: [],
-			company: "POS Awesome",
+			company: "",
 			companyImg: posLogo,
 			showAboutDialog: false,
 			showOfflineInvoices: false,
@@ -368,13 +369,41 @@ export default {
 				bootstrapCapabilities: this.bootstrapCapabilities,
 			};
 		},
-		drawerFooterAction() {
-			return {
-				id: "settings",
-				text: this.__("Settings"),
-				subtitle: this.__("Offline, terminal, and system controls"),
-				icon: "mdi-cog-outline",
-			};
+		drawerMobileActions() {
+			return [
+				{
+					id: "settings",
+					text: this.__("Settings"),
+					subtitle: this.__("Offline, terminal, and system controls"),
+					icon: "mdi-cog-outline",
+				},
+				{
+					id: "offline-invoices",
+					text: this.__("Offline Invoices"),
+					subtitle: this.__("{0} pending", [this.pendingInvoices || 0]),
+					icon: "mdi-file-sync-outline",
+					badge: this.pendingInvoices || 0,
+				},
+				{
+					id: "switch-cashier",
+					text: this.__("Switch Cashier"),
+					subtitle: this.currentCashierDisplay || this.__("Change active cashier"),
+					icon: "mdi-account-switch-outline",
+				},
+				{
+					id: "about",
+					text: this.__("About"),
+					subtitle: this.__("Build and app information"),
+					icon: "mdi-information-outline",
+				},
+				{
+					id: "logout",
+					text: this.__("Logout"),
+					subtitle: this.__("End this POS session"),
+					icon: "mdi-logout",
+					tone: "danger",
+				},
+			];
 		},
 		settingsSections() {
 			const offlineActions = [
@@ -540,21 +569,21 @@ export default {
 			if (this.posProfile?.posa_use_gift_cards) {
 				items.splice(2, 0, {
 					text: this.__("Gift Cards"),
-					icon: "mdi-card-account-details-outline",
+					icon: "mdi-gift-outline",
 					to: "/gift-cards",
 				});
 			}
 			if (this.currentCashier?.is_supervisor) {
 				items.splice(1, 0, {
 					text: this.__("Awesome Dashboard"),
-					icon: "mdi-view-dashboard-outline",
+					icon: "mdi-view-grid-plus-outline",
 					to: "/dashboard",
 				});
 			}
 			if (this.posProfile?.posa_enable_cash_movement) {
 				items.push({
 					text: this.__("Cash Movement"),
-					icon: "mdi-cash-sync",
+					icon: "mdi-bank-transfer",
 					to: "/cash-movement",
 				});
 			}
@@ -658,6 +687,9 @@ export default {
 			this.drawer = !this.drawer;
 			this.$emit("nav-click");
 		},
+		changePage(payload) {
+			this.$emit("change-page", payload);
+		},
 		openSettingsPanel() {
 			this.drawer = false;
 			this.closeOfflineStatusPanel();
@@ -748,6 +780,27 @@ export default {
 					break;
 				case "logout":
 					this.closeSettingsPanel();
+					this.logOut();
+					break;
+				default:
+					break;
+			}
+		},
+		handleDrawerMobileAction(actionId) {
+			switch (actionId) {
+				case "offline-invoices":
+					this.showOfflineInvoices = true;
+					break;
+				case "switch-cashier":
+					this.openEmployeeSwitch();
+					break;
+				case "settings":
+					this.openSettingsPanel();
+					break;
+				case "about":
+					this.showAboutDialog = true;
+					break;
+				case "logout":
 					this.logOut();
 					break;
 				default:
@@ -1001,14 +1054,6 @@ export default {
 					this.companyImg = data.company_image;
 				}
 			}
-		},
-		handleMouseLeave() {
-			if (!this.drawer) return;
-			clearTimeout(this._closeTimeout);
-			this._closeTimeout = setTimeout(() => {
-				this.drawer = false;
-				this.mini = true;
-			}, 250);
 		},
 		__(text, args = []) {
 			if (window.__) {

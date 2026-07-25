@@ -1,214 +1,279 @@
 <template>
 	<v-app-bar
 		flat
-		:height="isMobile ? 64 : 56"
+		:height="appBarHeight"
 		:class="[
-			'pos-navbar-enhanced elevation-2 pos-themed-card pos-theme-immediate',
+			'pos-unified-header pos-theme-immediate',
 			rtlClasses,
-			isRtl ? 'rtl-app-bar' : 'ltr-app-bar',
-			isMobile ? 'mobile-navbar' : 'desktop-navbar',
+			isRtl ? 'pos-unified-header--rtl' : 'pos-unified-header--ltr',
+			{
+				'pos-unified-header--mobile': isMobile,
+				'pos-unified-header--tablet': isTablet,
+				'pos-unified-header--compact': isCompactDesktop,
+			},
 		]"
-		:style="[rtlStyles, { flexDirection: isRtl ? 'row-reverse' : 'row' }]"
+		:style="[rtlStyles]"
 	>
-		<!-- Brand Section (left in LTR, right in RTL) -->
-		<div :class="['pos-navbar-brand-section', isRtl ? 'rtl-brand-section' : 'ltr-brand-section']">
-			<v-app-bar-nav-icon
-				ref="navIcon"
-				@click="$emit('nav-click')"
-				:aria-label="__('Toggle navigation drawer')"
-				:size="isMobile ? 'default' : 'large'"
-				:class="['pos-text-primary nav-icon', isRtl ? 'rtl-nav-icon' : 'ltr-nav-icon']"
-			/>
-
-			<v-img
-				:src="posLogo"
-				alt="POS Awesome"
-				:max-width="isMobile ? 24 : 32"
-				:class="['pos-navbar-logo', isRtl ? 'rtl-logo' : 'ltr-logo']"
-				loading="lazy"
-			/>
-
-			<v-toolbar-title
-				@click="$emit('go-desk')"
-				@keydown.enter="$emit('go-desk')"
-				:class="[
-					'text-h6 font-weight-bold text-primary pos-navbar-title',
-					isRtl ? 'rtl-title' : 'ltr-title',
-				]"
-				style="cursor: pointer; text-decoration: none"
-				tabindex="0"
-				:aria-label="__('Go to Frappe Desk')"
-				role="button"
-			>
-				<template v-if="isMobile">
-					<span class="pos-navbar-title-compact">{{ __("POS") }}</span>
-				</template>
-				<template v-else>
-					<span class="font-weight-light pos-navbar-title-light">{{ __("POS") }}</span
-					><span class="pos-navbar-title-bold">{{ __("Awesome") }}</span>
-				</template>
-			</v-toolbar-title>
-		</div>
-
-		<v-spacer />
-
-		<!-- Actions Section (right in LTR, left in RTL) -->
-		<div :class="['pos-navbar-actions-section', isRtl ? 'rtl-actions-section' : 'ltr-actions-section']">
-			<!-- Mobile: Show only essential items, others in menu -->
-			<template v-if="isMobile">
-				<!-- Always visible status indicator -->
-				<slot name="status-indicator"></slot>
-
-				<!-- Offline Invoices with higher priority on mobile -->
-				<div
-					:class="[
-						'primary-actions-cluster mobile-primary-actions',
-						isRtl ? 'rtl-primary-actions' : 'ltr-primary-actions',
-					]"
+		<div class="pos-unified-header__shell">
+			<div class="pos-unified-header__row pos-unified-header__row--main">
+				<v-btn
+					v-if="showDrawerTrigger"
+					icon
+					variant="text"
+					class="pos-header-control pos-header-drawer-trigger"
+					:aria-label="__('Open navigation')"
+					@click="$emit('nav-click')"
 				>
+					<v-icon size="19">mdi-menu-open</v-icon>
+					<v-tooltip activator="parent" location="bottom">
+						{{ __("Navigation") }}
+					</v-tooltip>
+				</v-btn>
+
+				<v-tooltip location="bottom" :disabled="!companyLabel">
+					<template #activator="{ props: tooltipProps }">
+						<button
+							v-bind="tooltipProps"
+							type="button"
+							class="pos-header-brand"
+							:aria-label="brandAriaLabel"
+							@click="$emit('go-desk')"
+							@keydown.enter="$emit('go-desk')"
+						>
+							<span class="pos-header-brand__mark">
+								<v-img
+									:src="brandLogo"
+									alt="POSMate"
+									width="28"
+									height="28"
+									cover
+									class="pos-header-brand__logo"
+									loading="lazy"
+								/>
+							</span>
+							<span class="pos-header-brand__copy">
+								<span class="pos-header-brand__title">{{ __("POSMate") }}</span>
+								<span v-if="showCompanyLabel" class="pos-header-brand__company">
+									{{ companyLabel }}
+								</span>
+							</span>
+						</button>
+					</template>
+					{{ companyLabel }}
+				</v-tooltip>
+
+				<div v-if="showInlineNavigation" ref="navViewport" class="pos-header-nav-zone">
+					<nav class="pos-header-nav-capsule" :aria-label="__('Primary navigation')">
+						<v-btn
+							v-for="item in visibleNavigationItems"
+							:key="navigationKey(item)"
+							:to="item.to"
+							variant="text"
+							class="pos-header-nav-item"
+							:class="{ 'pos-header-nav-item--active': isNavigationItemActive(item) }"
+							:aria-current="isNavigationItemActive(item) ? 'page' : undefined"
+							:title="item.text"
+						>
+							<v-icon class="pos-header-nav-item__icon" :size="navIconSize">
+								{{ item.icon }}
+							</v-icon>
+							<span class="pos-header-nav-item__label">{{ item.text }}</span>
+							<v-tooltip activator="parent" location="bottom">
+								{{ item.text }}
+							</v-tooltip>
+						</v-btn>
+
+						<v-menu v-if="overflowNavigationItems.length" location="bottom end" :offset="[0, 8]">
+							<template #activator="{ props: menuProps }">
+								<v-btn
+									v-bind="menuProps"
+									variant="text"
+									class="pos-header-nav-item pos-header-nav-item--more"
+									:aria-label="__('More navigation')"
+								>
+									<v-icon class="pos-header-nav-item__icon" :size="navIconSize">
+										mdi-dots-horizontal
+									</v-icon>
+									<span class="pos-header-nav-item__label">{{ __("More") }}</span>
+								</v-btn>
+							</template>
+							<v-card class="pos-header-overflow-card pos-themed-card" elevation="10">
+								<v-list density="compact" nav class="pos-header-overflow-list">
+									<v-list-item
+										v-for="item in overflowNavigationItems"
+										:key="navigationKey(item)"
+										:to="item.to"
+										:active="isNavigationItemActive(item)"
+										class="pos-header-overflow-item"
+									>
+										<template #prepend>
+											<v-icon size="20">{{ item.icon }}</v-icon>
+										</template>
+										<v-list-item-title>{{ item.text }}</v-list-item-title>
+									</v-list-item>
+								</v-list>
+							</v-card>
+						</v-menu>
+					</nav>
+				</div>
+
+				<div class="pos-header-actions" :class="{ 'pos-header-actions--compact': hideActionLabels }">
+					<div class="pos-header-action-shell pos-header-action-shell--status">
+						<slot name="status-indicator"></slot>
+					</div>
+
+					<NavbarInfoGadgets v-if="!isMobile" class="pos-header-action-shell pos-header-action-shell--info">
+						<template #cache-usage-meter>
+							<slot name="cache-usage-meter"></slot>
+						</template>
+						<template #db-usage-gadget>
+							<slot name="db-usage-gadget"></slot>
+						</template>
+						<template #cpu-gadget>
+							<slot name="cpu-gadget"></slot>
+						</template>
+					</NavbarInfoGadgets>
+
 					<v-btn
 						icon
-						size="small"
-						:class="[
-							'offline-invoices-btn mobile-btn pos-themed-button',
-							isRtl ? 'rtl-offline-btn' : 'ltr-offline-btn',
-							{ 'has-pending': pendingInvoices > 0 },
-						]"
-						:aria-label="__('View offline invoices') + ` (${pendingInvoices})`"
+						variant="text"
+						class="pos-header-control pos-header-offline-btn"
+						:class="{ 'pos-header-offline-btn--pending': pendingInvoices > 0 }"
+						:aria-label="__('Offline Invoices') + ` (${pendingInvoices})`"
 						@click="$emit('show-offline-invoices')"
+						@keydown.enter="$emit('show-offline-invoices')"
 					>
-						<v-badge v-if="pendingInvoices > 0" :content="pendingInvoices" color="error" floating>
-							<v-icon class="pos-text-primary">mdi-file-document-multiple-outline</v-icon>
+						<v-badge
+							v-if="pendingInvoices > 0"
+							:content="pendingInvoices"
+							color="error"
+							floating
+						>
+							<v-icon :size="actionIconSize">mdi-file-sync-outline</v-icon>
 						</v-badge>
-						<v-icon v-else class="pos-text-primary">mdi-file-document-multiple-outline</v-icon>
+						<v-icon v-else :size="actionIconSize">mdi-file-sync-outline</v-icon>
 						<v-tooltip activator="parent" location="bottom">
 							{{ __("Offline Invoices") }} ({{ pendingInvoices }})
 						</v-tooltip>
 					</v-btn>
 
-					<!-- Notification bell centered between offline invoices and menu -->
-					<div class="notification-wrapper">
-						<slot name="notification-bell"></slot>
-					</div>
-
-					<!-- Mobile Menu - contains all other items -->
-					<div class="menu-wrapper">
-						<slot name="menu"></slot>
-					</div>
-				</div>
-			</template>
-
-			<!-- Desktop: Show all items normally -->
-			<template v-else>
-				<!-- Enhanced connectivity status indicator (kept outside info menu) -->
-				<div class="gadget-wrapper status-gadget">
-					<slot name="status-indicator"></slot>
-				</div>
-
-				<NavbarInfoGadgets
-					:class="['info-gadgets-wrapper', isRtl ? 'rtl-info-gadgets' : 'ltr-info-gadgets']"
-				>
-					<!-- Cache Usage Meter -->
-					<template #cache-usage-meter>
-						<slot name="cache-usage-meter"></slot>
-					</template>
-
-					<!-- Database Usage Gadget -->
-					<template #db-usage-gadget>
-						<slot name="db-usage-gadget"></slot>
-					</template>
-
-					<!-- CPU Load Gadget -->
-					<template #cpu-gadget>
-						<slot name="cpu-gadget"></slot>
-					</template>
-				</NavbarInfoGadgets>
-
-				<div :class="['profile-section', isRtl ? 'rtl-profile-section' : 'ltr-profile-section']">
-					<v-chip
-						v-if="cashierChipLabel"
-						variant="outlined"
-						:class="[
-							'profile-chip cashier-chip pos-themed-card',
-							isRtl ? 'rtl-profile-chip' : 'ltr-profile-chip',
-						]"
-						data-test="cashier-chip"
-						tabindex="0"
-						role="button"
+					<v-btn
+						variant="text"
+						class="pos-header-control pos-header-cashier-btn"
+						:class="{ 'pos-header-cashier-btn--icon-only': hideCashierLabel }"
+						:icon="hideCashierLabel"
+						:aria-label="cashierButtonLabel"
 						@click="$emit('open-employee-switch')"
 						@keydown.enter="$emit('open-employee-switch')"
 					>
-						<v-icon
-							:start="!isRtl"
-							:end="isRtl"
-							:class="['pos-text-primary', isRtl ? 'rtl-profile-icon' : 'ltr-profile-icon']"
-						>
-							mdi-account-switch-outline
-						</v-icon>
-						<span
-							:class="[
-								'profile-chip__content',
-								isRtl ? 'rtl-profile-text' : 'ltr-profile-text',
-							]"
-						>
-							<span class="pos-text-primary profile-chip__title">
-								{{ cashierChipLabel }}
-							</span>
-							<span v-if="cashierChipMeta" class="profile-chip__meta">
-								{{ cashierChipMeta }}
-							</span>
+						<v-icon :size="actionIconSize">mdi-account-switch-outline</v-icon>
+						<span v-if="!hideCashierLabel" class="pos-header-cashier-btn__label">
+							{{ __("Switch Cashier") }}
 						</span>
-					</v-chip>
-				</div>
-
-				<div
-					:class="[
-						'primary-actions-cluster desktop-primary-actions',
-						isRtl ? 'rtl-primary-actions' : 'ltr-primary-actions',
-					]"
-				>
-					<v-btn
-						icon
-						:class="[
-							'offline-invoices-btn pos-themed-button',
-							isRtl ? 'rtl-offline-btn' : 'ltr-offline-btn',
-							{ 'has-pending': pendingInvoices > 0 },
-						]"
-						:aria-label="__('View offline invoices') + ` (${pendingInvoices})`"
-						:aria-describedby="'offline-invoices-tooltip'"
-						@click="$emit('show-offline-invoices')"
-						@keydown.enter="$emit('show-offline-invoices')"
-						tabindex="0"
-					>
-						<v-badge v-if="pendingInvoices > 0" :content="pendingInvoices" color="error" floating>
-							<v-icon class="pos-text-primary">mdi-file-document-multiple-outline</v-icon>
-						</v-badge>
-						<v-icon v-else class="pos-text-primary">mdi-file-document-multiple-outline</v-icon>
-						<v-tooltip
-							id="offline-invoices-tooltip"
-							activator="parent"
-							:location="isRtl ? 'bottom start' : 'bottom end'"
-							:open-delay="500"
-							:close-delay="200"
-						>
-							{{ __("Offline Invoices") }} ({{ pendingInvoices }})
+						<v-tooltip activator="parent" location="bottom">
+							{{ cashierTooltip }}
 						</v-tooltip>
 					</v-btn>
 
-					<!-- Notification bell between offline invoices and menu -->
-					<div class="notification-wrapper">
+					<div class="pos-header-action-shell pos-header-action-shell--notifications">
+						<v-btn
+							v-if="!isMobile"
+							icon
+							variant="text"
+							class="pos-header-control pos-header-settings-btn"
+							:aria-label="__('Settings')"
+							@click="$emit('open-settings')"
+							@keydown.enter="$emit('open-settings')"
+						>
+							<v-icon :size="actionIconSize">mdi-cog-outline</v-icon>
+							<v-tooltip activator="parent" location="bottom">
+								{{ __("Settings") }}
+							</v-tooltip>
+						</v-btn>
 						<slot name="notification-bell"></slot>
 					</div>
 
-					<!-- Menu component slot -->
-					<div class="menu-wrapper">
+					<div class="pos-header-action-shell pos-header-action-shell--menu">
 						<slot name="menu"></slot>
 					</div>
 				</div>
-			</template>
+			</div>
+
+			<div v-if="isTablet" class="pos-unified-header__row pos-unified-header__row--nav">
+				<div ref="tabletNavViewport" class="pos-header-nav-zone pos-header-nav-zone--tablet">
+					<nav class="pos-header-nav-capsule pos-header-nav-capsule--tablet" :aria-label="__('Primary navigation')">
+						<v-btn
+							v-for="item in visibleNavigationItems"
+							:key="`tablet-${navigationKey(item)}`"
+							:to="item.to"
+							variant="text"
+							class="pos-header-nav-item"
+							:class="{ 'pos-header-nav-item--active': isNavigationItemActive(item) }"
+							:aria-current="isNavigationItemActive(item) ? 'page' : undefined"
+							:title="item.text"
+						>
+							<v-icon class="pos-header-nav-item__icon" :size="navIconSize">
+								{{ item.icon }}
+							</v-icon>
+							<span class="pos-header-nav-item__label">{{ item.text }}</span>
+						</v-btn>
+						<v-menu v-if="overflowNavigationItems.length" location="bottom end" :offset="[0, 8]">
+							<template #activator="{ props: menuProps }">
+								<v-btn
+									v-bind="menuProps"
+									variant="text"
+									class="pos-header-nav-item pos-header-nav-item--more"
+									:aria-label="__('More navigation')"
+								>
+									<v-icon class="pos-header-nav-item__icon" :size="navIconSize">
+										mdi-dots-horizontal
+									</v-icon>
+									<span class="pos-header-nav-item__label">{{ __("More") }}</span>
+								</v-btn>
+							</template>
+							<v-card class="pos-header-overflow-card pos-themed-card" elevation="10">
+								<v-list density="compact" nav class="pos-header-overflow-list">
+									<v-list-item
+										v-for="item in overflowNavigationItems"
+										:key="`tablet-overflow-${navigationKey(item)}`"
+										:to="item.to"
+										:active="isNavigationItemActive(item)"
+										class="pos-header-overflow-item"
+									>
+										<template #prepend>
+											<v-icon size="20">{{ item.icon }}</v-icon>
+										</template>
+										<v-list-item-title>{{ item.text }}</v-list-item-title>
+									</v-list-item>
+								</v-list>
+							</v-card>
+						</v-menu>
+					</nav>
+				</div>
+			</div>
+
+			<div v-if="!isMobile" ref="navMeasure" class="pos-header-nav-measure" aria-hidden="true">
+				<span
+					v-for="item in navigationItems"
+					:key="`measure-${navigationKey(item)}`"
+					class="pos-header-nav-item pos-header-nav-item--measure"
+					:data-nav-key="navigationKey(item)"
+					data-nav-measure-item
+				>
+					<v-icon class="pos-header-nav-item__icon" :size="navIconSize">
+						{{ item.icon }}
+					</v-icon>
+					<span class="pos-header-nav-item__label">{{ item.text }}</span>
+				</span>
+				<span class="pos-header-nav-item pos-header-nav-item--measure" data-nav-measure-more>
+					<v-icon class="pos-header-nav-item__icon" :size="navIconSize">
+						mdi-dots-horizontal
+					</v-icon>
+					<span class="pos-header-nav-item__label">{{ __("More") }}</span>
+				</span>
+			</div>
 		</div>
 
-		<!-- Glass Morphism Loading Bar -->
 		<transition name="loading-fade">
 			<div v-if="loadingActive" class="loading-container">
 				<div class="glass-card">
@@ -234,6 +299,8 @@ import { useRtl } from "../../composables/core/useRtl";
 import posLogo from "../pos/pos.png";
 import NavbarInfoGadgets from "./NavbarInfoGadgets.vue";
 
+const NAV_PRIORITY = ["/pos", "/dashboard", "/payments", "/orders", "/barcode", "/gift-cards", "/cash-movement"];
+
 export default {
 	name: "NavbarAppBar",
 	components: {
@@ -248,31 +315,22 @@ export default {
 			posLogo,
 		};
 	},
-	data() {
-		return {
-			windowWidth: window.innerWidth,
-			resizeRafId: null,
-		};
-	},
-	mounted() {
-		this.updateWindowWidth();
-		window.addEventListener("resize", this.updateWindowWidth, { passive: true });
-		this.$el.addEventListener("keydown", this.handleKeyboardNavigation, { passive: false });
-	},
-	beforeUnmount() {
-		window.removeEventListener("resize", this.updateWindowWidth);
-		if (this.$el && this.$el.removeEventListener) {
-			this.$el.removeEventListener("keydown", this.handleKeyboardNavigation);
-		}
-		if (this.resizeRafId) {
-			cancelAnimationFrame(this.resizeRafId);
-			this.resizeRafId = null;
-		}
-	},
 	props: {
 		posProfile: {
 			type: Object,
 			default: () => ({}),
+		},
+		company: {
+			type: String,
+			default: "",
+		},
+		companyImg: {
+			type: String,
+			default: "",
+		},
+		navigationItems: {
+			type: Array,
+			default: () => [],
 		},
 		pendingInvoices: {
 			type: Number,
@@ -299,60 +357,168 @@ export default {
 			default: "",
 		},
 	},
+	emits: ["nav-click", "go-desk", "show-offline-invoices", "open-employee-switch", "open-settings"],
+	data() {
+		return {
+			windowWidth: typeof window !== "undefined" ? window.innerWidth : 1280,
+			resizeRafId: null,
+			navMeasureRafId: null,
+			navResizeObserver: null,
+			visibleNavigationKeys: null,
+		};
+	},
 	computed: {
-		appBarColor() {
-			return this.$theme.isDark ? this.$vuetify.theme.themes.dark.colors.surface : "white";
+		brandLogo() {
+			return this.posLogo;
 		},
-
+		companyLabel() {
+			return this.company || this.posProfile?.company || "";
+		},
+		showCompanyLabel() {
+			return !this.isMobile && this.windowWidth >= 1120 && Boolean(this.companyLabel);
+		},
+		brandAriaLabel() {
+			return this.companyLabel ? `${this.__("POSMate")} - ${this.companyLabel}` : this.__("POSMate");
+		},
 		displayName() {
-			// Show POS profile name if available, otherwise show user name
 			if (this.posProfile && this.posProfile.name) {
 				return this.posProfile.name;
 			}
-
-			// Fallback to Frappe user
 			if (frappe.session && frappe.session.user_fullname) {
 				return frappe.session.user_fullname;
 			}
-
 			if (frappe.session && frappe.session.user) {
 				return frappe.session.user;
 			}
-
 			return "User";
 		},
-
 		cashierChipLabel() {
 			return this.cashierName || this.displayName;
 		},
-
-		cashierChipMeta() {
-			if (!this.cashierName) {
-				return "";
-			}
-
-			if (this.displayName && this.displayName !== this.cashierName) {
-				return this.displayName;
-			}
-
-			return "";
+		cashierButtonLabel() {
+			return this.__("Switch Cashier");
 		},
-
-		// Mobile breakpoint detection
+		cashierTooltip() {
+			return this.cashierChipLabel
+				? `${this.__("Switch Cashier")}: ${this.cashierChipLabel}`
+				: this.__("Switch Cashier");
+		},
 		isMobile() {
 			return this.windowWidth < 768;
 		},
-
 		isTablet() {
 			return this.windowWidth >= 768 && this.windowWidth < 1024;
 		},
-
-		isDesktop() {
-			return this.windowWidth >= 1024;
+		isCompactDesktop() {
+			return this.windowWidth >= 1024 && this.windowWidth < 1280;
+		},
+		showDrawerTrigger() {
+			return this.isMobile;
+		},
+		showInlineNavigation() {
+			return !this.isMobile && !this.isTablet;
+		},
+		appBarHeight() {
+			if (this.isMobile) {
+				return 58;
+			}
+			if (this.isTablet) {
+				return 104;
+			}
+			return this.isCompactDesktop ? 62 : 68;
+		},
+		hideCashierLabel() {
+			return this.windowWidth < 1380;
+		},
+		hideActionLabels() {
+			return this.windowWidth < 1280;
+		},
+		actionIconSize() {
+			return this.windowWidth < 1280 ? 17 : 18;
+		},
+		navIconSize() {
+			return this.windowWidth < 1280 ? 17 : 18;
+		},
+		visibleNavigationItems() {
+			if (this.isMobile) {
+				return [];
+			}
+			if (!Array.isArray(this.visibleNavigationKeys)) {
+				return this.navigationItems;
+			}
+			const visible = new Set(this.visibleNavigationKeys);
+			return this.navigationItems.filter((item, index) => visible.has(this.navigationKey(item, index)));
+		},
+		overflowNavigationItems() {
+			if (this.isMobile || !Array.isArray(this.visibleNavigationKeys)) {
+				return [];
+			}
+			const visible = new Set(this.visibleNavigationKeys);
+			return this.navigationItems.filter((item, index) => !visible.has(this.navigationKey(item, index)));
 		},
 	},
-
+	watch: {
+		navigationItems: {
+			deep: true,
+			handler() {
+				this.scheduleNavigationMeasure();
+			},
+		},
+		windowWidth() {
+			this.scheduleNavigationMeasure();
+		},
+		isTablet() {
+			this.setupNavigationObserver();
+			this.scheduleNavigationMeasure();
+		},
+	},
+	mounted() {
+		this.updateWindowWidth();
+		window.addEventListener("resize", this.updateWindowWidth, { passive: true });
+		this.$el.addEventListener("keydown", this.handleKeyboardNavigation, { passive: false });
+		this.setupNavigationObserver();
+		this.scheduleNavigationMeasure();
+	},
+	beforeUnmount() {
+		window.removeEventListener("resize", this.updateWindowWidth);
+		if (this.$el && this.$el.removeEventListener) {
+			this.$el.removeEventListener("keydown", this.handleKeyboardNavigation);
+		}
+		if (this.resizeRafId) {
+			cancelAnimationFrame(this.resizeRafId);
+			this.resizeRafId = null;
+		}
+		if (this.navMeasureRafId) {
+			cancelAnimationFrame(this.navMeasureRafId);
+			this.navMeasureRafId = null;
+		}
+		if (this.navResizeObserver) {
+			this.navResizeObserver.disconnect();
+			this.navResizeObserver = null;
+		}
+	},
 	methods: {
+		__(text, args = []) {
+			if (window.__) {
+				const nextArgs = Array.isArray(args) ? args : [args];
+				return window.__(text, ...nextArgs);
+			}
+			return text;
+		},
+		navigationKey(item, fallbackIndex = 0) {
+			return item?.to || item?.text || `nav-${fallbackIndex}`;
+		},
+		navigationPriority(item, fallbackIndex = 0) {
+			const priority = NAV_PRIORITY.indexOf(item?.to);
+			return priority === -1 ? 100 + fallbackIndex : priority;
+		},
+		isNavigationItemActive(item) {
+			const routePath = this.$route?.path || "/";
+			if (routePath === "/" && item?.to === "/pos") {
+				return true;
+			}
+			return routePath === item?.to;
+		},
 		updateWindowWidth() {
 			if (this.resizeRafId) {
 				cancelAnimationFrame(this.resizeRafId);
@@ -361,537 +527,510 @@ export default {
 				this.windowWidth = window.innerWidth;
 			});
 		},
-
-		// Enhanced accessibility helper
-		handleKeyboardNavigation(event) {
-			if (event.key === "Tab") {
-				// Ensure proper tab order
-				const focusableElements = this.$el.querySelectorAll(
-					'button, [tabindex="0"], [role="button"]',
+		setupNavigationObserver() {
+			if (this.navResizeObserver) {
+				this.navResizeObserver.disconnect();
+				this.navResizeObserver = null;
+			}
+			if (typeof ResizeObserver === "undefined") {
+				return;
+			}
+			this.$nextTick(() => {
+				const viewport = this.isTablet ? this.$refs.tabletNavViewport : this.$refs.navViewport;
+				if (!viewport) {
+					return;
+				}
+				this.navResizeObserver = new ResizeObserver(() => this.scheduleNavigationMeasure());
+				this.navResizeObserver.observe(viewport);
+			});
+		},
+		scheduleNavigationMeasure() {
+			if (this.navMeasureRafId) {
+				cancelAnimationFrame(this.navMeasureRafId);
+			}
+			this.navMeasureRafId = requestAnimationFrame(() => {
+				this.measureNavigationOverflow();
+			});
+		},
+		measureNavigationOverflow() {
+			if (this.isMobile || !this.navigationItems.length) {
+				this.visibleNavigationKeys = [];
+				return;
+			}
+			const viewport = this.isTablet ? this.$refs.tabletNavViewport : this.$refs.navViewport;
+			const measure = this.$refs.navMeasure;
+			if (!viewport || !measure) {
+				this.visibleNavigationKeys = this.navigationItems.map((item, index) =>
+					this.navigationKey(item, index),
 				);
-				if (focusableElements.length > 0) {
-					// Tab navigation is handled by browser, just ensure visibility
-					this.$nextTick(() => {
-						const activeElement = document.activeElement;
-						if (activeElement && this.$el.contains(activeElement)) {
-							activeElement.scrollIntoView({
-								block: "nearest",
-								inline: "nearest",
-							});
-						}
-					});
+				return;
+			}
+			const availableWidth = viewport.clientWidth - 4;
+			const itemWidths = new Map();
+			measure.querySelectorAll("[data-nav-measure-item]").forEach((node) => {
+				itemWidths.set(node.dataset.navKey, Math.ceil(node.getBoundingClientRect().width));
+			});
+			const moreNode = measure.querySelector("[data-nav-measure-more]");
+			const moreWidth = Math.ceil(moreNode?.getBoundingClientRect().width || 78);
+			const gap = this.windowWidth < 1280 ? 4 : 6;
+			const allKeys = this.navigationItems.map((item, index) => this.navigationKey(item, index));
+			const totalWidth = allKeys.reduce((sum, key, index) => {
+				return sum + (itemWidths.get(key) || 92) + (index ? gap : 0);
+			}, 0);
+
+			if (totalWidth <= availableWidth) {
+				this.visibleNavigationKeys = allKeys;
+				return;
+			}
+
+			const candidates = this.navigationItems
+				.map((item, index) => ({
+					item,
+					index,
+					key: this.navigationKey(item, index),
+					width: itemWidths.get(this.navigationKey(item, index)) || 92,
+					priority: this.navigationPriority(item, index),
+				}))
+				.sort((a, b) => a.priority - b.priority || a.index - b.index);
+
+			const visible = new Set();
+			let usedWidth = moreWidth;
+			for (const candidate of candidates) {
+				const nextWidth = usedWidth + candidate.width + (visible.size ? gap : 0);
+				if (nextWidth <= availableWidth || visible.size === 0) {
+					visible.add(candidate.key);
+					usedWidth = nextWidth;
 				}
 			}
+
+			this.visibleNavigationKeys = allKeys.filter((key) => visible.has(key));
+		},
+		handleKeyboardNavigation(event) {
+			if (event.key !== "Tab") {
+				return;
+			}
+			this.$nextTick(() => {
+				const activeElement = document.activeElement;
+				if (activeElement && this.$el.contains(activeElement)) {
+					activeElement.scrollIntoView({
+						block: "nearest",
+						inline: "nearest",
+					});
+				}
+			});
 		},
 	},
-	emits: ["nav-click", "go-desk", "show-offline-invoices", "open-employee-switch"],
 };
 </script>
 
 <style scoped>
-/* Enhanced Navbar Styling */
-.pos-navbar-enhanced {
-	background-image: linear-gradient(
-		135deg,
-		var(--pos-bg-primary) 0%,
-		var(--pos-bg-secondary) 100%
-	) !important;
-	background-color: var(--pos-bg-primary) !important;
-	border-bottom: 2px solid var(--pos-border) !important;
-	backdrop-filter: blur(10px);
-	transition: all 0.3s ease;
-	padding-bottom: 4px !important;
-	overflow: visible !important;
+.pos-unified-header {
+	background: color-mix(in srgb, var(--pos-navbar-bg) 94%, transparent) !important;
+	border-bottom: 1px solid var(--pos-border-light) !important;
+	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06) !important;
 	color: var(--pos-text-primary) !important;
+	overflow: visible !important;
+	backdrop-filter: blur(16px);
 }
 
-/* RTL/LTR App Bar Layout */
-.rtl-app-bar {
+.pos-unified-header :deep(.v-toolbar__content) {
+	width: 100%;
+	height: 100% !important;
+	padding: 0 !important;
+	overflow: visible;
+}
+
+.pos-unified-header :deep(a) {
+	text-decoration: none !important;
+}
+
+.pos-unified-header__shell {
+	width: 100%;
+	min-width: 0;
+	height: 100%;
+	display: grid;
+	grid-template-rows: 1fr;
+	gap: 6px;
+	padding: var(--pos-header-padding-y) var(--pos-header-padding-x);
+	box-sizing: border-box;
+}
+
+.pos-unified-header__row {
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: var(--pos-header-gap);
+}
+
+.pos-unified-header--rtl {
 	direction: rtl;
 }
 
-.ltr-app-bar {
+.pos-unified-header--ltr {
 	direction: ltr;
 }
 
-/* Brand Section Styling */
-.pos-navbar-brand-section {
+.pos-header-brand {
+	border: 0;
+	background: transparent;
+	min-width: 138px;
+	max-width: 220px;
+	height: 46px;
+	padding: 0 10px 0 0;
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	flex-direction: row;
-	/* Default to normal row */
-	flex: 1 1 auto;
-	min-width: 0;
-	max-width: 100%;
+	gap: 9px;
+	border-inline-end: 1px solid var(--pos-border-light);
+	color: inherit;
+	text-align: start;
+	cursor: pointer;
+	flex: 0 1 220px;
 }
 
-.pos-navbar-title-compact {
-	font-weight: 600;
-	font-size: 1.05rem;
-	letter-spacing: 0.03em;
+.pos-unified-header--rtl .pos-header-brand {
+	padding: 0 0 0 10px;
 }
 
-.rtl-brand-section {
-	flex-direction: row-reverse;
-}
-
-.ltr-brand-section {
-	flex-direction: row;
-	/* Explicit normal row for LTR */
-}
-
-/* Actions Section Styling */
-.pos-navbar-actions-section {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	flex-direction: row;
-	/* Default to normal row */
-	min-width: 0;
-}
-
-.rtl-actions-section {
-	flex-direction: row-reverse;
-}
-
-.ltr-actions-section {
-	flex-direction: row;
-	/* Explicit normal row for LTR */
-}
-
-.primary-actions-cluster {
-	display: flex;
+.pos-header-brand__mark {
+	width: 36px;
+	height: 36px;
+	border-radius: 10px;
+	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	gap: 8px;
-	flex-shrink: 0;
-	min-width: 0;
+	background:
+		linear-gradient(135deg, color-mix(in srgb, var(--pos-primary) 18%, transparent), transparent),
+		var(--pos-surface-raised);
+	border: 1px solid color-mix(in srgb, var(--pos-primary) 18%, var(--pos-border-light));
+	box-shadow: 0 7px 16px rgba(15, 23, 42, 0.07);
+	flex: 0 0 36px;
+	overflow: hidden;
 }
 
-.mobile-primary-actions {
+.pos-header-brand__logo {
+	border-radius: 9px;
+}
+
+.pos-header-brand__copy {
+	min-width: 0;
+	display: grid;
+	gap: 2px;
+}
+
+.pos-header-brand__title {
+	font-size: var(--pos-header-brand-title-size);
+	font-weight: 800;
+	line-height: 1.05;
+	letter-spacing: 0;
+	color: var(--pos-text-primary);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.pos-header-brand__company {
+	font-size: var(--pos-header-company-size);
+	font-weight: 500;
+	line-height: 1.15;
+	letter-spacing: 0;
+	color: var(--pos-text-muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.pos-header-nav-zone {
+	position: relative;
+	min-width: 0;
+	flex: 1 1 auto;
+	container-type: inline-size;
+}
+
+.pos-header-nav-capsule {
+	min-width: 0;
+	height: var(--pos-header-nav-height);
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px;
+	border: 1px solid var(--pos-border-light);
+	border-radius: 16px;
+	background: color-mix(in srgb, var(--pos-surface-raised) 92%, transparent);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+	overflow: hidden;
+}
+
+.pos-header-nav-item {
+	height: 34px !important;
+	min-height: 34px !important;
+	min-width: 36px !important;
+	max-width: none;
+	padding: 0 9px !important;
+	border-radius: 11px !important;
+	text-transform: none !important;
+	font-size: var(--pos-header-nav-font-size) !important;
+	font-weight: 750 !important;
+	letter-spacing: 0 !important;
+	color: var(--pos-text-muted) !important;
+	flex: 0 0 auto;
+	text-decoration: none !important;
+}
+
+.pos-header-nav-item:deep(a),
+.pos-header-nav-item :deep(a) {
+	text-decoration: none !important;
+}
+
+.pos-header-nav-item :deep(.v-btn__content) {
+	display: inline-flex;
+	align-items: center;
 	gap: 6px;
-}
-
-.rtl-primary-actions {
-	flex-direction: row-reverse;
-}
-
-.ltr-primary-actions {
-	flex-direction: row;
-}
-
-.primary-actions-cluster .offline-invoices-btn,
-.primary-actions-cluster .notification-wrapper,
-.primary-actions-cluster .menu-wrapper {
-	order: 0;
-}
-
-.notification-wrapper,
-.menu-wrapper {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-/* LTR Actions ordering for proper sequence */
-.status-gadget {
-	order: 1;
-}
-
-.ltr-info-gadgets {
-	order: 2;
-}
-
-.ltr-actions-section .profile-section {
-	order: 3;
-}
-
-.ltr-actions-section .primary-actions-cluster {
-	order: 4;
-}
-
-/* RTL adjustments for gadgets - reverse the order */
-.rtl-info-gadgets {
-	order: 4;
-}
-
-.rtl-actions-section .profile-section {
-	order: 3;
-}
-
-.rtl-actions-section .primary-actions-cluster {
-	order: 1;
-}
-
-.pos-navbar-enhanced:hover {
-	box-shadow: 0 4px 20px var(--pos-shadow) !important;
-}
-
-/* Logo Styling */
-.pos-navbar-logo {
-	transition: transform 0.3s ease;
-}
-
-.rtl-logo {
-	margin-left: 12px;
-	margin-right: 0;
-}
-
-.ltr-logo {
-	margin-right: 12px;
-	margin-left: 0;
-	order: 0;
-}
-
-.pos-navbar-logo:hover {
-	transform: scale(1.05);
-}
-
-@media (max-width: 960px) {
-	.pos-navbar-brand-section {
-		gap: 8px;
-		min-width: 0;
-	}
-	.pos-navbar-actions-section {
-		gap: 6px;
-	}
-}
-
-@media (max-width: 768px) {
-	.mobile-navbar .pos-navbar-brand-section {
-		flex: 1;
-	}
-	.mobile-navbar .pos-navbar-actions-section {
-		gap: 4px;
-	}
-	.pos-navbar-title-compact {
-		max-width: 100%;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-}
-
-@media (max-width: 600px) {
-	.pos-navbar-title {
-		font-size: 1rem !important;
-	}
-	.nav-icon {
-		margin-inline-end: 0;
-	}
-}
-
-/* Brand Title Styling */
-.pos-navbar-title {
-	text-decoration: none !important;
-	border-bottom: none !important;
-	transition: color 0.3s ease;
-	white-space: nowrap;
-	overflow: hidden !important;
-	text-overflow: ellipsis;
-	display: flex;
-	align-items: center;
 	min-width: 0;
 	max-width: 100%;
-	flex: 1 1 auto;
-	/* Use same blue as Menu button - matching gradient blue */
-	color: #1976d2 !important;
-}
-
-.pos-navbar-title:hover {
 	text-decoration: none !important;
-	opacity: 0.8;
 }
 
-.rtl-title {
-	text-align: right;
-	order: -1;
-	/* Moves title before logo in RTL */
-	flex-direction: row-reverse;
+.pos-header-nav-item :deep(.v-btn__content *),
+.pos-header-overflow-item :deep(.v-list-item-title) {
+	text-decoration: none !important;
 }
 
-.ltr-title {
-	text-align: left;
-	order: 0;
-	/* Normal order in LTR */
-	flex-direction: row;
-}
-
-/* Title Text Styling */
-.pos-navbar-title-light {
-	font-weight: 300 !important;
-	letter-spacing: 0.5px;
-	margin-right: 2px;
-	display: inline-block;
+.pos-header-nav-item__label {
+	min-width: 0;
+	overflow: visible;
+	text-overflow: clip;
 	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
 }
 
-.pos-navbar-title-bold {
-	font-weight: 700 !important;
-	letter-spacing: 0.25px;
-	display: inline-block;
+.pos-header-nav-item__icon {
+	color: currentColor;
+	flex: 0 0 auto;
+}
+
+.pos-header-nav-item:hover,
+.pos-header-nav-item--active {
+	background: color-mix(in srgb, var(--pos-primary) 11%, var(--pos-surface)) !important;
+	color: var(--pos-primary) !important;
+}
+
+.pos-header-nav-item--active {
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pos-primary) 16%, transparent);
+}
+
+.pos-header-nav-item--more {
+	color: var(--pos-primary) !important;
+}
+
+.pos-header-overflow-card {
+	min-width: 230px;
+	padding: 6px;
+}
+
+.pos-header-overflow-list {
+	background: transparent;
+}
+
+.pos-header-overflow-item {
+	border-radius: 10px !important;
+	min-height: 38px;
+}
+
+.pos-header-nav-measure {
+	position: absolute;
+	inset-block-start: -1000px;
+	inset-inline-start: 0;
+	display: flex;
+	gap: 6px;
+	visibility: hidden;
+	pointer-events: none;
+	height: 0;
+	overflow: hidden;
 	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
 }
 
-/* RTL Title Spacing */
-.rtl-title .pos-navbar-title-light {
-	margin-left: 2px;
-	margin-right: 0;
+.pos-header-nav-item--measure {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	box-sizing: border-box;
 }
 
-.rtl-title .pos-navbar-title-bold {
-	margin-right: 2px;
-	margin-left: 0;
-}
-
-/* Navigation Icon - Elite Style */
-.nav-icon {
-	border-radius: 12px;
-	padding: 8px;
-	transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-	min-width: 40px;
-	min-height: 40px;
-	color: #1976d2 !important;
-	background: rgba(25, 118, 210, 0.08) !important;
-	border: 1px solid rgba(25, 118, 210, 0.12);
-	backdrop-filter: blur(8px);
-}
-
-.nav-icon:hover {
-	background: rgba(25, 118, 210, 0.12) !important;
-	color: #1565c0 !important;
-	border-color: rgba(25, 118, 210, 0.2);
-	transform: translateY(-1px);
-	box-shadow: 0 4px 12px rgba(25, 118, 210, 0.15);
-}
-
-.rtl-nav-icon {
-	order: 3;
-	/* Last in brand section for RTL */
-}
-
-.ltr-nav-icon {
-	order: 0;
-	/* Normal order for LTR */
-}
-
-/* Gadget Wrapper Styling for Consistency */
-.gadget-wrapper {
+.pos-header-actions {
 	display: flex;
 	align-items: center;
-	min-height: 40px;
-	transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+	justify-content: flex-end;
+	gap: 6px;
+	min-width: 0;
+	flex: 0 0 auto;
 }
 
-.gadget-wrapper:empty {
+.pos-header-action-shell {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	min-width: 0;
+}
+
+.pos-header-control {
+	width: var(--pos-header-control-size) !important;
+	height: var(--pos-header-control-size) !important;
+	min-width: var(--pos-header-control-size) !important;
+	min-height: var(--pos-header-control-size) !important;
+	border: 1px solid var(--pos-border-light) !important;
+	border-radius: 11px !important;
+	background: var(--pos-surface-raised) !important;
+	color: var(--pos-text-primary) !important;
+	box-shadow: 0 6px 14px rgba(15, 23, 42, 0.055) !important;
+}
+
+.pos-header-control:hover {
+	border-color: color-mix(in srgb, var(--pos-primary) 28%, var(--pos-border-light)) !important;
+	color: var(--pos-primary) !important;
+}
+
+.pos-header-offline-btn--pending {
+	color: var(--pos-warning) !important;
+}
+
+.pos-header-cashier-btn {
+	width: auto !important;
+	min-width: 132px !important;
+	padding: 0 11px !important;
+	gap: 6px;
+	text-transform: none !important;
+	font-size: var(--pos-header-action-font-size) !important;
+	font-weight: 750 !important;
+	letter-spacing: 0 !important;
+}
+
+.pos-header-cashier-btn :deep(.v-btn__content) {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+
+.pos-header-cashier-btn__label {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.pos-header-cashier-btn--icon-only {
+	min-width: var(--pos-header-control-size) !important;
+	width: var(--pos-header-control-size) !important;
+	padding: 0 !important;
+}
+
+.pos-unified-header--compact .pos-header-brand {
+	max-width: 178px;
+	flex-basis: 178px;
+}
+
+.pos-unified-header--compact .pos-header-nav-capsule {
+	height: var(--pos-header-nav-height-compact);
+	gap: 3px;
+	padding: 3px;
+}
+
+.pos-unified-header--compact .pos-header-nav-item {
+	height: 32px !important;
+	min-height: 32px !important;
+	padding: 0 8px !important;
+	font-size: var(--pos-header-nav-font-size-compact) !important;
+	max-width: none;
+}
+
+.pos-unified-header--compact .pos-header-control {
+	width: var(--pos-header-control-size-compact) !important;
+	height: var(--pos-header-control-size-compact) !important;
+	min-width: var(--pos-header-control-size-compact) !important;
+	min-height: var(--pos-header-control-size-compact) !important;
+}
+
+.pos-unified-header--tablet .pos-unified-header__shell {
+	grid-template-rows: minmax(44px, auto) minmax(42px, auto);
+	padding-block: 8px;
+}
+
+.pos-unified-header--tablet .pos-header-brand {
+	max-width: 220px;
+	flex: 1 1 auto;
+	border-inline-end: 0;
+}
+
+.pos-unified-header--tablet .pos-header-nav-zone--tablet {
+	width: 100%;
+	flex: 1 1 auto;
+}
+
+.pos-unified-header--tablet .pos-header-nav-capsule--tablet {
+	width: 100%;
+	height: var(--pos-header-nav-height-compact);
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+
+.pos-unified-header--tablet .pos-header-nav-capsule--tablet::-webkit-scrollbar {
 	display: none;
 }
 
-/* Profile Section */
-.profile-section {
-	margin: 0;
-	order: 2;
-	/* Second to last in actions section */
+.pos-unified-header--tablet .pos-unified-header__row--main {
+	justify-content: space-between;
 }
 
-.profile-chip {
-	color: #1976d2 !important;
-	border-color: rgba(25, 118, 210, 0.2) !important;
-	background: rgba(25, 118, 210, 0.06) !important;
-	backdrop-filter: blur(8px);
+.pos-unified-header--mobile .pos-unified-header__shell {
+	padding: 7px 9px;
 }
 
-.rtl-profile-section {
-	order: 2;
+.pos-unified-header--mobile .pos-unified-header__row--main {
+	gap: 6px;
 }
 
-.ltr-profile-section {
-	order: 2;
-}
-
-.profile-chip {
-	font-weight: 500;
-	padding: 8px 16px;
-	border-radius: 20px;
-	transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.profile-chip__content {
-	display: flex;
-	flex-direction: column;
-	gap: 1px;
+.pos-unified-header--mobile .pos-header-brand {
 	min-width: 0;
+	max-width: none;
+	height: 42px;
+	border-inline-end: 0;
+	padding: 0;
+	flex: 1 1 auto;
 }
 
-.profile-chip__title {
-	font-weight: 600;
-	line-height: 1.1;
+.pos-unified-header--mobile .pos-header-brand__mark {
+	width: 34px;
+	height: 34px;
+	flex-basis: 34px;
 }
 
-.profile-chip__meta {
-	font-size: 0.72rem;
-	line-height: 1.1;
-	color: var(--pos-text-secondary);
-	white-space: nowrap;
+.pos-unified-header--mobile .pos-header-brand__title {
+	font-size: var(--pos-header-brand-title-size-mobile);
 }
 
-.profile-chip:hover {
-	transform: translateY(-1px);
-	background: rgba(25, 118, 210, 0.1) !important;
-	border-color: rgba(25, 118, 210, 0.25) !important;
-	box-shadow: 0 4px 12px rgba(25, 118, 210, 0.12);
+.pos-unified-header--mobile .pos-header-brand__company {
+	display: none;
 }
 
-/* RTL Profile Chip Styling */
-.rtl-profile-chip {
-	flex-direction: row-reverse;
-	text-align: right;
+.pos-unified-header--mobile .pos-header-actions {
+	gap: 4px;
+	flex: 0 0 auto;
 }
 
-.ltr-profile-chip {
-	flex-direction: row;
-	text-align: left;
+.pos-unified-header--mobile .pos-header-offline-btn,
+.pos-unified-header--mobile .pos-header-cashier-btn {
+	display: none !important;
 }
 
-/* Profile Icon Positioning */
-.rtl-profile-icon {
-	margin-left: 8px;
-	margin-right: 0;
-	order: 2;
-}
-
-.ltr-profile-icon {
-	margin-right: 8px;
-	margin-left: 0;
-	order: 0;
-	/* Keep normal order for LTR */
-}
-
-/* Profile Text Positioning */
-.rtl-profile-text {
-	order: 1;
-	text-align: right;
-	margin-right: 4px;
-}
-
-.ltr-profile-text {
-	order: 0;
-	/* Keep normal order for LTR */
-	text-align: left;
-	margin-left: 4px;
-}
-
-/* Override Vuetify's default chip styles for better RTL spacing */
-.rtl-profile-chip :deep(.v-chip__content) {
-	flex-direction: row-reverse;
-	gap: 8px;
-}
-
-.ltr-profile-chip :deep(.v-chip__content) {
-	flex-direction: row;
-	gap: 8px;
-}
-
-/* Force proper icon spacing in Vuetify chips */
-.rtl-profile-chip :deep(.v-icon) {
-	margin-left: 6px !important;
-	margin-right: 0 !important;
-}
-
-.ltr-profile-chip :deep(.v-icon) {
-	margin-right: 6px !important;
-	margin-left: 0 !important;
-}
-
-/* Offline Invoices Button Enhancement - Elite Style */
-.offline-invoices-btn {
-	position: relative;
-	transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-	padding: 4px;
-	min-width: 40px;
-	min-height: 40px;
-	background: rgba(25, 118, 210, 0.08) !important;
-	border: 1px solid rgba(25, 118, 210, 0.12);
-	border-radius: 12px;
-	backdrop-filter: blur(8px);
-}
-
-.offline-invoices-btn .pos-text-primary {
-	color: #1976d2 !important;
-}
-
-/* Elite styling for navbar text and icons */
-.pos-navbar-enhanced .pos-text-primary {
-	color: #1976d2 !important;
-}
-
-/* Ensure profile text and icons use elite colors */
-.profile-chip .pos-text-primary,
-.profile-chip .ltr-profile-text,
-.profile-chip .rtl-profile-text {
-	color: #1976d2 !important;
-	font-weight: 500;
-}
-
-/* Navbar icons with refined styling */
-.pos-navbar-enhanced .v-icon.pos-text-primary,
-.pos-navbar-enhanced .mdi-menu-down,
-.pos-navbar-enhanced .v-icon--end.pos-text-primary {
-	color: #1976d2 !important;
-	transition: color 0.25s ease;
-}
-
-.pos-navbar-enhanced .v-icon.pos-text-primary:hover {
-	color: #1565c0 !important;
-}
-
-.rtl-offline-btn {
-	order: 3;
-	/* Last in actions section for RTL */
-}
-
-.ltr-offline-btn {
-	order: 3;
-	/* Last in actions section for LTR */
-}
-
-.offline-invoices-btn:hover {
-	transform: translateY(-1px);
-	background: rgba(25, 118, 210, 0.12) !important;
-	border-color: rgba(25, 118, 210, 0.2);
-	box-shadow: 0 4px 12px rgba(25, 118, 210, 0.15);
-}
-
-.offline-invoices-btn:hover .pos-text-primary {
-	color: #1565c0 !important;
-}
-
-.offline-invoices-btn.has-pending {
-	animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-	0% {
-		box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.4);
+@media (max-width: 390px) {
+	.pos-unified-header--mobile .pos-header-brand__copy {
+		display: none;
 	}
 
-	70% {
-		box-shadow: 0 0 0 10px rgba(244, 67, 54, 0);
-	}
-
-	100% {
-		box-shadow: 0 0 0 0 rgba(244, 67, 54, 0);
+	.pos-unified-header--mobile .pos-header-brand {
+		flex: 0 0 auto;
 	}
 }
 
-/* ===== GLASS MORPHISM LOADING BAR ===== */
 .loading-container {
 	position: absolute;
 	bottom: 0;
@@ -909,31 +1048,25 @@ export default {
 	justify-content: space-between;
 	align-items: center;
 	padding: 8px 16px;
-
-	/* Glass morphism effect */
-	background: color(from Canvas r g b / 0.8);
+	background: color-mix(in srgb, var(--pos-surface-raised) 86%, transparent);
 	backdrop-filter: blur(20px);
 	border-radius: 12px;
-	border: 1px solid color(from Canvas r g b / 0.1);
-
-	/* System shadows */
-	box-shadow:
-		0 8px 32px color(from CanvasText r g b / 0.1),
-		0 1px 0 color(from Canvas r g b / 0.5) inset;
+	border: 1px solid var(--pos-border-light);
+	box-shadow: 0 8px 32px rgba(15, 23, 42, 0.1);
 }
 
 .loading-message {
 	font-size: 12px;
-	font-weight: 500;
-	color: AccentColor;
+	font-weight: 600;
+	color: var(--pos-primary);
 	flex: 1;
 }
 
 .progress-badge {
 	font-size: 11px;
-	font-weight: 600;
-	color: Canvas;
-	background: AccentColor;
+	font-weight: 700;
+	color: var(--pos-on-primary);
+	background: var(--pos-primary);
 	padding: 2px 8px;
 	border-radius: 8px;
 	min-width: 32px;
@@ -942,222 +1075,27 @@ export default {
 
 .glass-progress {
 	border-radius: 0 !important;
-	backdrop-filter: blur(10px);
 }
 
-.glass-progress :deep(.v-progress-linear__background) {
-	background: color(from CanvasText r g b / 0.1) !important;
-}
-
-.glass-progress :deep(.v-progress-linear__determinate) {
-	background: AccentColor !important;
-	box-shadow: 0 0 12px color(from AccentColor r g b / 0.3);
-}
-
-/* Smooth transitions */
 .loading-fade-enter-active,
 .loading-fade-leave-active {
-	transition: all 0.3s ease;
+	transition: all 0.2s ease;
 }
 
-.loading-fade-enter-from {
-	opacity: 0;
-	transform: translateY(8px);
-}
-
+.loading-fade-enter-from,
 .loading-fade-leave-to {
 	opacity: 0;
 	transform: translateY(-4px);
 }
 
-/* Dark theme fallback for older browsers */
-@media (prefers-color-scheme: dark) {
-	.glass-card {
-		background: rgba(30, 30, 30, 0.8);
-		border-color: rgba(255, 255, 255, 0.1);
-		box-shadow:
-			0 8px 32px rgba(0, 0, 0, 0.2),
-			0 1px 0 rgba(255, 255, 255, 0.1) inset;
-	}
-
-	.loading-message {
-		color: var(--pos-primary);
-	}
-
-	.progress-badge {
-		background: var(--pos-primary);
-		color: var(--pos-text-primary);
-	}
-}
-
-/* Mobile Navbar Styles */
-.mobile-navbar {
-	padding: 0 8px !important;
-}
-
-.mobile-navbar .pos-navbar-brand-section {
-	gap: 8px;
-	flex-shrink: 0;
-}
-
-.mobile-navbar .pos-navbar-logo {
-	max-width: 28px !important;
-}
-
-.mobile-navbar .pos-navbar-title {
-	font-size: 1rem !important;
-}
-
-.mobile-navbar .pos-navbar-title-light,
-.mobile-navbar .pos-navbar-title-bold {
-	font-size: 0.9rem !important;
-}
-
-.mobile-navbar .pos-navbar-actions-section {
-	gap: 6px;
-}
-
-.mobile-navbar .mobile-btn {
-	min-width: 36px !important;
-	min-height: 36px !important;
-	padding: 6px !important;
-}
-
-.mobile-navbar .nav-icon {
-	min-width: 36px !important;
-	min-height: 36px !important;
-	padding: 6px !important;
-}
-
-/* Desktop Navbar Styles */
-.desktop-navbar {
-	padding: 0 16px 4px !important;
-}
-
-/* Enhanced mobile responsiveness */
-@media (max-width: 480px) {
-	.mobile-navbar {
-		padding: 0 4px !important;
-		height: 56px !important;
-	}
-
-	.mobile-navbar .pos-navbar-brand-section {
-		gap: 6px;
-	}
-
-	.mobile-navbar .pos-navbar-logo {
-		max-width: 24px !important;
-	}
-
-	.mobile-navbar .pos-navbar-title {
-		font-size: 0.9rem !important;
-	}
-
-	.mobile-navbar .pos-navbar-title-light {
-		display: none !important; /* Hide "POS" part on very small screens */
-	}
-
-	.mobile-navbar .mobile-btn,
-	.mobile-navbar .nav-icon {
-		min-width: 32px !important;
-		min-height: 32px !important;
-		padding: 4px !important;
-	}
-
-	/* Hide hamburger icon text on very small screens */
-	.mobile-navbar .v-app-bar-nav-icon .v-icon {
-		font-size: 20px !important;
-	}
-}
-
-/* Touch-friendly interactions for mobile */
-@media (hover: none) and (pointer: coarse) {
-	.nav-icon,
-	.offline-invoices-btn,
-	.mobile-btn {
-		min-width: 44px !important;
-		min-height: 44px !important;
-		-webkit-tap-highlight-color: rgba(25, 118, 210, 0.1);
-	}
-
-	.pos-navbar-title {
-		min-height: 44px;
-		display: flex;
-		align-items: center;
-	}
-}
-
-/* Reduced motion accessibility */
 @media (prefers-reduced-motion: reduce) {
-	.pos-navbar-enhanced,
-	.nav-icon,
-	.offline-invoices-btn,
-	.profile-chip,
-	.pos-navbar-logo,
-	.gadget-wrapper {
+	.pos-unified-header,
+	.pos-header-control,
+	.pos-header-nav-item,
+	.loading-fade-enter-active,
+	.loading-fade-leave-active {
 		transition: none !important;
 		animation: none !important;
-	}
-
-	.offline-invoices-btn.has-pending {
-		animation: none !important;
-	}
-}
-
-/* Tablet optimizations */
-@media (min-width: 768px) and (max-width: 1023px) {
-	.pos-navbar-actions-section {
-		gap: 6px;
-	}
-
-	.profile-chip {
-		padding: 6px 12px !important;
-		font-size: 0.9rem !important;
-	}
-}
-
-/* Original responsive adjustments for loading bar */
-@media (max-width: 768px) {
-	.glass-card {
-		padding: 6px 12px;
-		left: 8px;
-		right: 8px;
-	}
-
-	.loading-message {
-		font-size: 11px;
-	}
-
-	.progress-badge {
-		font-size: 10px;
-		padding: 1px 6px;
-		min-width: 28px;
-	}
-}
-
-/* High DPI display adjustments */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-	.mobile-navbar .pos-navbar-logo,
-	.mobile-navbar .v-icon {
-		image-rendering: -webkit-optimize-contrast;
-		image-rendering: crisp-edges;
-	}
-}
-
-/* Landscape mobile adjustments */
-@media (max-height: 500px) and (orientation: landscape) {
-	.mobile-navbar {
-		height: 48px !important;
-	}
-
-	.mobile-navbar .pos-navbar-title {
-		font-size: 0.8rem !important;
-	}
-
-	.mobile-navbar .mobile-btn,
-	.mobile-navbar .nav-icon {
-		min-width: 28px !important;
-		min-height: 28px !important;
 	}
 }
 </style>

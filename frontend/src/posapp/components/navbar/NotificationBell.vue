@@ -17,9 +17,9 @@
 						floating
 						v-if="notifications.length"
 					>
-						<v-icon class="pos-text-primary">mdi-bell-outline</v-icon>
+						<v-icon class="pos-text-primary" size="18">mdi-bell-outline</v-icon>
 					</v-badge>
-					<v-icon v-else class="pos-text-primary">mdi-bell-outline</v-icon>
+					<v-icon v-else class="pos-text-primary" size="18">mdi-bell-outline</v-icon>
 				</v-btn>
 			</template>
 
@@ -141,10 +141,24 @@ function formatTimestamp(ts: string | number | Date) {
 .notification-bell-btn {
 	display: flex;
 	align-items: center;
+	justify-content: center;
 }
 
 .notification-bell-trigger {
-	box-shadow: 0 4px 12px var(--pos-shadow, rgba(0, 0, 0, 0.18)) !important;
+	width: var(--pos-header-control-size, 44px) !important;
+	height: var(--pos-header-control-size, 44px) !important;
+	min-width: var(--pos-header-control-size, 44px) !important;
+	min-height: var(--pos-header-control-size, 44px) !important;
+	border: 1px solid var(--pos-border-light) !important;
+	border-radius: 11px !important;
+	background: var(--pos-surface-raised) !important;
+	box-shadow: 0 6px 14px rgba(15, 23, 42, 0.055) !important;
+	color: var(--pos-text-primary) !important;
+}
+
+.notification-bell-trigger:hover {
+	border-color: color-mix(in srgb, var(--pos-primary) 28%, var(--pos-border-light)) !important;
+	color: var(--pos-primary) !important;
 }
 
 .notification-card {
@@ -250,5 +264,14 @@ function formatTimestamp(ts: string | number | Date) {
 
 .empty-subtitle {
 	font-size: 0.9rem;
+}
+
+@media (max-width: 1279px) {
+	.notification-bell-trigger {
+		width: var(--pos-header-control-size-compact, 40px) !important;
+		height: var(--pos-header-control-size-compact, 40px) !important;
+		min-width: var(--pos-header-control-size-compact, 40px) !important;
+		min-height: var(--pos-header-control-size-compact, 40px) !important;
+	}
 }
 </style>

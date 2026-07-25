@@ -1249,7 +1249,7 @@ const adjust_frappe_sidebar_offset = () => {
 	min-height: 100dvh;
 	height: 100dvh;
 	overflow: hidden;
-	padding-inline-start: var(--posa-desk-sidebar-width, 0px);
+	padding-inline-start: var(--pos-page-content-padding-inline, 0px);
 	box-sizing: border-box;
 }
 
@@ -1269,7 +1269,8 @@ const adjust_frappe_sidebar_offset = () => {
 	min-height: 0;
 	overflow: auto;
 	overscroll-behavior: contain;
-	padding-top: 8px;
+	padding-block-start: var(--pos-page-content-padding-top, 8px);
+	padding-inline: var(--pos-page-content-padding-inline, 0px);
 }
 
 .bootstrap-warning-snackbar :deep(.v-snackbar__wrapper) {
@@ -1308,26 +1309,26 @@ const adjust_frappe_sidebar_offset = () => {
 
 @media (max-width: 768px) {
 	.container1 {
-		height: auto;
+		height: 100dvh;
 		min-height: 100dvh;
-		overflow-y: auto;
+		overflow-y: hidden;
 		overflow-x: hidden;
 	}
 
 	.main-content {
-		height: auto;
-		min-height: 100dvh;
+		height: 100%;
+		min-height: 0;
 	}
 
 	.page-content {
-		overflow: visible;
+		overflow: auto;
 		min-height: 0;
 	}
 
 	:deep(.v-main__wrap) {
-		height: auto;
-		min-height: 100%;
-		overflow: visible;
+		height: 100%;
+		min-height: 0;
+		overflow: hidden;
 	}
 }
 </style>

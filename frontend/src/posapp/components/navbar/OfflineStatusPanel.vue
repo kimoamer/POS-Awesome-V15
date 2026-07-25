@@ -213,13 +213,14 @@ const cacheUsageLabel = computed(() => `${summary.value.cacheUsage || 0}%`);
 	position: absolute;
 	top: calc(100% + 10px);
 	right: 0;
-	width: min(360px, calc(100vw - 24px));
+	width: min(380px, calc(100vw - 24px));
 	padding: 16px;
 	display: grid;
 	gap: 14px;
-	z-index: 12;
-	border: 1px solid var(--pos-border);
-	box-shadow: 0 18px 40px var(--pos-shadow-dark);
+	z-index: 50;
+	border: 1px solid var(--pos-border-light);
+	border-radius: 16px;
+	box-shadow: 0 22px 48px rgba(15, 23, 42, 0.16);
 }
 
 .offline-status-panel__header,
@@ -313,10 +314,11 @@ const cacheUsageLabel = computed(() => `${summary.value.cacheUsage || 0}%`);
 	border: 1px solid var(--pos-border);
 	background: var(--pos-hover-bg);
 	color: var(--pos-text-primary);
-	border-radius: 999px;
+	border-radius: 10px;
 	padding: 8px 12px;
 	font-size: 12px;
-	font-weight: 600;
+	font-weight: 700;
+	letter-spacing: 0;
 	transition:
 		background 0.18s ease,
 		border-color 0.18s ease,

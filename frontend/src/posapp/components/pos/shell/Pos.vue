@@ -30,73 +30,45 @@
 		>
 			<Payments dialog-mode />
 		</v-dialog>
-		<v-row
+		<div
 			v-show="!dialog"
-			dense
-			class="ma-0 dynamic-main-row"
-			:class="{ 'dynamic-main-row--phone': isPhone }"
+			class="pos-workspace dynamic-main-row"
+			:class="{
+				'pos-workspace--compact': useCompactPosSwitcher,
+				'pos-workspace--phone': isPhone,
+				'pos-workspace--rtl': isRtl,
+			}"
 		>
-			<v-col
-				v-show="(!useCompactPosSwitcher || compactPanel === 'selector') && activeView === 'items'"
-				:xl="useCompactPosSwitcher ? 12 : 5"
-				:lg="useCompactPosSwitcher ? 12 : 5"
-				:md="useCompactPosSwitcher ? 12 : 5"
-				:sm="useCompactPosSwitcher ? 12 : 5"
-				cols="12"
-				class="pos dynamic-col dynamic-col--selector"
+			<section
+				v-show="
+					(!useCompactPosSwitcher || compactPanel === 'selector') &&
+					['items', 'offers', 'coupons'].includes(activeView)
+				"
+				class="pos pos-pane pos-products-pane dynamic-col dynamic-col--selector"
+				data-pos-region="products"
 			>
 				<ItemsSelector context="pos" />
-			</v-col>
-			<v-col
-				v-show="(!useCompactPosSwitcher || compactPanel === 'selector') && activeView === 'offers'"
-				:xl="useCompactPosSwitcher ? 12 : 5"
-				:lg="useCompactPosSwitcher ? 12 : 5"
-				:md="useCompactPosSwitcher ? 12 : 5"
-				:sm="useCompactPosSwitcher ? 12 : 5"
-				cols="12"
-				class="pos dynamic-col dynamic-col--selector"
-			>
-				<PosOffers></PosOffers>
-			</v-col>
-			<v-col
-				v-show="(!useCompactPosSwitcher || compactPanel === 'selector') && activeView === 'coupons'"
-				:xl="useCompactPosSwitcher ? 12 : 5"
-				:lg="useCompactPosSwitcher ? 12 : 5"
-				:md="useCompactPosSwitcher ? 12 : 5"
-				:sm="useCompactPosSwitcher ? 12 : 5"
-				cols="12"
-				class="pos dynamic-col dynamic-col--selector"
-			>
-				<PosCoupons></PosCoupons>
-			</v-col>
-			<v-col
+			</section>
+			<section
 				v-if="
 					(!useCompactPosSwitcher || compactPanel === 'selector') &&
 					activeView === 'payment' &&
 					!usePaymentDialog
 				"
-				:xl="useCompactPosSwitcher ? 12 : 5"
-				:lg="useCompactPosSwitcher ? 12 : 5"
-				:md="useCompactPosSwitcher ? 12 : 5"
-				:sm="useCompactPosSwitcher ? 12 : 5"
-				cols="12"
-				class="pos dynamic-col dynamic-col--selector"
+				class="pos pos-pane pos-products-pane dynamic-col dynamic-col--selector"
+				data-pos-region="products"
 			>
 				<Payments></Payments>
-			</v-col>
+			</section>
 
-			<v-col
+			<section
 				v-show="!useCompactPosSwitcher || compactPanel === 'invoice'"
-				:xl="useCompactPosSwitcher ? 12 : 7"
-				:lg="useCompactPosSwitcher ? 12 : 7"
-				:md="useCompactPosSwitcher ? 12 : 7"
-				:sm="useCompactPosSwitcher ? 12 : 7"
-				cols="12"
-				class="pos dynamic-col dynamic-col--invoice"
+				class="pos pos-pane pos-cart-pane dynamic-col dynamic-col--invoice"
+				data-pos-region="cart"
 			>
 				<Invoice ref="invoicePanel"></Invoice>
-			</v-col>
-		</v-row>
+			</section>
+		</div>
 		<div v-if="showBottomDock" ref="mobileDock" class="mobile-pos-stack">
 			<div class="mobile-sale-dock">
 				<div class="mobile-sale-dock__copy">
@@ -206,8 +178,6 @@ import ItemsSelector from "../items/ItemsSelector.vue";
 import Invoice from "../Invoice.vue";
 import OpeningDialog from "../shift/OpeningDialog.vue";
 import Payments from "../Payments.vue";
-import PosOffers from "../offers/PosOffers.vue";
-import PosCoupons from "../offers/PosCoupons.vue";
 import Drafts from "../flows/Drafts.vue";
 import InvoiceManagement from "../flows/InvoiceManagement.vue";
 import SalesOrders from "../flows/SalesOrders.vue";
@@ -642,8 +612,6 @@ export default {
 		InvoiceManagement,
 
 		Returns,
-		PosOffers,
-		PosCoupons,
 		NewAddress,
 		Variants,
 		MpesaPayments,
@@ -713,32 +681,103 @@ export default {
 }
 
 .dynamic-container {
-	transition: all 0.3s ease;
-	padding-bottom: calc(var(--bottom-safe-space) + var(--dynamic-xs));
+	--pos-page-gap: clamp(8px, 0.85vw, 12px);
+	width: 100%;
+	height: 100%;
+	min-height: 0;
 	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	padding: var(--pos-page-gap);
+	padding-bottom: calc(var(--bottom-safe-space, 24px) + var(--pos-page-gap));
+	box-sizing: border-box;
 }
 
 .dynamic-main-row {
+	flex: 1 1 auto;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+	margin: 0;
+	padding: 0;
+}
+
+.pos-workspace {
+	display: grid;
+	grid-template-areas: "products cart";
+	grid-template-columns: minmax(0, 1fr) clamp(400px, 40%, 620px);
+	gap: var(--pos-page-gap);
+	overflow: hidden;
+	isolation: isolate;
+	box-sizing: border-box;
+}
+
+.pos-workspace--rtl:not(.pos-workspace--compact) {
+	grid-template-areas: "cart products";
+	grid-template-columns: clamp(400px, 40%, 620px) minmax(0, 1fr);
+}
+
+.pos-workspace--compact {
+	display: block;
+}
+
+.dynamic-col {
 	padding: 0;
 	margin: 0;
 }
 
-.dynamic-main-row--phone {
-	align-items: stretch;
-}
-
-.dynamic-col {
-	padding: var(--dynamic-sm);
-	transition: padding 0.3s ease;
-	margin-top: var(--dynamic-sm);
-}
-
-.dynamic-col--selector,
-.dynamic-col--invoice {
+.pos-pane {
 	display: flex;
 	flex-direction: column;
+	width: 100%;
+	height: 100%;
 	min-width: 0;
 	min-height: 0;
+	overflow: hidden;
+	box-sizing: border-box;
+}
+
+.pos-products-pane {
+	grid-area: products;
+}
+
+.pos-cart-pane {
+	grid-area: cart;
+}
+
+.pos-pane > :deep(*) {
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 0;
+}
+
+.pos-workspace--compact .pos-pane {
+	height: 100%;
+}
+
+.pos-products-pane :deep(.items-selector-shell),
+.pos-cart-pane :deep(.invoice-shell) {
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.pos-products-pane :deep(.selection-card),
+.pos-cart-pane :deep(.invoice-main-card) {
+	flex: 1 1 auto;
+	width: 100%;
+	height: 100% !important;
+	max-height: 100% !important;
+	min-height: 0 !important;
+	margin-top: 0 !important;
+	resize: none !important;
+	overflow: auto !important;
 }
 
 .mobile-pos-stack {
@@ -896,13 +935,36 @@ export default {
 
 @media (max-width: 768px) {
 	.dynamic-container {
-		padding-top: var(--dynamic-xs);
-		padding-bottom: calc(var(--bottom-safe-space) + 4px);
+		--pos-page-gap: 6px;
+		padding-bottom: calc(var(--bottom-safe-space, 176px) + 6px);
+	}
+}
+
+@media (max-width: 1360px) and (min-width: 1100px) {
+	.dynamic-container {
+		--pos-page-gap: 10px;
 	}
 
-	.dynamic-col {
-		padding: var(--dynamic-xs);
-		margin-top: var(--dynamic-xs);
+	.pos-workspace {
+		grid-template-columns: minmax(0, 1fr) clamp(380px, 42%, 560px);
+	}
+
+	.pos-workspace--rtl:not(.pos-workspace--compact) {
+		grid-template-columns: clamp(380px, 42%, 560px) minmax(0, 1fr);
+	}
+}
+
+@media (max-width: 1180px) and (min-width: 1100px) {
+	.dynamic-container {
+		--pos-page-gap: 8px;
+	}
+
+	.pos-workspace {
+		grid-template-columns: minmax(0, 1fr) clamp(360px, 44%, 520px);
+	}
+
+	.pos-workspace--rtl:not(.pos-workspace--compact) {
+		grid-template-columns: clamp(360px, 44%, 520px) minmax(0, 1fr);
 	}
 }
 

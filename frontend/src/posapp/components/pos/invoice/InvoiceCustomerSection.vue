@@ -1,15 +1,16 @@
 <template>
-	<v-row align="center" class="items px-3 py-2">
-		<v-col :cols="pos_profile.posa_allow_sales_order ? 9 : 12" class="pb-0 pr-0">
-			<!-- Customer selection component -->
+	<div
+		class="invoice-customer-section"
+		:class="{ 'invoice-customer-section--with-type': pos_profile.posa_allow_sales_order }"
+	>
+		<div class="invoice-customer-section__selector">
 			<Customer ref="customerComponent" />
-		</v-col>
-		<!-- Invoice Type Selection (Only shown if sales orders are allowed) -->
-		<v-col v-if="pos_profile.posa_allow_sales_order" cols="3" class="pb-4">
+		</div>
+		<div v-if="pos_profile.posa_allow_sales_order" class="invoice-customer-section__type">
 			<v-select
 				density="compact"
 				hide-details
-				variant="solo"
+				variant="outlined"
 				color="primary"
 				class="sleek-field pos-themed-input"
 				:items="invoiceTypes"
@@ -18,8 +19,8 @@
 				@update:model-value="$emit('update:modelValue', $event)"
 				:disabled="modelValue == 'Return'"
 			></v-select>
-		</v-col>
-	</v-row>
+		</div>
+	</div>
 </template>
 
 <script setup>
@@ -72,3 +73,65 @@ defineExpose({
 
 const frappe = window.frappe;
 </script>
+
+<style scoped>
+.invoice-customer-section {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	margin: 0;
+	padding: 0 10px 6px;
+}
+
+.invoice-customer-section--with-type {
+	grid-template-columns: minmax(0, 1fr) minmax(92px, 126px);
+}
+
+.invoice-customer-section__selector,
+.invoice-customer-section__type {
+	min-width: 0;
+}
+
+.invoice-customer-section :deep(.v-field) {
+	min-height: 44px !important;
+	border: 1px solid var(--pos-border-light) !important;
+	border-radius: var(--pos-radius-sm, 10px) !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
+	box-shadow: none !important;
+}
+
+.invoice-customer-section :deep(.v-field__overlay) {
+	display: none !important;
+}
+
+.invoice-customer-section :deep(.v-field__outline) {
+	--v-field-border-opacity: 0 !important;
+	color: transparent !important;
+}
+
+.invoice-customer-section :deep(.v-field__input),
+.invoice-customer-section :deep(input) {
+	min-height: 44px !important;
+	padding-top: 0 !important;
+	padding-bottom: 0 !important;
+	font-size: 13px;
+	font-weight: 650;
+	color: var(--pos-text-primary);
+}
+
+.invoice-customer-section :deep(.v-label) {
+	font-size: 10px;
+	font-weight: 700;
+	color: var(--pos-text-muted);
+}
+
+@media (max-width: 520px) {
+	.invoice-customer-section,
+	.invoice-customer-section--with-type {
+		grid-template-columns: 1fr;
+		padding: 0 10px 8px;
+	}
+}
+</style>

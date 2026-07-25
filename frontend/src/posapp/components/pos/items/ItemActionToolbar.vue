@@ -3,24 +3,62 @@
 		class="item-filter-strip"
 		:class="{ 'item-filter-strip--dock-reserved': reserveBottomDockSpace }"
 	>
-		<div class="category-strip" role="tablist" :aria-label="__('Item groups')">
+		<div
+			class="category-strip-shell"
+			:class="{ 'category-strip-shell--overflowing': hasCategoryOverflow }"
+		>
 			<v-btn
-				v-for="category in allCategories"
-				:key="category.value"
+				v-if="hasCategoryOverflow"
+				icon
 				variant="text"
-				class="category-chip"
-				:class="{ 'category-chip--active': isCategoryActive(category.value) }"
-				:aria-pressed="isCategoryActive(category.value)"
-				:title="category.label"
-				@click="selectCategory(category.value)"
+				class="category-scroll-btn category-scroll-btn--prev"
+				:disabled="!canScrollPrev"
+				:aria-label="__('Previous item groups')"
+				:title="__('Previous item groups')"
+				@click="scrollCategories('prev')"
 			>
-				<span class="category-chip__surface">
-					<v-icon v-if="isAllCategory(category.value)" size="16" class="category-chip__icon">
-						mdi-view-grid-outline
-					</v-icon>
-					<span class="category-chip__label">{{ category.label }}</span>
-				</span>
-				<v-tooltip activator="parent" location="bottom">{{ category.label }}</v-tooltip>
+				<v-icon size="19">{{ prevScrollIcon }}</v-icon>
+			</v-btn>
+
+			<div
+				ref="categoryStripRef"
+				class="category-strip"
+				role="tablist"
+				:aria-label="__('Item groups')"
+				@scroll="updateCategoryScrollState"
+				@wheel="handleCategoryWheel"
+			>
+				<v-btn
+					v-for="category in allCategories"
+					:key="category.value"
+					variant="text"
+					class="category-chip"
+					:class="{ 'category-chip--active': isCategoryActive(category.value) }"
+					:aria-pressed="isCategoryActive(category.value)"
+					:title="category.label"
+					@click="selectCategory(category.value)"
+				>
+					<span class="category-chip__surface">
+						<v-icon v-if="isAllCategory(category.value)" size="16" class="category-chip__icon">
+							mdi-view-grid-outline
+						</v-icon>
+						<span class="category-chip__label">{{ category.label }}</span>
+					</span>
+					<v-tooltip activator="parent" location="bottom">{{ category.label }}</v-tooltip>
+				</v-btn>
+			</div>
+
+			<v-btn
+				v-if="hasCategoryOverflow"
+				icon
+				variant="text"
+				class="category-scroll-btn category-scroll-btn--next"
+				:disabled="!canScrollNext"
+				:aria-label="__('Next item groups')"
+				:title="__('Next item groups')"
+				@click="scrollCategories('next')"
+			>
+				<v-icon size="19">{{ nextScrollIcon }}</v-icon>
 			</v-btn>
 		</div>
 
@@ -118,7 +156,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 const __ = window.__;
 
@@ -134,6 +172,12 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["update:modelValue", "update:itemsView", "open-offers", "open-coupons"]);
+const categoryStripRef = ref(null);
+const hasCategoryOverflow = ref(false);
+const canScrollPrev = ref(false);
+const canScrollNext = ref(false);
+let categoryResizeObserver = null;
+let categoryScrollRaf = 0;
 
 const translate = (value) => (typeof __ === "function" ? __(value) : value);
 
@@ -172,6 +216,18 @@ const allCategories = computed(() => {
 const priceListLabel = computed(() => props.activePriceList || translate("Default Price List"));
 const formattedOffersCount = computed(() => formatCount(props.offersCount));
 const formattedCouponsCount = computed(() => formatCount(props.couponsCount));
+const isRtl = computed(() => {
+	const el = categoryStripRef.value;
+	if (el && typeof window !== "undefined") {
+		return window.getComputedStyle(el).direction === "rtl";
+	}
+	if (typeof document !== "undefined") {
+		return document.documentElement?.dir === "rtl";
+	}
+	return false;
+});
+const prevScrollIcon = computed(() => (isRtl.value ? "mdi-chevron-right" : "mdi-chevron-left"));
+const nextScrollIcon = computed(() => (isRtl.value ? "mdi-chevron-left" : "mdi-chevron-right"));
 
 function selectCategory(value) {
 	emit("update:modelValue", value);
@@ -199,6 +255,113 @@ function formatCount(value) {
 	}
 	return count > 99 ? "99+" : String(Math.round(count));
 }
+
+function getCategoryScrollMetrics() {
+	const el = categoryStripRef.value;
+	if (!el) {
+		return {
+			max: 0,
+			position: 0,
+			overflowing: false,
+		};
+	}
+
+	const max = Math.max(0, el.scrollWidth - el.clientWidth);
+	const rawLeft = el.scrollLeft || 0;
+	let position = isRtl.value ? Math.abs(rawLeft) : rawLeft;
+	if (rawLeft > max) {
+		position = max - rawLeft;
+	}
+	position = Math.max(0, Math.min(max, Math.abs(position)));
+
+	return {
+		max,
+		position,
+		overflowing: max > 1,
+	};
+}
+
+function updateCategoryScrollState() {
+	if (categoryScrollRaf) {
+		cancelAnimationFrame(categoryScrollRaf);
+	}
+	categoryScrollRaf = requestAnimationFrame(() => {
+		categoryScrollRaf = 0;
+		const { max, position, overflowing } = getCategoryScrollMetrics();
+		hasCategoryOverflow.value = overflowing;
+		canScrollPrev.value = overflowing && position > 1;
+		canScrollNext.value = overflowing && position < max - 1;
+	});
+}
+
+function scrollCategoryStripBy(delta, behavior = "smooth") {
+	const el = categoryStripRef.value;
+	if (!el || !delta) return false;
+
+	const before = el.scrollLeft;
+	const signedDelta = isRtl.value ? -delta : delta;
+	el.scrollBy({ left: signedDelta, behavior });
+
+	requestAnimationFrame(updateCategoryScrollState);
+	return Math.abs(el.scrollLeft - before) > 0.5;
+}
+
+function handleCategoryWheel(event) {
+	const el = categoryStripRef.value;
+	if (!el || !hasCategoryOverflow.value) return;
+
+	const dominantDelta =
+		Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+	if (!dominantDelta) return;
+
+	const before = el.scrollLeft;
+	const signedDelta = isRtl.value ? -dominantDelta : dominantDelta;
+	el.scrollLeft += signedDelta;
+	const moved = Math.abs(el.scrollLeft - before) > 0.5;
+
+	if (moved) {
+		event.preventDefault();
+		updateCategoryScrollState();
+	}
+}
+
+function scrollCategories(direction) {
+	const el = categoryStripRef.value;
+	if (!el) return;
+	const distance = Math.max(160, Math.round(el.clientWidth * 0.6));
+	scrollCategoryStripBy(direction === "prev" ? -distance : distance);
+}
+
+function setupCategoryResizeObserver() {
+	if (typeof ResizeObserver === "undefined" || !categoryStripRef.value) {
+		updateCategoryScrollState();
+		return;
+	}
+	categoryResizeObserver?.disconnect?.();
+	categoryResizeObserver = new ResizeObserver(updateCategoryScrollState);
+	categoryResizeObserver.observe(categoryStripRef.value);
+}
+
+watch(
+	() => allCategories.value.length,
+	() => {
+		nextTick(updateCategoryScrollState);
+	},
+);
+
+onMounted(() => {
+	nextTick(() => {
+		setupCategoryResizeObserver();
+		updateCategoryScrollState();
+	});
+});
+
+onBeforeUnmount(() => {
+	categoryResizeObserver?.disconnect?.();
+	if (categoryScrollRaf) {
+		cancelAnimationFrame(categoryScrollRaf);
+	}
+});
 </script>
 
 <style scoped>
@@ -224,12 +387,25 @@ function formatCount(value) {
 	margin-bottom: 0;
 }
 
+.category-strip-shell,
 .category-strip,
 .filter-actions {
 	display: flex;
 	align-items: center;
 	gap: 6px;
 	min-width: 0;
+}
+
+.category-strip-shell {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	align-items: center;
+	gap: 6px;
+	overflow: hidden;
+}
+
+.category-strip-shell--overflowing {
+	grid-template-columns: 38px minmax(0, 1fr) 38px;
 }
 
 .category-strip {
@@ -240,11 +416,37 @@ function formatCount(value) {
 	padding-block: 3px;
 	scrollbar-width: none;
 	white-space: nowrap;
+	scroll-behavior: smooth;
+	touch-action: pan-x;
 }
 
 .category-strip::-webkit-scrollbar,
 .filter-actions::-webkit-scrollbar {
 	display: none;
+}
+
+.category-scroll-btn {
+	inline-size: 38px !important;
+	min-inline-size: 38px !important;
+	block-size: 38px !important;
+	min-block-size: 38px !important;
+	border: 1px solid var(--pos-border-light) !important;
+	border-radius: 999px !important;
+	background: var(--pos-surface-raised) !important;
+	color: var(--pos-text-primary) !important;
+	box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06) !important;
+}
+
+.category-scroll-btn:hover,
+.category-scroll-btn:focus-visible {
+	border-color: color-mix(in srgb, var(--pos-primary) 32%, var(--pos-border-light)) !important;
+	background: color-mix(in srgb, var(--pos-primary-container) 68%, var(--pos-surface-raised)) !important;
+	color: var(--pos-primary) !important;
+}
+
+.category-scroll-btn:disabled {
+	opacity: 0.38;
+	box-shadow: none !important;
 }
 
 .filter-actions {

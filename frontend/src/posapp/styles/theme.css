@@ -90,6 +90,31 @@
 	--pos-space-5: 24px;
 	--pos-space-6: 32px;
 
+	/* Unified Header and Density Scale */
+	--pos-header-height: 68px;
+	--pos-header-height-compact: 62px;
+	--pos-header-height-tablet: 104px;
+	--pos-header-height-mobile: 58px;
+	--pos-active-header-height: var(--pos-header-height);
+	--pos-header-padding-x: 12px;
+	--pos-header-padding-y: 8px;
+	--pos-header-gap: 7px;
+	--pos-header-control-size: 38px;
+	--pos-header-control-size-compact: 36px;
+	--pos-header-icon-size: 18px;
+	--pos-header-icon-size-compact: 17px;
+	--pos-header-brand-title-size: 16px;
+	--pos-header-brand-title-size-compact: 15px;
+	--pos-header-brand-title-size-mobile: 14px;
+	--pos-header-company-size: 11px;
+	--pos-header-nav-height: 44px;
+	--pos-header-nav-height-compact: 40px;
+	--pos-header-nav-font-size: 12px;
+	--pos-header-nav-font-size-compact: 11px;
+	--pos-header-action-font-size: 11.5px;
+	--pos-page-content-padding-top: 6px;
+	--pos-page-content-padding-inline: 0px;
+
 	/* Special Use Cases */
 	--pos-navbar-bg: #ffffff;
 	--pos-sidebar-bg: #f8f9fa;
@@ -682,6 +707,25 @@ body[data-page-route="posapp"] .sidebar-overlay {
 body[data-page-route="posapp"] {
 	--posa-desk-sidebar-width: 0px !important;
 	--sidebar-width: 0px !important;
+	--pos-page-content-padding-inline: 0px !important;
+}
+
+@media (max-width: 1279px) {
+	body[data-page-route="posapp"] {
+		--pos-active-header-height: var(--pos-header-height-compact);
+	}
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+	body[data-page-route="posapp"] {
+		--pos-active-header-height: var(--pos-header-height-tablet);
+	}
+}
+
+@media (max-width: 767px) {
+	body[data-page-route="posapp"] {
+		--pos-active-header-height: var(--pos-header-height-mobile);
+	}
 }
 
 /* Remove padding/margin that Frappe adds for sidebar */
@@ -709,7 +753,7 @@ body[data-page-route="posapp"] #body {
 	min-height: 100dvh !important;
 	height: auto !important;
 	overflow-x: hidden !important;
-	overflow-y: auto !important;
+	overflow-y: hidden !important;
 }
 
 /* Ensure no residual sidebar space */

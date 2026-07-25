@@ -1,7 +1,12 @@
 <template>
-	<div class="items-card-container">
+	<div class="items-card-container" :style="gridStyle">
 		<div v-if="isLoading" class="items-card-grid items-card-skeleton-grid" aria-busy="true">
-			<div v-for="n in 8" :key="n" class="item-card-skeleton">
+			<div
+				v-for="n in 8"
+				:key="n"
+				class="item-card-skeleton"
+				:style="{ height: skeletonRowHeight + 'px' }"
+			>
 				<Skeleton class="item-card-skeleton__media" height="132" />
 				<div class="item-card-skeleton__body">
 					<Skeleton height="14" width="72%" />
@@ -102,6 +107,8 @@ const props = defineProps({
 	cardSlotWidth: { type: Number, default: 0 },
 	cardColumnWidth: { type: Number, default: 0 },
 	cardRowHeight: { type: Number, default: 0 },
+	cardGap: { type: Number, default: 12 },
+	cardPadding: { type: Number, default: 12 },
 	virtualScrollBuffer: { type: Number, default: 200 },
 	posProfile: { type: Object, default: () => ({}) },
 	context: { type: String, default: "pos" },
@@ -127,6 +134,13 @@ const emit = defineEmits(["select-item", "dragstart", "dragend", "virtual-range-
 const showClearButton = computed(() => {
 	return Boolean(props.searchInput) || (props.itemGroup && props.itemGroup !== "ALL");
 });
+
+const gridStyle = computed(() => ({
+	"--items-grid-padding": `${props.cardPadding || 12}px`,
+	"--items-grid-gap": `${props.cardGap || 12}px`,
+}));
+
+const skeletonRowHeight = computed(() => props.cardRowHeight || 240);
 
 const handleItemClick = (event, item) => {
 	emit("select-item", event, item);
@@ -164,8 +178,8 @@ defineExpose({ scrollToItem, getScrollerElement, scrollerRef });
 
 <style scoped>
 .items-card-container {
-	--items-grid-padding: clamp(10px, 1vw, 16px);
-	--items-grid-gap: clamp(10px, 0.9vw, 16px);
+	--items-grid-padding: 12px;
+	--items-grid-gap: 12px;
 	--items-grid-scrollbar: color-mix(in srgb, var(--pos-text-muted) 28%, transparent);
 	width: 100%;
 	height: 100%;
@@ -212,8 +226,18 @@ defineExpose({ scrollToItem, getScrollerElement, scrollerRef });
 	overflow: visible;
 }
 
-.virtual-scroller .vue-recycle-scroller__item-wrapper {
-	display: contents;
+.virtual-scroller :deep(.vue-recycle-scroller__item-wrapper),
+.virtual-scroller :deep(.vue-recycle-scroller__item-view) {
+	margin: 0 !important;
+	padding: 0 !important;
+	box-sizing: border-box;
+	overflow: visible !important;
+}
+
+.virtual-scroller :deep(.vue-recycle-scroller__item-view) {
+	display: flex;
+	align-items: flex-start;
+	justify-content: flex-start;
 }
 
 .items-card-grid::-webkit-scrollbar {
@@ -242,14 +266,14 @@ defineExpose({ scrollToItem, getScrollerElement, scrollerRef });
 
 .virtual-scroller :deep(.items-virtual-list) {
 	padding: var(--items-grid-padding);
-	padding-block-end: calc(var(--items-grid-padding) + 12px);
+	padding-block-end: calc(var(--items-grid-padding) + var(--items-grid-gap));
 	contain: layout style;
 	box-sizing: border-box;
 	overflow: visible !important;
 }
 
 .items-card-skeleton-grid {
-	padding-block-end: calc(var(--items-grid-padding) + 12px);
+	padding-block-end: calc(var(--items-grid-padding) + var(--items-grid-gap));
 }
 
 .item-card-skeleton {
@@ -350,36 +374,30 @@ defineExpose({ scrollToItem, getScrollerElement, scrollerRef });
 }
 
 @media (max-width: 1200px) {
-	.items-card-container {
-		--items-grid-padding: 12px;
-		--items-grid-gap: 12px;
-	}
-
 	.item-card-skeleton {
-		height: 244px;
+		height: 240px;
 	}
 }
 
 @media (max-width: 768px) {
-	.items-card-container {
-		--items-grid-padding: 10px;
-		--items-grid-gap: 10px;
-	}
-
 	.items-card-grid {
 		grid-template-columns: repeat(auto-fill, minmax(min(168px, 100%), 1fr));
 	}
 
 	.item-card-skeleton {
-		height: 228px;
+		height: 216px;
 	}
 
 	.virtual-scroller :deep(.items-virtual-list) {
-		padding-block-end: calc(var(--items-grid-padding) + var(--bottom-safe-space, 0px) + 12px);
+		padding-block-end: calc(
+			var(--items-grid-padding) + var(--items-grid-gap) + var(--bottom-safe-space, 0px)
+		);
 	}
 
 	.items-card-skeleton-grid {
-		padding-block-end: calc(var(--items-grid-padding) + var(--bottom-safe-space, 0px) + 12px);
+		padding-block-end: calc(
+			var(--items-grid-padding) + var(--items-grid-gap) + var(--bottom-safe-space, 0px)
+		);
 	}
 }
 
