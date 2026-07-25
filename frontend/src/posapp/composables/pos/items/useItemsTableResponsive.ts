@@ -17,8 +17,8 @@ export const DATA_TABLE_EXPAND_COLUMN: TableHeader = {
 	key: "data-table-expand",
 	sortable: false,
 	align: "center",
-	width: 48,
-	minWidth: 48,
+	width: 44,
+	minWidth: 44,
 };
 
 export function getResponsiveVisibleHeaders(
@@ -37,7 +37,7 @@ export function getResponsiveVisibleHeaders(
 				return true;
 			}
 
-			if (width > 0 && width < 450) {
+			if (width > 0 && width < 500) {
 				return ["item_name", "qty", "amount", "actions"].includes(
 					header.key,
 				);
@@ -66,15 +66,18 @@ export function buildFinalVisibleColumns(
 }
 
 const calculateColumnWidth = (header: TableHeader, width: number) => {
-	const baseWidths: Record<string, { min: number; max: number; ratio: number }> = {
-		item_name: { min: 200, max: 250, ratio: 0.3 },
-		qty: { min: 140, max: 160, ratio: 0.12 },
-		rate: { min: 100, max: 130, ratio: 0.12 },
-		amount: { min: 100, max: 130, ratio: 0.12 },
+	const baseWidths: Record<
+		string,
+		{ min: number; max: number; ratio: number }
+	> = {
+		item_name: { min: 160, max: 280, ratio: 0.34 },
+		qty: { min: 116, max: 124, ratio: 0.14 },
+		rate: { min: 82, max: 88, ratio: 0.1 },
+		amount: { min: 96, max: 104, ratio: 0.12 },
 		discount_percentage: { min: 90, max: 120, ratio: 0.1 },
 		discount_amount: { min: 90, max: 120, ratio: 0.11 },
 		price_list_rate: { min: 120, max: 140, ratio: 0.13 },
-		actions: { min: 80, max: 100, ratio: 0.08 },
+		actions: { min: 44, max: 44, ratio: 0.06 },
 		posa_is_offer: { min: 70, max: 90, ratio: 0.06 },
 	};
 
@@ -89,14 +92,14 @@ const calculateColumnWidth = (header: TableHeader, width: number) => {
 
 const calculateMinColumnWidth = (header: TableHeader) => {
 	const minWidths: Record<string, number> = {
-		item_name: 200,
-		qty: 140,
-		rate: 100,
-		amount: 100,
+		item_name: 160,
+		qty: 116,
+		rate: 82,
+		amount: 96,
 		discount_percentage: 90,
 		discount_amount: 90,
 		price_list_rate: 120,
-		actions: 80,
+		actions: 44,
 		posa_is_offer: 70,
 	};
 	return minWidths[header.key] || 80;

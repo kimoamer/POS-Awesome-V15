@@ -69,4 +69,17 @@ describe("items table final visible columns", () => {
 			"data-table-expand",
 		]);
 	});
+
+	it("collapses optional columns throughout the mobile cart row range", () => {
+		const finalColumns = buildFinalVisibleColumns(headers, 480);
+
+		expect(finalColumns.map((column) => column.key)).toEqual([
+			"item_name",
+			"qty",
+			"rate",
+			"amount",
+			"actions",
+			"data-table-expand",
+		]);
+	});
 });

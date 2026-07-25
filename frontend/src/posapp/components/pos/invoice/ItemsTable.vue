@@ -1,8 +1,8 @@
 <template>
 	<div
 		ref="tableContainer"
-		class="my-0 py-0 overflow-y-auto posa-items-table-container posa-responsive-table-container pos-themed-card"
-		:style="containerStyles"
+		class="my-0 py-0 posa-items-table-container posa-responsive-table-container pos-themed-card"
+		:style="tableContainerStyles"
 		:class="containerClasses"
 		@dragover="onDragOverFromSelector($event)"
 		@drop="onDropFromSelector($event)"
@@ -33,7 +33,7 @@
 			<template #no-data>
 				<div class="posa-cart-empty-state">
 					<div class="posa-cart-empty-state__icon-wrap">
-						<v-icon :icon="emptyStateIcon" size="42" class="posa-cart-empty-state__icon" />
+						<v-icon :icon="emptyStateIcon" size="32" class="posa-cart-empty-state__icon" />
 					</div>
 					<div class="posa-cart-empty-state__title">{{ emptyStateTitle }}</div>
 					<div class="posa-cart-empty-state__subtitle">{{ emptyStateSubtitle }}</div>
@@ -239,6 +239,7 @@ const memoizedIsNegative = computed(() => {
 
 const {
 	breakpoint,
+	containerWidth,
 	responsiveHeaders,
 	containerStyles,
 	containerClasses,
@@ -254,13 +255,51 @@ const dynamicHeaderProps = computed(() => ({
 
 const finalVisibleColumns = computed(() => [...responsiveHeaders.value, DATA_TABLE_EXPAND_COLUMN]);
 
+const getColumnTrack = (columnKey: string) => {
+	const width = containerWidth.value || 0;
+	const isCompact = width > 0 && width < 500;
+	const isWide = width >= 760;
+	const tracks: Record<string, string> = {
+		item_name: isCompact ? "minmax(0, 1fr)" : isWide ? "minmax(180px, 1fr)" : "minmax(160px, 1fr)",
+		qty: isWide ? "minmax(0, 124px)" : "minmax(0, 116px)",
+		uom: "minmax(0, 72px)",
+		price_list_rate: "minmax(0, 94px)",
+		discount_percentage: "minmax(0, 86px)",
+		discount_amount: "minmax(0, 98px)",
+		rate: isWide ? "minmax(0, 88px)" : "minmax(0, 82px)",
+		amount: isWide ? "minmax(0, 104px)" : "minmax(0, 96px)",
+		posa_is_offer: "minmax(0, 72px)",
+		actions: "44px",
+		"data-table-expand": "44px",
+	};
+	return tracks[columnKey] || "minmax(0, 82px)";
+};
+
+const cartTableColumns = computed(() =>
+	finalVisibleColumns.value.map((column: any) => getColumnTrack(column?.key)).join(" "),
+);
+
+const cartRowHeight = computed(() => {
+	if (breakpoint.value === "xs") return 96;
+	if (tableDensity.value === "compact") return 58;
+	if (tableDensity.value === "comfortable") return 64;
+	return 60;
+});
+
+const tableContainerStyles = computed(() => ({
+	...containerStyles.value,
+	"--cart-table-columns": cartTableColumns.value,
+	"--cart-table-header-height": "42px",
+	"--cart-table-row-height": `${cartRowHeight.value}px`,
+}));
+
 const virtualScrollConfig = computed(() => {
 	const itemCount = items.value?.length || 0;
 	const height = containerHeight.value || 600;
 
 	return {
-		itemHeight: tableDensity.value === "compact" ? 48 : tableDensity.value === "comfortable" ? 72 : 60,
-		itemsPerPage: Math.max(20, Math.ceil(height / 60) + 5),
+		itemHeight: cartRowHeight.value,
+		itemsPerPage: Math.max(20, Math.ceil(height / cartRowHeight.value) + 5),
 		bufferSize: itemCount > 1000 ? 20 : itemCount > 500 ? 15 : 10,
 	};
 });
@@ -421,6 +460,11 @@ defineExpose({
 /* Scoped styles for ItemsTable component specific logic */
 .posa-items-table-container {
 	position: relative;
-	transition: all 0.3s ease;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
+	transition:
+		width 0.2s ease,
+		height 0.2s ease;
 }
 </style>

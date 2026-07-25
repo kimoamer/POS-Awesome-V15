@@ -3,71 +3,110 @@
 		<template v-for="column in visibleColumns" :key="column.key">
 			<!-- Item Name Column -->
 			<td v-if="column.key === 'item_name'" class="text-start" :data-column-key="'item_name'">
-				<div class="d-flex align-center">
-					<span>{{ item.item_name }}</span>
-					<v-chip v-if="item.is_bundle" color="secondary" size="x-small" class="ml-1">
-						{{ __("Bundle") }}
-					</v-chip>
-					<v-chip v-if="item.name_overridden" color="primary" size="x-small" class="ml-1">
-						{{ __("Edited") }}
-					</v-chip>
-					<v-chip
-						v-if="item.batch_no_is_expired"
-						color="error"
-						size="x-small"
-						variant="flat"
-						class="ml-1"
-					>
-						{{ __("Expired") }}
-					</v-chip>
-					<v-chip
-						v-if="item.has_batch_no && item.batch_no"
-						color="info"
-						size="x-small"
-						variant="tonal"
-						class="ml-1"
-					>
-						{{ __("Batch") }}: {{ item.batch_no }}
-					</v-chip>
-					<v-chip
-						v-if="item.posa_is_offer || item.is_free_item"
-						color="success"
-						size="x-small"
-						variant="flat"
-						class="me-1"
-					>
-						{{ __("Offer Item") }}
-					</v-chip>
-					<v-tooltip v-if="item.pricing_rule_badge" location="bottom">
-						<template #activator="{ props }">
-							<v-chip v-bind="props" color="primary" size="x-small" class="ml-1">
-								{{ item.pricing_rule_badge.label }}
-							</v-chip>
-						</template>
-						<span>{{ item.pricing_rule_badge.tooltip }}</span>
-					</v-tooltip>
-					<v-btn
-						v-if="posProfile.posa_allow_line_item_name_override && !item.posa_is_replace"
-						icon
-						size="x-small"
-						variant="text"
-						class="ml-1"
-						@click.stop="$emit('open-name-dialog', item)"
-						:aria-label="__('Edit item name')"
-					>
-						<v-icon size="small">mdi-pencil</v-icon>
-					</v-btn>
-					<v-btn
-						v-if="item.name_overridden"
-						icon
-						size="x-small"
-						variant="text"
-						class="ml-1"
-						@click.stop="$emit('reset-item-name', item)"
-						:aria-label="__('Reset item name')"
-					>
-						<v-icon size="small">mdi-undo</v-icon>
-					</v-btn>
+				<div class="cart-item-identity">
+					<div class="cart-item-thumb" aria-hidden="true">
+						<v-img
+							v-if="itemImage"
+							:src="itemImage"
+							:alt="itemTitle"
+							class="cart-item-thumb__image"
+						/>
+						<v-icon v-else size="20" class="cart-item-thumb__icon">
+							mdi-package-variant-closed
+						</v-icon>
+					</div>
+					<div class="cart-item-copy">
+						<div class="cart-item-title-row">
+							<span class="cart-item-title" :title="itemTitle">{{ itemTitle }}</span>
+							<div class="cart-item-badges">
+								<v-chip
+									v-if="item.is_bundle"
+									color="secondary"
+									size="x-small"
+									class="cart-item-badge"
+								>
+									{{ __("Bundle") }}
+								</v-chip>
+								<v-chip
+									v-if="item.name_overridden"
+									color="primary"
+									size="x-small"
+									class="cart-item-badge"
+								>
+									{{ __("Edited") }}
+								</v-chip>
+								<v-chip
+									v-if="item.batch_no_is_expired"
+									color="error"
+									size="x-small"
+									variant="flat"
+									class="cart-item-badge"
+								>
+									{{ __("Expired") }}
+								</v-chip>
+								<v-chip
+									v-if="item.has_batch_no && item.batch_no"
+									color="info"
+									size="x-small"
+									variant="tonal"
+									class="cart-item-badge"
+								>
+									{{ __("Batch") }}: {{ item.batch_no }}
+								</v-chip>
+								<v-chip
+									v-if="item.posa_is_offer || item.is_free_item"
+									color="success"
+									size="x-small"
+									variant="flat"
+									class="cart-item-badge"
+								>
+									{{ __("Offer Item") }}
+								</v-chip>
+								<v-tooltip v-if="item.pricing_rule_badge" location="bottom">
+									<template #activator="{ props }">
+										<v-chip
+											v-bind="props"
+											color="primary"
+											size="x-small"
+											class="cart-item-badge"
+										>
+											{{ item.pricing_rule_badge.label }}
+										</v-chip>
+									</template>
+									<span>{{ item.pricing_rule_badge.tooltip }}</span>
+								</v-tooltip>
+							</div>
+						</div>
+						<div class="cart-item-meta-row">
+							<span class="cart-item-meta" :title="itemMetaTitle">{{ itemMetaTitle }}</span>
+							<div class="cart-item-name-actions">
+								<v-btn
+									v-if="
+										posProfile.posa_allow_line_item_name_override && !item.posa_is_replace
+									"
+									icon
+									size="x-small"
+									variant="text"
+									class="cart-item-name-action"
+									@click.stop="$emit('open-name-dialog', item)"
+									:aria-label="__('Edit item name')"
+								>
+									<v-icon size="small">mdi-pencil-outline</v-icon>
+								</v-btn>
+								<v-btn
+									v-if="item.name_overridden"
+									icon
+									size="x-small"
+									variant="text"
+									class="cart-item-name-action"
+									@click.stop="$emit('reset-item-name', item)"
+									:aria-label="__('Reset item name')"
+								>
+									<v-icon size="small">mdi-undo</v-icon>
+								</v-btn>
+							</div>
+						</div>
+					</div>
 				</div>
 			</td>
 
@@ -475,7 +514,12 @@ const memoDeps = computed(() => {
 		props.item.discount_amount,
 		props.item.discount_percentage,
 		props.item.uom,
+		props.item.item_code,
 		props.item.item_name,
+		props.item.image,
+		props.item.item_image,
+		props.item.thumbnail,
+		props.item.item_image_url,
 		props.item.name_overridden,
 		props.item.pricing_rule_badge,
 		props.item.batch_no_is_expired,
@@ -496,6 +540,27 @@ const memoDeps = computed(() => {
 });
 
 const qtyLength = computed(() => String(Math.abs(props.item.qty || 0)).replace(".", "").length);
+
+const itemTitle = computed(() => props.item.item_name || props.item.item_code || __("Unnamed item"));
+
+const itemImage = computed(
+	() =>
+		props.item.image || props.item.item_image || props.item.thumbnail || props.item.item_image_url || "",
+);
+
+const itemMetaParts = computed(() => {
+	const parts = [];
+	const code = props.item.item_code;
+	if (code && code !== props.item.item_name) {
+		parts.push(code);
+	}
+	if (props.item.uom) {
+		parts.push(props.item.uom);
+	}
+	return parts;
+});
+
+const itemMetaTitle = computed(() => itemMetaParts.value.join(" / ") || props.item.uom || "");
 
 const disableDecrement = computed(
 	() =>
@@ -699,10 +764,14 @@ function cancelDiscountAmountEdit() {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	gap: 2px;
 	width: 100%;
 	height: 100%;
 	padding: 0;
 	margin: 0;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
 }
 
 .currency-display.right-aligned {
@@ -710,8 +779,8 @@ function cancelDiscountAmountEdit() {
 }
 
 .amount-value {
-	font-weight: 500;
-	text-align: left;
+	font-weight: 720;
+	text-align: center;
 	font-family:
 		"SF Pro Display", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "Noto Sans Arabic", "Tahoma",
 		sans-serif;
@@ -720,6 +789,10 @@ function cancelDiscountAmountEdit() {
 		"tnum" 1,
 		"lnum" 1,
 		"kern" 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .amount-value.right-aligned {
@@ -728,8 +801,9 @@ function cancelDiscountAmountEdit() {
 
 .currency-symbol {
 	opacity: 0.7;
-	margin-right: 2px;
-	font-size: 0.85em;
+	margin-inline-end: 2px;
+	font-size: 0.78em;
+	flex: 0 0 auto;
 }
 
 .negative-number {
@@ -737,20 +811,46 @@ function cancelDiscountAmountEdit() {
 	font-weight: 600;
 }
 
-/* Add minimal padding for table cells as per ItemsTable.vue styles */
 td {
-	padding: 16px 12px;
+	padding: 0;
 	vertical-align: middle;
-	height: 60px;
+	height: var(--cart-table-row-height, 60px);
 	text-align: center;
 	color: var(--pos-text-primary);
 	position: relative;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.posa-cart-table__delete-btn,
+.posa-cart-table__expand-btn {
+	inline-size: 44px !important;
+	block-size: 44px !important;
+	min-inline-size: 44px !important;
+	border-radius: 10px !important;
+	box-shadow: none !important;
+}
+
+.posa-cart-table__delete-btn {
+	color: var(--pos-error) !important;
+	background: transparent !important;
+}
+
+.posa-cart-table__delete-btn:hover {
+	background: color-mix(in srgb, var(--pos-error) 9%, transparent) !important;
+}
+
+.posa-cart-table__expand-btn {
+	color: var(--pos-text-secondary) !important;
 }
 
 /* Keyboard focus styles */
 /* Keyboard focus styles */
 .posa-cart-table__qty-display:focus-visible,
-.posa-cart-table__editor-display:focus-visible {
+.posa-cart-table__editor-display:focus-visible,
+.posa-cart-table__delete-btn:focus-visible,
+.posa-cart-table__expand-btn:focus-visible,
+.cart-item-name-action:focus-visible {
 	outline: 2px solid var(--pos-primary);
 	outline-offset: 2px;
 	z-index: 10;
