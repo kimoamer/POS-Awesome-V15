@@ -28,6 +28,8 @@
 							variant="text"
 							class="summary-hero__expand-btn"
 							@click="expandedBreakdown = !expandedBreakdown"
+							:aria-expanded="expandedBreakdown"
+							aria-controls="invoice-summary-breakdown"
 							:aria-label="expandedBreakdown ? __('Collapse details') : __('Expand details')"
 						>
 							<v-icon size="small">
@@ -40,7 +42,11 @@
 						{{ formatMoney(subtotal, formatCurrency || ((v) => String(v)), currencySymbol || (() => ""), displayCurrency) }}
 					</strong>
 
-					<div class="summary-hero__meta" v-if="!useCompactSaleDock || expandedBreakdown">
+					<div
+						id="invoice-summary-breakdown"
+						class="summary-hero__meta"
+						v-if="!useCompactSaleDock || expandedBreakdown"
+					>
 						<span>
 							{{ formatFloat ? formatFloat(total_qty, hide_qty_decimals ? 0 : undefined) : total_qty }} {{ __("qty") }}
 						</span>
@@ -98,6 +104,7 @@
 			<div class="invoice-summary-actions">
 				<InvoiceActionButtons
 					:pos_profile="pos_profile"
+					:has-items="Math.abs(Number(total_qty || 0)) > 0"
 					:saveLoading="saveLoading"
 					:loadDraftsLoading="loadDraftsLoading"
 					:selectOrderLoading="selectOrderLoading"
@@ -334,6 +341,16 @@ const hide_qty_decimals = computed(() => {
 	const opts = loadItemSelectorSettings();
 	return !!opts?.hide_qty_decimals;
 });
+
+watch(
+	useCompactSaleDock,
+	(isCompact) => {
+		if (!isCompact) {
+			expandedBreakdown.value = true;
+		}
+	},
+	{ immediate: true },
+);
 
 watch(
 	() => props.pos_profile,

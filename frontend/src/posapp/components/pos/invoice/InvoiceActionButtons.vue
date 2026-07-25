@@ -9,6 +9,7 @@
 				color="secondary"
 				class="invoice-action-btn invoice-action-btn--secondary"
 				:loading="action.loading"
+				:disabled="action.loading"
 				data-pos-keyboard-target="invoice-action"
 				@click="handleAction(action.key)"
 			>
@@ -17,7 +18,14 @@
 			</v-btn>
 
 			<!-- More Actions Menu -->
-			<v-menu v-if="menuActions.length > 0" location="top end" offset="6">
+			<v-menu
+				v-if="menuActions.length > 0"
+				v-model="moreMenuOpen"
+				location="top end"
+				offset="6"
+				:aria-expanded="moreMenuOpen"
+				aria-haspopup="menu"
+			>
 				<template #activator="{ props: menuProps }">
 					<v-btn
 						v-bind="menuProps"
@@ -25,6 +33,7 @@
 						color="secondary"
 						class="invoice-action-btn invoice-action-btn--more"
 						data-pos-keyboard-target="invoice-action"
+						:aria-label="__('More invoice actions')"
 					>
 						<v-icon start size="small">mdi-dots-horizontal</v-icon>
 						<span>{{ __("More") }}</span>
@@ -37,10 +46,18 @@
 						v-for="action in normalMenuActions"
 						:key="action.key"
 						:value="action.key"
+						:disabled="action.loading"
 						@click="handleAction(action.key)"
 					>
 						<template #prepend>
-							<v-icon size="small" class="mr-2">{{ action.icon }}</v-icon>
+							<v-progress-circular
+								v-if="action.loading"
+								indeterminate
+								size="18"
+								width="2"
+								class="mr-2"
+							/>
+							<v-icon v-else size="small" class="mr-2">{{ action.icon }}</v-icon>
 						</template>
 						<v-list-item-title>{{ action.label }}</v-list-item-title>
 					</v-list-item>
@@ -53,10 +70,19 @@
 						:value="action.key"
 						color="error"
 						class="text-error"
+						:disabled="action.loading"
 						@click="handleAction(action.key)"
 					>
 						<template #prepend>
-							<v-icon size="small" color="error" class="mr-2">{{ action.icon }}</v-icon>
+							<v-progress-circular
+								v-if="action.loading"
+								indeterminate
+								size="18"
+								width="2"
+								color="error"
+								class="mr-2"
+							/>
+							<v-icon v-else size="small" color="error" class="mr-2">{{ action.icon }}</v-icon>
 						</template>
 						<v-list-item-title class="text-error font-weight-medium">
 							{{ action.label }}
@@ -74,8 +100,9 @@
 				variant="flat"
 				class="invoice-pay-btn"
 				:loading="paymentLoading"
+				:disabled="!hasItems || paymentLoading || payClickLocked"
 				data-pos-keyboard-target="pay"
-				@click="$emit('show-payment')"
+				@click="handlePayClick"
 			>
 				<v-icon start size="medium">mdi-credit-card-outline</v-icon>
 				<span class="pay-btn__label">{{ __("Pay") }}</span>
@@ -88,12 +115,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, toRef } from "vue";
 import { useInvoiceFooterActions } from "../../../composables/pos/invoice/useInvoiceFooterActions";
 import { formatMoney } from "../../../composables/pos/shared/useMoneyFormatter";
 
 interface Props {
 	pos_profile?: any;
+	hasItems?: boolean;
 	saveLoading?: boolean;
 	loadDraftsLoading?: boolean;
 	selectOrderLoading?: boolean;
@@ -111,6 +139,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
 	pos_profile: () => ({}),
+	hasItems: true,
 });
 
 const emit = defineEmits([
@@ -127,20 +156,37 @@ const emit = defineEmits([
 
 const __ = (window as any).__ || ((s: string) => s);
 
-const { directActions, menuActions } = useInvoiceFooterActions({
-	posProfile: computed(() => props.pos_profile).value,
-	saveLoading: props.saveLoading,
-	loadDraftsLoading: props.loadDraftsLoading,
-	selectOrderLoading: props.selectOrderLoading,
-	cancelLoading: props.cancelLoading,
-	invoiceManagementLoading: props.invoiceManagementLoading,
-	returnsLoading: props.returnsLoading,
-	printLoading: props.printLoading,
-	customerDisplayLoading: props.customerDisplayLoading,
+const moreMenuOpen = ref(false);
+const payClickLocked = ref(false);
+
+const posProfileRef = toRef(props, "pos_profile");
+const saveLoadingRef = toRef(props, "saveLoading");
+const loadDraftsLoadingRef = toRef(props, "loadDraftsLoading");
+const selectOrderLoadingRef = toRef(props, "selectOrderLoading");
+const cancelLoadingRef = toRef(props, "cancelLoading");
+const invoiceManagementLoadingRef = toRef(props, "invoiceManagementLoading");
+const returnsLoadingRef = toRef(props, "returnsLoading");
+const printLoadingRef = toRef(props, "printLoading");
+const customerDisplayLoadingRef = toRef(props, "customerDisplayLoading");
+
+const { footerActions, directActions, menuActions } = useInvoiceFooterActions({
+	posProfile: posProfileRef,
+	saveLoading: saveLoadingRef,
+	loadDraftsLoading: loadDraftsLoadingRef,
+	selectOrderLoading: selectOrderLoadingRef,
+	cancelLoading: cancelLoadingRef,
+	invoiceManagementLoading: invoiceManagementLoadingRef,
+	returnsLoading: returnsLoadingRef,
+	printLoading: printLoadingRef,
+	customerDisplayLoading: customerDisplayLoadingRef,
 });
 
 const normalMenuActions = computed(() => menuActions.value.filter((a) => !a.danger));
 const dangerMenuActions = computed(() => menuActions.value.filter((a) => a.danger));
+
+const actionByKey = computed(() => {
+	return new Map(footerActions.value.map((action) => [action.key, action]));
+});
 
 const payableTotalFormatted = computed(() => {
 	const amount = Number(props.subtotal || 0);
@@ -148,7 +194,14 @@ const payableTotalFormatted = computed(() => {
 	return formatMoney(amount, props.formatCurrency, props.currencySymbol, props.displayCurrency);
 });
 
-function handleAction(key) {
+function handleAction(key: string) {
+	const action = actionByKey.value.get(key);
+	if (!action || !action.visible || action.loading) {
+		return;
+	}
+
+	moreMenuOpen.value = false;
+
 	switch (key) {
 		case "save":
 			emit("save-and-clear");
@@ -174,6 +227,21 @@ function handleAction(key) {
 		case "cancel":
 			emit("cancel-sale");
 			break;
+	}
+}
+
+async function handlePayClick() {
+	if (!props.hasItems || props.paymentLoading || payClickLocked.value) {
+		return;
+	}
+
+	payClickLocked.value = true;
+	try {
+		emit("show-payment");
+	} finally {
+		window.setTimeout(() => {
+			payClickLocked.value = false;
+		}, 250);
 	}
 }
 </script>

@@ -27,6 +27,16 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.6.1 — Footer Reactivity & Action Safety Acceptance (Complete ✅).
+
+Scope:
+
+- **Reactive Composable Inputs**: Updated `useInvoiceFooterActions.ts` with `MaybeRefOrGetter` and `toValue()`. Passed `toRef(props, ...)` refs from `InvoiceActionButtons.vue` ensuring instant reactivity on POS profile switches and loading updates.
+- **Action Execution Guard & Loading Spinners**: Added map lookup `actionByKey` preventing action emits during loading, hidden state, or double click. Added `<v-progress-circular>` loading spinners inside `More` menu items.
+- **Empty Cart Pay Guard**: Added `:has-items="Math.abs(Number(total_qty || 0)) > 0"` prop disabling Pay button when cart is empty while allowing Pay for return invoices (`total_qty < 0`).
+- **Double Pay Lock**: Added `payClickLocked` guard preventing duplicate `show-payment` emissions.
+- **Accessibility & Mobile Expansion**: Bound `:aria-expanded` and `:aria-controls` on summary breakdown and `More` menu activator. Added `useCompactSaleDock` watcher setting `expandedBreakdown = true` on Desktop.
+
 Pass 6.6 — Invoice Summary & Action Footer Redesign (Complete ✅).
 
 Scope:

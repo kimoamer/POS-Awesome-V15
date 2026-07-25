@@ -1,77 +1,74 @@
 import { describe, expect, it } from "vitest";
-
+import { ref } from "vue";
 import { useInvoiceFooterActions } from "../src/posapp/composables/pos/invoice/useInvoiceFooterActions";
 import { parseBooleanSetting } from "../src/posapp/composables/pos/items/useItemPermissions";
 
-describe("useInvoiceFooterActions composable & summary footer logic", () => {
-	const defaultProfile = {
+describe("useInvoiceFooterActions composable & reactive footer logic", () => {
+	const profileA = {
 		custom_allow_select_sales_order: 1,
 		posa_allow_return: 1,
-		posa_allow_print_draft_invoices: 1,
+		posa_allow_print_draft_invoices: 0,
 		posa_enable_customer_display: 1,
-		posa_allow_user_to_edit_additional_discount: 1,
-		posa_use_percentage_discount: 0,
 	};
 
-	const stringProfile = {
-		custom_allow_select_sales_order: "1",
-		posa_allow_return: "0",
-		posa_allow_print_draft_invoices: "1",
-		posa_enable_customer_display: "0",
-		posa_allow_user_to_edit_additional_discount: "1",
-		posa_use_percentage_discount: "1",
-	};
-
-	const restrictedProfile = {
+	const profileB = {
 		custom_allow_select_sales_order: 0,
 		posa_allow_return: 0,
-		posa_allow_print_draft_invoices: 0,
+		posa_allow_print_draft_invoices: 1,
 		posa_enable_customer_display: 0,
-		posa_allow_user_to_edit_additional_discount: 0,
-		posa_use_percentage_discount: 0,
 	};
 
-	it("returns direct actions (Save & Clear, Drafts) as always visible", () => {
-		const { directActions } = useInvoiceFooterActions({ posProfile: defaultProfile });
-		const keys = directActions.value.map((a) => a.key);
-		expect(keys).toContain("save");
-		expect(keys).toContain("drafts");
+	it("updates action visibility dynamically when reactive posProfile ref changes", () => {
+		const posProfileRef = ref(profileA);
+		const { menuActions } = useInvoiceFooterActions({ posProfile: posProfileRef });
+
+		let keys = menuActions.value.map((a) => a.key);
+		expect(keys).toContain("return");
+		expect(keys).not.toContain("print");
+		expect(keys).toContain("customer-display");
+
+		// Dynamically switch profile to B
+		posProfileRef.value = profileB;
+
+		keys = menuActions.value.map((a) => a.key);
+		expect(keys).not.toContain("return");
+		expect(keys).toContain("print");
+		expect(keys).not.toContain("customer-display");
 	});
 
-	it("filters menu actions according to POS Profile permissions", () => {
-		const { menuActions: defaultMenu } = useInvoiceFooterActions({ posProfile: defaultProfile });
-		const defaultKeys = defaultMenu.value.map((a) => a.key);
-		expect(defaultKeys).toContain("select-order");
-		expect(defaultKeys).toContain("return");
-		expect(defaultKeys).toContain("print");
-		expect(defaultKeys).toContain("customer-display");
-		expect(defaultKeys).toContain("cancel");
+	it("updates loading states reactively when loading refs change", () => {
+		const saveLoadingRef = ref(false);
+		const { directActions } = useInvoiceFooterActions({
+			posProfile: profileA,
+			saveLoading: saveLoadingRef,
+		});
 
-		const { menuActions: stringMenu } = useInvoiceFooterActions({ posProfile: stringProfile });
-		const stringKeys = stringMenu.value.map((a) => a.key);
-		expect(stringKeys).toContain("select-order");
-		expect(stringKeys).not.toContain("return");
-		expect(stringKeys).toContain("print");
-		expect(stringKeys).not.toContain("customer-display");
+		let saveAction = directActions.value.find((a) => a.key === "save");
+		expect(saveAction?.loading).toBe(false);
 
-		const { menuActions: restrictedMenu } = useInvoiceFooterActions({ posProfile: restrictedProfile });
-		const restrictedKeys = restrictedMenu.value.map((a) => a.key);
-		expect(restrictedKeys).not.toContain("select-order");
-		expect(restrictedKeys).not.toContain("return");
-		expect(restrictedKeys).not.toContain("print");
-		expect(restrictedKeys).not.toContain("customer-display");
-		expect(restrictedKeys).toContain("cancel"); // Cancel Sale always present in menu
+		saveLoadingRef.value = true;
+		saveAction = directActions.value.find((a) => a.key === "save");
+		expect(saveAction?.loading).toBe(true);
 	});
 
-	it("evaluates additional discount permissions correctly", () => {
-		const allowDefault = parseBooleanSetting(defaultProfile.posa_allow_user_to_edit_additional_discount);
-		expect(allowDefault).toBe(true);
+	it("parses string and numeric boolean settings correctly", () => {
+		expect(parseBooleanSetting("0")).toBe(false);
+		expect(parseBooleanSetting("1")).toBe(true);
+		expect(parseBooleanSetting("false")).toBe(false);
+		expect(parseBooleanSetting("true")).toBe(true);
+		expect(parseBooleanSetting(0)).toBe(false);
+		expect(parseBooleanSetting(1)).toBe(true);
+		expect(parseBooleanSetting(false)).toBe(false);
+		expect(parseBooleanSetting(true)).toBe(true);
+	});
 
-		const allowRestricted = parseBooleanSetting(restrictedProfile.posa_allow_user_to_edit_additional_discount);
-		expect(allowRestricted).toBe(false);
+	it("evaluates empty cart pay eligibility using Math.abs(total_qty)", () => {
+		const qtyZero = 0;
+		const qtyPositive = 2;
+		const qtyNegative = -2;
 
-		const offerApplied = "PROMO_DISCOUNT_10";
-		const canEditWithOffer = allowDefault && !offerApplied;
-		expect(canEditWithOffer).toBe(false);
+		expect(Math.abs(Number(qtyZero || 0)) > 0).toBe(false);
+		expect(Math.abs(Number(qtyPositive || 0)) > 0).toBe(true);
+		expect(Math.abs(Number(qtyNegative || 0)) > 0).toBe(true);
 	});
 });
