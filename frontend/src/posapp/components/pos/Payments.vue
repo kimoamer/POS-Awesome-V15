@@ -197,8 +197,8 @@
 							:format-currency="formatCurrency"
 							@update:is-write-off-change="is_write_off_change = $event"
 							@update:is-credit-sale="is_credit_sale = $event"
-							@update:is-cashback="returnSettlementMode = $event ? RETURN_SETTLEMENT_MODES.CASHBACK : (capabilities.allowStoreAsCredit.value ? RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT : RETURN_SETTLEMENT_MODES.NONE)"
-							@update:is-credit-return="returnSettlementMode = $event ? RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT : (capabilities.allowCashback.value ? RETURN_SETTLEMENT_MODES.CASHBACK : RETURN_SETTLEMENT_MODES.NONE)"
+							@update:is-cashback="handleReturnSettlementChange('cashback', $event)"
+							@update:is-credit-return="handleReturnSettlementChange('customer-credit', $event)"
 							@update:new-credit-due-date="
 								(val) => {
 									new_credit_due_date = val;
@@ -533,6 +533,26 @@ watchEffect(() => {
 	is_cashback.value = returnSettlementMode.value === RETURN_SETTLEMENT_MODES.CASHBACK;
 	is_credit_return.value = returnSettlementMode.value === RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT;
 });
+
+const handleReturnSettlementChange = (mode, active) => {
+	if (mode === "cashback") {
+		if (active) {
+			returnSettlementMode.value = RETURN_SETTLEMENT_MODES.CASHBACK;
+		} else {
+			returnSettlementMode.value = capabilities.allowStoreAsCredit.value
+				? RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT
+				: RETURN_SETTLEMENT_MODES.NONE;
+		}
+	} else if (mode === "customer-credit") {
+		if (active) {
+			returnSettlementMode.value = RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT;
+		} else {
+			returnSettlementMode.value = capabilities.allowCashback.value
+				? RETURN_SETTLEMENT_MODES.CASHBACK
+				: RETURN_SETTLEMENT_MODES.NONE;
+		}
+	}
+};
 
 const capabilities = usePaymentUiCapabilities({
 	posProfile: pos_profile,
