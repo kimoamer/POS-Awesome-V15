@@ -27,6 +27,19 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.7.2 — Premium Payment Methods & Amount Allocation (Complete ✅).
+
+Scope:
+
+- **Audit Contract Manifest**: Created [PAYMENT_METHODS_CONTRACT.md](file:///home/frappe/frappe-bench/apps/posawesome/PAYMENT_METHODS_CONTRACT.md) freezing all function triggers, event signatures (`update-amount`, `set-full-amount`, `set-denomination`, `mpesa-dialog`, `request-payment`, `set-rest-amount`, `open-gift-card`), argument orders, and permissions.
+- **Contextual Allocation Feedback Strip**: Added compact allocation status strip inside [PaymentMethods.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentMethods.vue) header showing `Paid` balance vs `Remaining` balance with tonal status indicators (`balanced`, `overpaid`, `pending`, `refund`).
+- **Semantic MDI Icon Mapping**: Mapped payment method types to MDI icons (`Cash` -> `mdi-cash`, `Card` -> `mdi-credit-card-outline`, `Phone` -> `mdi-cellphone`, `Bank` -> `mdi-bank-outline`, `Gift Card` -> `mdi-gift-outline`, `Set Remaining` -> `mdi-calculator-variant-outline`, `Redeem` -> `mdi-qrcode-scan`, `M-Pesa` -> `mdi-download-circle-outline`).
+- **State-Based Card Styling**: Added presentation-only state classes (`payment-method-card--default`, `payment-method-card--active`, `payment-method-card--refund`, `payment-method-card--gift`, `payment-method-card--mobile`) with tonal accents and subtle border states without heavy card shadows or hover lifts.
+- **Amount Field & Clear Button**: Preserved raw editable numeric `<v-text-field type="number" inputmode="decimal">` with clear amount inner button (`mdi-backspace-outline`).
+- **Quick Denominations Group**: Rendered compact denomination quick buttons with tabular numbers (`font-variant-numeric: tabular-nums`).
+- **Premium Empty State**: Added empty state layout when no payment methods are available.
+- **Automated Tests**: Created [paymentMethodsPresentation.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentMethodsPresentation.spec.ts) and [paymentAllocationUi.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentAllocationUi.spec.ts).
+
 Pass 6.7.1.8 — Responsive Mode Wiring and Premium Density Acceptance (Complete ✅).
 
 Scope:
