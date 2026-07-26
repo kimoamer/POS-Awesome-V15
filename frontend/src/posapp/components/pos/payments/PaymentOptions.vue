@@ -1,67 +1,29 @@
 <template>
-	<div v-if="invoiceDoc">
-		<div class="payment-options-layout">
-			<div class="payment-options-toggles">
-				<v-row class="pa-1" align="start" no-gutters>
-					<v-col cols="12" v-if="allowCreditSale && !invoiceDoc.is_return">
-						<v-switch
-							:model-value="isCreditSale"
-							color="primary"
-							:label="__('Credit Sale?')"
-							class="my-0 pa-1"
-							@update:model-value="$emit('update:isCreditSale', $event)"
-						></v-switch>
-					</v-col>
-					<v-col
-						cols="12"
-						v-if="
-							allowWriteOff && diffPayment > 0 && !invoiceDoc.is_return
-						"
-					>
-						<v-switch
-							:model-value="isWriteOffChange"
-							color="primary"
-							flat
-							:label="__('Write Off Difference Amount')"
-							class="my-0 pa-1"
-							@update:model-value="$emit('update:isWriteOffChange', $event)"
-						></v-switch>
-					</v-col>
-					<v-col cols="12" v-if="invoiceDoc.is_return && allowCashback">
-						<v-switch
-							:model-value="isCashback"
-							color="primary"
-							flat
-							:label="__('Cashback?')"
-							class="my-0 pa-1"
-							@update:model-value="$emit('update:isCashback', $event)"
-						></v-switch>
-					</v-col>
-					<v-col cols="12" v-if="invoiceDoc.is_return">
-						<v-switch
-							:model-value="isCreditReturn"
-							color="primary"
-							flat
-							:label="__('Store as Credit?')"
-							class="my-0 pa-1"
-							@update:model-value="$emit('update:isCreditReturn', $event)"
-						></v-switch>
-					</v-col>
-					<v-col cols="12" v-if="!invoiceDoc.is_return && allowCustomerCredit">
-						<v-switch
-							:model-value="redeemCustomerCredit"
-							color="primary"
-							flat
-							:label="__('Use Customer Balance')"
-							class="my-0 pa-1"
-							@update:model-value="handleRedeemCustomerCreditUpdate"
-						></v-switch>
-					</v-col>
-				</v-row>
+	<div v-if="invoiceDoc" class="settlement-options">
+		<div class="settlement-options__list">
+			<!-- Credit Sale Option -->
+			<div v-if="allowCreditSale && !invoiceDoc.is_return" class="settlement-option">
+				<span class="settlement-option__icon">
+					<v-icon size="16">mdi-credit-card-clock-outline</v-icon>
+				</span>
+				<div class="settlement-option__copy">
+					<strong class="settlement-option__title">{{ __("Credit Sale") }}</strong>
+					<small class="settlement-option__helper">{{ __("Allow payment after invoice submission") }}</small>
+				</div>
+				<div class="settlement-option__control">
+					<v-switch
+						:model-value="isCreditSale"
+						color="primary"
+						hide-details
+						density="compact"
+						@update:model-value="$emit('update:isCreditSale', $event)"
+					></v-switch>
+				</div>
 			</div>
 
-			<div class="payment-options-panel">
-				<div v-if="isCreditSale" class="payment-options-panel__content">
+			<!-- Credit Due Date Controls (Inline or below Credit Sale) -->
+			<div v-if="isCreditSale && !invoiceDoc.is_return" class="settlement-option-details">
+				<div class="settlement-option-details__field-grid">
 					<VueDatePicker
 						:model-value="newCreditDueDate"
 						model-type="format"
@@ -74,75 +36,150 @@
 						@update:model-value="$emit('update:newCreditDueDate', $event)"
 					/>
 					<v-text-field
-						class="mt-2 sleek-field"
 						density="compact"
-						variant="solo"
+						variant="outlined"
 						type="number"
 						min="0"
 						max="365"
 						:model-value="creditDueDays"
 						:label="__('Days until due')"
 						hide-details
+						class="sleek-field pos-themed-input"
 						@update:model-value="$emit('update:creditDueDays', parseFloat($event))"
 						@change="$emit('apply-due-preset', creditDueDays)"
 					></v-text-field>
-					<div class="payment-options-panel__chips mt-1">
-						<v-chip
-							v-for="d in creditDuePresets"
-							:key="d"
-							size="small"
-							class="ma-1"
-							variant="solo"
-							color="primary"
-							@click="$emit('apply-due-preset', d)"
-						>
-							{{ d }} {{ __("days") }}
-						</v-chip>
-					</div>
 				</div>
+				<div class="settlement-option-details__presets">
+					<v-chip
+						v-for="d in creditDuePresets"
+						:key="d"
+						size="small"
+						class="preset-chip"
+						variant="tonal"
+						color="primary"
+						@click="$emit('apply-due-preset', d)"
+					>
+						{{ d }} {{ __("days") }}
+					</v-chip>
+				</div>
+			</div>
 
-				<div v-if="isWriteOffChange" class="payment-options-panel__content">
-					<v-text-field
-						class="sleek-field"
-						density="compact"
-						variant="solo"
-						type="number"
-						min="0"
-						:max="writeOffEffectiveMax"
-						:model-value="writeOffAmountDisplay"
-						:label="__('Write Off Amount')"
+			<!-- Write Off Difference Option -->
+			<div v-if="allowWriteOff && diffPayment > 0 && !invoiceDoc.is_return" class="settlement-option">
+				<span class="settlement-option__icon">
+					<v-icon size="16">mdi-scale-balance</v-icon>
+				</span>
+				<div class="settlement-option__copy">
+					<strong class="settlement-option__title">{{ __("Write Off Difference") }}</strong>
+					<small class="settlement-option__helper">{{ __("Current difference") }}: {{ formatCurrency(diffPayment) }}</small>
+				</div>
+				<div class="settlement-option__control">
+					<v-switch
+						:model-value="isWriteOffChange"
+						color="primary"
 						hide-details
-						@update:model-value="$emit('update:writeOffAmount', $event)"
-					></v-text-field>
-					<p class="payment-options-panel__helper">
-						{{ __("This amount will be written off on submission.") }}
-					</p>
+						density="compact"
+						@update:model-value="$emit('update:isWriteOffChange', $event)"
+					></v-switch>
 				</div>
+			</div>
 
-				<div v-else-if="redeemCustomerCredit" class="payment-options-panel__note">
-					<h4>{{ __("Available Customer Redeemable Balance") }}</h4>
-					<p>
-						{{ __("Available customer redeemable balance") }}:
-						{{ formatCurrency(availableCustomerCredit) }}
-					</p>
-					<p>{{ __("Applied now") }}: {{ formatCurrency(redeemedCustomerCredit) }}</p>
-					<p>{{ customerCreditSources }} {{ __("source(s) will be used in order.") }}</p>
+			<!-- Write Off Amount Field -->
+			<div v-if="isWriteOffChange && diffPayment > 0 && !invoiceDoc.is_return" class="settlement-option-details">
+				<v-text-field
+					density="compact"
+					variant="outlined"
+					type="number"
+					min="0"
+					:max="writeOffEffectiveMax"
+					:model-value="writeOffAmountDisplay"
+					:label="__('Write Off Amount')"
+					hide-details
+					class="sleek-field pos-themed-input"
+					@update:model-value="$emit('update:writeOffAmount', $event)"
+				></v-text-field>
+				<small class="settlement-option-details__note">
+					{{ __("This amount will be written off on submission.") }}
+				</small>
+			</div>
+
+			<!-- Cashback Option -->
+			<div v-if="invoiceDoc.is_return && allowCashback" class="settlement-option">
+				<span class="settlement-option__icon">
+					<v-icon size="16">mdi-cash-plus</v-icon>
+				</span>
+				<div class="settlement-option__copy">
+					<strong class="settlement-option__title">{{ __("Cashback") }}</strong>
+					<small class="settlement-option__helper">{{ __("Settle return value back through payment methods") }}</small>
 				</div>
-
-				<div v-else-if="invoiceDoc.is_return && isCreditReturn" class="payment-options-panel__note">
-					<h4>{{ __("Customer Credit Return Active") }}</h4>
-					<p>
-						{{ __("This return will be saved as customer credit instead of cashback.") }}
-					</p>
+				<div class="settlement-option__control">
+					<v-switch
+						:model-value="isCashback"
+						color="primary"
+						hide-details
+						density="compact"
+						@update:model-value="$emit('update:isCashback', $event)"
+					></v-switch>
 				</div>
+			</div>
 
-				<div v-else-if="invoiceDoc.is_return && isCashback" class="payment-options-panel__note">
-					<h4>{{ __("Cashback Active") }}</h4>
-					<p>{{ __("Return value will be settled back through payment methods.") }}</p>
+			<!-- Store Return as Credit Option -->
+			<div v-if="invoiceDoc.is_return" class="settlement-option">
+				<span class="settlement-option__icon">
+					<v-icon size="16">mdi-cash-refund</v-icon>
+				</span>
+				<div class="settlement-option__copy">
+					<strong class="settlement-option__title">{{ __("Store as Credit") }}</strong>
+					<small class="settlement-option__helper">{{ __("Save return value as customer credit balance") }}</small>
 				</div>
+				<div class="settlement-option__control">
+					<v-switch
+						:model-value="isCreditReturn"
+						color="primary"
+						hide-details
+						density="compact"
+						@update:model-value="$emit('update:isCreditReturn', $event)"
+					></v-switch>
+				</div>
+			</div>
 
-				<div v-else class="payment-options-panel__empty">
-					{{ __("Select an option on the left to view its settings.") }}
+			<!-- Customer Credit Balance Option -->
+			<div v-if="!invoiceDoc.is_return && allowCustomerCredit" class="settlement-option">
+				<span class="settlement-option__icon">
+					<v-icon size="16">mdi-wallet-outline</v-icon>
+				</span>
+				<div class="settlement-option__copy">
+					<strong class="settlement-option__title">{{ __("Use Customer Balance") }}</strong>
+					<small class="settlement-option__helper">
+						{{ __("Available") }}: {{ formatCurrency(availableCustomerCredit) }}
+					</small>
+				</div>
+				<div class="settlement-option__control">
+					<v-switch
+						:model-value="redeemCustomerCredit"
+						color="primary"
+						hide-details
+						density="compact"
+						@update:model-value="handleRedeemCustomerCreditUpdate"
+					></v-switch>
+				</div>
+			</div>
+
+			<!-- Customer Credit Balance Applied Details -->
+			<div v-if="redeemCustomerCredit && !invoiceDoc.is_return && allowCustomerCredit" class="settlement-option-details">
+				<div class="credit-summary-card">
+					<div class="credit-summary-row">
+						<span>{{ __("Available Balance") }}</span>
+						<bdi class="credit-summary-value">{{ formatCurrency(availableCustomerCredit) }}</bdi>
+					</div>
+					<div class="credit-summary-row">
+						<span>{{ __("Applied Now") }}</span>
+						<bdi class="credit-summary-value credit-summary-value--highlight">{{ formatCurrency(redeemedCustomerCredit) }}</bdi>
+					</div>
+					<div class="credit-summary-row credit-summary-row--subtle">
+						<span>{{ __("Sources Used") }}</span>
+						<span>{{ customerCreditSources }} {{ __("source(s) in order") }}</span>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -150,7 +187,8 @@
 </template>
 
 <script setup>
-import { computed, inject } from "vue";
+import { computed } from "vue";
+import { parseBooleanSetting } from "../../../utils/stock";
 
 const props = defineProps({
 	invoiceDoc: {
@@ -240,30 +278,14 @@ const emit = defineEmits([
 	"get-available-credit",
 ]);
 
-import { parseBooleanSetting } from "../../../utils/stock";
-
-const allowCreditSale = computed(() =>
-	parseBooleanSetting(props.posProfile?.posa_allow_credit_sale),
-);
-
-const allowWriteOff = computed(() =>
-	parseBooleanSetting(props.posProfile?.posa_allow_write_off_change),
-);
-
-const allowCashback = computed(() =>
-	parseBooleanSetting(props.posProfile?.use_cashback),
-);
-
+const allowCreditSale = computed(() => parseBooleanSetting(props.posProfile?.posa_allow_credit_sale));
+const allowWriteOff = computed(() => parseBooleanSetting(props.posProfile?.posa_allow_write_off_change));
+const allowCashback = computed(() => parseBooleanSetting(props.posProfile?.use_cashback));
 const allowCustomerCredit = computed(() =>
-	parseBooleanSetting(
-		props.posProfile?.use_customer_credit ?? props.posProfile?.posa_use_customer_credit,
-	),
+	parseBooleanSetting(props.posProfile?.use_customer_credit ?? props.posProfile?.posa_use_customer_credit),
 );
 
-const __ = (s) =>
-	typeof window !== "undefined" && (window.__ || window.frappe?._)
-		? (window.__ || window.frappe._)(s)
-		: s;
+const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
 
 const handleRedeemCustomerCreditUpdate = (val) => {
 	emit("update:redeemCustomerCredit", val);
@@ -274,91 +296,122 @@ const writeOffAmountDisplay = computed(() => {
 	if (props.writeOffAmount === null || props.writeOffAmount === undefined || props.writeOffAmount === "") {
 		return Math.max(props.diffPayment || 0, 0);
 	}
-
 	return props.writeOffAmount;
 });
 
 const writeOffEffectiveMax = computed(() => {
 	const diffMax = Math.max(Number(props.diffPayment) || 0, 0);
 	const profileCap = Number(props.writeOffMaxAmount);
-
 	if (Number.isFinite(profileCap) && profileCap > 0) {
 		return Math.min(diffMax, profileCap);
 	}
-
 	return diffMax;
 });
 </script>
 
 <style scoped>
-.pos-themed-input :deep(.v-field__input) {
-	font-weight: 500;
-}
-
-:deep(.v-selection-control) {
-	--v-selection-control-color: rgb(var(--v-theme-primary));
-	--v-selection-control-disabled-color: rgba(var(--v-theme-on-surface), 0.38);
-}
-
-:deep(.v-switch .v-label) {
-	color: var(--pos-text-primary);
-}
-
-.payment-options-layout {
-	display: grid;
-	grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-	gap: var(--pos-space-2);
-	align-items: start;
-}
-
-.payment-options-toggles,
-.payment-options-panel {
-	min-width: 0;
-}
-
-.payment-options-panel {
-	background: var(--pos-surface-raised);
-	border: 1px solid var(--pos-border-light);
-	border-radius: var(--pos-radius-sm);
-	padding: var(--pos-space-2);
-	min-height: 100%;
-}
-
-.payment-options-panel__content {
+.settlement-options__list {
 	display: flex;
 	flex-direction: column;
-	gap: var(--pos-space-2);
 }
 
-.payment-options-panel__chips {
+.settlement-option {
+	display: grid;
+	grid-template-columns: 28px minmax(0, 1fr) auto;
+	align-items: center;
+	gap: var(--payment-space-2, 8px);
+	min-height: 44px;
+	padding-block: var(--payment-space-1, 4px);
+	border-bottom: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.06));
+}
+
+.settlement-option:last-child {
+	border-bottom: 0;
+}
+
+.settlement-option__icon {
+	width: 28px;
+	height: 28px;
+	display: grid;
+	place-items: center;
+	border-radius: var(--payment-radius-sm, 8px);
+	color: var(--pos-primary, #2563eb);
+	background: rgba(37, 99, 235, 0.08);
+}
+
+.settlement-option__title {
+	display: block;
+	font-size: var(--payment-font-section, 13px);
+	font-weight: 650;
+	line-height: 1.2;
+	color: var(--pos-text-primary, #0f172a);
+}
+
+.settlement-option__helper {
+	display: block;
+	margin-top: 2px;
+	font-size: var(--payment-font-caption, 11px);
+	color: var(--pos-text-secondary, #64748b);
+}
+
+.settlement-option-details {
+	padding: var(--payment-space-2, 8px);
+	margin-bottom: var(--payment-space-2, 8px);
+	background: var(--pos-surface-raised, #ffffff);
+	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
+	border-radius: var(--payment-radius-sm, 8px);
+}
+
+.settlement-option-details__field-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--payment-space-2, 8px);
+}
+
+.settlement-option-details__presets {
 	display: flex;
 	flex-wrap: wrap;
+	gap: var(--payment-space-1, 4px);
+	margin-top: var(--payment-space-2, 8px);
 }
 
-.payment-options-panel__note h4 {
-	margin: 0 0 6px;
-	font-size: 0.9rem;
-	font-weight: 700;
-	color: var(--pos-text-primary);
+.settlement-option-details__note {
+	display: block;
+	margin-top: 4px;
+	font-size: 11px;
+	color: var(--pos-text-secondary, #64748b);
 }
 
-.payment-options-panel__note p,
-.payment-options-panel__empty {
-	margin: 0;
-	font-size: 0.82rem;
-	line-height: 1.45;
-	color: var(--pos-text-secondary);
+.credit-summary-card {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
 }
 
-.payment-options-panel__helper {
-	margin: 0;
-	font-size: 0.82rem;
-	line-height: 1.45;
-	color: var(--pos-text-secondary);
+.credit-summary-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-size: 12px;
+	color: var(--pos-text-primary, #0f172a);
 }
 
-@media (max-width: 768px) {
-	.payment-options-layout {
+.credit-summary-row--subtle {
+	font-size: 11px;
+	color: var(--pos-text-secondary, #64748b);
+}
+
+.credit-summary-value {
+	font-weight: 650;
+	font-variant-numeric: tabular-nums;
+}
+
+.credit-summary-value--highlight {
+	color: var(--pos-primary, #2563eb);
+}
+
+@media (max-width: 599px) {
+	.settlement-option-details__field-grid {
 		grid-template-columns: 1fr;
 	}
 }

@@ -27,6 +27,18 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.7.3 — Complete Payment Experience, Secondary Flows and Dialogs (Complete ✅).
+
+Scope:
+
+- **Contract Documentation**: Created [PAYMENT_SECONDARY_FLOWS_CONTRACT.md](file:///home/frappe/frappe-bench/apps/posawesome/PAYMENT_SECONDARY_FLOWS_CONTRACT.md) auditing all secondary payment features, POS Profile permissions, and responsive destinations.
+- **Invoice Summary Redesign**: Converted [InvoiceTotals.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/InvoiceTotals.vue) into semantic rows (`.invoice-total-row`, `.invoice-total-row--grand`) with single money formatter and tabular numbers.
+- **Settlement Options Architecture**: Redesigned [PaymentOptions.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentOptions.vue) with 3-column rows (`[tonal icon (28px)] [title & helper] [switch]`). Preserved Credit Sale, Write Off, Cashback, Customer Credit, and Credit Return behaviors.
+- **Customer Credit & Loyalty Redemption**: Redesigned [PaymentRedemption.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentRedemption.vue) with `variant="outlined"`, grid layout, and compact empty state (`No loyalty points available`).
+- **Gift Card Section & Dialogs**: Standardized [PaymentGiftCardSection.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentGiftCardSection.vue), [Mpesa-Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/Mpesa-Payments.vue), and [PaymentDialogs.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentDialogs.vue) with responsive bounds (`width="min(..., calc(100vw - 24px))"`).
+- **Section Default Expansion Matrix**: Enforced default section expansion matrix in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) based on `viewportMode`.
+- **Automated Tests**: Created [paymentSecondaryFlows.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentSecondaryFlows.spec.ts) and [paymentSettlementOptions.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentSettlementOptions.spec.ts).
+
 Pass 6.7.2.5 — Runtime Screenshot Gate & Integration-Test Correction (Complete ✅).
 
 Scope:

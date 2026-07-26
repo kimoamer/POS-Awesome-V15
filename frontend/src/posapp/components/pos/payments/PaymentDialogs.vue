@@ -3,36 +3,34 @@
 		<!-- Custom Days Dialog -->
 		<v-dialog
 			:model-value="customDaysDialog"
-			max-width="300px"
+			width="min(360px, calc(100vw - 24px))"
 			:retain-focus="false"
 			@update:model-value="$emit('update:customDaysDialog', $event)"
 		>
-			<v-card>
-				<v-card-title class="text-h6">
+			<v-card class="rounded-lg">
+				<v-card-title class="pa-4 pb-2 text-h6 font-weight-bold text-primary">
 					{{ __("Custom Due Days") }}
 				</v-card-title>
-				<v-card-text class="pa-0">
-					<v-container>
-						<v-text-field
-							density="compact"
-							variant="solo"
-							type="number"
-							min="0"
-							max="365"
-							class="sleek-field pos-themed-input"
-							:model-value="customDaysValue"
-							:label="__('Days')"
-							hide-details
-							@update:model-value="$emit('update:customDaysValue', parseFloat($event))"
-						></v-text-field>
-					</v-container>
+				<v-card-text class="pa-4 pt-2">
+					<v-text-field
+						density="compact"
+						variant="outlined"
+						type="number"
+						min="0"
+						max="365"
+						class="sleek-field pos-themed-input"
+						:model-value="customDaysValue"
+						:label="__('Days')"
+						hide-details
+						@update:model-value="$emit('update:customDaysValue', parseFloat($event))"
+					></v-text-field>
 				</v-card-text>
-				<v-card-actions>
+				<v-card-actions class="pa-4 pt-0">
 					<v-spacer></v-spacer>
-					<v-btn color="error" theme="dark" @click="$emit('update:customDaysDialog', false)">
+					<v-btn variant="outlined" color="error" density="compact" @click="$emit('update:customDaysDialog', false)">
 						{{ __("Close") }}
 					</v-btn>
-					<v-btn color="primary" theme="dark" @click="$emit('apply-custom-days')">
+					<v-btn color="primary" variant="flat" density="compact" @click="$emit('apply-custom-days')">
 						{{ __("Apply") }}
 					</v-btn>
 				</v-card-actions>
@@ -42,34 +40,32 @@
 		<!-- Phone Payment Dialog -->
 		<v-dialog
 			:model-value="phoneDialog"
-			max-width="400px"
+			width="min(400px, calc(100vw - 24px))"
 			:retain-focus="false"
 			@update:model-value="$emit('update:phoneDialog', $event)"
 		>
-			<v-card v-if="invoiceDoc">
-				<v-card-title>
-					<span class="text-h5 text-primary">{{ __("Confirm Mobile Number") }}</span>
+			<v-card v-if="invoiceDoc" class="rounded-lg">
+				<v-card-title class="pa-4 pb-2">
+					<span class="text-h6 font-weight-bold text-primary">{{ __("Confirm Mobile Number") }}</span>
 				</v-card-title>
-				<v-card-text class="pa-0">
-					<v-container>
-						<v-text-field
-							density="compact"
-							variant="solo"
-							color="primary"
-							:label="__('Mobile Number')"
-							class="sleek-field pos-themed-input"
-							hide-details
-							v-model="invoiceDoc.contact_mobile"
-							type="number"
-						></v-text-field>
-					</v-container>
+				<v-card-text class="pa-4 pt-2">
+					<v-text-field
+						density="compact"
+						variant="outlined"
+						color="primary"
+						:label="__('Mobile Number')"
+						class="sleek-field pos-themed-input"
+						hide-details
+						v-model="invoiceDoc.contact_mobile"
+						type="number"
+					></v-text-field>
 				</v-card-text>
-				<v-card-actions>
+				<v-card-actions class="pa-4 pt-0">
 					<v-spacer></v-spacer>
-					<v-btn color="error" theme="dark" @click="$emit('update:phoneDialog', false)">
+					<v-btn variant="outlined" color="error" density="compact" @click="$emit('update:phoneDialog', false)">
 						{{ __("Close") }}
 					</v-btn>
-					<v-btn color="primary" theme="dark" @click="$emit('request-payment')">
+					<v-btn color="primary" variant="flat" density="compact" @click="$emit('request-payment')">
 						{{ __("Request") }}
 					</v-btn>
 				</v-card-actions>

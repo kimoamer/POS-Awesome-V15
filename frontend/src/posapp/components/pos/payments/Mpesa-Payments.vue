@@ -1,59 +1,67 @@
 <template>
 	<v-row justify="center">
-		<v-dialog v-model="dialog" max-width="800px" min-width="800px">
-			<v-card>
-				<v-card-title>
-					<span class="text-h5 text-primary">{{ __("Select Payment") }}</span>
+		<v-dialog v-model="dialog" width="min(800px, calc(100vw - 24px))">
+			<v-card class="rounded-lg">
+				<v-card-title class="pa-4 pb-2">
+					<span class="text-h6 font-weight-bold text-primary">{{ __("Select Payment") }}</span>
 				</v-card-title>
-				<v-container>
-					<v-row class="mb-4">
-						<v-text-field
-							color="primary"
-							:label="__('Full Name')"
-							class="pos-themed-input mx-4"
-							hide-details
-							v-model="full_name"
-							density="compact"
-							clearable
-						></v-text-field>
-						<v-text-field
-							color="primary"
-							:label="__('Mobile No')"
-							class="pos-themed-input mx-4"
-							hide-details
-							v-model="mobile_no"
-							density="compact"
-							clearable
-						></v-text-field>
-						<v-btn
-							variant="text"
-							class="ml-2"
-							color="primary"
-							theme="dark"
-							:loading="isLoading"
-							:disabled="isLoading || isSubmitting"
-							@click="search"
-							>{{ __("Search") }}</v-btn
-						>
+				<v-container class="pa-4">
+					<v-row class="mb-2" align="center">
+						<v-col cols="12" sm="5">
+							<v-text-field
+								color="primary"
+								variant="outlined"
+								:label="__('Full Name')"
+								class="pos-themed-input"
+								hide-details
+								v-model="full_name"
+								density="compact"
+								clearable
+							></v-text-field>
+						</v-col>
+						<v-col cols="12" sm="5">
+							<v-text-field
+								color="primary"
+								variant="outlined"
+								:label="__('Mobile No')"
+								class="pos-themed-input"
+								hide-details
+								v-model="mobile_no"
+								density="compact"
+								clearable
+							></v-text-field>
+						</v-col>
+						<v-col cols="12" sm="2" class="d-flex justify-end">
+							<v-btn
+								variant="tonal"
+								color="primary"
+								:loading="isLoading"
+								:disabled="isLoading || isSubmitting"
+								block
+								density="compact"
+								@click="search"
+							>{{ __("Search") }}</v-btn>
+						</v-col>
 					</v-row>
 					<v-row v-if="errorMessage">
 						<v-col cols="12" class="pt-0">
-							<v-alert type="error" density="compact" border="start" class="mx-4">
+							<v-alert type="error" density="compact" border="start">
 								{{ errorMessage }}
 							</v-alert>
 						</v-col>
 					</v-row>
 					<v-row>
-						<v-col cols="12" class="pa-1" v-if="dialog_data">
+						<v-col cols="12" class="pa-0" v-if="dialog_data">
 							<v-data-table
 								:headers="headers"
 								:items="dialog_data"
 								item-key="name"
-								class="elevation-1"
+								class="elevation-0 border rounded"
 								show-select
 								v-model="selected"
 								return-object
 								select-strategy="single"
+								density="compact"
 							>
 								<template v-slot:item.amount="{ item }">{{
 									formatCurrency(item.amount)
@@ -65,18 +73,18 @@
 						</v-col>
 					</v-row>
 				</v-container>
-				<v-card-actions class="mt-4">
+				<v-card-actions class="pa-4 pt-2">
 					<v-spacer></v-spacer>
-					<v-btn color="error mx-2" theme="dark" @click="close_dialog">{{ __("Close") }}</v-btn>
+					<v-btn variant="outlined" color="error" density="compact" @click="close_dialog">{{ __("Close") }}</v-btn>
 					<v-btn
 						v-if="selected.length"
-						color="success"
-						theme="dark"
+						color="primary"
+						variant="flat"
+						density="compact"
 						:loading="isSubmitting"
 						:disabled="isSubmitting"
 						@click="submit_dialog"
-						>{{ __("Submit") }}</v-btn
-					>
+					>{{ __("Submit") }}</v-btn>
 				</v-card-actions>
 			</v-card>
 		</v-dialog>

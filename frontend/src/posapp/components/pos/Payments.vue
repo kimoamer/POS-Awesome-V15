@@ -139,7 +139,9 @@
 					<PaymentSectionShell
 						v-if="capabilities.showRedemptionSection.value"
 						icon="mdi-star-circle-outline"
-						:title="__('Redemption')"
+						:title="__('Loyalty & Redemption')"
+						collapsible
+						v-model:expanded="loyaltyExpanded"
 					>
 						<PaymentRedemption
 							:invoice-doc="invoice_doc"
@@ -161,6 +163,8 @@
 						v-if="capabilities.showSettlementOptions.value"
 						icon="mdi-tune-variant"
 						:title="__('Settlement Options')"
+						collapsible
+						v-model:expanded="settlementOptionsExpanded"
 					>
 						<PaymentOptions
 							:invoice-doc="invoice_doc"
@@ -434,8 +438,18 @@ const { currentCashier } = storeToRefs(employeeStore);
 
 // Capability Matrix & Section Expanded State
 const invoiceSummaryExpanded = ref(props.viewportMode !== "phone");
+const settlementOptionsExpanded = ref(props.viewportMode === "desktop" || props.viewportMode === "tablet-landscape");
+const loyaltyExpanded = ref(props.viewportMode === "desktop");
+const giftCardExpanded = ref(props.viewportMode === "desktop" || props.viewportMode === "tablet-landscape");
 const orderDetailsExpanded = ref(false);
 const salesReceiptExpanded = ref(false);
+
+watch(() => props.viewportMode, (newMode) => {
+	invoiceSummaryExpanded.value = newMode !== "phone";
+	settlementOptionsExpanded.value = newMode === "desktop" || newMode === "tablet-landscape";
+	loyaltyExpanded.value = newMode === "desktop";
+	giftCardExpanded.value = newMode === "desktop" || newMode === "tablet-landscape";
+});
 
 // State
 const is_return = ref(false);

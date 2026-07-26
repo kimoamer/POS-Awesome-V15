@@ -1,73 +1,73 @@
 <template>
-	<div v-if="invoiceDoc">
+	<div v-if="invoiceDoc" class="loyalty-redemption">
 		<!-- Loyalty Points Redemption -->
-		<v-row class="payments pa-1" v-if="hasRedeemableLoyaltyPoints && !invoiceDoc.is_return">
-			<v-col cols="7">
-				<v-text-field
-					density="compact"
-					variant="solo"
-					color="primary"
-					:label="__('Redeem Loyalty Points')"
-					class="sleek-field pos-themed-input"
-					hide-details
-					:model-value="formatCurrency(loyaltyAmount)"
-					type="text"
-					@change="handleLoyaltyChange"
-					:prefix="currencySymbol(invoiceDoc.currency)"
-				></v-text-field>
-			</v-col>
-			<v-col cols="5">
-				<v-text-field
-					density="compact"
-					variant="solo"
-					color="primary"
-					:label="
-						__('You can redeem up to') +
-						(customerInfo.loyalty_points ? ` (${customerInfo.loyalty_points} pts)` : '')
-					"
-					class="sleek-field pos-themed-input"
-					hide-details
-					:model-value="formatFloat(availablePointsAmount)"
-					:prefix="currencySymbol(invoiceDoc.currency)"
-					readonly
-				></v-text-field>
-			</v-col>
-		</v-row>
+		<div v-if="hasRedeemableLoyaltyPoints && !invoiceDoc.is_return" class="loyalty-redemption-grid">
+			<v-text-field
+				density="compact"
+				variant="outlined"
+				color="primary"
+				:label="__('Redeem Loyalty Points')"
+				class="sleek-field pos-themed-input"
+				hide-details
+				:model-value="formatCurrency(loyaltyAmount)"
+				type="text"
+				@change="handleLoyaltyChange"
+				:prefix="currencySymbol(invoiceDoc.currency)"
+			></v-text-field>
+
+			<v-text-field
+				density="compact"
+				variant="outlined"
+				color="primary"
+				:label="
+					__('Available') +
+					(customerInfo.loyalty_points ? ` (${customerInfo.loyalty_points} pts)` : '')
+				"
+				class="sleek-field pos-themed-input"
+				hide-details
+				:model-value="formatFloat(availablePointsAmount)"
+				:prefix="currencySymbol(invoiceDoc.currency)"
+				readonly
+			></v-text-field>
+		</div>
+
+		<!-- Compact Empty Loyalty State -->
+		<div v-else-if="!invoiceDoc.is_return" class="loyalty-empty-state">
+			<v-icon size="16" color="grey">mdi-star-off-outline</v-icon>
+			<span>{{ __("No loyalty points available for this customer.") }}</span>
+		</div>
 
 		<!-- Customer Credit Redemption -->
-		<v-row
-			class="payments pa-1"
+		<div
+			class="credit-redemption-grid"
 			v-if="availableCustomerCredit > 0 && !invoiceDoc.is_return && redeemCustomerCredit"
 		>
-			<v-col cols="7">
-				<v-text-field
-					density="compact"
-					variant="solo"
-					color="primary"
-					:label="__('Applied Stored Value')"
-					class="sleek-field pos-themed-input"
-					hide-details
-					:model-value="formatCurrency(redeemedCustomerCredit)"
-					type="text"
-					@change="handleCreditChange"
-					:prefix="currencySymbol(invoiceDoc.currency)"
-					readonly
-				></v-text-field>
-			</v-col>
-			<v-col cols="5">
-				<v-text-field
-					density="compact"
-					variant="solo"
-					color="primary"
-					:label="__('Available Stored Value')"
-					class="sleek-field pos-themed-input"
-					hide-details
-					:model-value="formatCurrency(availableCustomerCredit)"
-					:prefix="currencySymbol(invoiceDoc.currency)"
-					readonly
-				></v-text-field>
-			</v-col>
-		</v-row>
+			<v-text-field
+				density="compact"
+				variant="outlined"
+				color="primary"
+				:label="__('Applied Stored Value')"
+				class="sleek-field pos-themed-input"
+				hide-details
+				:model-value="formatCurrency(redeemedCustomerCredit)"
+				type="text"
+				@change="handleCreditChange"
+				:prefix="currencySymbol(invoiceDoc.currency)"
+				readonly
+			></v-text-field>
+
+			<v-text-field
+				density="compact"
+				variant="outlined"
+				color="primary"
+				:label="__('Available Stored Value')"
+				class="sleek-field pos-themed-input"
+				hide-details
+				:model-value="formatCurrency(availableCustomerCredit)"
+				:prefix="currencySymbol(invoiceDoc.currency)"
+				readonly
+			></v-text-field>
+		</div>
 	</div>
 </template>
 
@@ -146,7 +146,31 @@ const handleCreditChange = (event) => {
 </script>
 
 <style scoped>
+.loyalty-redemption-grid,
+.credit-redemption-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--payment-space-2, 8px);
+	padding: var(--payment-space-1, 4px);
+}
+
+.loyalty-empty-state {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: var(--payment-space-2, 8px);
+	font-size: var(--payment-font-caption, 11px);
+	color: var(--pos-text-secondary, #64748b);
+}
+
 .pos-themed-input :deep(.v-field__input) {
 	font-weight: 500;
+}
+
+@media (max-width: 599px) {
+	.loyalty-redemption-grid,
+	.credit-redemption-grid {
+		grid-template-columns: 1fr;
+	}
 }
 </style>
