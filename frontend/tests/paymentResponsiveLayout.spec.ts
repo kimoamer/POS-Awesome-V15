@@ -19,7 +19,7 @@ describe("Payment Responsive Layout & Visual System Contract", () => {
 		expect(wrapper.text()).toContain("Payment Methods");
 	});
 
-	it("renders phone mode action footer with More button on phone viewportMode", () => {
+	it("renders phone mode action footer with More button without payment-footer-btn class", () => {
 		const wrapper = mount(PaymentActionButtons, {
 			props: {
 				viewportMode: "phone",
@@ -31,6 +31,10 @@ describe("Payment Responsive Layout & Visual System Contract", () => {
 		expect(wrapper.classes()).toContain("payment-action-buttons--phone");
 		const moreBtn = wrapper.find(".payment-more-btn");
 		expect(moreBtn.exists()).toBe(true);
+		expect(moreBtn.classes()).not.toContain("payment-footer-btn");
+
+		const cancelBtn = wrapper.find(".payment-cancel-btn");
+		expect(cancelBtn.exists()).toBe(true);
 	});
 
 	it("renders desktop action footer with 3 direct buttons on desktop viewportMode", () => {

@@ -1,20 +1,12 @@
 <template>
 	<div class="payment-methods-container">
-		<!-- Contextual Allocation Feedback Strip -->
-		<div v-if="payments && payments.length" class="payment-allocation-strip" :class="allocationStatusClass">
-			<div class="payment-allocation-strip__item">
-				<span class="payment-allocation-strip__label">{{ __("Paid") }}</span>
-				<span class="payment-allocation-strip__value">
-					{{ renderMoney(totalPaid) }}
-				</span>
-			</div>
-			<div class="payment-allocation-strip__divider"></div>
-			<div class="payment-allocation-strip__item">
-				<span class="payment-allocation-strip__label">{{ diffLabel || __("Remaining") }}</span>
-				<span class="payment-allocation-strip__value font-weight-bold">
-					{{ renderMoney(differenceAmount) }}
-				</span>
-			</div>
+		<!-- Compact Contextual Allocation Strip for Multiple Methods Only -->
+		<div v-if="showSplitAllocationContext" class="payment-allocation-context" :class="allocationStatusClass">
+			<span class="payment-allocation-context__text">
+				{{ __("Allocated") }} <strong>{{ renderMoney(totalPaid) }}</strong>
+				<span class="mx-1">·</span>
+				{{ diffLabel || __("Remaining") }} <strong>{{ renderMoney(differenceAmount) }}</strong>
+			</span>
 		</div>
 
 		<!-- Payment Methods Panel List -->
@@ -30,20 +22,14 @@
 						<span class="payment-method-card__icon-box">
 							<v-icon size="16">{{ getPaymentMethodIcon(payment) }}</v-icon>
 						</span>
-						<div class="payment-method-card__copy">
-							<span class="payment-method-card__eyebrow">{{ __("Payment Method") }}</span>
-							<strong class="payment-method-card__title">{{ payment.mode_of_payment }}</strong>
-						</div>
-					</div>
-
-					<div class="payment-method-card__badges">
-						<span v-if="isReturn" class="payment-method-card__badge payment-method-card__badge--refund">
-							<v-icon start size="10">mdi-cash-refund</v-icon>
-							{{ __("Refund") }}
-						</span>
+						<strong class="payment-method-card__title">{{ payment.mode_of_payment }}</strong>
 						<span v-if="payment.default === 1" class="payment-method-card__badge payment-method-card__badge--default">
 							<v-icon start size="10">mdi-star-outline</v-icon>
 							{{ __("Default") }}
+						</span>
+						<span v-if="isReturn" class="payment-method-card__badge payment-method-card__badge--refund">
+							<v-icon start size="10">mdi-cash-refund</v-icon>
+							{{ __("Refund") }}
 						</span>
 					</div>
 				</header>
@@ -87,10 +73,31 @@
 					</div>
 
 					<div class="payment-method-card__primary-action">
+						<!-- Phone / Tablet Portrait Compact Tonal Icon Button -->
 						<v-btn
+							v-if="isCompactMode"
+							icon
+							color="primary"
+							variant="tonal"
+							class="payment-use-remaining-btn"
+							data-pos-keyboard-target="payment-action"
+							:data-test="`payment-method-action-${payment.mode_of_payment}`"
+							:aria-label="__('Set Remaining')"
+							:title="__('Set Remaining')"
+							:disabled="loading"
+							@click="handlePrimaryAction(payment)"
+						>
+							<v-icon size="18">
+								{{ isGiftCardPayment(payment) ? "mdi-qrcode-scan" : "mdi-calculator-variant-outline" }}
+							</v-icon>
+						</v-btn>
+
+						<!-- Desktop / Landscape Tonal Button -->
+						<v-btn
+							v-else
 							block
 							color="primary"
-							variant="flat"
+							variant="tonal"
 							class="payment-method-action-btn"
 							data-pos-keyboard-target="payment-action"
 							:data-test="`payment-method-action-${payment.mode_of_payment}`"
@@ -137,8 +144,8 @@
 					<v-btn
 						block
 						color="success"
-						variant="flat"
-						class="payment-method-action-btn payment-method-action-btn--success"
+						variant="tonal"
+						class="payment-method-action-btn"
 						data-pos-keyboard-target="payment-action"
 						:disabled="loading"
 						@click="$emit('mpesa-dialog', payment)"
@@ -156,8 +163,8 @@
 					<v-btn
 						block
 						color="success"
-						variant="flat"
-						class="payment-method-action-btn payment-method-action-btn--success"
+						variant="tonal"
+						class="payment-method-action-btn"
 						data-pos-keyboard-target="payment-action"
 						:disabled="loading"
 						@click="$emit('request-payment', payment)"
@@ -273,6 +280,12 @@ const emit = defineEmits([
 	"open-gift-card",
 ]);
 
+const showSplitAllocationContext = computed(() => props.payments && props.payments.length > 1);
+
+const isCompactMode = computed(
+	() => props.viewportMode === "phone" || props.viewportMode === "tablet-portrait",
+);
+
 function getPaymentMethodIcon(payment) {
 	const type = String(payment?.type || payment?.mode_of_payment || "").toLowerCase();
 	if (type.includes("cash")) return "mdi-cash";
@@ -294,11 +307,11 @@ function getPaymentMethodClasses(payment) {
 }
 
 const allocationStatusClass = computed(() => {
-	if (props.isReturn) return "payment-allocation-strip--refund";
+	if (props.isReturn) return "payment-allocation-context--refund";
 	const diff = Number(props.differenceAmount || 0);
-	if (diff === 0) return "payment-allocation-strip--balanced";
-	if (diff < 0) return "payment-allocation-strip--overpaid";
-	return "payment-allocation-strip--pending";
+	if (diff === 0) return "payment-allocation-context--balanced";
+	if (diff < 0) return "payment-allocation-context--overpaid";
+	return "payment-allocation-context--pending";
 });
 
 const renderMoney = (val) => {
@@ -340,84 +353,40 @@ const clearPaymentAmount = (payment) => {
 	gap: var(--payment-space-2, 8px);
 }
 
-/* Contextual Allocation Feedback Strip */
-.payment-allocation-strip {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 6px 10px;
+/* Compact Allocation Context for Multiple Methods */
+.payment-allocation-context {
+	padding: 4px 8px;
 	border-radius: var(--payment-radius-sm, 8px);
-	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
-	background: var(--pos-surface-muted, rgba(0, 0, 0, 0.02));
+	background: var(--pos-surface-muted, rgba(0, 0, 0, 0.03));
 	font-size: 11px;
-	transition: all 0.15s ease;
-}
-
-.payment-allocation-strip__item {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-}
-
-.payment-allocation-strip__label {
 	color: var(--pos-text-secondary, #64748b);
-	text-transform: uppercase;
-	font-size: 10px;
-	font-weight: 700;
-	letter-spacing: 0.04em;
+	text-align: start;
 }
 
-.payment-allocation-strip__value {
+.payment-allocation-context__text {
 	font-variant-numeric: tabular-nums;
-	color: var(--pos-text-primary, #0f172a);
 }
 
-.payment-allocation-strip__divider {
-	width: 1px;
-	height: 12px;
-	background: var(--pos-border-light, rgba(0, 0, 0, 0.12));
-}
-
-.payment-allocation-strip--balanced {
-	background: color-mix(in srgb, var(--v-theme-success, #16a34a) 8%, transparent);
-	border-color: color-mix(in srgb, var(--v-theme-success, #16a34a) 25%, transparent);
-}
-
-.payment-allocation-strip--overpaid {
-	background: color-mix(in srgb, var(--v-theme-info, #0284c7) 8%, transparent);
-	border-color: color-mix(in srgb, var(--v-theme-info, #0284c7) 25%, transparent);
-}
-
-.payment-allocation-strip--refund {
-	background: color-mix(in srgb, var(--v-theme-error, #dc2626) 8%, transparent);
-	border-color: color-mix(in srgb, var(--v-theme-error, #dc2626) 25%, transparent);
-}
-
-/* Payment Methods List */
+/* Payment Methods Flat List (No Nested Outer Cards) */
 .payment-methods-list {
 	display: flex;
 	flex-direction: column;
-	gap: var(--payment-space-2, 8px);
 }
 
 .payment-method-card {
 	display: flex;
 	flex-direction: column;
 	gap: var(--payment-space-2, 8px);
-	padding: var(--payment-space-2, 8px);
-	background: var(--pos-card-bg, var(--pos-surface-raised, #ffffff));
-	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
-	border-radius: var(--payment-radius-md, 10px);
+	padding: 6px 0;
+	background: transparent;
+	border: none;
 	box-shadow: none;
-	transition: border-color 150ms ease, background-color 150ms ease;
 }
 
-.payment-method-card--active {
-	border-color: color-mix(in srgb, var(--pos-primary, #2563eb) 30%, var(--pos-border-light, rgba(0, 0, 0, 0.08)));
-}
-
-.payment-method-card--refund {
-	border-color: color-mix(in srgb, var(--v-theme-error, #dc2626) 30%, var(--pos-border-light, rgba(0, 0, 0, 0.08)));
+.payment-method-card + .payment-method-card {
+	border-top: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
+	padding-top: var(--payment-space-3, 12px);
+	margin-top: var(--payment-space-2, 8px);
 }
 
 .payment-method-card__header {
@@ -445,44 +414,20 @@ const clearPaymentAmount = (payment) => {
 	color: var(--pos-primary, #2563eb);
 }
 
-.payment-method-card__copy {
-	display: flex;
-	flex-direction: column;
-	min-width: 0;
-}
-
-.payment-method-card__eyebrow {
-	display: block;
-	font-size: var(--payment-font-caption, 11px);
-	line-height: 1.1;
-	color: var(--pos-text-secondary, #64748b);
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-}
-
 .payment-method-card__title {
-	display: block;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 	font-size: var(--payment-font-section, 13px);
 	line-height: 1.25;
 	font-weight: 700;
 	color: var(--pos-text-primary, #0f172a);
-}
-
-.payment-method-card__badges {
-	display: flex;
-	gap: 4px;
-	align-items: center;
-	flex-wrap: wrap;
-	justify-content: flex-end;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .payment-method-card__badge {
 	display: inline-flex;
 	align-items: center;
-	padding: 2px 7px;
+	padding: 2px 6px;
 	border-radius: 999px;
 	font-size: 10px;
 	font-weight: 700;
@@ -501,45 +446,52 @@ const clearPaymentAmount = (payment) => {
 
 .payment-method-card__main {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(132px, 0.34fr);
+	grid-template-columns: minmax(0, 1fr) 44px;
 	gap: var(--payment-space-2, 8px);
 	align-items: center;
 }
 
-:deep(.payment-shell--phone) .payment-method-card__main,
-:deep(.payment-shell--tablet-portrait) .payment-method-card__main {
-	grid-template-columns: 1fr;
+:deep(.payment-shell--desktop) .payment-method-card__main,
+:deep(.payment-shell--tablet-landscape) .payment-method-card__main {
+	grid-template-columns: minmax(0, 1fr) minmax(132px, 0.34fr);
 }
 
 .payment-method-card__amount {
 	min-width: 0;
 }
 
+/* Hide browser input spinner controls */
+.payment-method-card :deep(input[type="number"]) {
+	appearance: textfield;
+	-moz-appearance: textfield;
+}
+
+.payment-method-card :deep(input[type="number"]::-webkit-inner-spin-button),
+.payment-method-card :deep(input[type="number"]::-webkit-outer-spin-button) {
+	appearance: none;
+	margin: 0;
+}
+
 .payment-clear-btn {
 	color: var(--pos-text-secondary, #64748b) !important;
 }
 
-.payment-method-card__primary-action,
-.payment-method-card__extra-action {
-	width: 100%;
+.payment-use-remaining-btn {
+	width: 44px !important;
+	min-width: 44px !important;
+	height: 44px !important;
+	border-radius: var(--payment-radius-sm, 8px) !important;
 }
 
 .payment-method-action-btn {
-	--v-theme-overlay-multiplier: 0 !important;
 	min-height: var(--payment-control-desktop, 40px);
 	border-radius: var(--payment-radius-sm, 8px);
 	font-weight: 700;
 	text-transform: none;
 	letter-spacing: 0.01em;
-	background-color: rgb(var(--v-theme-primary, 37, 99, 235)) !important;
-	color: #ffffff !important;
 }
 
-.payment-method-action-btn--success {
-	background-color: rgb(var(--v-theme-success, 22, 163, 74)) !important;
-}
-
-/* Quick Denomination Quick Buttons */
+/* Quick Denominations */
 .payment-denominations {
 	display: flex;
 	align-items: center;
@@ -561,7 +513,7 @@ const clearPaymentAmount = (payment) => {
 }
 
 .payment-denominations__btn {
-	min-width: 48px;
+	min-width: 44px;
 	min-height: 32px;
 	padding-inline: var(--payment-space-2, 8px);
 	border-radius: var(--payment-radius-sm, 8px);

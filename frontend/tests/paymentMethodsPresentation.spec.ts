@@ -4,31 +4,50 @@ import { mount } from "@vue/test-utils";
 import PaymentMethods from "../src/posapp/components/pos/payments/PaymentMethods.vue";
 
 describe("PaymentMethods Presentation & Emits Contract", () => {
-	const samplePayments = [
+	const singlePayment = [
+		{ name: "P1", mode_of_payment: "Cash", amount: 100, default: 1, type: "Cash" },
+	];
+
+	const multiplePayments = [
 		{ name: "P1", mode_of_payment: "Cash", amount: 100, default: 1, type: "Cash" },
 		{ name: "P2", mode_of_payment: "Credit Card", amount: 0, default: 0, type: "Bank" },
 	];
 
-	it("renders allocation feedback strip with Paid and Remaining amounts", () => {
+	it("does NOT render allocation context for a single payment method", () => {
 		const wrapper = mount(PaymentMethods, {
 			props: {
-				payments: samplePayments,
+				payments: singlePayment,
+				totalPaid: 100,
+				differenceAmount: 0,
+				currencySymbol: () => "$",
+			},
+		});
+
+		const context = wrapper.find(".payment-allocation-context");
+		expect(context.exists()).toBe(false);
+	});
+
+	it("renders compact allocation context for multiple payment methods", () => {
+		const wrapper = mount(PaymentMethods, {
+			props: {
+				payments: multiplePayments,
 				totalPaid: 100,
 				differenceAmount: 50,
 				currencySymbol: () => "$",
 			},
 		});
 
-		const strip = wrapper.find(".payment-allocation-strip");
-		expect(strip.exists()).toBe(true);
-		expect(wrapper.text()).toContain("Paid");
+		const context = wrapper.find(".payment-allocation-context");
+		expect(context.exists()).toBe(true);
+		expect(wrapper.text()).toContain("Allocated");
 		expect(wrapper.text()).toContain("Remaining");
 	});
 
 	it("emits set-full-amount with payment and isReturn when Set Remaining button clicked", async () => {
 		const wrapper = mount(PaymentMethods, {
 			props: {
-				payments: samplePayments,
+				payments: singlePayment,
+				viewportMode: "desktop",
 				isReturn: false,
 				currencySymbol: () => "$",
 			},
@@ -39,13 +58,13 @@ describe("PaymentMethods Presentation & Emits Contract", () => {
 
 		const emitted = wrapper.emitted("set-full-amount");
 		expect(emitted).toBeTruthy();
-		expect(emitted![0]).toEqual([samplePayments[0], false]);
+		expect(emitted![0]).toEqual([singlePayment[0], false]);
 	});
 
 	it("emits update-amount with 0 when clear button clicked", async () => {
 		const wrapper = mount(PaymentMethods, {
 			props: {
-				payments: samplePayments,
+				payments: singlePayment,
 				currencySymbol: () => "$",
 			},
 		});
@@ -56,13 +75,14 @@ describe("PaymentMethods Presentation & Emits Contract", () => {
 
 		const emitted = wrapper.emitted("update-amount");
 		expect(emitted).toBeTruthy();
-		expect(emitted![0]).toEqual([samplePayments[0], 0]);
+		expect(emitted![0]).toEqual([singlePayment[0], 0]);
 	});
 
 	it("disables controls and buttons when loading is true", () => {
 		const wrapper = mount(PaymentMethods, {
 			props: {
-				payments: samplePayments,
+				payments: singlePayment,
+				viewportMode: "desktop",
 				loading: true,
 				currencySymbol: () => "$",
 			},

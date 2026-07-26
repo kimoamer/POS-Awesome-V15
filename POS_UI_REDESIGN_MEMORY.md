@@ -27,6 +27,19 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.7.2.1 — Mobile Payment Visual Recovery and Action Clarity (Complete ✅).
+
+Scope:
+
+- **Invisible `More` Button Fix**: Removed `payment-footer-btn` class from `.payment-more-btn` activator in [PaymentActionButtons.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentActionButtons.vue), giving it an explicit 44x44px target with a visible primary/dark icon, white surface, and subtle border.
+- **Footer Button Hierarchy**: Styled `Cancel` button as an outlined error button (`variant="outlined" color="error"`) rather than a giant solid red block. Removed uppercase text transformation (`text-transform: none !important;`). `Submit & Print` remains discoverable inside `More` menu emitting `submit-and-print`.
+- **Eliminated Duplicate Allocation Strip**: Removed the duplicate two-column Paid/Remaining box for single payment methods. Display `payment-allocation-context` only when `payments.length > 1` as a single compact line (`Allocated E£ 100.00 · Remaining E£ 50.00`).
+- **Removed Outer Nested Cards**: Stripped card background, borders, and shadows from `.payment-method-card` inside [PaymentMethods.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentMethods.vue). 2nd+ method items are separated by a light top divider.
+- **Simplified Method Identity**: Removed the uppercase `PAYMENT METHOD` eyebrow heading. Shows `[icon 28x28] Mode Name` + `[Default]` badge.
+- **`Set Remaining` Action Redesign**: On mobile/portrait, rendered `Set Remaining` as a compact 44x44px tonal calculator icon button (`v-btn icon variant="tonal" color="primary"` with `mdi-calculator-variant-outline`). On desktop/landscape, rendered as a compact tonal button. Emits exact `set-full-amount` event.
+- **Hidden Input Spinners**: Hidden browser numeric spinner arrows (`::-webkit-inner-spin-button`, `::-webkit-outer-spin-button`, `-moz-appearance: textfield`).
+- **Automated Tests**: Updated [paymentResponsiveLayout.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentResponsiveLayout.spec.ts) and [paymentMethodsPresentation.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentMethodsPresentation.spec.ts).
+
 Pass 6.7.2 — Premium Payment Methods & Amount Allocation (Complete ✅).
 
 Scope:
