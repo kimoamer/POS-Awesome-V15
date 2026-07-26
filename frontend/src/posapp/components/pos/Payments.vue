@@ -2273,7 +2273,7 @@ defineExpose({
 	min-width: 0;
 	min-height: 0;
 	display: grid;
-	grid-template-rows: 64px 68px minmax(0, 1fr) 60px;
+	grid-template-rows: 64px 76px minmax(0, 1fr) 60px;
 	overflow: hidden;
 	background: var(--pos-bg-primary, var(--pos-surface, #f8fafc));
 	color: var(--pos-text-primary, #0f172a);
@@ -2285,7 +2285,7 @@ defineExpose({
 
 /* Explicit Viewport Mode Grid Rules */
 .payment-shell--desktop {
-	grid-template-rows: 64px 68px minmax(0, 1fr) 60px;
+	grid-template-rows: 64px 76px minmax(0, 1fr) 60px;
 }
 
 .payment-shell--desktop .payment-layout {
@@ -2295,7 +2295,7 @@ defineExpose({
 }
 
 .payment-shell--tablet-landscape {
-	grid-template-rows: 58px 64px minmax(0, 1fr) 60px;
+	grid-template-rows: 58px 72px minmax(0, 1fr) 60px;
 }
 
 .payment-shell--tablet-landscape .payment-shell__body {
@@ -2309,7 +2309,7 @@ defineExpose({
 }
 
 .payment-shell--tablet-portrait {
-	grid-template-rows: 56px 64px minmax(0, 1fr) auto;
+	grid-template-rows: 56px 72px minmax(0, 1fr) auto;
 }
 
 .payment-shell--tablet-portrait .payment-layout {
@@ -2320,7 +2320,7 @@ defineExpose({
 
 .payment-shell--phone {
 	height: 100dvh;
-	grid-template-rows: 54px 60px minmax(0, 1fr) auto;
+	grid-template-rows: 54px 68px minmax(0, 1fr) auto;
 }
 
 .payment-shell--phone .payment-shell__body {

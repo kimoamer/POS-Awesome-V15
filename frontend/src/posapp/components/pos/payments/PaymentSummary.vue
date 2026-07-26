@@ -68,7 +68,9 @@ const renderMoney = (val) => {
 .payment-overview-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 8px;
+	gap: var(--payment-space-2, 8px);
+	height: 100%;
+	min-height: 0;
 }
 
 .payment-overview-metric {
@@ -77,13 +79,15 @@ const renderMoney = (val) => {
 	align-items: flex-start;
 	justify-content: center;
 	min-width: 0;
-	min-height: 56px;
-	padding: 8px 12px;
+	min-height: 0;
+	height: 100%;
+	padding: 4px 10px;
 	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
-	border-radius: var(--pos-radius-sm, 10px);
+	border-radius: var(--payment-radius-sm, 8px);
 	background: var(--pos-surface-raised, #ffffff);
 	text-align: start;
 	cursor: pointer;
+	overflow: hidden;
 	transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
@@ -93,11 +97,17 @@ const renderMoney = (val) => {
 }
 
 .payment-overview-metric__label {
-	font-size: 0.75rem;
-	font-weight: 600;
+	font-size: 11px;
+	font-weight: 700;
+	line-height: 1.1;
+	margin-bottom: 2px;
 	color: var(--pos-text-secondary, #64748b);
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	width: 100%;
 }
 
 .payment-overview-metric__value {
@@ -105,8 +115,9 @@ const renderMoney = (val) => {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-	font-size: 1.25rem;
-	font-weight: 750;
+	font-size: 18px;
+	line-height: 1.2;
+	font-weight: 700;
 	font-variant-numeric: tabular-nums;
 	color: var(--pos-text-primary, #0f172a);
 }

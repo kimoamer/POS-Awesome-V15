@@ -31,7 +31,7 @@
 						density="compact"
 						variant="outlined"
 						:color="isReturn ? 'error' : 'primary'"
-						:label="__('Amount')"
+						:placeholder="__('Amount')"
 						:class="['sleek-field pos-themed-input', isReturn ? 'pos-themed-input--refund' : '']"
 						hide-details
 						:model-value="payment.amount"
