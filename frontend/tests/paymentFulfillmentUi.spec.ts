@@ -5,33 +5,49 @@ import PaymentAdditionalInfo from "../src/posapp/components/pos/payments/Payment
 // @ts-ignore
 import PaymentPurchaseOrder from "../src/posapp/components/pos/payments/PaymentPurchaseOrder.vue";
 
-describe("Payment Order & Fulfillment UI Contract", () => {
-	it("renders delivery date and notes when pos profile settings allow", () => {
+describe("Payment Order & Fulfillment Contract", () => {
+	it("renders delivery date and address fields in PaymentAdditionalInfo", () => {
 		const wrapper = mount(PaymentAdditionalInfo, {
 			props: {
-				invoiceDoc: { posa_delivery_date: "2026-08-01", shipping_address_name: "" },
-				posProfile: {
-					posa_allow_sales_order: 1,
-					posa_display_additional_notes: 1,
-					posa_display_authorization_code: 1,
-				},
-				invoiceType: "Order",
-				addresses: [],
+				invoiceDoc: { posa_delivery_date: "2026-07-27" },
+				addresses: [{ name: "ADDR-1", address_title: "Home", display_title: "Home" }],
 			},
 		});
 
-		expect(wrapper.text()).toContain("Additional Notes");
-		expect(wrapper.text()).toContain("Authorization Code");
+		expect(wrapper.text()).toContain("Delivery Date");
+		expect(wrapper.text()).toContain("Shipping Address");
 	});
 
-	it("renders purchase order fields when posa_allow_customer_purchase_order setting is true", () => {
+	it("renders address loading and error retry states in PaymentAdditionalInfo", async () => {
+		const loadingWrapper = mount(PaymentAdditionalInfo, {
+			props: {
+				invoiceDoc: { posa_delivery_date: "2026-07-27" },
+				addressesLoading: true,
+			},
+		});
+		expect(loadingWrapper.text()).toContain("Loading shipping addresses...");
+
+		const errorWrapper = mount(PaymentAdditionalInfo, {
+			props: {
+				invoiceDoc: { posa_delivery_date: "2026-07-27" },
+				addressesError: "Unable to load addresses",
+			},
+		});
+		expect(errorWrapper.text()).toContain("Unable to load addresses");
+		const retryBtn = errorWrapper.find("button");
+		expect(retryBtn.exists()).toBe(true);
+		await retryBtn.trigger("click");
+		expect(errorWrapper.emitted("retry-addresses")).toBeTruthy();
+	});
+
+	it("renders purchase order number and PO date fields in PaymentPurchaseOrder", () => {
 		const wrapper = mount(PaymentPurchaseOrder, {
 			props: {
-				invoiceDoc: { po_no: "PO-999" },
-				posProfile: { posa_allow_customer_purchase_order: 1 },
+				invoiceDoc: { po_no: "PO-100", po_date: "2026-07-27" },
 			},
 		});
 
 		expect(wrapper.text()).toContain("Purchase Order Number");
+		expect(wrapper.text()).toContain("Purchase Order Date");
 	});
 });

@@ -199,7 +199,7 @@
 							@update:write-off-amount="handleWriteOffAmountUpdate"
 							@apply-due-preset="applyDuePreset"
 							@update:redeem-customer-credit="redeem_customer_credit = $event"
-							@get-available-credit="get_available_credit"
+							@get-available-credit="loadCustomerCredit"
 						/>
 						<PaymentCustomerCreditDetails
 							:invoice-doc="invoice_doc"
@@ -672,6 +672,7 @@ const {
 	available_customer_credit,
 	available_points_amount,
 	get_available_credit,
+	prefetch_available_credit,
 } = useRedemptionLogic({
 	invoiceDoc: computed(() => invoiceStore.invoiceDoc),
 	posProfile: pos_profile,
@@ -1076,14 +1077,15 @@ const topUpGiftCard = async () => {
 
 // Methods
 
-const loadCustomerCredit = async (...args) => {
+const loadCustomerCredit = async (useCredit) => {
 	if (customerCreditLoading.value) return;
 	customerCreditLoading.value = true;
 	customerCreditError.value = "";
 	try {
-		const res = get_available_credit(...args);
-		if (res && typeof res.then === "function") {
-			await res;
+		if (typeof useCredit === "boolean") {
+			await get_available_credit(useCredit);
+		} else {
+			await prefetch_available_credit();
 		}
 		customerCreditLoaded.value = true;
 	} catch (error) {
@@ -2273,10 +2275,20 @@ watch(selectedCustomer, (newCustomer, oldCustomer) => {
 	loyalty_amount.value = 0;
 	resetGiftCardState({ clearPayment: true });
 
+	addressesLoaded.value = false;
+	addressesError.value = "";
+	customerCreditLoaded.value = false;
+	customerCreditError.value = "";
+
 	if (invoice_doc.value) {
 		invoice_doc.value.loyalty_amount = 0;
 		invoice_doc.value.redeem_loyalty_points = 0;
 		invoice_doc.value.loyalty_points = 0;
+	}
+
+	if (newCustomer) {
+		void loadAddresses({ force: true });
+		void loadCustomerCredit();
 	}
 });
 
@@ -2286,7 +2298,7 @@ onMounted(() => {
 	document.addEventListener("keydown", _shortcutHandlers.value.handlePaymentShortcut);
 
 	syncStore.syncPendingInvoices();
-	get_sales_person_names();
+	void loadSalesPersons();
 	eventBus.on("network-online", () => syncStore.syncPendingInvoices());
 	eventBus.on("server-online", () => syncStore.syncPendingInvoices());
 

@@ -159,7 +159,7 @@ export function useInvoiceDetails(options: InvoiceDetailsOptions) {
 		const doc = unref(invoiceDoc);
 		if (!doc || !doc.customer) {
 			addresses.value = [];
-			return;
+			return Promise.resolve([]);
 		}
 
 		const applyCachedAddresses = () => {
@@ -175,41 +175,46 @@ export function useInvoiceDetails(options: InvoiceDetailsOptions) {
 		};
 
 		if (isOffline() && applyCachedAddresses()) {
-			return;
+			return Promise.resolve(addresses.value);
 		}
 
-		frappe.call({
-			method: "posawesome.posawesome.api.customers.get_customer_addresses",
-			args: { customer: doc.customer },
-			async: true,
-			callback: function (r: any) {
-				if (!r.exc) {
-					const records = Array.isArray(r.message) ? r.message : [];
-					const normalized = records
-						.map((row) => normalizeAddress(row))
-						.filter((row): row is Address => row !== null);
-					addresses.value = normalized;
-					saveCustomerAddressesCache(doc.customer, normalized);
+		return new Promise((resolve, reject) => {
+			frappe.call({
+				method: "posawesome.posawesome.api.customers.get_customer_addresses",
+				args: { customer: doc.customer },
+				async: true,
+				callback: function (r: any) {
+					if (!r.exc) {
+						const records = Array.isArray(r.message) ? r.message : [];
+						const normalized = records
+							.map((row) => normalizeAddress(row))
+							.filter((row): row is Address => row !== null);
+						addresses.value = normalized;
+						saveCustomerAddressesCache(doc.customer, normalized);
 
-					if (
-						doc.shipping_address_name &&
-						!normalized.some(
-							(row) => row.name === doc.shipping_address_name,
-						)
-					) {
-						doc.shipping_address_name = null;
+						if (
+							doc.shipping_address_name &&
+							!normalized.some(
+								(row) => row.name === doc.shipping_address_name,
+							)
+						) {
+							doc.shipping_address_name = null;
+						}
+						resolve(normalized);
+					} else {
+						if (!applyCachedAddresses()) {
+							addresses.value = [];
+						}
+						reject(new Error(r.exc || "Failed to fetch addresses"));
 					}
-				} else {
+				},
+				error: function (error: any) {
 					if (!applyCachedAddresses()) {
 						addresses.value = [];
 					}
-				}
-			},
-			error: function () {
-				if (!applyCachedAddresses()) {
-					addresses.value = [];
-				}
-			},
+					reject(error || new Error("Failed to fetch addresses"));
+				},
+			});
 		});
 	};
 
@@ -265,27 +270,31 @@ export function useInvoiceDetails(options: InvoiceDetailsOptions) {
 			sales_persons.value = profileSalesPersons;
 		}
 
-		frappe.call({
-			method: "posawesome.posawesome.api.utilities.get_sales_person_names",
-			callback: function (r: any) {
-				if (r.message && r.message.length > 0) {
-					sales_persons.value = r.message.map((sp: any) => ({
-						value: sp.name,
-						title: sp.sales_person_name,
-						sales_person_name: sp.sales_person_name,
-						name: sp.name,
-					}));
-					if (profile?.posa_local_storage) {
-						setSalesPersonsStorage(sales_persons.value);
+		return new Promise((resolve, reject) => {
+			frappe.call({
+				method: "posawesome.posawesome.api.utilities.get_sales_person_names",
+				callback: function (r: any) {
+					if (r.message && r.message.length > 0) {
+						sales_persons.value = r.message.map((sp: any) => ({
+							value: sp.name,
+							title: sp.sales_person_name,
+							sales_person_name: sp.sales_person_name,
+							name: sp.name,
+						}));
+						if (profile?.posa_local_storage) {
+							setSalesPersonsStorage(sales_persons.value);
+						}
+					} else {
+						sales_persons.value = profileSalesPersons;
 					}
-				} else {
+					resolve(sales_persons.value);
+				},
+				error: function (error: any) {
+					console.error("Failed to fetch sales persons", error);
 					sales_persons.value = profileSalesPersons;
-				}
-			},
-			error: function (error: any) {
-				console.error("Failed to fetch sales persons", error);
-				sales_persons.value = profileSalesPersons;
-			},
+					reject(error || new Error("Failed to fetch sales persons"));
+				},
+			});
 		});
 	};
 

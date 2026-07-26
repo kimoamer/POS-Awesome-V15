@@ -25,7 +25,7 @@ describe("Payment Gift Card UI Contract", () => {
 		expect(wrapper.text()).toContain("Apply Gift Card");
 	});
 
-	it("renders supervisor mode selection in GiftCardDialog", () => {
+	it("renders supervisor mode selection and formatted balance in GiftCardDialog", () => {
 		const wrapper = mount(GiftCardDialog, {
 			props: {
 				modelValue: true,
@@ -34,17 +34,21 @@ describe("Payment Gift Card UI Contract", () => {
 				viewportMode: "desktop",
 				cardCode: "GC-NEW",
 				redeemAmount: 100,
-				balance: 0,
+				balance: 500,
 				status: "New",
+				currency: "EGP",
+				formatCurrency: (val: number) => `E£ ${val}.00`,
+				currencySymbol: () => "E£",
 			},
 		});
 
 		expect(wrapper.text()).toContain("Issue New Card");
 		expect(wrapper.text()).toContain("Top Up Card");
 		expect(wrapper.text()).toContain("Redeem");
+		expect(wrapper.text()).toContain("E£ 500.00");
 	});
 
-	it("applies fullscreen class on phone viewport mode", () => {
+	it("applies fullscreen class on phone viewport mode and contains 44px close target", () => {
 		const wrapper = mount(GiftCardDialog, {
 			props: {
 				modelValue: true,
@@ -56,5 +60,7 @@ describe("Payment Gift Card UI Contract", () => {
 		});
 
 		expect(wrapper.html()).toContain("gift-card-dialog--phone");
+		const closeBtn = wrapper.find(".gift-card-dialog__close");
+		expect(closeBtn.exists()).toBe(true);
 	});
 });

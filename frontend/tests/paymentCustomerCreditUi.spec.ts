@@ -11,7 +11,9 @@ describe("Payment Customer Credit UI Contract", () => {
 				availableCustomerCredit: 500,
 				redeemCustomerCredit: false,
 				redeemedCustomerCredit: 0,
-				customerCreditDict: [],
+				customerCreditDict: [
+					{ name: "INV-0001", total_credit: 500, credit_to_redeem: 0 },
+				],
 				creditSourceLabel: (row: any) => row.name,
 				formatCurrency: (val: number) => `E£ ${val}.00`,
 				currencySymbol: () => "E£",

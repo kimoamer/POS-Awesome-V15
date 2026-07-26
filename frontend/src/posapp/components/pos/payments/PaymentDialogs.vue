@@ -139,6 +139,7 @@ const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?
 
 .payment-dialog--phone {
 	height: 100dvh;
+	min-height: 0;
 	border-radius: 0;
 }
 
@@ -183,6 +184,8 @@ const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?
 	gap: var(--payment-space-3, 12px);
 	padding: var(--payment-space-4, 16px);
 	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
 }
 
 .payment-dialog__footer {

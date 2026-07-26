@@ -71,24 +71,109 @@ export function useRedemptionLogic(options: RedemptionLogicOptions) {
 		return Math.max(normalizeFloat(invoiceTotal - loyaltyCovered), 0);
 	};
 
-	// Get available customer credit
+	// Prefetch available credit sources for preview (does not apply redemption)
+	const prefetch_available_credit = async () => {
+		const customer = unref(invoiceDoc)?.customer;
+		const company = unref(posProfile)?.company;
+
+		if (!customer || !company) {
+			customer_credit_dict.value = [];
+			return [];
+		}
+
+		if (isOffline()) {
+			const cachedSnapshot = getCachedStoredValueSnapshot(customer, company);
+			const data = Array.isArray(cachedSnapshot?.sources)
+				? JSON.parse(JSON.stringify(cachedSnapshot.sources))
+				: [];
+			data.forEach((row: any) => {
+				if (typeof row.credit_to_redeem !== "number") {
+					row.credit_to_redeem = 0;
+				}
+			});
+			customer_credit_dict.value = data;
+			return data;
+		}
+
+		const r: any = await frappe.call({
+			method: "posawesome.posawesome.api.payments.get_available_credit",
+			args: { customer, company },
+		});
+		const data = r?.message || [];
+		if (Array.isArray(data) && data.length) {
+			saveStoredValueSnapshot(customer, company, data);
+			data.forEach((row: any) => {
+				if (typeof row.credit_to_redeem !== "number") {
+					row.credit_to_redeem = 0;
+				}
+			});
+			customer_credit_dict.value = data;
+		} else {
+			customer_credit_dict.value = [];
+		}
+		return customer_credit_dict.value;
+	};
+
+	// Get / apply available customer credit
 	const get_available_credit = (use_credit: boolean) => {
-		if (options.onClearAmounts) {
+		if (options.onClearAmounts && use_credit) {
 			options.onClearAmounts();
 		}
 
-		if (use_credit) {
-			const customer = unref(invoiceDoc)?.customer;
-			const company = unref(posProfile)?.company;
+		const customer = unref(invoiceDoc)?.customer;
+		const company = unref(posProfile)?.company;
 
-			if (!customer || !company) return;
+		if (!customer || !company) {
+			customer_credit_dict.value = [];
+			return Promise.resolve([]);
+		}
 
-			if (isOffline()) {
-				const cachedSnapshot = getCachedStoredValueSnapshot(customer, company);
-				const data = Array.isArray(cachedSnapshot?.sources)
-					? JSON.parse(JSON.stringify(cachedSnapshot.sources))
-					: [];
-				if (data.length) {
+		if (!use_credit) {
+			customer_credit_dict.value.forEach((row: any) => {
+				row.credit_to_redeem = 0;
+			});
+			redeemed_customer_credit.value = 0;
+			return Promise.resolve(customer_credit_dict.value);
+		}
+
+		if (isOffline()) {
+			const cachedSnapshot = getCachedStoredValueSnapshot(customer, company);
+			const data = Array.isArray(cachedSnapshot?.sources)
+				? JSON.parse(JSON.stringify(cachedSnapshot.sources))
+				: [];
+			if (data.length) {
+				const doc = unref(invoiceDoc);
+				const amount = doc.rounded_total || doc.grand_total;
+				let remainAmount = amount;
+				data.forEach((row: any) => {
+					if (remainAmount > 0) {
+						if (remainAmount >= row.total_credit) {
+							row.credit_to_redeem = row.total_credit;
+							remainAmount -= row.total_credit;
+						} else {
+							row.credit_to_redeem = remainAmount;
+							remainAmount = 0;
+						}
+					} else {
+						row.credit_to_redeem = 0;
+					}
+				});
+				customer_credit_dict.value = data;
+			} else {
+				customer_credit_dict.value = [];
+			}
+			return Promise.resolve(customer_credit_dict.value);
+		}
+
+		return frappe
+			.call({
+				method: "posawesome.posawesome.api.payments.get_available_credit",
+				args: { customer, company },
+			})
+			.then((r: any) => {
+				const data = r.message;
+				if (data && data.length) {
+					saveStoredValueSnapshot(customer, company, data);
 					const doc = unref(invoiceDoc);
 					const amount = doc.rounded_total || doc.grand_total;
 					let remainAmount = amount;
@@ -109,45 +194,8 @@ export function useRedemptionLogic(options: RedemptionLogicOptions) {
 				} else {
 					customer_credit_dict.value = [];
 				}
-				return;
-			}
-
-			frappe
-				.call(
-					"posawesome.posawesome.api.payments.get_available_credit",
-					{
-						customer,
-						company,
-					},
-				)
-				.then((r: any) => {
-					const data = r.message;
-					if (data && data.length) {
-						saveStoredValueSnapshot(customer, company, data);
-						const doc = unref(invoiceDoc);
-						const amount = doc.rounded_total || doc.grand_total;
-						let remainAmount = amount;
-						data.forEach((row: any) => {
-							if (remainAmount > 0) {
-								if (remainAmount >= row.total_credit) {
-									row.credit_to_redeem = row.total_credit;
-									remainAmount -= row.total_credit;
-								} else {
-									row.credit_to_redeem = remainAmount;
-									remainAmount = 0;
-								}
-							} else {
-								row.credit_to_redeem = 0;
-							}
-						});
-						customer_credit_dict.value = data;
-					} else {
-						customer_credit_dict.value = [];
-					}
-				});
-		} else {
-			customer_credit_dict.value = [];
-		}
+				return customer_credit_dict.value;
+			});
 	};
 
 	// Watchers
@@ -217,6 +265,7 @@ export function useRedemptionLogic(options: RedemptionLogicOptions) {
 		available_customer_credit,
 		available_points_amount,
 		get_available_credit,
+		prefetch_available_credit,
 		get_loyalty_points,
 	};
 }

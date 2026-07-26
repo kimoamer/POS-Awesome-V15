@@ -357,6 +357,17 @@ onBeforeUnmount(() => {
 
 .dialog-action-btn {
 	min-height: 40px;
+.mpesa-search-btn {
+	min-height: 40px;
+}
+
+.mpesa-dialog--tablet-portrait .mpesa-search-btn,
+.mpesa-dialog--tablet-landscape .mpesa-search-btn {
+	min-height: 42px;
+}
+
+.mpesa-dialog--phone .mpesa-search-btn {
+	min-height: 44px;
 }
 
 .mpesa-dialog--tablet-portrait .dialog-action-btn,
@@ -375,10 +386,6 @@ onBeforeUnmount(() => {
 @media (max-width: 899px) {
 	.mpesa-search-grid {
 		grid-template-columns: 1fr;
-	}
-
-	.mpesa-search-btn {
-		min-height: 44px;
 	}
 
 	.mpesa-dialog__footer {
