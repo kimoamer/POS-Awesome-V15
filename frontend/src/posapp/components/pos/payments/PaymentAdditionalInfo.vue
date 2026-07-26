@@ -1,9 +1,8 @@
 <template>
-	<div v-if="invoiceDoc">
-		<!-- Additional Invoice Information (Delivery, Address, Notes) -->
-		<v-row class="payment-additional-info-row">
-			<!-- Delivery Date and Address (if applicable) -->
-			<v-col cols="6" v-if="allowSalesOrder && invoiceType === 'Order'">
+	<div v-if="invoiceDoc" class="payment-additional-info">
+		<div class="payment-details-grid">
+			<!-- Delivery Date (if applicable) -->
+			<div v-if="allowSalesOrder && invoiceType === 'Order'" class="payment-details-cell">
 				<VueDatePicker
 					:model-value="newDeliveryDate"
 					model-type="format"
@@ -11,10 +10,13 @@
 					:min-date="new Date()"
 					auto-apply
 					class="sleek-field pos-themed-input"
+					:placeholder="__('Delivery Date')"
 					@update:model-value="$emit('update:newDeliveryDate', $event)"
 				/>
-			</v-col>
-			<v-col cols="6" v-if="returnValidityEnabled && !invoiceDoc.is_return">
+			</div>
+
+			<!-- Return Valid Until -->
+			<div v-if="returnValidityEnabled && !invoiceDoc.is_return" class="payment-details-cell">
 				<VueDatePicker
 					:model-value="returnValidUptoDate"
 					model-type="format"
@@ -26,64 +28,71 @@
 					:placeholder="__('Return Valid Until')"
 					@update:model-value="$emit('update:returnValidUptoDate', $event)"
 				/>
-			</v-col>
-			<!-- Shipping Address Selection (if delivery date is set) -->
-			<v-col cols="12" v-if="invoiceDoc.posa_delivery_date">
-				<v-autocomplete
-					density="compact"
-					clearable
-					auto-select-first
-					variant="outlined"
-					color="primary"
-					:label="__('Address')"
-					v-model="invoiceDoc.shipping_address_name"
-					:items="addresses"
-					item-title="display_title"
-					item-value="name"
-					class="sleek-field pos-themed-input"
-					:no-data-text="__('Address not found')"
-					hide-details
-					:custom-filter="addressFilter"
-					append-icon="mdi-plus"
-					@click:append="$emit('new-address')"
-				>
-					<template v-slot:item="{ props, item }">
-						<v-list-item v-bind="props">
-							<v-list-item-title class="text-primary text-subtitle-1">
-								<div>{{ (item?.raw && item.raw.address_title) || item.address_title }}</div>
-							</v-list-item-title>
-							<v-list-item-subtitle>
-								<div>{{ (item?.raw && item.raw.address_line1) || item.address_line1 }}</div>
-							</v-list-item-subtitle>
-							<v-list-item-subtitle
-								v-if="(item?.raw && item.raw.address_line2) || item.address_line2"
-							>
-								<div>{{ (item?.raw && item.raw.address_line2) || item.address_line2 }}</div>
-							</v-list-item-subtitle>
-							<v-list-item-subtitle v-if="(item?.raw && item.raw.city) || item.city">
-								<div>{{ (item?.raw && item.raw.city) || item.city }}</div>
-							</v-list-item-subtitle>
-							<v-list-item-subtitle v-if="(item?.raw && item.raw.state) || item.state">
-								<div>{{ (item?.raw && item.raw.state) || item.state }}</div>
-							</v-list-item-subtitle>
-							<v-list-item-subtitle v-if="(item?.raw && item.raw.country) || item.country">
-								<div>{{ (item?.raw && item.raw.country) || item.country }}</div>
-							</v-list-item-subtitle>
-							<v-list-item-subtitle v-if="(item?.raw && item.raw.mobile_no) || item.mobile_no">
-								<div>{{ (item?.raw && item.raw.mobile_no) || item.mobile_no }}</div>
-							</v-list-item-subtitle>
-							<v-list-item-subtitle
-								v-if="(item?.raw && item.raw.address_type) || item.address_type"
-							>
-								<div>{{ (item?.raw && item.raw.address_type) || item.address_type }}</div>
-							</v-list-item-subtitle>
-						</v-list-item>
-					</template>
-				</v-autocomplete>
-			</v-col>
+			</div>
 
-			<!-- Additional Notes (if enabled in POS profile) -->
-			<v-col cols="12" v-if="showAdditionalNotes">
+			<!-- Shipping Address Selection -->
+			<div v-if="invoiceDoc.posa_delivery_date" class="payment-details-cell payment-details-cell--full">
+				<div class="address-field-wrapper">
+					<v-autocomplete
+						density="compact"
+						clearable
+						auto-select-first
+						variant="outlined"
+						color="primary"
+						:label="__('Address')"
+						v-model="invoiceDoc.shipping_address_name"
+						:items="addresses"
+						item-title="display_title"
+						item-value="name"
+						class="sleek-field pos-themed-input"
+						:no-data-text="__('No saved addresses found')"
+						hide-details
+						:custom-filter="addressFilter"
+					>
+						<template v-slot:item="{ props, item }">
+							<v-list-item v-bind="props">
+								<v-list-item-title class="text-primary text-subtitle-1">
+									<div>{{ (item?.raw && item.raw.address_title) || item.address_title }}</div>
+								</v-list-item-title>
+								<v-list-item-subtitle>
+									<div>{{ (item?.raw && item.raw.address_line1) || item.address_line1 }}</div>
+								</v-list-item-subtitle>
+								<v-list-item-subtitle v-if="(item?.raw && item.raw.address_line2) || item.address_line2">
+									<div>{{ (item?.raw && item.raw.address_line2) || item.address_line2 }}</div>
+								</v-list-item-subtitle>
+								<v-list-item-subtitle v-if="(item?.raw && item.raw.city) || item.city">
+									<div>{{ (item?.raw && item.raw.city) || item.city }}</div>
+								</v-list-item-subtitle>
+								<v-list-item-subtitle v-if="(item?.raw && item.raw.state) || item.state">
+									<div>{{ (item?.raw && item.raw.state) || item.state }}</div>
+								</v-list-item-subtitle>
+								<v-list-item-subtitle v-if="(item?.raw && item.raw.country) || item.country">
+									<div>{{ (item?.raw && item.raw.country) || item.country }}</div>
+								</v-list-item-subtitle>
+								<v-list-item-subtitle v-if="(item?.raw && item.raw.mobile_no) || item.mobile_no">
+									<div>{{ (item?.raw && item.raw.mobile_no) || item.mobile_no }}</div>
+								</v-list-item-subtitle>
+								<v-list-item-subtitle v-if="(item?.raw && item.raw.address_type) || item.address_type">
+									<div>{{ (item?.raw && item.raw.address_type) || item.address_type }}</div>
+								</v-list-item-subtitle>
+							</v-list-item>
+						</template>
+					</v-autocomplete>
+					<v-btn
+						density="compact"
+						variant="tonal"
+						color="primary"
+						class="create-address-btn"
+						icon="mdi-plus"
+						:title="__('Create Address')"
+						:aria-label="__('Create Address')"
+						@click="$emit('new-address')"
+					></v-btn>
+				</div>
+			</div>
+
+			<!-- Additional Notes -->
+			<div v-if="showAdditionalNotes" class="payment-details-cell payment-details-cell--full">
 				<v-textarea
 					class="payment-notes-field sleek-field"
 					variant="outlined"
@@ -94,9 +103,12 @@
 					rows="2"
 					:label="__('Additional Notes')"
 					v-model="invoiceDoc.posa_notes"
+					hide-details
 				></v-textarea>
-			</v-col>
-			<v-col cols="12" md="6" v-if="showAuthorizationCode">
+			</div>
+
+			<!-- Authorization Code -->
+			<div v-if="showAuthorizationCode" class="payment-details-cell">
 				<v-text-field
 					class="sleek-field pos-themed-input"
 					variant="outlined"
@@ -109,8 +121,8 @@
 					autocomplete="off"
 					maxlength="32"
 				></v-text-field>
-			</v-col>
-		</v-row>
+			</div>
+		</div>
 	</div>
 </template>
 
@@ -167,15 +179,40 @@ const showAuthorizationCode = computed(() => parseBooleanSetting(props.posProfil
 </script>
 
 <style scoped>
-.payment-additional-info-row {
+.payment-details-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--payment-space-2, 8px);
 	padding: var(--payment-space-1, 4px);
 }
 
-.payment-notes-field {
-	padding: 0;
+.payment-details-cell {
+	min-width: 0;
+}
+
+.payment-details-cell--full {
+	grid-column: 1 / -1;
+}
+
+.address-field-wrapper {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: var(--payment-space-2, 8px);
+	align-items: center;
+}
+
+.create-address-btn {
+	height: 40px;
+	width: 40px;
 }
 
 .pos-themed-input :deep(.v-field__input) {
 	font-weight: 500;
+}
+
+@media (max-width: 768px) {
+	.payment-details-grid {
+		grid-template-columns: 1fr;
+	}
 }
 </style>

@@ -1,8 +1,8 @@
 <template>
 	<div class="selection-fields">
-		<!-- Sales Person Selection -->
-		<v-row class="payment-selection-row" align="start">
-			<v-col cols="12">
+		<div class="selection-fields-grid">
+			<!-- Sales Person Selection -->
+			<div class="selection-field-cell">
 				<v-select
 					density="compact"
 					clearable
@@ -14,16 +14,16 @@
 					item-title="title"
 					item-value="value"
 					class="sleek-field pos-themed-input"
-					:no-data-text="__('Sales Person not found')"
+					:no-data-text="salesPersonsLoading ? __('Loading Sales Persons...') : __('Sales Person not found')"
+					:loading="salesPersonsLoading"
 					hide-details
 					:disabled="readonly"
 					@update:model-value="$emit('update:sales-person', $event)"
 				></v-select>
-			</v-col>
-		</v-row>
-		<!-- Print Format Selection -->
-		<v-row v-if="showPrintFormat" class="payment-selection-row" align="start">
-			<v-col cols="12">
+			</div>
+
+			<!-- Print Format Selection -->
+			<div v-if="showPrintFormat" class="selection-field-cell">
 				<v-select
 					density="compact"
 					clearable
@@ -35,12 +35,13 @@
 					item-title="title"
 					item-value="value"
 					class="sleek-field pos-themed-input"
-					:no-data-text="__('No Print Formats Found')"
+					:no-data-text="printFormatsLoading ? __('Loading Print Formats...') : __('No Print Formats Found')"
+					:loading="printFormatsLoading"
 					hide-details
 					@update:model-value="$emit('update:print-format', $event)"
 				></v-select>
-			</v-col>
-		</v-row>
+			</div>
+		</div>
 	</div>
 </template>
 
@@ -56,6 +57,10 @@ const props = defineProps({
 		type: String,
 		default: "",
 	},
+	salesPersonsLoading: {
+		type: Boolean,
+		default: false,
+	},
 	readonly: {
 		type: Boolean,
 		default: false,
@@ -67,6 +72,10 @@ const props = defineProps({
 	printFormat: {
 		type: String,
 		default: "",
+	},
+	printFormatsLoading: {
+		type: Boolean,
+		default: false,
 	},
 	showPrintFormat: {
 		type: Boolean,
@@ -114,11 +123,24 @@ const normalizedPrintFormats = computed(() => {
 </script>
 
 <style scoped>
-.payment-selection-row {
-	margin-bottom: var(--payment-space-2, 8px);
+.selection-fields-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--payment-space-2, 8px);
+	padding: var(--payment-space-1, 4px);
+}
+
+.selection-field-cell {
+	min-width: 0;
 }
 
 .pos-themed-input :deep(.v-field__input) {
 	font-weight: 500;
+}
+
+@media (max-width: 599px) {
+	.selection-fields-grid {
+		grid-template-columns: 1fr;
+	}
 }
 </style>

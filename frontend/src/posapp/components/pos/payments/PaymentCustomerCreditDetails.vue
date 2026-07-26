@@ -1,13 +1,13 @@
 <template>
-	<div v-if="invoiceDoc && availableCustomerCredit > 0 && !invoiceDoc.is_return && redeemCustomerCredit">
-		<v-row v-for="(row, idx) in customerCreditDict" :key="idx">
-			<v-col cols="4">
-				<div class="pa-2 py-3">{{ creditSourceLabel(row) }}</div>
-			</v-col>
-			<v-col cols="4">
+	<div v-if="invoiceDoc && availableCustomerCredit > 0 && !invoiceDoc.is_return && redeemCustomerCredit" class="customer-credit-details">
+		<div v-for="(row, idx) in customerCreditDict" :key="idx" class="customer-credit-source">
+			<div class="customer-credit-source__label">
+				{{ creditSourceLabel(row) }}
+			</div>
+			<div class="customer-credit-source__field">
 				<v-text-field
 					density="compact"
-					variant="solo"
+					variant="outlined"
 					color="primary"
 					:label="__('Stored Value Source')"
 					class="sleek-field pos-themed-input"
@@ -16,11 +16,11 @@
 					readonly
 					:prefix="currencySymbol(invoiceDoc.currency)"
 				></v-text-field>
-			</v-col>
-			<v-col cols="4">
+			</div>
+			<div class="customer-credit-source__field">
 				<v-text-field
 					density="compact"
-					variant="solo"
+					variant="outlined"
 					color="primary"
 					:label="__('Apply Stored Value')"
 					class="sleek-field pos-themed-input"
@@ -30,8 +30,8 @@
 					@change="handleCreditToRedeemChange(row, $event)"
 					:prefix="currencySymbol(invoiceDoc.currency)"
 				></v-text-field>
-			</v-col>
-		</v-row>
+			</div>
+		</div>
 	</div>
 </template>
 
@@ -81,7 +81,43 @@ const handleCreditToRedeemChange = (row, event) => {
 </script>
 
 <style scoped>
+.customer-credit-details {
+	display: flex;
+	flex-direction: column;
+	gap: var(--payment-space-2, 8px);
+	padding-top: var(--payment-space-2, 8px);
+}
+
+.customer-credit-source {
+	display: grid;
+	grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+	align-items: center;
+	gap: var(--payment-space-2, 8px);
+	padding: var(--payment-space-1, 4px);
+	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.06));
+	border-radius: var(--payment-radius-sm, 8px);
+	background: var(--pos-surface-raised, #ffffff);
+}
+
+.customer-credit-source__label {
+	font-size: var(--payment-font-label, 11px);
+	font-weight: 600;
+	color: var(--pos-text-primary, #0f172a);
+	padding-inline: 4px;
+	word-break: break-word;
+}
+
+.customer-credit-source__field {
+	min-width: 0;
+}
+
 .pos-themed-input :deep(.v-field__input) {
 	font-weight: 500;
+}
+
+@media (max-width: 599px) {
+	.customer-credit-source {
+		grid-template-columns: 1fr;
+	}
 }
 </style>

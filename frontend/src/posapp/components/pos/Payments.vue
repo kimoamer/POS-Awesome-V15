@@ -444,12 +444,14 @@ const giftCardExpanded = ref(props.viewportMode === "desktop" || props.viewportM
 const orderDetailsExpanded = ref(false);
 const salesReceiptExpanded = ref(false);
 
-watch(() => props.viewportMode, (newMode) => {
-	invoiceSummaryExpanded.value = newMode !== "phone";
-	settlementOptionsExpanded.value = newMode === "desktop" || newMode === "tablet-landscape";
-	loyaltyExpanded.value = newMode === "desktop";
-	giftCardExpanded.value = newMode === "desktop" || newMode === "tablet-landscape";
-});
+const applyDefaultSectionExpansion = (mode = props.viewportMode) => {
+	invoiceSummaryExpanded.value = mode !== "phone";
+	settlementOptionsExpanded.value = mode === "desktop" || mode === "tablet-landscape";
+	loyaltyExpanded.value = mode === "desktop";
+	giftCardExpanded.value = mode === "desktop" || mode === "tablet-landscape";
+	orderDetailsExpanded.value = false;
+	salesReceiptExpanded.value = false;
+};
 
 // State
 const is_return = ref(false);

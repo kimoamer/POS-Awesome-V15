@@ -1,52 +1,70 @@
-# Payment Secondary Flows & POSMate UI Contract
+# POSMate Payment Secondary Flows & Business Contract
 
-This document establishes the permanent inventory and layout contract for all secondary payment sections, customer balances, loyalty, Gift Cards, order fulfillment, receipt options, and responsive dialogs in POSAwesome.
+This document is the authoritative reference for all secondary payment flows, POS Profile permissions, event signatures, and responsive layouts in POSAwesome.
 
-## 1. Feature & Permission Inventory
+## 1. POS Profile Canonical Setting Names
 
-| Component | Feature / Control | POS Profile Condition | Permissions | Event / Emit | Responsive Destination |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `InvoiceTotals.vue` | Net Total, Taxes, Discounts | Always | Cashier | N/A | Summary List |
-| `InvoiceTotals.vue` | Grand Total | Always | Cashier | N/A | Summary List & Collapsed Header Meta |
-| `PaymentOptions.vue` | Credit Sale | `posa_allow_credit_sale` | Cashier | `update-credit-sale` | Settlement Row + Switch |
-| `PaymentOptions.vue` | Credit Due Date | Credit Sale Enabled | Cashier | `update:credit-due-date` | Date Picker |
-| `PaymentOptions.vue` | Write Off Difference | `posa_allow_write_off_change` | Cashier / Supervisor | `toggle-write-off` | Settlement Row + Switch |
-| `PaymentOptions.vue` | Cashback | `posa_allow_cashback` | Cashier | `toggle-cashback` | Settlement Row + Switch |
-| `PaymentCustomerCreditDetails.vue` | Use Customer Balance | `posa_allow_customer_credit` | Cashier | `toggle-customer-credit` | Settlement Row / Balance Block |
-| `PaymentCustomerCreditDetails.vue` | Store Return as Credit | `is_return` active | Cashier | `toggle-return-credit` | Refund Option Row |
-| `PaymentRedemption.vue` | Loyalty Points Redeem | Customer Eligible | Cashier | `redeem-loyalty` | Loyalty Section |
-| `PaymentGiftCardSection.vue` | Gift Card Redeem | Always | Cashier | `open-gift-card`, `redeem-card` | Gift Card Section |
-| `GiftCardDialog.vue` | Issue / Top-Up Gift Card | Always | Supervisor Only | `issue-card`, `topup-card` | Section Menu / Dialog |
-| `PaymentAdditionalInfo.vue` | Delivery Date | `posa_allow_sales_order` | Cashier | `update:newDeliveryDate` | Fulfillment Grid |
-| `PaymentAdditionalInfo.vue` | Return Valid Until | `posa_enable_return_validity` | Cashier | `update:returnValidUptoDate` | Fulfillment Grid |
-| `PaymentAdditionalInfo.vue` | Shipping Address | Delivery Date Set | Cashier | `new-address` | Fulfillment Grid |
-| `PaymentAdditionalInfo.vue` | Additional Notes | `posa_display_additional_notes` | Cashier | N/A | Textarea |
-| `PaymentAdditionalInfo.vue` | Authorization Code | `posa_display_authorization_code` | Cashier | N/A | Text Field |
-| `PaymentPurchaseOrder.vue` | Customer PO & Date | `posa_allow_customer_purchase_order` | Cashier | `update:newPoDate` | Fulfillment Grid |
-| `PaymentSelectionFields.vue` | Sales Person | Always | Cashier | `update:sales-person` | Sales & Receipt Section |
-| `PaymentSelectionFields.vue` | Print Format | `posa_allow_select_print_format_in_payments` | Cashier | `update:print-format` | Sales & Receipt Section |
-| `Mpesa-Payments.vue` | M-Pesa Request / Fetch | `posa_allow_mpesa_payment` | Cashier | `request-payment`, `mpesa-dialog` | M-Pesa Dialog |
+All boolean profile flags MUST be checked using `parseBooleanSetting(profileSetting)`. String `"0"` or `"false"` MUST evaluate to `false`.
+
+| Feature | Canonical POS Profile Setting | Secondary / Fallback Setting |
+| :--- | :--- | :--- |
+| **Credit Sale** | `posa_allow_credit_sale` | N/A |
+| **Write Off Difference** | `posa_allow_write_off_change` | N/A |
+| **Cashback** | `use_cashback` | `posa_allow_cashback` |
+| **Customer Credit** | `use_customer_credit` | `posa_use_customer_credit` |
+| **Loyalty Points** | Customer eligibility / `loyalty_program` | N/A |
+| **Gift Cards** | `posa_allow_gift_cards` | N/A |
+| **Sales Order / Delivery Date** | `posa_allow_sales_order` | N/A |
+| **Return Validity** | `posa_enable_return_validity` | N/A |
+| **Additional Notes** | `posa_display_additional_notes` | N/A |
+| **Authorization Code** | `posa_display_authorization_code` | N/A |
+| **Customer Purchase Order** | `posa_allow_customer_purchase_order` | N/A |
+| **Print Format Selection** | `posa_allow_select_print_format_in_payments` | N/A |
+| **M-Pesa Payment** | `posa_allow_mpesa_payment` | N/A |
 
 ---
 
-## 2. Preserved Events Contract
+## 2. Mandatory Core Event Signatures & Payloads
 
-All of the following 10 core payment events and secondary events MUST be preserved with exact payload structure:
+The following 10 core payment events MUST preserve their exact names, argument order, and payload structure:
 
-- `update-amount(payment, amount)`
-- `set-full-amount(payment, isReturn)`
-- `set-rest-amount(payment, isReturn)`
-- `set-denomination(amount)`
-- `mpesa-dialog`
-- `request-payment(phone, amount)`
-- `open-gift-card`
-- `cancel`
-- `submit`
-- `submit-and-print`
+1. `update-amount(payment, amount)`
+2. `set-full-amount(payment, isReturn)`
+3. `set-rest-amount(payment, isReturn)`
+4. `set-denomination(payment, denomination)`
+5. `mpesa-dialog(payment)`
+6. `request-payment(payment)`
+7. `open-gift-card(payment)`
+8. `cancel()`
+9. `submit()`
+10. `submit-and-print()`
 
 ---
 
-## 3. Responsive Section Expansion Matrix
+## 3. Secondary Flow Emits & Component Contracts
+
+| Component | Event Name | Argument Order & Payload |
+| :--- | :--- | :--- |
+| `PaymentOptions.vue` | `update:isCreditSale` | `(value: boolean)` |
+| `PaymentOptions.vue` | `update:isWriteOffChange` | `(value: boolean)` |
+| `PaymentOptions.vue` | `update:isCashback` | `(value: boolean)` |
+| `PaymentOptions.vue` | `update:isCreditReturn` | `(value: boolean)` |
+| `PaymentOptions.vue` | `update:newCreditDueDate` | `(value: string)` |
+| `PaymentOptions.vue` | `update:creditDueDays` | `(days: number)` |
+| `PaymentOptions.vue` | `update:writeOffAmount` | `(amount: number)` |
+| `PaymentOptions.vue` | `update:redeemCustomerCredit` | `(value: boolean)` |
+| `PaymentOptions.vue` | `get-available-credit` | `(val: boolean)` |
+| `PaymentCustomerCreditDetails.vue` | `set-formatted-currency` | `{ target, field, value }` |
+| `PaymentRedemption.vue` | `set-formatted-currency` | `{ field, value }` |
+| `PaymentGiftCardSection.vue` | `toggle`, `check-balance`, `apply`, `clear` | `()` |
+| `GiftCardDialog.vue` | `set-mode`, `check-balance`, `apply-redemption`, `issue-card`, `top-up-card` | `()` / `(mode)` |
+| `PaymentAdditionalInfo.vue` | `update:newDeliveryDate`, `update:returnValidUptoDate`, `new-address` | `(val)` / `()` |
+| `PaymentPurchaseOrder.vue` | `update:newPoDate` | `(val)` |
+| `PaymentSelectionFields.vue` | `update:sales-person`, `update:print-format` | `(val)` |
+
+---
+
+## 4. Responsive Layout & Expansion Matrix
 
 | Viewport Mode | Invoice Summary | Settlement Options | Loyalty | Gift Card | Order & Fulfillment | Sales & Receipt |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -55,11 +73,4 @@ All of the following 10 core payment events and secondary events MUST be preserv
 | **Tablet Portrait** (`600–899px`) | Expanded | Collapsed | Collapsed | Collapsed | Collapsed | Collapsed |
 | **Phone** (`<600px`) | Collapsed (with Grand Total) | Collapsed | Collapsed | Collapsed | Collapsed | Collapsed |
 
----
-
-## 4. Spacing, Typography & Color Tokens
-
-- Space tokens: `--payment-space-1` (4px), `--payment-space-2` (8px), `--payment-space-3` (12px), `--payment-space-4` (16px).
-- Font hierarchy: Caption `10–11px`, Label `11–12px`, Body/Input `13px`, Section `13–14px`, Title `17px`, Money `18–22px`.
-- Controls height: Desktop `40px`, Tablet `42px`, Phone `44px`.
-- RTL support: Logical CSS properties `padding-inline`, `margin-inline`, `text-align: start`, `<bdi>` wrapper for monetary amounts.
+Default expansion matrix is applied ONCE on payment screen entry; user toggles are preserved and component state is kept intact via `v-show`.

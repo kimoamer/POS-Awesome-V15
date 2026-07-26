@@ -27,7 +27,18 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
-Pass 6.7.3 — Complete Payment Experience, Secondary Flows and Dialogs (Complete ✅).
+Pass 6.7.3.1 — Complete Missing Secondary Flows, Correct Contracts and Runtime Acceptance (Complete ✅).
+
+Scope:
+
+- **Corrected Contract Documentation**: Updated [PAYMENT_SECONDARY_FLOWS_CONTRACT.md](file:///home/frappe/frappe-bench/apps/posawesome/PAYMENT_SECONDARY_FLOWS_CONTRACT.md) with audited core event signatures (`set-denomination(payment, denomination)`, `mpesa-dialog(payment)`, `request-payment(payment)`, `open-gift-card(payment)`) and canonical POS Profile flags checked via `parseBooleanSetting()`.
+- **Invoice Summary Redesign**: Redesigned [InvoiceTotals.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/InvoiceTotals.vue) into semantic rows with tabular numbers, single money formatter, and `<bdi>` wrappers.
+- **Customer Credit Details**: Redesigned [PaymentCustomerCreditDetails.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentCustomerCreditDetails.vue) with `.customer-credit-source` rows, `variant="outlined"` fields, and source label formatting.
+- **Gift Card Dialog & Supervisor Actions**: Updated [GiftCardDialog.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/wallet/GiftCardDialog.vue) with responsive width (`width="min(520px, calc(100vw - 24px))"`) and `variant="outlined"`.
+- **Order & Fulfillment**: Redesigned [PaymentAdditionalInfo.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentAdditionalInfo.vue) and [PaymentPurchaseOrder.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentPurchaseOrder.vue) with responsive CSS Grid (`.payment-details-grid`, `.payment-po-grid`), address create button trigger, and preserved values.
+- **Sales & Receipt Loading States**: Updated [PaymentSelectionFields.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentSelectionFields.vue) with `salesPersonsLoading` and `printFormatsLoading` indicators.
+- **Expansion State Preserved**: Refactored section expansion in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) with `applyDefaultSectionExpansion()` to prevent continuous expansion resets during active user sessions.
+- **Complete Test Matrix**: Added 6 new unit test files (`paymentCustomerCreditUi.spec.ts`, `paymentLoyaltyUi.spec.ts`, `paymentGiftCardUi.spec.ts`, `paymentFulfillmentUi.spec.ts`, `paymentDialogsResponsive.spec.ts`, `paymentCompleteExperience.spec.ts`).
 
 Scope:
 

@@ -1,7 +1,7 @@
 <template>
 	<v-dialog
 		:model-value="modelValue"
-		max-width="520"
+		width="min(520px, calc(100vw - 24px))"
 		@update:model-value="$emit('update:modelValue', $event)"
 	>
 		<v-card class="gift-card-dialog">
@@ -58,9 +58,10 @@
 				<v-text-field
 					:model-value="cardCode"
 					:label="__('Gift Card Code')"
-					variant="solo"
+					variant="outlined"
 					density="compact"
 					hide-details
+					class="sleek-field pos-themed-input"
 					@update:model-value="$emit('update:cardCode', $event)"
 				/>
 
@@ -83,9 +84,10 @@
 					v-if="mode === 'redeem'"
 					:model-value="redeemAmount"
 					:label="__('Redeem Amount')"
-					variant="solo"
+					variant="outlined"
 					density="compact"
 					hide-details
+					class="sleek-field pos-themed-input"
 					@update:model-value="$emit('update:redeemAmount', $event)"
 				/>
 
@@ -93,9 +95,10 @@
 					v-else
 					:model-value="redeemAmount"
 					:label="mode === 'issue' ? __('Initial Amount') : __('Top Up Amount')"
-					variant="solo"
+					variant="outlined"
 					density="compact"
 					hide-details
+					class="sleek-field pos-themed-input"
 					@update:model-value="$emit('update:redeemAmount', $event)"
 				/>
 
