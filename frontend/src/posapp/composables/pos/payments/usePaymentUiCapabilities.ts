@@ -10,6 +10,7 @@ export interface PaymentUiCapabilitiesParams {
 	currentCashier?: Ref<any>;
 	isCashback?: Ref<any>;
 	isCreditSale?: Ref<any>;
+	returnSettlementMode?: Ref<string>;
 }
 
 export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
@@ -22,6 +23,7 @@ export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
 		currentCashier,
 		isCashback,
 		isCreditSale,
+		returnSettlementMode,
 	} = params;
 
 	const isReturn = computed(() => Boolean(invoiceDoc.value?.is_return));
@@ -71,7 +73,11 @@ export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
 	});
 
 	const allowReturnPaymentMethods = computed(() => {
-		return isReturn.value && Boolean(isCashback?.value ?? true);
+		if (!isReturn.value) return false;
+		if (returnSettlementMode?.value) {
+			return returnSettlementMode.value === "cashback";
+		}
+		return Boolean(isCashback?.value ?? true);
 	});
 
 	const showPaymentMethods = computed(() => {

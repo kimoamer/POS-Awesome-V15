@@ -49,11 +49,16 @@
 			data-pos-keyboard-target="payment-submit"
 			@click="$emit('submit')"
 			:loading="loading"
-			:disabled="loading || validatePayment"
+			:disabled="loading || validatePayment || !!configurationError"
 			:class="{ 'submit-highlight': highlightSubmit }"
 		>
 			{{ __("Submit") }}
 		</v-btn>
+
+		<div v-if="configurationError" class="payment-config-error-banner">
+			<v-icon size="14" color="error">mdi-alert-circle</v-icon>
+			<span class="payment-config-error-text">{{ configurationError }}</span>
+		</div>
 	</div>
 
 	<div v-else :class="['payment-action-buttons', `payment-action-buttons--${viewportMode}`, { compact }]">
@@ -77,7 +82,7 @@
 			data-pos-keyboard-target="payment-submit"
 			@click="$emit('submit')"
 			:loading="loading"
-			:disabled="loading || validatePayment"
+			:disabled="loading || validatePayment || !!configurationError"
 			:class="{ 'submit-highlight': highlightSubmit }"
 		>
 			{{ __("Submit") }}
@@ -90,10 +95,15 @@
 			data-pos-keyboard-target="payment-submit-print"
 			@click="$emit('submit-and-print')"
 			:loading="loading"
-			:disabled="loading || validatePayment"
+			:disabled="loading || validatePayment || !!configurationError"
 		>
 			{{ __("Submit & Print") }}
 		</v-btn>
+
+		<div v-if="configurationError" class="payment-config-error-banner payment-config-error-banner--wide">
+			<v-icon size="14" color="error">mdi-alert-circle</v-icon>
+			<span class="payment-config-error-text">{{ configurationError }}</span>
+		</div>
 	</div>
 </template>
 
@@ -106,6 +116,10 @@ defineProps({
 	viewportMode: {
 		type: String,
 		default: "desktop",
+	},
+	configurationError: {
+		type: String,
+		default: "",
 	},
 });
 
@@ -214,5 +228,24 @@ const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?
 :deep(.payment-footer-btn .v-btn__underlay) {
 	opacity: 0 !important;
 	background: transparent !important;
+}
+
+.payment-config-error-banner {
+	grid-column: 1 / -1;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 10px;
+	border-radius: 6px;
+	background: rgba(var(--v-theme-error, 220, 38, 38), 0.08);
+	border: 1px solid rgba(var(--v-theme-error, 220, 38, 38), 0.25);
+	margin-top: 2px;
+}
+
+.payment-config-error-text {
+	font-size: 11px;
+	font-weight: 600;
+	color: rgb(var(--v-theme-error, 220, 38, 38));
+	line-height: 1.3;
 }
 </style>

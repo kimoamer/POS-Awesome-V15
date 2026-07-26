@@ -197,8 +197,8 @@
 							:format-currency="formatCurrency"
 							@update:is-write-off-change="is_write_off_change = $event"
 							@update:is-credit-sale="is_credit_sale = $event"
-							@update:is-cashback="is_cashback = $event"
-							@update:is-credit-return="is_credit_return = $event"
+							@update:is-cashback="returnSettlementMode = $event ? RETURN_SETTLEMENT_MODES.CASHBACK : (capabilities.allowStoreAsCredit.value ? RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT : RETURN_SETTLEMENT_MODES.NONE)"
+							@update:is-credit-return="returnSettlementMode = $event ? RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT : (capabilities.allowCashback.value ? RETURN_SETTLEMENT_MODES.CASHBACK : RETURN_SETTLEMENT_MODES.NONE)"
 							@update:new-credit-due-date="
 								(val) => {
 									new_credit_due_date = val;
@@ -321,6 +321,7 @@
 				:validatePayment="validatePayment"
 				:highlightSubmit="highlightSubmit"
 				:compact="dialogMode"
+				:configuration-error="returnSettlementConfigurationError"
 				@submit="submit"
 				@submit-and-print="submit(undefined, false, true)"
 				@cancel="back_to_invoice"
@@ -367,7 +368,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount, getCurrentInstance, nextTick } from "vue";
+import { ref, computed, watch, watchEffect, onMounted, onBeforeUnmount, getCurrentInstance, nextTick } from "vue";
 import { storeToRefs } from "pinia";
 
 // Component Shell Wrappers
@@ -519,6 +520,20 @@ const sales_person = ref("");
 const is_credit_return = ref(false);
 const customer_info = ref("");
 
+const RETURN_SETTLEMENT_MODES = Object.freeze({
+	CASHBACK: "cashback",
+	CUSTOMER_CREDIT: "customer-credit",
+	NONE: "none",
+});
+
+const returnSettlementMode = ref(RETURN_SETTLEMENT_MODES.NONE);
+
+// Sync compatibility refs derived from returnSettlementMode
+watchEffect(() => {
+	is_cashback.value = returnSettlementMode.value === RETURN_SETTLEMENT_MODES.CASHBACK;
+	is_credit_return.value = returnSettlementMode.value === RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT;
+});
+
 const capabilities = usePaymentUiCapabilities({
 	posProfile: pos_profile,
 	posSettings: pos_settings,
@@ -528,6 +543,26 @@ const capabilities = usePaymentUiCapabilities({
 	currentCashier,
 	isCashback: is_cashback,
 	isCreditSale: is_credit_sale,
+	returnSettlementMode: returnSettlementMode,
+});
+
+const allowedReturnSettlementModes = computed(() => {
+	const modes = [];
+	if (capabilities.allowCashback.value) modes.push(RETURN_SETTLEMENT_MODES.CASHBACK);
+	if (capabilities.allowStoreAsCredit.value) modes.push(RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT);
+	return modes;
+});
+
+const returnSettlementConfigurationError = computed(() => {
+	if (!invoice_doc.value?.is_return) {
+		return "";
+	}
+	if (allowedReturnSettlementModes.value.length > 0) {
+		return "";
+	}
+	return __(
+		"No return settlement method is enabled for this POS Profile. Enable Cashback or Customer Credit before submitting this return.",
+	);
 });
 const print_format = ref("");
 const print_formats = ref([]);
@@ -847,10 +882,18 @@ const { ensureReturnPaymentsAreNegative, restoreReturnPayments, validateSubmissi
 	});
 
 const isGiftCardConfiguredRow = (payment) => {
-	return String(payment?.mode_of_payment || "")
-		.trim()
-		.toLowerCase()
-		.includes("gift");
+	if (!payment) return false;
+	if (payment.type === "Gift Card" || payment.is_gift_card || payment.gift_card || payment.type_of_payment === "Gift Card") {
+		return true;
+	}
+	const profilePayments = Array.isArray(pos_profile.value?.payments) ? pos_profile.value.payments : [];
+	const matchedProfile = profilePayments.find(
+		(p) => String(p.mode_of_payment || "").trim().toLowerCase() === String(payment.mode_of_payment || "").trim().toLowerCase(),
+	);
+	if (matchedProfile && (matchedProfile.type === "Gift Card" || matchedProfile.is_gift_card || matchedProfile.gift_card)) {
+		return true;
+	}
+	return String(payment.mode_of_payment || "").trim().toLowerCase().includes("gift");
 };
 
 const isGiftCardPayment = (payment) => {
@@ -898,6 +941,7 @@ const resetGiftCardState = ({ clearPayment = false } = {}) => {
 };
 
 const setGiftCardMode = (mode) => {
+	if (!capabilities.allowGiftCards.value) return;
 	giftCardMode.value = mode || "redeem";
 	giftCardError.value = "";
 };
@@ -916,6 +960,7 @@ const getGiftCardRemainingAmount = () => {
 };
 
 const clearGiftCardRedemption = () => {
+	if (!capabilities.allowGiftCards.value) return;
 	if (activeGiftCardPayment.value) {
 		activeGiftCardPayment.value.amount = 0;
 		if (activeGiftCardPayment.value.base_amount !== undefined) {
@@ -933,6 +978,7 @@ const clearGiftCardRedemption = () => {
 };
 
 const toggleGiftCardInline = () => {
+	if (!capabilities.allowGiftCards.value) return;
 	giftCardInlineExpanded.value = !giftCardInlineExpanded.value;
 	activeGiftCardPayment.value = null;
 	if (giftCardInlineExpanded.value) {
@@ -1163,6 +1209,14 @@ const loadCustomerCredit = async (useCreditArg) => {
 	}
 };
 
+// Pure Async Data Fetchers
+const fetchSalesPersonsData = async () => {
+	const response = await frappe.call({
+		method: "posawesome.posawesome.api.posapp.get_sales_person_names",
+	});
+	return Array.isArray(response?.message) ? response.message : [];
+};
+
 let salesPersonsRequestId = 0;
 const loadSalesPersons = async ({ force = false } = {}) => {
 	if (!shouldLoadSalesPersons()) return;
@@ -1170,11 +1224,13 @@ const loadSalesPersons = async ({ force = false } = {}) => {
 	if (salesPersonsLoaded.value && !force) return;
 
 	const reqId = ++salesPersonsRequestId;
+	const activeProfileName = String(pos_profile.value?.name || "");
 	salesPersonsLoading.value = true;
 	salesPersonsError.value = "";
 	try {
-		await get_sales_person_names();
-		if (reqId !== salesPersonsRequestId) return;
+		const persons = await fetchSalesPersonsData();
+		if (reqId !== salesPersonsRequestId || String(pos_profile.value?.name || "") !== activeProfileName) return;
+		sales_persons.value = persons;
 		salesPersonsLoaded.value = true;
 	} catch (error) {
 		if (reqId === salesPersonsRequestId) {
@@ -1187,6 +1243,26 @@ const loadSalesPersons = async ({ force = false } = {}) => {
 	}
 };
 
+const fetchPrintFormatsData = async (profile, invoiceTypeValue) => {
+	const doctypes = resolvePaymentPrintFormatDoctypes({
+		profile,
+		invoiceType: invoiceTypeValue,
+	});
+	const responses = await Promise.all(
+		doctypes.map((doctype) =>
+			frappe.call({
+				method: "posawesome.posawesome.api.print_formats.get_print_formats",
+				args: { doctype },
+			}),
+		),
+	);
+	const mergedFormats = responses
+		.flatMap((response) => response?.message || [])
+		.map((pf) => (typeof pf === "object" && pf.name ? pf.name : pf))
+		.filter(Boolean);
+	return Array.from(new Set(mergedFormats));
+};
+
 let printFormatsRequestId = 0;
 const loadPrintFormats = async ({ force = false } = {}) => {
 	if (!shouldLoadPrintFormats()) return;
@@ -1194,11 +1270,14 @@ const loadPrintFormats = async ({ force = false } = {}) => {
 	if (printFormatsLoaded.value && !force) return;
 
 	const reqId = ++printFormatsRequestId;
+	const activeProfileName = String(pos_profile.value?.name || "");
 	printFormatsLoading.value = true;
 	printFormatsError.value = "";
 	try {
-		await get_print_formats();
-		if (reqId !== printFormatsRequestId) return;
+		const formats = await fetchPrintFormatsData(pos_profile.value, invoiceType.value);
+		if (reqId !== printFormatsRequestId || String(pos_profile.value?.name || "") !== activeProfileName) return;
+		print_formats.value = formats;
+		set_print_format();
 		printFormatsLoaded.value = true;
 	} catch (error) {
 		if (reqId === printFormatsRequestId) {
@@ -1209,6 +1288,16 @@ const loadPrintFormats = async ({ force = false } = {}) => {
 			printFormatsLoading.value = false;
 		}
 	}
+};
+
+const fetchAddressesData = async (customerName) => {
+	if (!customerName) return [];
+	const response = await frappe.call({
+		method: "posawesome.posawesome.api.posapp.get_customer_addresses",
+		args: { customer: customerName },
+	});
+	const rawAddrs = response?.message || [];
+	return rawAddrs.map((addr) => normalizeAddress(addr)).filter(Boolean);
 };
 
 let addressesRequestId = 0;
@@ -1223,8 +1312,9 @@ const loadAddresses = async ({ force = false } = {}) => {
 	addressesLoading.value = true;
 	addressesError.value = "";
 	try {
-		await get_addresses();
+		const result = await fetchAddressesData(reqCustomer);
 		if (reqId !== addressesRequestId || String(invoice_doc.value?.customer || "") !== reqCustomer) return;
+		addresses.value = result;
 		addressesLoaded.value = true;
 	} catch (error) {
 		if (reqId === addressesRequestId) {
@@ -1237,36 +1327,6 @@ const loadAddresses = async ({ force = false } = {}) => {
 	}
 };
 
-const get_print_formats = async () => {
-	const doctypes = resolvePaymentPrintFormatDoctypes({
-		profile: pos_profile.value,
-		invoiceType: invoiceType.value,
-	});
-
-	try {
-		const responses = await Promise.all(
-			doctypes.map((doctype) =>
-				frappe.call({
-					method: "posawesome.posawesome.api.print_formats.get_print_formats",
-					args: { doctype },
-				}),
-			),
-		);
-
-		const mergedFormats = responses
-			.flatMap((response) => response?.message || [])
-			.map((pf) => (typeof pf === "object" && pf.name ? pf.name : pf))
-			.filter(Boolean);
-
-		print_formats.value = Array.from(new Set(mergedFormats));
-		set_print_format();
-	} catch (error) {
-		console.error("Failed to fetch payment print formats", error);
-		print_formats.value = [];
-		set_print_format();
-		throw error;
-	}
-};
 
 const set_print_format = () => {
 	print_format.value = resolvePaymentPrintFormat({
@@ -1550,23 +1610,30 @@ const ensurePaymentLinesInitialized = (doc = invoice_doc.value) => {
 // original) set when the return is loaded; if unknown we leave behaviour as is.
 const applyReturnCreditDefault = (doc) => {
 	if (!doc || !doc.is_return) {
+		returnSettlementMode.value = RETURN_SETTLEMENT_MODES.NONE;
 		return;
 	}
-	if (!capabilities.showStoreAsCredit.value) {
-		is_credit_return.value = false;
-		is_cashback.value = capabilities.showCashback.value;
+	const allowed = allowedReturnSettlementModes.value;
+	if (allowed.length === 0) {
+		returnSettlementMode.value = RETURN_SETTLEMENT_MODES.NONE;
+		return;
+	}
+	if (!capabilities.allowStoreAsCredit.value) {
+		returnSettlementMode.value = RETURN_SETTLEMENT_MODES.CASHBACK;
+		return;
+	}
+	if (!capabilities.allowCashback.value) {
+		returnSettlementMode.value = RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT;
 		return;
 	}
 	if (!shouldApplyReturnRefundCap(doc)) {
-		is_credit_return.value = false;
-		is_cashback.value = capabilities.showCashback.value;
+		returnSettlementMode.value = RETURN_SETTLEMENT_MODES.CASHBACK;
 		return;
 	}
 	const refundable = doc.posa_refundable_amount;
 	const returnTotal = Math.abs(flt(doc.rounded_total || doc.grand_total, currency_precision.value));
 	const shouldCredit = flt(refundable, currency_precision.value) < returnTotal - 0.0001;
-	is_credit_return.value = shouldCredit;
-	is_cashback.value = shouldCredit ? false : capabilities.showCashback.value;
+	returnSettlementMode.value = shouldCredit ? RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT : RETURN_SETTLEMENT_MODES.CASHBACK;
 };
 
 const restorePaymentLinesAfterFailedSubmit = () => {
@@ -1962,23 +2029,108 @@ const assertPaymentFeatureInvariants = () => {
 		if (invoice_doc.value) invoice_doc.value.write_off_amount = 0;
 	}
 	if (!capabilities.showCustomerCreditRedemption.value) {
-		redeem_customer_credit.value = false;
-		redeemed_customer_credit.value = 0;
-	}
-	if (!capabilities.showStoreAsCredit.value) {
-		is_credit_return.value = false;
-	}
-	if (!capabilities.showLoyaltyRedemption.value) {
-		loyalty_amount.value = 0;
-		if (invoice_doc.value) {
-			invoice_doc.value.loyalty_amount = 0;
-			invoice_doc.value.redeem_loyalty_points = 0;
+		if (redeem_customer_credit.value || redeemed_customer_credit.value > 0) {
+			const freedCredit = redeemed_customer_credit.value;
+			redeem_customer_credit.value = false;
+			redeemed_customer_credit.value = 0;
+			customer_credit_dict.value = [];
+			if (freedCredit > 0) {
+				rebalancePreferredPaymentCoverage(freedCredit);
+			}
 		}
 	}
-	if (invoice_doc.value?.is_return && !capabilities.showCashback.value && !capabilities.showStoreAsCredit.value) {
-		is_cashback.value = false;
-		is_credit_return.value = false;
+	if (!capabilities.showStoreAsCredit.value) {
+		if (returnSettlementMode.value === RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT) {
+			returnSettlementMode.value = capabilities.allowCashback.value
+				? RETURN_SETTLEMENT_MODES.CASHBACK
+				: RETURN_SETTLEMENT_MODES.NONE;
+		}
 	}
+	if (!capabilities.showGiftCards.value) {
+		if (giftCardRedemptions.value.length > 0) {
+			const freedGift = giftCardAppliedAmount.value;
+			resetGiftCardState({ clearPayment: true });
+			if (freedGift > 0) {
+				rebalancePreferredPaymentCoverage(freedGift);
+			}
+		}
+	}
+	if (!capabilities.showLoyaltyRedemption.value) {
+		if (loyalty_amount.value > 0) {
+			const freedLoyalty = loyalty_amount.value;
+			loyalty_amount.value = 0;
+			if (invoice_doc.value) {
+				invoice_doc.value.loyalty_amount = 0;
+				invoice_doc.value.redeem_loyalty_points = 0;
+			}
+			if (freedLoyalty > 0) {
+				rebalancePreferredPaymentCoverage(freedLoyalty);
+			}
+		}
+	}
+	if (invoice_doc.value?.is_return && returnSettlementConfigurationError.value) {
+		throw new Error(returnSettlementConfigurationError.value);
+	}
+};
+
+const reconcilePaymentRowsForProfile = (doc, newProfile) => {
+	if (!doc || !Array.isArray(doc.payments)) return;
+	const profilePayments = Array.isArray(newProfile?.payments) ? newProfile.payments : [];
+	const allowedModesMap = new Map(
+		profilePayments.map((p) => [String(p.mode_of_payment || "").trim().toLowerCase(), p]),
+	);
+
+	const removedPayments = [];
+	doc.payments = doc.payments.filter((p) => {
+		const key = String(p.mode_of_payment || "").trim().toLowerCase();
+		if (allowedModesMap.has(key)) return true;
+		if (capabilities.allowGiftCards.value && isGiftCardConfiguredRow(p)) return true;
+		removedPayments.push(p);
+		return false;
+	});
+
+	// If removed payment rows controlled an open dialog, close it
+	if (removedPayments.some((p) => p.is_mpesa_c2b || String(p.mode_of_payment || "").toLowerCase().includes("mpesa"))) {
+		if (mpesa_c2b_dialog) mpesa_c2b_dialog.value = false;
+	}
+	if (removedPayments.some((p) => p.request_for_payment || String(p.mode_of_payment || "").toLowerCase().includes("phone"))) {
+		if (phone_dialog) phone_dialog.value = false;
+	}
+	if (removedPayments.some((p) => isGiftCardConfiguredRow(p))) {
+		resetGiftCardState({ clearPayment: true });
+	}
+
+	// Preserve metadata and update profile configuration on remaining rows
+	doc.payments.forEach((p) => {
+		const key = String(p.mode_of_payment || "").trim().toLowerCase();
+		const matched = allowedModesMap.get(key);
+		if (matched) {
+			p.account = matched.default_account || matched.account || p.account || "";
+			p.type = matched.type || p.type || "";
+			p.default = matched.default ?? p.default ?? 0;
+			if (matched.is_mpesa_c2b !== undefined) p.is_mpesa_c2b = matched.is_mpesa_c2b;
+			if (matched.request_for_payment !== undefined) p.request_for_payment = matched.request_for_payment;
+		}
+	});
+
+	// Add missing payment modes from the new profile with zero amount
+	profilePayments.forEach((p) => {
+		const key = String(p.mode_of_payment || "").trim().toLowerCase();
+		if (!doc.payments.some((existing) => String(existing.mode_of_payment || "").trim().toLowerCase() === key)) {
+			doc.payments.push({
+				mode_of_payment: p.mode_of_payment,
+				amount: 0,
+				base_amount: 0,
+				account: p.default_account || p.account || "",
+				type: p.type || "",
+				default: p.default || 0,
+				is_mpesa_c2b: p.is_mpesa_c2b || false,
+				request_for_payment: p.request_for_payment || false,
+			});
+		}
+	});
+
+	ensurePaymentLinesInitialized(doc);
 };
 
 const submitInvoiceWrapper = async (print, callbackOverrides = {}, options = {}) => {
@@ -1986,10 +2138,10 @@ const submitInvoiceWrapper = async (print, callbackOverrides = {}, options = {})
 		return;
 	}
 
-	assertPaymentFeatureInvariants();
 	submissionInFlight.value = true;
 	loading.value = true;
 	try {
+		assertPaymentFeatureInvariants();
 		await validateSubmission(options.paymentReceived || false);
 		await submitInvoice(print, {
 			onPrint: (doc, printOptions = {}) => {
@@ -2015,9 +2167,8 @@ const submitInvoiceWrapper = async (print, callbackOverrides = {}, options = {})
 			onSuccess: () => {
 				customer_credit_dict.value = [];
 				redeem_customer_credit.value = false;
-				is_cashback.value = true;
+				returnSettlementMode.value = RETURN_SETTLEMENT_MODES.NONE;
 				show_change_dialog.value = true;
-				is_credit_return.value = false;
 				sales_person.value = "";
 			},
 			onFinishNavigation: (clearInvoice) => {
@@ -2135,8 +2286,9 @@ watch(
 		if (p) {
 			pos_profile.value = p;
 			stock_settings.value = uiStore.stockSettings || {};
+			reconcilePaymentRowsForProfile(invoice_doc.value, p);
 			get_mpesa_modes();
-			get_print_formats();
+			loadPrintFormats({ force: true });
 			resetGiftCardState({ clearPayment: true });
 		}
 	},
@@ -2146,7 +2298,7 @@ watch(
 watch(
 	invoiceType,
 	(data) => {
-		get_print_formats();
+		loadPrintFormats({ force: true });
 		if (invoice_doc.value && data !== "Order") {
 			invoice_doc.value.posa_delivery_date = null;
 			invoice_doc.value.posa_notes = null;
@@ -2160,12 +2312,12 @@ watch(
 			invoice_doc.value.is_return = 1;
 			ensureReturnPaymentsAreNegative();
 			is_return.value = true;
-			is_credit_return.value = false;
+			applyReturnCreditDefault(invoice_doc.value);
 			return_valid_upto_date.value = null;
 		} else if (invoice_doc.value) {
 			invoice_doc.value.is_return = 0;
 			is_return.value = false;
-			is_credit_return.value = false;
+			returnSettlementMode.value = RETURN_SETTLEMENT_MODES.NONE;
 			return_valid_upto_date.value = null;
 			restoreReturnPayments();
 		}
@@ -2307,7 +2459,8 @@ watch(is_credit_sale, (newVal) => {
 watch(is_credit_return, (newVal) => {
 	if (!invoice_doc.value) return;
 	if (newVal) {
-		is_cashback.value = false;
+		// is_credit_return is now derived from returnSettlementMode,
+		// so no need to set is_cashback here – the watchEffect handles it.
 		invoice_doc.value.payments.forEach((payment) => {
 			payment.amount = 0;
 			if (payment.base_amount !== undefined) {
@@ -2315,7 +2468,6 @@ watch(is_credit_return, (newVal) => {
 			}
 		});
 	} else {
-		is_cashback.value = capabilities.showCashback.value;
 		ensureReturnPaymentsAreNegative();
 	}
 });
@@ -2389,8 +2541,7 @@ const handleCustomerContextChange = (newCustomer, oldCustomer) => {
 
 	customer_credit_dict.value = [];
 	redeem_customer_credit.value = false;
-	is_cashback.value = capabilities.showCashback.value;
-	is_credit_return.value = false;
+	returnSettlementMode.value = RETURN_SETTLEMENT_MODES.NONE;
 	loyalty_amount.value = 0;
 	resetGiftCardState({ clearPayment: true });
 
@@ -2453,7 +2604,7 @@ onMounted(() => {
 				is_return.value = true;
 				// is_credit_return default was applied above on load; don't override.
 			} else if (initializedPayment) {
-				is_credit_return.value = false;
+				returnSettlementMode.value = RETURN_SETTLEMENT_MODES.NONE;
 			}
 			initializeReturnValidity(doc);
 			loyalty_amount.value = 0;
@@ -2497,11 +2648,17 @@ onMounted(() => {
 				redeem_customer_credit.value = false;
 				redeemed_customer_credit.value = 0;
 				customer_credit_dict.value = [];
-				is_credit_return.value = false;
+				if (returnSettlementMode.value === RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT) {
+					returnSettlementMode.value = capabilities.allowCashback.value
+						? RETURN_SETTLEMENT_MODES.CASHBACK
+						: RETURN_SETTLEMENT_MODES.NONE;
+				}
 			}
 
-			if (!capabilities.showCashback.value && !is_credit_return.value) {
-				is_cashback.value = false;
+			if (!capabilities.showCashback.value && returnSettlementMode.value === RETURN_SETTLEMENT_MODES.CASHBACK) {
+				returnSettlementMode.value = capabilities.allowStoreAsCredit.value
+					? RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT
+					: RETURN_SETTLEMENT_MODES.NONE;
 			}
 
 			if (!capabilities.showGiftCards.value) {
@@ -2538,6 +2695,7 @@ onMounted(() => {
 			}
 		});
 		eventBus.on("set_mpesa_payment", (data) => {
+			if (!capabilities.showPaymentMethods.value) return;
 			set_mpesa_payment(data);
 		});
 		eventBus.on("queue_submit_payment_shortcut", queueShortcutSubmit);
@@ -2546,7 +2704,7 @@ onMounted(() => {
 			invoiceStore.clear();
 			invoiceStore.resetPostingDate();
 			is_return.value = false;
-			is_credit_return.value = false;
+			returnSettlementMode.value = RETURN_SETTLEMENT_MODES.NONE;
 			return_valid_upto_date.value = null;
 			resetGiftCardState({ clearPayment: true });
 		});
