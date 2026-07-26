@@ -1,5 +1,5 @@
 <template>
-	<header class="payment-screen-header">
+	<header :class="['payment-screen-header', `payment-screen-header--${viewportMode}`]">
 		<div class="payment-screen-header__leading">
 			<v-btn
 				icon
@@ -64,6 +64,7 @@
 <script setup lang="ts">
 interface Props {
 	dialogMode?: boolean;
+	viewportMode?: string;
 	invoiceDoc?: any;
 	customerInfo?: any;
 	invoiceType?: string;
@@ -72,6 +73,7 @@ interface Props {
 
 withDefaults(defineProps<Props>(), {
 	dialogMode: false,
+	viewportMode: "desktop",
 	invoiceDoc: () => ({}),
 	customerInfo: () => ({}),
 	invoiceType: "Invoice",
@@ -90,40 +92,71 @@ const __ = (window as any).__ || ((s: string) => s);
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 12px 16px;
+	padding-inline: 12px;
 	background: var(--pos-card-bg, var(--pos-surface-raised, #ffffff));
 	border-bottom: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
+	min-height: 64px;
+}
+
+.payment-screen-header--desktop {
+	min-height: 64px;
+	padding-inline: 14px;
+}
+
+.payment-screen-header--desktop .payment-screen-header__title {
+	font-size: 18px;
+}
+
+.payment-screen-header--tablet-landscape,
+.payment-screen-header--tablet-portrait {
 	min-height: 56px;
+	padding-inline: 10px;
+}
+
+.payment-screen-header--tablet-landscape .payment-screen-header__title,
+.payment-screen-header--tablet-portrait .payment-screen-header__title {
+	font-size: 17px;
+}
+
+.payment-screen-header--phone {
+	min-height: 54px;
+	padding-inline: 8px;
+}
+
+.payment-screen-header--phone .payment-screen-header__title {
+	font-size: 16px;
 }
 
 .payment-screen-header__leading {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 8px;
 }
 
 .payment-screen-header__back-btn {
 	color: var(--pos-text-primary, #0f172a) !important;
-	border-radius: var(--pos-radius-sm, 8px);
+	border-radius: var(--payment-radius-sm, 8px);
+	min-width: 44px;
+	min-height: 44px;
 }
 
 .payment-screen-header__title-group {
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
+	gap: 1px;
 }
 
 .payment-screen-header__title {
 	margin: 0;
 	font-size: 1.125rem;
 	font-weight: 700;
-	line-height: 1.25;
+	line-height: 1.2;
 	color: var(--pos-text-primary, #0f172a);
 }
 
 .payment-screen-header__subtitle {
 	margin: 0;
-	font-size: 0.8125rem;
+	font-size: 11px;
 	font-weight: 500;
 	color: var(--pos-text-secondary, #64748b);
 }
@@ -131,7 +164,7 @@ const __ = (window as any).__ || ((s: string) => s);
 .payment-screen-header__trailing {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 6px;
 }
 
 .payment-screen-header__badge {

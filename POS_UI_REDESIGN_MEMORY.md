@@ -27,6 +27,19 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.7.1.8 — Responsive Mode Wiring and Premium Density Acceptance (Complete ✅).
+
+Scope:
+
+- **Declared and Validated `viewportMode` Prop**: Updated [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) to accept `viewportMode` prop with validator (`phone`, `tablet-portrait`, `tablet-landscape`, `desktop`).
+- **Real Root Mode Classes**: Configured root element in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) to output `payment-shell--phone`, `payment-shell--tablet-portrait`, `payment-shell--tablet-landscape`, and `payment-shell--desktop`.
+- **CSS Design Tokens**: Defined `--payment-space-1..4`, `--payment-radius-sm..lg`, `--payment-font-*`, `--payment-icon-*`, `--payment-control-*` tokens in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue).
+- **Removed Deep Section Shell Overrides**: Removed `:deep(.payment-section-shell__header)` and `:deep(.payment-section-shell__body)` overrides from [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue), restoring [PaymentSectionShell.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentSectionShell.vue) as single authority.
+- **Rebuilt `PaymentMethods.vue` Layout**: Removed Vuetify `v-row`/`v-col` grid utilities from [PaymentMethods.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentMethods.vue) in favor of semantic `.payment-method-card__main` CSS grid.
+- **Device-Aware Action Footer**: Updated [PaymentActionButtons.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentActionButtons.vue) to render `[ More ] [ Cancel ] [ Submit ]` on `phone` mode with `Submit & Print` inside an action menu.
+- **Device-Aware Header**: Updated [PaymentScreenHeader.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentScreenHeader.vue) with mode classes for height and typography.
+- **Automated Tests**: Updated [paymentResponsiveLayout.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentResponsiveLayout.spec.ts).
+
 Pass 6.7.1.7 — Premium Responsive Payment UI System (Complete ✅).
 
 Scope:

@@ -2,7 +2,7 @@
 	<div v-if="payments && payments.length" class="payment-methods">
 		<div v-for="payment in payments" :key="payment.name" class="payment-method-card">
 			<div class="payment-method-card__header">
-				<div class="d-flex align-center gap-2">
+				<div class="payment-method-card__identity">
 					<span class="payment-method-card__icon-box">
 						<v-icon size="16">{{ getPaymentMethodIcon(payment) }}</v-icon>
 					</span>
@@ -24,8 +24,8 @@
 				</div>
 			</div>
 
-			<v-row class="payments ma-0" dense>
-				<v-col cols="12" md="7" v-if="!isMpesaC2bPayment(payment)">
+			<div class="payment-method-card__main" v-if="!isMpesaC2bPayment(payment)">
+				<div class="payment-method-card__amount">
 					<v-text-field
 						data-pos-keyboard-target="payment-amount"
 						density="compact"
@@ -45,79 +45,73 @@
 						@keydown.esc="blurTarget"
 						:readonly="isGiftCardPayment(payment)"
 					></v-text-field>
-				</v-col>
-				<v-col cols="12" md="5" v-if="!isMpesaC2bPayment(payment)">
-					<div class="payment-method-actions">
-						<v-btn
-							block
-							color="primary"
-							variant="flat"
-							class="payment-method-action-btn"
-							data-pos-keyboard-target="payment-action"
-							:data-test="`payment-method-action-${payment.mode_of_payment}`"
-							@click="handlePrimaryAction(payment)"
-						>
-							{{ isGiftCardPayment(payment) ? __("Redeem / Scan") : __("Set Remaining") }}
-						</v-btn>
-					</div>
-				</v-col>
+				</div>
 
-				<v-col
-					cols="12"
-					v-if="
-						payment.default === 1 &&
-						isCashLikePayment(payment) &&
-						getVisibleDenominations(payment).length
-					"
-					class="pa-0"
-				>
-					<div class="payment-denominations">
-						<v-btn
-							v-for="d in getVisibleDenominations(payment)"
-							:key="d"
-							size="small"
-							color="secondary"
-							variant="tonal"
-							class="payment-denominations__btn"
-							data-pos-keyboard-target="payment-denomination"
-							@click="$emit('set-denomination', payment, d)"
-						>
-							{{ formatCurrency(d) }}
-						</v-btn>
-					</div>
-				</v-col>
-
-				<v-col cols="12" v-if="isMpesaC2bPayment(payment)" class="pa-0">
+				<div class="payment-method-card__primary-action">
 					<v-btn
 						block
-						color="success"
+						color="primary"
 						variant="flat"
-						class="payment-method-action-btn payment-method-action-btn--success"
+						class="payment-method-action-btn"
 						data-pos-keyboard-target="payment-action"
-						@click="$emit('mpesa-dialog', payment)"
+						:data-test="`payment-method-action-${payment.mode_of_payment}`"
+						@click="handlePrimaryAction(payment)"
 					>
-						{{ __("Get Payments") }}
+						{{ isGiftCardPayment(payment) ? __("Redeem / Scan") : __("Set Remaining") }}
 					</v-btn>
-				</v-col>
+				</div>
+			</div>
 
-				<v-col
-					cols="12"
-					v-if="payment.type === 'Phone' && payment.amount > 0 && requestPaymentField"
-					class="pa-0"
+			<div
+				v-if="
+					payment.default === 1 &&
+					isCashLikePayment(payment) &&
+					getVisibleDenominations(payment).length
+				"
+				class="payment-denominations"
+			>
+				<v-btn
+					v-for="d in getVisibleDenominations(payment)"
+					:key="d"
+					size="small"
+					color="secondary"
+					variant="tonal"
+					class="payment-denominations__btn"
+					data-pos-keyboard-target="payment-denomination"
+					@click="$emit('set-denomination', payment, d)"
 				>
-					<v-btn
-						block
-						color="success"
-						variant="tonal"
-						class="payment-method-action-btn payment-method-action-btn--secondary"
-						data-pos-keyboard-target="payment-action"
-						:disabled="payment.amount === 0"
-						@click="$emit('request-payment', payment)"
-					>
-						{{ __("Request Payment") }}
-					</v-btn>
-				</v-col>
-			</v-row>
+					{{ formatCurrency(d) }}
+				</v-btn>
+			</div>
+
+			<div v-if="isMpesaC2bPayment(payment)" class="payment-method-card__extra-action">
+				<v-btn
+					block
+					color="success"
+					variant="flat"
+					class="payment-method-action-btn payment-method-action-btn--success"
+					data-pos-keyboard-target="payment-action"
+					@click="$emit('mpesa-dialog', payment)"
+				>
+					{{ __("Get Payments") }}
+				</v-btn>
+			</div>
+
+			<div
+				v-if="payment.type === 'Phone' && payment.amount > 0 && requestPaymentField"
+				class="payment-method-card__extra-action"
+			>
+				<v-btn
+					block
+					color="success"
+					variant="flat"
+					class="payment-method-action-btn payment-method-action-btn--success"
+					data-pos-keyboard-target="payment-action"
+					@click="$emit('request-payment', payment)"
+				>
+					{{ __("Request Payment") }}
+				</v-btn>
+			</div>
 		</div>
 	</div>
 </template>
@@ -153,6 +147,10 @@ const props = defineProps({
 		type: Function,
 		default: () => false,
 	},
+	viewportMode: {
+		type: String,
+		default: "desktop",
+	},
 });
 
 const emit = defineEmits([
@@ -165,16 +163,19 @@ const emit = defineEmits([
 	"open-gift-card",
 ]);
 
+const blurTarget = (event) => {
+	const target = event?.target;
+	if (target && typeof target.blur === "function") {
+		target.blur();
+	}
+};
+
 const handlePrimaryAction = (payment) => {
 	if (props.isGiftCardPayment(payment)) {
 		emit("open-gift-card", payment);
 		return;
 	}
-	emit("set-full-amount", payment, props.isReturn);
-};
-
-const blurTarget = (event) => {
-	event?.target?.blur?.();
+	emit("set-full-amount", payment);
 };
 </script>
 
@@ -182,24 +183,31 @@ const blurTarget = (event) => {
 .payment-methods {
 	display: flex;
 	flex-direction: column;
-	gap: var(--pos-space-2);
+	gap: var(--payment-space-2, 8px);
 }
 
 .payment-method-card {
-	background: var(--pos-surface-raised);
-	border: 1px solid var(--pos-border-light);
-	border-radius: var(--pos-radius-md);
-	padding: var(--pos-space-3);
 	display: flex;
 	flex-direction: column;
-	gap: var(--pos-space-3);
+	gap: var(--payment-space-2, 8px);
+	padding: var(--payment-space-2, 8px);
+	background: var(--pos-card-bg, var(--pos-surface-raised, #ffffff));
+	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
+	border-radius: var(--payment-radius-md, 10px);
+	box-shadow: none;
 }
 
 .payment-method-card__header {
 	display: flex;
 	align-items: flex-start;
 	justify-content: space-between;
-	gap: var(--pos-space-2);
+	gap: var(--payment-space-2, 8px);
+}
+
+.payment-method-card__identity {
+	display: flex;
+	align-items: center;
+	gap: var(--payment-space-2, 8px);
 }
 
 .payment-method-card__icon-box {
@@ -214,132 +222,92 @@ const blurTarget = (event) => {
 }
 
 .payment-method-card__label {
-	margin: 0 0 var(--pos-space-1);
-	font-size: 0.72rem;
+	margin: 0 0 2px;
+	font-size: var(--payment-font-caption, 11px);
 	font-weight: 700;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
-	color: var(--pos-text-secondary);
+	color: var(--pos-text-secondary, #64748b);
 }
 
 .payment-method-card__title {
 	margin: 0;
-	font-size: 1rem;
+	font-size: var(--payment-font-section, 13px);
 	line-height: 1.2;
 	font-weight: 700;
-	color: var(--pos-text-primary);
+	color: var(--pos-text-primary, #0f172a);
 }
 
 .payment-method-card__badges {
 	display: flex;
-	gap: var(--pos-space-1);
+	gap: 4px;
 	align-items: center;
 	flex-wrap: wrap;
 	justify-content: flex-end;
 }
 
 .payment-method-card__badge {
-	padding: 6px 10px;
+	padding: 3px 7px;
 	border-radius: 999px;
-	background: rgba(var(--v-theme-primary), 0.12);
-	color: rgb(var(--v-theme-primary));
-	font-size: 0.78rem;
+	background: rgba(var(--v-theme-primary, 37, 99, 235), 0.12);
+	color: rgb(var(--v-theme-primary, 37, 99, 235));
+	font-size: 10px;
 	font-weight: 700;
 	white-space: nowrap;
 }
 
 .payment-method-card__badge--refund {
-	background: rgba(var(--v-theme-error), 0.12);
-	color: rgb(var(--v-theme-error));
+	background: rgba(var(--v-theme-error, 220, 38, 38), 0.12);
+	color: rgb(var(--v-theme-error, 220, 38, 38));
 }
 
-:deep(.pos-themed-input--refund input) {
-	color: rgb(var(--v-theme-error)) !important;
-	font-weight: 700;
+.payment-method-card__main {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(128px, 0.34fr);
+	gap: var(--payment-space-2, 8px);
+	align-items: center;
+}
+
+:deep(.payment-shell--phone) .payment-method-card__main,
+:deep(.payment-shell--tablet-portrait) .payment-method-card__main {
+	grid-template-columns: 1fr;
+}
+
+.payment-method-card__amount {
+	min-width: 0;
+}
+
+.payment-method-card__primary-action,
+.payment-method-card__extra-action {
+	width: 100%;
 }
 
 .payment-method-action-btn {
 	--v-theme-overlay-multiplier: 0 !important;
-	min-height: 44px;
-	border-radius: var(--pos-radius-sm);
+	min-height: 40px;
+	border-radius: var(--payment-radius-sm, 8px);
 	font-weight: 700;
 	text-transform: none;
 	letter-spacing: 0.01em;
-	transition:
-		box-shadow 0.18s ease,
-		background-color 0.18s ease,
-		transform 0.18s ease !important;
-	background-color: rgb(var(--v-theme-primary)) !important;
+	background-color: rgb(var(--v-theme-primary, 37, 99, 235)) !important;
 	color: #ffffff !important;
-}
-
-.payment-method-actions {
-	display: block;
-}
-
-.payment-method-action-btn:hover,
-.payment-method-action-btn:focus,
-.payment-method-action-btn:focus-visible,
-.payment-method-action-btn:active {
-	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18) !important;
-	transform: translateY(-1px);
-	background-color: rgba(var(--v-theme-primary), 0.9) !important;
-}
-
-.payment-method-action-btn:active {
-	transform: translateY(0);
-}
-
-:deep(.payment-method-action-btn .v-btn__overlay),
-:deep(.payment-method-action-btn .v-btn__underlay) {
-	opacity: 0 !important;
-	background: transparent !important;
 }
 
 .payment-method-action-btn--success {
-	background: rgb(var(--v-theme-success)) !important;
-	color: #ffffff !important;
-}
-
-.payment-method-action-btn--success:hover,
-.payment-method-action-btn--success:focus,
-.payment-method-action-btn--success:focus-visible,
-.payment-method-action-btn--success:active {
-	background-color: rgba(var(--v-theme-success), 0.9) !important;
-}
-
-.payment-method-action-btn--secondary {
-	background: rgba(var(--v-theme-success), 0.14) !important;
-	color: rgb(var(--v-theme-success)) !important;
-}
-
-.payment-method-action-btn--secondary:hover,
-.payment-method-action-btn--secondary:focus,
-.payment-method-action-btn--secondary:focus-visible,
-.payment-method-action-btn--secondary:active {
-	background-color: rgba(var(--v-theme-success), 0.2) !important;
+	background-color: rgb(var(--v-theme-success, 22, 163, 74)) !important;
 }
 
 .payment-denominations {
 	display: flex;
 	flex-wrap: wrap;
-	gap: var(--pos-space-2);
+	gap: var(--payment-space-1, 4px);
+	padding-top: var(--payment-space-1, 4px);
 }
 
 .payment-denominations__btn {
-	border-radius: var(--pos-radius-sm);
-	text-transform: none;
+	min-height: 32px;
+	font-size: 11px;
 	font-weight: 600;
-}
-
-@media (max-width: 768px) {
-	.payment-method-card {
-		padding: var(--pos-space-2);
-		gap: var(--pos-space-2);
-	}
-
-	.payment-method-actions {
-		grid-template-columns: 1fr;
-	}
+	border-radius: var(--payment-radius-sm, 8px);
 }
 </style>

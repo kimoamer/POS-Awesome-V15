@@ -1,13 +1,19 @@
-<!-- eslint-disable vue/multi-word-component-names -->
 <template>
 	<div
 		ref="paymentRoot"
 		data-pos-keyboard-root="payment"
-		:class="['payment-shell', { 'payment-shell--dialog': dialogMode }]"
+		:class="[
+			'payment-shell',
+			`payment-shell--${viewportMode}`,
+			{
+				'payment-shell--dialog': dialogMode,
+			},
+		]"
 	>
 		<!-- Fixed Header -->
 		<PaymentScreenHeader
 			:dialog-mode="dialogMode"
+			:viewport-mode="viewportMode"
 			:invoice-doc="invoice_doc"
 			:customer-info="customer_info"
 			:invoice-type="invoiceType"
@@ -18,6 +24,7 @@
 		<!-- Fixed Overview Summary -->
 		<section class="payment-shell__overview" aria-label="Payment overview">
 			<PaymentSummary
+				:viewport-mode="viewportMode"
 				compact
 				:invoice_doc="invoice_doc"
 				:paid-amount="total_payments"
@@ -52,6 +59,7 @@
 						<template v-if="capabilities.showImmediateSettlement.value">
 							<PaymentMethods
 								v-if="is_cashback && invoice_doc"
+								:viewport-mode="viewportMode"
 								:payments="visiblePaymentMethods"
 								:currency="invoice_doc.currency"
 								:isReturn="invoice_doc.is_return"
@@ -265,6 +273,7 @@
 		<footer :class="['payment-shell__footer', { 'payment-shell__footer--dialog': dialogMode }]">
 			<PaymentActionButtons
 				ref="submitButton"
+				:viewport-mode="viewportMode"
 				:loading="loading"
 				:validatePayment="validatePayment"
 				:highlightSubmit="highlightSubmit"
@@ -370,10 +379,16 @@ import PaymentOptions from "./payments/PaymentOptions.vue";
 import PaymentSelectionFields from "./payments/PaymentSelectionFields.vue";
 import PaymentDialogs from "./payments/PaymentDialogs.vue";
 
-defineProps({
+const props = defineProps({
 	dialogMode: {
 		type: Boolean,
 		default: false,
+	},
+	viewportMode: {
+		type: String,
+		default: "desktop",
+		validator: (value) =>
+			["phone", "tablet-portrait", "tablet-landscape", "desktop"].includes(value),
 	},
 });
 
@@ -2229,12 +2244,36 @@ defineExpose({
 /* POS Payment Shell Layout Rules */
 
 .payment-shell {
+	--payment-space-1: 4px;
+	--payment-space-2: 8px;
+	--payment-space-3: 12px;
+	--payment-space-4: 16px;
+
+	--payment-radius-sm: 8px;
+	--payment-radius-md: 10px;
+	--payment-radius-lg: 14px;
+
+	--payment-font-caption: 11px;
+	--payment-font-body: 13px;
+	--payment-font-label: 12px;
+	--payment-font-section: 13px;
+	--payment-font-title: 18px;
+	--payment-font-total: 21px;
+
+	--payment-icon-sm: 16px;
+	--payment-icon-md: 18px;
+	--payment-icon-box: 28px;
+
+	--payment-control-desktop: 40px;
+	--payment-control-tablet: 42px;
+	--payment-control-phone: 44px;
+
 	width: 100%;
 	height: 100%;
 	min-width: 0;
 	min-height: 0;
 	display: grid;
-	grid-template-rows: 72px 76px minmax(0, 1fr) 68px;
+	grid-template-rows: 64px 68px minmax(0, 1fr) 60px;
 	overflow: hidden;
 	background: var(--pos-bg-primary, var(--pos-surface, #f8fafc));
 	color: var(--pos-text-primary, #0f172a);
@@ -2244,10 +2283,61 @@ defineExpose({
 	border-radius: inherit;
 }
 
+/* Explicit Viewport Mode Grid Rules */
+.payment-shell--desktop {
+	grid-template-rows: 64px 68px minmax(0, 1fr) 60px;
+}
+
+.payment-shell--desktop .payment-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1.12fr) minmax(350px, 0.88fr);
+	gap: var(--payment-space-3);
+}
+
+.payment-shell--tablet-landscape {
+	grid-template-rows: 58px 64px minmax(0, 1fr) 60px;
+}
+
+.payment-shell--tablet-landscape .payment-shell__body {
+	padding: var(--payment-space-2);
+}
+
+.payment-shell--tablet-landscape .payment-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+	gap: var(--payment-space-2);
+}
+
+.payment-shell--tablet-portrait {
+	grid-template-rows: 56px 64px minmax(0, 1fr) auto;
+}
+
+.payment-shell--tablet-portrait .payment-layout {
+	display: flex;
+	flex-direction: column;
+	gap: var(--payment-space-2);
+}
+
+.payment-shell--phone {
+	height: 100dvh;
+	grid-template-rows: 54px 60px minmax(0, 1fr) auto;
+}
+
+.payment-shell--phone .payment-shell__body {
+	padding: 6px;
+	scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+}
+
+.payment-shell--phone .payment-layout {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
 /* Header Region */
 .payment-screen-header {
-	height: 72px;
-	min-height: 72px;
+	height: 100%;
+	min-height: 0;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -2258,9 +2348,9 @@ defineExpose({
 
 /* Compact Overview Region */
 .payment-shell__overview {
-	height: 76px;
-	min-height: 76px;
-	padding: 8px 10px;
+	height: 100%;
+	min-height: 0;
+	padding: var(--payment-space-2);
 	background: var(--pos-surface-muted, rgba(0, 0, 0, 0.02));
 	border-bottom: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
 	overflow: hidden;
@@ -2270,15 +2360,15 @@ defineExpose({
 	height: 100%;
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 8px;
+	gap: var(--payment-space-2);
 }
 
 .payment-overview-metric {
 	min-height: 0;
 	height: 100%;
-	padding: 8px 12px;
+	padding: 6px 10px;
 	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
-	border-radius: var(--pos-radius-sm, 10px);
+	border-radius: var(--payment-radius-sm, 8px);
 	background: var(--pos-card-bg, var(--pos-surface-raised, #ffffff));
 	text-align: start;
 }
@@ -2287,17 +2377,16 @@ defineExpose({
 .payment-shell__body {
 	min-width: 0;
 	min-height: 0;
-	padding: 10px;
+	padding: var(--payment-space-3);
 	overflow-y: auto;
 	overflow-x: hidden;
 	overscroll-behavior: contain;
 }
 
-/* Desktop Two-Column Layout Grid */
 .payment-layout {
 	display: grid;
-	grid-template-columns: minmax(0, 1.15fr) minmax(350px, 0.85fr);
-	gap: 10px;
+	grid-template-columns: minmax(0, 1.12fr) minmax(350px, 0.88fr);
+	gap: var(--payment-space-3);
 	width: 100%;
 	min-width: 0;
 	align-items: start;
@@ -2307,52 +2396,41 @@ defineExpose({
 .payment-layout__secondary {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: var(--payment-space-2);
 	min-width: 0;
 }
 
-/* Mobile Fallback Grid */
-@media (max-width: 899px) {
-	.payment-shell {
-		grid-template-rows: 64px 72px minmax(0, 1fr) auto;
-	}
-
-	.payment-layout {
-		grid-template-columns: 1fr;
-	}
-
-	.payment-shell__footer {
-		height: auto;
-		min-height: 64px;
-		padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
-	}
+/* Control Density Inheritance */
+.payment-shell--desktop :deep(.v-field) {
+	min-height: var(--payment-control-desktop);
 }
 
-/* Compact Section Shell Styling */
-:deep(.payment-section-shell) {
-	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
-	border-radius: var(--pos-radius-sm, 10px);
-	box-shadow: none;
-	overflow: hidden;
-	background: var(--pos-card-bg, var(--pos-surface-raised, #ffffff));
+.payment-shell--tablet-landscape :deep(.v-field),
+.payment-shell--tablet-portrait :deep(.v-field) {
+	min-height: var(--payment-control-tablet);
 }
 
-:deep(.payment-section-shell__header) {
-	min-height: 42px;
-	padding: 8px 12px;
+.payment-shell--phone :deep(.v-field) {
+	min-height: var(--payment-control-phone);
 }
 
-:deep(.payment-section-shell__body) {
-	padding: 10px 12px;
+.payment-shell :deep(.v-field__input) {
+	min-height: inherit;
+	padding-block: 4px;
+	font-size: var(--payment-font-body);
 }
 
 /* Fixed Action Footer (Row 4) */
 .payment-shell__footer {
-	height: 68px;
-	min-height: 68px;
+	height: 100%;
+	min-height: 60px;
 	display: flex;
 	align-items: center;
-	padding: 9px 12px;
+	padding: var(--payment-space-2) var(--payment-space-3);
+	background: var(--pos-card-bg, var(--pos-surface-raised, #ffffff));
+	border-top: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
+	box-shadow: 0 -4px 12px var(--pos-shadow-light, rgba(0, 0, 0, 0.03));
+}
 	background: var(--pos-card-bg, var(--pos-surface-raised, #ffffff));
 	border-top: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
 	box-shadow: 0 -6px 18px rgba(15, 23, 42, 0.05);
