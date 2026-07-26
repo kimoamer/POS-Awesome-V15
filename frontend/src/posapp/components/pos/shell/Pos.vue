@@ -39,6 +39,7 @@
 				'pos-workspace--compact': useCompactPosSwitcher,
 				'pos-workspace--phone': isPhone,
 				'pos-workspace--rtl': isRtl,
+				'pos-workspace--payment-active': activeView === 'payment' && !usePaymentDialog,
 			}"
 		>
 			<section
@@ -52,19 +53,15 @@
 				<ItemsSelector context="pos" />
 			</section>
 			<section
-				v-if="
-					(!useCompactPosSwitcher || compactPanel === 'selector') &&
-					activeView === 'payment' &&
-					!usePaymentDialog
-				"
-				class="pos pos-pane pos-products-pane dynamic-col dynamic-col--selector"
-				data-pos-region="products"
+				v-if="activeView === 'payment' && !usePaymentDialog"
+				class="pos pos-pane pos-products-pane dynamic-col dynamic-col--selector pos-payment-pane--fullscreen"
+				data-pos-region="payment"
 			>
 				<Payments :viewport-mode="paymentViewportMode"></Payments>
 			</section>
 
 			<section
-				v-show="!useCompactPosSwitcher || compactPanel === 'invoice'"
+				v-show="(!useCompactPosSwitcher || compactPanel === 'invoice') && activeView !== 'payment'"
 				class="pos pos-pane pos-cart-pane dynamic-col dynamic-col--invoice"
 				:class="{ 'pos-cart-pane--dedicated': useCompactPosSwitcher }"
 				data-pos-region="cart"
@@ -253,7 +250,9 @@ export default {
 		const useCompactPosSwitcher = computed(() => responsive.windowWidth.value < 1200);
 		const compactPanel = ref("selector");
 		const isPhone = computed(() => responsive.isPhone.value);
-		const showBottomDock = computed(() => !dialog.value && responsive.windowWidth.value < 1200);
+		const showBottomDock = computed(
+			() => !dialog.value && responsive.windowWidth.value < 1200 && activeView.value !== "payment",
+		);
 		const bottomDockHeight = ref(0);
 		let mobileDockObserver = null;
 		const isEditingAdditionalDiscount = ref(false);
@@ -903,6 +902,28 @@ export default {
 
 .pos-cart-pane--dedicated > :deep(.invoice-shell) {
 	flex: 1 1 auto;
+}
+
+.pos-payment-pane--fullscreen {
+	flex: 1 1 100% !important;
+	width: 100% !important;
+	max-width: 100% !important;
+	height: 100% !important;
+	margin: 0 !important;
+	padding: 0 !important;
+}
+
+.pos-workspace--payment-active {
+	border: 0 !important;
+	border-radius: 0 !important;
+	padding: 0 !important;
+	background: transparent !important;
+}
+
+.pos-workspace--payment-active .pos-payment-pane--fullscreen {
+	border: 0 !important;
+	border-radius: 0 !important;
+	padding: 0 !important;
 }
 
 .mobile-pos-stack {

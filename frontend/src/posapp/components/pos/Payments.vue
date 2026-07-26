@@ -113,6 +113,13 @@
 					<PaymentSectionShell
 						icon="mdi-receipt-text-outline"
 						:title="__('Invoice Summary')"
+						:collapsible="viewportMode === 'phone' || viewportMode === 'tablet-portrait'"
+						v-model:expanded="invoiceSummaryExpanded"
+						:badge="
+							viewportMode === 'phone' && !invoiceSummaryExpanded && invoice_doc?.grand_total
+								? formatCurrency(invoice_doc.grand_total, invoice_doc.currency)
+								: undefined
+						"
 					>
 						<InvoiceTotals
 							:invoice_doc="invoice_doc"
@@ -422,6 +429,7 @@ const employeeStore = useEmployeeStore();
 const { currentCashier } = storeToRefs(employeeStore);
 
 // Capability Matrix & Section Expanded State
+const invoiceSummaryExpanded = ref(props.viewportMode !== "phone");
 const orderDetailsExpanded = ref(false);
 const salesReceiptExpanded = ref(false);
 
