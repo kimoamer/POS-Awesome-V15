@@ -2022,6 +2022,12 @@ watch(sales_person, (newVal) => {
 	}
 });
 
+watch(salesReceiptExpanded, (expanded) => {
+	if (expanded && (!sales_persons.value || sales_persons.value.length === 0)) {
+		get_sales_person_names();
+	}
+});
+
 watch(is_credit_sale, (newVal) => {
 	if (!invoice_doc.value || !Array.isArray(invoice_doc.value.payments)) return;
 
@@ -2151,6 +2157,7 @@ onMounted(() => {
 	document.addEventListener("keydown", _shortcutHandlers.value.handlePaymentShortcut);
 
 	syncStore.syncPendingInvoices();
+	get_sales_person_names();
 	eventBus.on("network-online", () => syncStore.syncPendingInvoices());
 	eventBus.on("server-online", () => syncStore.syncPendingInvoices());
 
