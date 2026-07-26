@@ -5,7 +5,7 @@
 			<v-col cols="6">
 				<v-text-field
 					v-model="invoiceDoc.po_no"
-					:label="$frappe._('Purchase Order')"
+					:label="__('Purchase Order')"
 					variant="solo"
 					density="compact"
 					class="sleek-field pos-themed-input"
@@ -26,7 +26,7 @@
 				/>
 				<v-text-field
 					v-model="invoiceDoc.po_date"
-					:label="$frappe._('Purchase Order Date')"
+					:label="__('Purchase Order Date')"
 					readonly
 					variant="solo"
 					density="compact"
@@ -39,8 +39,6 @@
 </template>
 
 <script setup>
-import { inject } from "vue";
-
 defineProps({
 	invoiceDoc: {
 		type: Object,
@@ -58,7 +56,7 @@ defineProps({
 
 defineEmits(["update:newPoDate"]);
 
-const $frappe = inject("frappe", window.frappe);
+const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
 </script>
 
 <style scoped>

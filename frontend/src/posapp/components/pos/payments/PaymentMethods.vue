@@ -3,7 +3,7 @@
 		<div v-for="payment in payments" :key="payment.name" class="payment-method-card">
 			<div class="payment-method-card__header">
 				<div>
-					<p class="payment-method-card__label">{{ frappe._("Method") }}</p>
+					<p class="payment-method-card__label">{{ __("Method") }}</p>
 					<h4 class="payment-method-card__title">{{ payment.mode_of_payment }}</h4>
 				</div>
 				<div class="payment-method-card__badges">
@@ -26,7 +26,7 @@
 						density="compact"
 						variant="solo"
 						:color="isReturn ? 'error' : 'primary'"
-						:label="frappe._('Amount')"
+						:label="__('Amount')"
 						:class="['sleek-field pos-themed-input', isReturn ? 'pos-themed-input--refund' : '']"
 						hide-details
 						:model-value="payment.amount"
@@ -118,8 +118,10 @@
 </template>
 
 <script setup>
-const frappe = window.frappe;
-const __ = window.__;
+const __ = (s) =>
+	typeof window !== "undefined" && (window.__ || window.frappe?._)
+		? (window.__ || window.frappe._)(s)
+		: s;
 
 const props = defineProps({
 	payments: Array,

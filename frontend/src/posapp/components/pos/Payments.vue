@@ -20,18 +20,11 @@
 			<PaymentSummary
 				compact
 				:invoice_doc="invoice_doc"
-				:total_payments_display="total_payments_display"
-				:diff_payment_display="diff_payment_display"
+				:paid-amount="total_payments"
+				:difference-amount="Math.abs(Number(diff_payment || 0))"
 				:diff_label="diff_label"
-				:diff-payment="diff_payment"
-				:change_due="change_due"
-				:paid_change="paid_change"
-				:credit_change="credit_change"
-				:paid_change_rules="paid_change_rules"
-				:currencySymbol="currencySymbol"
-				:formatCurrency="formatCurrency"
-				:gift-card-applied-amount="giftCardAppliedAmount"
-				:gift-card-code="giftCardRedemptions[0]?.gift_card_code || ''"
+				:currency="invoice_doc?.currency"
+				:format-money="formatPaymentMoney"
 				@show-paid-amount="showPaidAmount"
 				@show-diff-payment="showDiffPayment"
 				@show-paid-change="showPaidChange"
@@ -146,6 +139,7 @@
 					</PaymentSectionShell>
 
 					<PaymentSectionShell
+						v-if="showSettlementOptions"
 						icon="mdi-tune-variant"
 						:title="__('Settlement Options')"
 					>
@@ -543,6 +537,19 @@ const returnValidityEnabled = computed(() => {
 	);
 });
 
+const formatPaymentMoney = (value) => {
+	const parsed = Number(value ?? 0);
+	const amount = Number.isFinite(parsed) ? parsed : 0;
+	const currency = String(invoice_doc.value?.currency || pos_profile.value?.currency || "").trim();
+	const number = formatCurrency(amount);
+	const symbol = currencySymbol(currency);
+
+	if (symbol && !number.includes(symbol)) {
+		return `${symbol} ${number}`;
+	}
+	return number;
+};
+
 const returnValidityMinDate = computed(() => {
 	const postingDate = invoice_doc.value?.posting_date || frappe.datetime?.nowdate?.();
 	if (!postingDate) {
@@ -744,6 +751,17 @@ const showRedemptionSection = computed(() => {
 		!invoice_doc.value?.is_return;
 
 	return hasLoyalty || hasCredit;
+});
+
+const showSettlementOptions = computed(() => {
+	const profile = pos_profile.value || {};
+	return (
+		parseBooleanSetting(profile.posa_allow_credit_sale) ||
+		parseBooleanSetting(profile.posa_allow_write_off_change) ||
+		parseBooleanSetting(profile.use_cashback) ||
+		parseBooleanSetting(profile.use_customer_credit ?? profile.posa_use_customer_credit) ||
+		Boolean(invoice_doc.value?.is_return)
+	);
 });
 
 const isGiftCardPayment = (payment) => {

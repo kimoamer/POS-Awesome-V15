@@ -7,7 +7,7 @@
 		>
 			<span class="payment-overview-metric__label">{{ __("Paid Amount") }}</span>
 			<bdi class="payment-overview-metric__value">
-				{{ displayMoney(total_payments_display) }}
+				{{ renderMoney(paidAmount) }}
 			</bdi>
 		</button>
 
@@ -18,7 +18,7 @@
 		>
 			<span class="payment-overview-metric__label">{{ diff_label || __("To Pay") }}</span>
 			<bdi class="payment-overview-metric__value">
-				{{ displayMoney(diff_payment_display) }}
+				{{ renderMoney(differenceAmount) }}
 			</bdi>
 		</button>
 	</div>
@@ -31,41 +31,36 @@ const props = defineProps({
 		default: false,
 	},
 	invoice_doc: Object,
-	total_payments_display: String,
-	diff_payment_display: String,
+	paidAmount: {
+		type: Number,
+		default: 0,
+	},
+	differenceAmount: {
+		type: Number,
+		default: 0,
+	},
 	diff_label: String,
-	diffPayment: {
-		type: Number,
-		default: 0,
-	},
-	change_due: Number,
-	paid_change: Number,
-	credit_change: Number,
-	paid_change_rules: Array,
-	currencySymbol: Function,
-	formatCurrency: Function,
-	giftCardAppliedAmount: {
-		type: Number,
-		default: 0,
-	},
-	giftCardCode: {
+	currency: {
 		type: String,
 		default: "",
+	},
+	formatMoney: {
+		type: Function,
+		default: null,
 	},
 });
 
 defineEmits(["show-paid-amount", "show-diff-payment", "show-paid-change", "update-credit-change"]);
 
-const __ = (window && window.__) || ((s) => s);
+const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
 
-const displayMoney = (val) => {
-	if (val === null || val === undefined) return "0.00";
-	const strVal = String(val).trim();
-	const symbol = props.currencySymbol?.(props.invoice_doc?.currency) || "";
-	if (symbol && !strVal.includes(symbol)) {
-		return `${symbol} ${strVal}`;
+const renderMoney = (val) => {
+	const num = Number(val || 0);
+	const safeNum = Number.isFinite(num) ? num : 0;
+	if (props.formatMoney) {
+		return props.formatMoney(safeNum);
 	}
-	return strVal;
+	return safeNum.toFixed(2);
 };
 </script>
 

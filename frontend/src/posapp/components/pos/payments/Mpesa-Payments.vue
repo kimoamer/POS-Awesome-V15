@@ -9,7 +9,7 @@
 					<v-row class="mb-4">
 						<v-text-field
 							color="primary"
-							:label="frappe._('Full Name')"
+							:label="__('Full Name')"
 							class="pos-themed-input mx-4"
 							hide-details
 							v-model="full_name"
@@ -18,7 +18,7 @@
 						></v-text-field>
 						<v-text-field
 							color="primary"
-							:label="frappe._('Mobile No')"
+							:label="__('Mobile No')"
 							class="pos-themed-input mx-4"
 							hide-details
 							v-model="mobile_no"
@@ -91,8 +91,10 @@ defineOptions({
 	name: "MpesaPayments",
 });
 
-const frappe = window.frappe;
-const __ = window.__ || ((text) => text);
+const __ = (s) =>
+	typeof window !== "undefined" && (window.__ || window.frappe?._)
+		? (window.__ || window.frappe._)(s)
+		: s;
 const eventBus = inject("eventBus");
 
 const dialog = ref(false);

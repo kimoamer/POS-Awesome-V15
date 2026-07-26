@@ -23,7 +23,7 @@
 					:enable-time-picker="false"
 					auto-apply
 					class="sleek-field pos-themed-input"
-					:placeholder="$frappe._('Return Valid Until')"
+					:placeholder="__('Return Valid Until')"
 					@update:model-value="$emit('update:returnValidUptoDate', $event)"
 				/>
 			</v-col>
@@ -35,13 +35,13 @@
 					auto-select-first
 					variant="solo"
 					color="primary"
-					:label="$frappe._('Address')"
+					:label="__('Address')"
 					v-model="invoiceDoc.shipping_address_name"
 					:items="addresses"
 					item-title="display_title"
 					item-value="name"
 					class="sleek-field pos-themed-input"
-					:no-data-text="$__('Address not found')"
+					:no-data-text="__('Address not found')"
 					hide-details
 					:custom-filter="addressFilter"
 					append-icon="mdi-plus"
@@ -92,7 +92,7 @@
 					color="primary"
 					auto-grow
 					rows="2"
-					:label="$frappe._('Additional Notes')"
+					:label="__('Additional Notes')"
 					v-model="invoiceDoc.posa_notes"
 				></v-textarea>
 			</v-col>
@@ -103,7 +103,7 @@
 					density="compact"
 					clearable
 					color="primary"
-					:label="$frappe._('Authorization Code')"
+					:label="__('Authorization Code')"
 					v-model="invoiceDoc.posa_authorization_code"
 					hide-details
 					autocomplete="off"
@@ -115,8 +115,6 @@
 </template>
 
 <script setup>
-import { inject } from "vue";
-
 defineProps({
 	invoiceDoc: {
 		type: Object,
@@ -158,8 +156,7 @@ defineProps({
 
 defineEmits(["update:newDeliveryDate", "update:returnValidUptoDate", "new-address"]);
 
-const $frappe = inject("frappe", window.frappe);
-const $__ = inject("__", window.__);
+const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
 </script>
 
 <style scoped>

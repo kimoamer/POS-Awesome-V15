@@ -7,7 +7,7 @@
 						<v-switch
 							:model-value="isCreditSale"
 							color="primary"
-							:label="$frappe._('Credit Sale?')"
+							:label="__('Credit Sale?')"
 							class="my-0 pa-1"
 							@update:model-value="$emit('update:isCreditSale', $event)"
 						></v-switch>
@@ -22,7 +22,7 @@
 							:model-value="isWriteOffChange"
 							color="primary"
 							flat
-							:label="$frappe._('Write Off Difference Amount')"
+							:label="__('Write Off Difference Amount')"
 							class="my-0 pa-1"
 							@update:model-value="$emit('update:isWriteOffChange', $event)"
 						></v-switch>
@@ -32,7 +32,7 @@
 							:model-value="isCashback"
 							color="primary"
 							flat
-							:label="$frappe._('Cashback?')"
+							:label="__('Cashback?')"
 							class="my-0 pa-1"
 							@update:model-value="$emit('update:isCashback', $event)"
 						></v-switch>
@@ -42,7 +42,7 @@
 							:model-value="isCreditReturn"
 							color="primary"
 							flat
-							:label="$frappe._('Store as Credit?')"
+							:label="__('Store as Credit?')"
 							class="my-0 pa-1"
 							@update:model-value="$emit('update:isCreditReturn', $event)"
 						></v-switch>
@@ -52,7 +52,7 @@
 							:model-value="redeemCustomerCredit"
 							color="primary"
 							flat
-							:label="$frappe._('Use Customer Balance')"
+							:label="__('Use Customer Balance')"
 							class="my-0 pa-1"
 							@update:model-value="handleRedeemCustomerCreditUpdate"
 						></v-switch>
@@ -81,7 +81,7 @@
 						min="0"
 						max="365"
 						:model-value="creditDueDays"
-						:label="$frappe._('Days until due')"
+						:label="__('Days until due')"
 						hide-details
 						@update:model-value="$emit('update:creditDueDays', parseFloat($event))"
 						@change="$emit('apply-due-preset', creditDueDays)"
@@ -96,7 +96,7 @@
 							color="primary"
 							@click="$emit('apply-due-preset', d)"
 						>
-							{{ d }} {{ $frappe._("days") }}
+							{{ d }} {{ __("days") }}
 						</v-chip>
 					</div>
 				</div>
@@ -110,39 +110,39 @@
 						min="0"
 						:max="writeOffEffectiveMax"
 						:model-value="writeOffAmountDisplay"
-						:label="$frappe._('Write Off Amount')"
+						:label="__('Write Off Amount')"
 						hide-details
 						@update:model-value="$emit('update:writeOffAmount', $event)"
 					></v-text-field>
 					<p class="payment-options-panel__helper">
-						{{ $frappe._("This amount will be written off on submission.") }}
+						{{ __("This amount will be written off on submission.") }}
 					</p>
 				</div>
 
 				<div v-else-if="redeemCustomerCredit" class="payment-options-panel__note">
-					<h4>{{ $frappe._("Available Customer Redeemable Balance") }}</h4>
+					<h4>{{ __("Available Customer Redeemable Balance") }}</h4>
 					<p>
-						{{ $frappe._("Available customer redeemable balance") }}:
+						{{ __("Available customer redeemable balance") }}:
 						{{ formatCurrency(availableCustomerCredit) }}
 					</p>
-					<p>{{ $frappe._("Applied now") }}: {{ formatCurrency(redeemedCustomerCredit) }}</p>
-					<p>{{ customerCreditSources }} {{ $frappe._("source(s) will be used in order.") }}</p>
+					<p>{{ __("Applied now") }}: {{ formatCurrency(redeemedCustomerCredit) }}</p>
+					<p>{{ customerCreditSources }} {{ __("source(s) will be used in order.") }}</p>
 				</div>
 
 				<div v-else-if="invoiceDoc.is_return && isCreditReturn" class="payment-options-panel__note">
-					<h4>{{ $frappe._("Customer Credit Return Active") }}</h4>
+					<h4>{{ __("Customer Credit Return Active") }}</h4>
 					<p>
-						{{ $frappe._("This return will be saved as customer credit instead of cashback.") }}
+						{{ __("This return will be saved as customer credit instead of cashback.") }}
 					</p>
 				</div>
 
 				<div v-else-if="invoiceDoc.is_return && isCashback" class="payment-options-panel__note">
-					<h4>{{ $frappe._("Cashback Active") }}</h4>
-					<p>{{ $frappe._("Return value will be settled back through payment methods.") }}</p>
+					<h4>{{ __("Cashback Active") }}</h4>
+					<p>{{ __("Return value will be settled back through payment methods.") }}</p>
 				</div>
 
 				<div v-else class="payment-options-panel__empty">
-					{{ $frappe._("Select an option on the left to view its settings.") }}
+					{{ __("Select an option on the left to view its settings.") }}
 				</div>
 			</div>
 		</div>
@@ -259,6 +259,11 @@ const allowCustomerCredit = computed(() =>
 		props.posProfile?.use_customer_credit ?? props.posProfile?.posa_use_customer_credit,
 	),
 );
+
+const __ = (s) =>
+	typeof window !== "undefined" && (window.__ || window.frappe?._)
+		? (window.__ || window.frappe._)(s)
+		: s;
 
 const handleRedeemCustomerCreditUpdate = (val) => {
 	emit("update:redeemCustomerCredit", val);

@@ -7,7 +7,7 @@
 					density="compact"
 					variant="solo"
 					color="primary"
-					:label="$frappe._('Redeem Loyalty Points')"
+					:label="__('Redeem Loyalty Points')"
 					class="sleek-field pos-themed-input"
 					hide-details
 					:model-value="formatCurrency(loyaltyAmount)"
@@ -22,7 +22,7 @@
 					variant="solo"
 					color="primary"
 					:label="
-						$frappe._('You can redeem up to') +
+						__('You can redeem up to') +
 						(customerInfo.loyalty_points ? ` (${customerInfo.loyalty_points} pts)` : '')
 					"
 					class="sleek-field pos-themed-input"
@@ -44,7 +44,7 @@
 					density="compact"
 					variant="solo"
 					color="primary"
-					:label="$frappe._('Applied Stored Value')"
+					:label="__('Applied Stored Value')"
 					class="sleek-field pos-themed-input"
 					hide-details
 					:model-value="formatCurrency(redeemedCustomerCredit)"
@@ -59,7 +59,7 @@
 					density="compact"
 					variant="solo"
 					color="primary"
-					:label="$frappe._('Available Stored Value')"
+					:label="__('Available Stored Value')"
 					class="sleek-field pos-themed-input"
 					hide-details
 					:model-value="formatCurrency(availableCustomerCredit)"
@@ -72,12 +72,7 @@
 </template>
 
 <script setup>
-import { computed, inject } from "vue";
-
-/**
- * Component for handling Loyalty Points and Customer Credit redemptions.
- * Extracted from Payments.vue for better maintainability.
- */
+import { computed } from "vue";
 
 const props = defineProps({
 	invoiceDoc: {
@@ -128,8 +123,7 @@ const props = defineProps({
 
 const emit = defineEmits(["update:loyaltyAmount", "update:redeemedCustomerCredit", "set-formatted-currency"]);
 
-// Access frappe globally or via injection if set up
-const $frappe = inject("frappe", window.frappe);
+const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
 
 const hasRedeemableLoyaltyPoints = computed(() => {
 	const points = Number(props.customerInfo?.loyalty_points || 0);

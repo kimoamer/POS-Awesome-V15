@@ -814,8 +814,10 @@ body[data-page-route="posapp"] .desk-container {
 }
 
 /* Payment Modal Dialog Container Overlay */
-.posa-payment-dialog-overlay {
+.v-overlay__content .posa-payment-dialog-overlay,
+.v-overlay__content.posa-payment-dialog-overlay {
 	width: min(1180px, calc(100vw - 32px)) !important;
+	height: min(860px, calc(100dvh - 32px)) !important;
 	max-width: calc(100vw - 32px) !important;
 	max-height: calc(100dvh - 32px) !important;
 	margin: 16px !important;

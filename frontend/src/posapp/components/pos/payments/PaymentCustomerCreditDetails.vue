@@ -9,7 +9,7 @@
 					density="compact"
 					variant="solo"
 					color="primary"
-					:label="$frappe._('Stored Value Source')"
+					:label="__('Stored Value Source')"
 					class="sleek-field pos-themed-input"
 					hide-details
 					:model-value="formatCurrency(row.total_credit)"
@@ -22,7 +22,7 @@
 					density="compact"
 					variant="solo"
 					color="primary"
-					:label="$frappe._('Apply Stored Value')"
+					:label="__('Apply Stored Value')"
 					class="sleek-field pos-themed-input"
 					hide-details
 					type="text"
@@ -36,8 +36,6 @@
 </template>
 
 <script setup>
-import { inject } from "vue";
-
 defineProps({
 	invoiceDoc: {
 		type: Object,
@@ -71,7 +69,7 @@ defineProps({
 
 const emit = defineEmits(["set-formatted-currency"]);
 
-const $frappe = inject("frappe", window.frappe);
+const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
 
 const handleCreditToRedeemChange = (row, event) => {
 	emit("set-formatted-currency", {

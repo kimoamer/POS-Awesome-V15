@@ -4,21 +4,21 @@
 		<v-row class="pb-0 mb-2" align="start">
 			<v-col cols="12">
 				<p v-if="salesPersons && salesPersons.length > 0" class="mt-1 mb-1 text-subtitle-2">
-					{{ salesPersons.length }} {{ $__("sales persons found") }}
+					{{ salesPersons.length }} {{ __("sales persons found") }}
 				</p>
-				<p v-else class="mt-1 mb-1 text-subtitle-2 text-red">{{ $__("No sales persons found") }}</p>
+				<p v-else class="mt-1 mb-1 text-subtitle-2 text-red">{{ __("No sales persons found") }}</p>
 				<v-select
 					density="compact"
 					clearable
 					variant="solo"
 					color="primary"
-					:label="$frappe._('Sales Person')"
+					:label="__('Sales Person')"
 					:model-value="salesPerson"
 					:items="salesPersons"
 					item-title="title"
 					item-value="value"
 					class="sleek-field pos-themed-input"
-					:no-data-text="$__('Sales Person not found')"
+					:no-data-text="__('Sales Person not found')"
 					hide-details
 					:disabled="readonly"
 					@update:model-value="$emit('update:sales-person', $event)"
@@ -33,11 +33,11 @@
 					clearable
 					variant="solo"
 					color="primary"
-					:label="$frappe._('Print Format')"
+					:label="__('Print Format')"
 					:model-value="printFormat"
 					:items="printFormats"
 					class="sleek-field pos-themed-input"
-					:no-data-text="$__('No Print Formats Found')"
+					:no-data-text="__('No Print Formats Found')"
 					hide-details
 					@update:model-value="$emit('update:print-format', $event)"
 				></v-select>
@@ -47,8 +47,6 @@
 </template>
 
 <script setup>
-import { inject } from "vue";
-
 defineProps({
 	salesPersons: {
 		type: Array,
@@ -78,8 +76,7 @@ defineProps({
 
 defineEmits(["update:sales-person", "update:print-format"]);
 
-const $frappe = inject("frappe", window.frappe);
-const $__ = inject("__", window.__);
+const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
 </script>
 
 <style scoped>

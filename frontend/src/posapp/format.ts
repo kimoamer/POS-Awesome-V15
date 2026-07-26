@@ -313,10 +313,25 @@ export function useFormat() {
 
 	const currencySymbol = (currency?: string): string => {
 		if (!currency || typeof currency !== "string") return "";
+		const code = currency.trim().toUpperCase();
+		const isArabic =
+			typeof document !== "undefined" &&
+			(document.documentElement?.dir === "rtl" ||
+				document.documentElement?.lang?.toLowerCase().startsWith("ar"));
+
+		if (code === "EGP") {
+			return isArabic ? "ج.م" : "E£";
+		}
+
 		if (typeof window !== "undefined" && typeof (window as any).get_currency_symbol === "function") {
 			try {
-				const sym = (window as any).get_currency_symbol(currency);
-				if (sym) return sym;
+				let sym = (window as any).get_currency_symbol(code);
+				if (sym) {
+					if (String(sym).includes("or") || String(sym).includes("أو")) {
+						return isArabic ? "ج.م" : "E£";
+					}
+					return sym;
+				}
 			} catch {
 				/* fallback */
 			}
@@ -478,10 +493,25 @@ export default {
 		},
 		currencySymbol(currency?: string): string {
 			if (!currency || typeof currency !== "string") return "";
+			const code = currency.trim().toUpperCase();
+			const isArabic =
+				typeof document !== "undefined" &&
+				(document.documentElement?.dir === "rtl" ||
+					document.documentElement?.lang?.toLowerCase().startsWith("ar"));
+
+			if (code === "EGP") {
+				return isArabic ? "ج.م" : "E£";
+			}
+
 			if (typeof window !== "undefined" && typeof (window as any).get_currency_symbol === "function") {
 				try {
-					const sym = (window as any).get_currency_symbol(currency);
-					if (sym) return sym;
+					let sym = (window as any).get_currency_symbol(code);
+					if (sym) {
+						if (String(sym).includes("or") || String(sym).includes("أو")) {
+							return isArabic ? "ج.م" : "E£";
+						}
+						return sym;
+					}
 				} catch {
 					/* fallback */
 				}

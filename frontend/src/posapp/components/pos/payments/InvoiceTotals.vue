@@ -1,30 +1,30 @@
 <template>
 	<div v-if="invoice_doc" class="invoice-totals-list">
 		<div class="invoice-total-row">
-			<span class="invoice-total-row__label">{{ frappe._("Net Total") }}</span>
+			<span class="invoice-total-row__label">{{ __("Net Total") }}</span>
 			<bdi class="invoice-total-row__value">{{ displayMoney(invoice_doc.net_total) }}</bdi>
 		</div>
 
 		<div class="invoice-total-row">
-			<span class="invoice-total-row__label">{{ frappe._("Tax and Charges") }}</span>
+			<span class="invoice-total-row__label">{{ __("Tax and Charges") }}</span>
 			<bdi class="invoice-total-row__value">{{ displayMoney(invoice_doc.total_taxes_and_charges) }}</bdi>
 		</div>
 
 		<div class="invoice-total-row">
-			<span class="invoice-total-row__label">{{ frappe._("Total Amount") }}</span>
+			<span class="invoice-total-row__label">{{ __("Total Amount") }}</span>
 			<bdi class="invoice-total-row__value">{{ displayMoney(invoice_doc.total) }}</bdi>
 		</div>
 
 		<div class="invoice-total-row">
 			<span class="invoice-total-row__label">
-				{{ frappe._("Item / Rate Discounts") }}
+				{{ __("Item / Rate Discounts") }}
 				<v-tooltip location="top" max-width="320" open-on-click open-on-hover :text="discountHelpText">
 					<template #activator="{ props: tooltipProps }">
 						<button
 							v-bind="tooltipProps"
 							type="button"
 							class="discount-help-trigger"
-							:aria-label="frappe._('Discount clarity')"
+							:aria-label="__('Discount clarity')"
 							@click.stop
 						>
 							<v-icon icon="mdi-information-outline" size="16" />
@@ -36,17 +36,17 @@
 		</div>
 
 		<div v-if="invoice_doc.discount_amount" class="invoice-total-row">
-			<span class="invoice-total-row__label">{{ frappe._("Additional Discount") }}</span>
+			<span class="invoice-total-row__label">{{ __("Additional Discount") }}</span>
 			<bdi class="invoice-total-row__value">{{ displayMoney(invoice_doc.discount_amount) }}</bdi>
 		</div>
 
 		<div class="invoice-total-row invoice-total-row--grand">
-			<span class="invoice-total-row__label">{{ frappe._("Grand Total") }}</span>
+			<span class="invoice-total-row__label">{{ __("Grand Total") }}</span>
 			<bdi class="invoice-total-row__value">{{ displayMoney(invoice_doc.grand_total) }}</bdi>
 		</div>
 
 		<div v-if="invoice_doc.rounded_total" class="invoice-total-row">
-			<span class="invoice-total-row__label">{{ frappe._("Rounded Total") }}</span>
+			<span class="invoice-total-row__label">{{ __("Rounded Total") }}</span>
 			<bdi class="invoice-total-row__value">{{ displayMoney(invoice_doc.rounded_total) }}</bdi>
 		</div>
 	</div>
@@ -68,7 +68,7 @@ const props = defineProps({
 	formatCurrency: Function,
 });
 
-const frappe = window.frappe || { _: (s) => s };
+const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
 
 const displayMoney = (value) => {
 	const numericValue = Number(value || 0);
@@ -84,7 +84,7 @@ const displayMoney = (value) => {
 
 const discountHelpText = computed(
 	() =>
-		`${frappe._("Item and rate discounts are already included in item rates and Net Total.")} ${frappe._("Additional Discount is the separate invoice-level discount.")}`,
+		`${__("Item and rate discounts are already included in item rates and Net Total.")} ${__("Additional Discount is the separate invoice-level discount.")}`,
 );
 </script>
 

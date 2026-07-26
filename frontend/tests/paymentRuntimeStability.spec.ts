@@ -7,17 +7,33 @@ import PaymentSummary from "../src/posapp/components/pos/payments/PaymentSummary
 import InvoiceTotals from "../src/posapp/components/pos/payments/InvoiceTotals.vue";
 // @ts-ignore
 import PaymentMethods from "../src/posapp/components/pos/payments/PaymentMethods.vue";
+// @ts-ignore
+import PaymentOptions from "../src/posapp/components/pos/payments/PaymentOptions.vue";
 
 describe("Payment Runtime Stability & Formatter Contract", () => {
+	it("renders PaymentOptions safely without window.frappe or globalProperties.$frappe without throwing reading '_'", () => {
+		expect(() => {
+			const wrapper = mount(PaymentOptions, {
+				props: {
+					invoiceDoc: { is_return: 0 },
+					posProfile: { posa_allow_credit_sale: 1 },
+					diffPayment: 100,
+					isCreditSale: false,
+				},
+			});
+			expect(wrapper.text()).toContain("Credit Sale?");
+		}).not.toThrow();
+	});
+
 	it("renders PaymentSummary safely when currency or invoiceDoc is undefined without throwing", () => {
 		expect(() => {
 			const wrapper = mount(PaymentSummary, {
 				props: {
 					invoice_doc: { grand_total: 100 },
-					total_payments_display: "100.00",
-					diff_payment_display: "0.00",
-					currencySymbol: () => "",
-					formatCurrency: (v: any) => String(v),
+					paidAmount: 100,
+					differenceAmount: 0,
+					currency: "EGP",
+					formatMoney: (v: number) => `ج.م ${v}`,
 				},
 			});
 			expect(wrapper.exists()).toBe(true);

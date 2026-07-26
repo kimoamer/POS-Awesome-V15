@@ -9,7 +9,7 @@
 		>
 			<v-card>
 				<v-card-title class="text-h6">
-					{{ $__("Custom Due Days") }}
+					{{ __("Custom Due Days") }}
 				</v-card-title>
 				<v-card-text class="pa-0">
 					<v-container>
@@ -21,7 +21,7 @@
 							max="365"
 							class="sleek-field pos-themed-input"
 							:model-value="customDaysValue"
-							:label="$frappe._('Days')"
+							:label="__('Days')"
 							hide-details
 							@update:model-value="$emit('update:customDaysValue', parseFloat($event))"
 						></v-text-field>
@@ -30,10 +30,10 @@
 				<v-card-actions>
 					<v-spacer></v-spacer>
 					<v-btn color="error" theme="dark" @click="$emit('update:customDaysDialog', false)">
-						{{ $__("Close") }}
+						{{ __("Close") }}
 					</v-btn>
 					<v-btn color="primary" theme="dark" @click="$emit('apply-custom-days')">
-						{{ $__("Apply") }}
+						{{ __("Apply") }}
 					</v-btn>
 				</v-card-actions>
 			</v-card>
@@ -48,7 +48,7 @@
 		>
 			<v-card v-if="invoiceDoc">
 				<v-card-title>
-					<span class="text-h5 text-primary">{{ $__("Confirm Mobile Number") }}</span>
+					<span class="text-h5 text-primary">{{ __("Confirm Mobile Number") }}</span>
 				</v-card-title>
 				<v-card-text class="pa-0">
 					<v-container>
@@ -56,7 +56,7 @@
 							density="compact"
 							variant="solo"
 							color="primary"
-							:label="$frappe._('Mobile Number')"
+							:label="__('Mobile Number')"
 							class="sleek-field pos-themed-input"
 							hide-details
 							v-model="invoiceDoc.contact_mobile"
@@ -67,10 +67,10 @@
 				<v-card-actions>
 					<v-spacer></v-spacer>
 					<v-btn color="error" theme="dark" @click="$emit('update:phoneDialog', false)">
-						{{ $__("Close") }}
+						{{ __("Close") }}
 					</v-btn>
 					<v-btn color="primary" theme="dark" @click="$emit('request-payment')">
-						{{ $__("Request") }}
+						{{ __("Request") }}
 					</v-btn>
 				</v-card-actions>
 			</v-card>
@@ -79,8 +79,6 @@
 </template>
 
 <script setup>
-import { inject } from "vue";
-
 defineProps({
 	customDaysDialog: {
 		type: Boolean,
@@ -108,8 +106,7 @@ defineEmits([
 	"request-payment",
 ]);
 
-const $frappe = inject("frappe", window.frappe);
-const $__ = inject("__", window.__);
+const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
 </script>
 
 <style scoped>
