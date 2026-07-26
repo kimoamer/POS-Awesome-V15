@@ -2430,10 +2430,6 @@ defineExpose({
 	background: var(--pos-card-bg, var(--pos-surface-raised, #ffffff));
 	border-top: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
 	box-shadow: 0 -4px 12px var(--pos-shadow-light, rgba(0, 0, 0, 0.03));
-}
-	background: var(--pos-card-bg, var(--pos-surface-raised, #ffffff));
-	border-top: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
-	box-shadow: 0 -6px 18px rgba(15, 23, 42, 0.05);
 	overflow: hidden;
 }
 
