@@ -1232,7 +1232,7 @@ const loadCustomerCredit = async (useCreditArg) => {
 // Pure Async Data Fetchers
 const fetchSalesPersonsData = async () => {
 	const response = await frappe.call({
-		method: "posawesome.posawesome.api.posapp.get_sales_person_names",
+		method: "posawesome.posawesome.api.utilities.get_sales_person_names",
 	});
 	return Array.isArray(response?.message) ? response.message : [];
 };
@@ -1313,7 +1313,7 @@ const loadPrintFormats = async ({ force = false } = {}) => {
 const fetchAddressesData = async (customerName) => {
 	if (!customerName) return [];
 	const response = await frappe.call({
-		method: "posawesome.posawesome.api.posapp.get_customer_addresses",
+		method: "posawesome.posawesome.api.customers.get_customer_addresses",
 		args: { customer: customerName },
 	});
 	const rawAddrs = response?.message || [];
