@@ -418,6 +418,14 @@ const redeem_customer_credit = ref(false);
 const pos_profile = ref("");
 const stock_settings = ref("");
 const pos_settings = ref({});
+const is_cashback = ref(true);
+const paid_change = ref(0);
+const credit_change = ref(0);
+const loading = ref(false);
+const show_change_dialog = ref(false);
+const sales_person = ref("");
+const is_credit_return = ref(false);
+const customer_info = ref("");
 
 const capabilities = usePaymentUiCapabilities({
 	posProfile: pos_profile,
@@ -428,14 +436,6 @@ const capabilities = usePaymentUiCapabilities({
 	currentCashier,
 	isCashback: is_cashback,
 });
-const is_cashback = ref(true);
-const paid_change = ref(0);
-const credit_change = ref(0);
-const loading = ref(false);
-const show_change_dialog = ref(false);
-const sales_person = ref("");
-const is_credit_return = ref(false);
-const customer_info = ref("");
 const print_format = ref("");
 const print_formats = ref([]);
 const paid_change_rules = ref([]);
