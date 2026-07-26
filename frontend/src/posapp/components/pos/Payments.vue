@@ -18,6 +18,7 @@
 		<!-- Fixed Overview Summary -->
 		<section class="payment-shell__overview" aria-label="Payment overview">
 			<PaymentSummary
+				compact
 				:invoice_doc="invoice_doc"
 				:total_payments_display="total_payments_display"
 				:diff_payment_display="diff_payment_display"
@@ -55,27 +56,47 @@
 						icon="mdi-wallet-outline"
 						:title="__('Payment Methods')"
 					>
-						<PaymentMethods
-							v-if="is_cashback && invoice_doc"
-							:payments="visiblePaymentMethods"
-							:currency="invoice_doc.currency"
-							:isReturn="invoice_doc.is_return"
-							:requestPaymentField="request_payment_field"
-							:currencySymbol="currencySymbol"
-							:formatCurrency="formatCurrency"
-							:isNumber="isNumber"
-							:getVisibleDenominations="getVisibleDenominations"
-							:isCashLikePayment="isCashLikePayment"
-							:isMpesaC2bPayment="is_mpesa_c2b_payment"
-							:isGiftCardPayment="isGiftCardPayment"
-							@update-amount="handlePaymentAmountChange"
-							@set-full-amount="set_full_amount"
-							@set-denomination="setPaymentToDenomination"
-							@mpesa-dialog="mpesa_c2b_dialog"
-							@request-payment="request_payment"
-							@set-rest-amount="set_rest_amount"
-							@open-gift-card="openGiftCardDialog"
-						/>
+						<template v-if="showImmediateSettlement">
+							<PaymentMethods
+								v-if="is_cashback && invoice_doc"
+								:payments="visiblePaymentMethods"
+								:currency="invoice_doc.currency"
+								:isReturn="invoice_doc.is_return"
+								:requestPaymentField="request_payment_field"
+								:currencySymbol="currencySymbol"
+								:formatCurrency="formatCurrency"
+								:isNumber="isNumber"
+								:getVisibleDenominations="getVisibleDenominations"
+								:isCashLikePayment="isCashLikePayment"
+								:isMpesaC2bPayment="is_mpesa_c2b_payment"
+								:isGiftCardPayment="isGiftCardPayment"
+								@update-amount="handlePaymentAmountChange"
+								@set-full-amount="set_full_amount"
+								@set-denomination="setPaymentToDenomination"
+								@mpesa-dialog="mpesa_c2b_dialog"
+								@request-payment="request_payment"
+								@set-rest-amount="set_rest_amount"
+								@open-gift-card="openGiftCardDialog"
+							/>
+							<PaymentGiftCardSection
+								:enabled="giftCardsEnabled"
+								:expanded="giftCardInlineExpanded"
+								:applied-amount="giftCardAppliedAmount"
+								:card-code="giftCardCode || giftCardRedemptions[0]?.gift_card_code || ''"
+								:redeem-amount="giftCardAmount"
+								:balance="giftCardBalance"
+								:status="giftCardStatus"
+								:loading="giftCardLoading"
+								:error-message="giftCardError"
+								:format-currency="(value) => formatCurrency(value, invoice_doc.currency)"
+								@toggle="toggleGiftCardInline"
+								@update:card-code="giftCardCode = $event"
+								@update:redeem-amount="giftCardAmount = $event"
+								@check-balance="checkGiftCardBalance"
+								@apply="applyGiftCardRedemption"
+								@clear="clearGiftCardRedemption"
+							/>
+						</template>
 						<div v-else class="posa-credit-settlement-notice pa-4 text-center">
 							<v-icon color="info" size="28" class="mb-2">mdi-information-outline</v-icon>
 							<div class="text-subtitle-2 font-weight-bold">{{ __("Credit Settlement") }}</div>
@@ -83,25 +104,6 @@
 								{{ __("No immediate payment method is required.") }}
 							</div>
 						</div>
-
-						<PaymentGiftCardSection
-							:enabled="giftCardsEnabled"
-							:expanded="giftCardInlineExpanded"
-							:applied-amount="giftCardAppliedAmount"
-							:card-code="giftCardCode || giftCardRedemptions[0]?.gift_card_code || ''"
-							:redeem-amount="giftCardAmount"
-							:balance="giftCardBalance"
-							:status="giftCardStatus"
-							:loading="giftCardLoading"
-							:error-message="giftCardError"
-							:format-currency="(value) => formatCurrency(value, invoice_doc.currency)"
-							@toggle="toggleGiftCardInline"
-							@update:card-code="giftCardCode = $event"
-							@update:redeem-amount="giftCardAmount = $event"
-							@check-balance="checkGiftCardBalance"
-							@apply="applyGiftCardRedemption"
-							@clear="clearGiftCardRedemption"
-						/>
 					</PaymentSectionShell>
 				</div>
 
@@ -123,6 +125,7 @@
 					</PaymentSectionShell>
 
 					<PaymentSectionShell
+						v-if="showRedemptionSection"
 						icon="mdi-star-circle-outline"
 						:title="__('Redemption')"
 					>
@@ -534,8 +537,9 @@ const request_payment_field = computed(() => {
 });
 
 const returnValidityEnabled = computed(() => {
-	return Boolean(
-		pos_profile.value?.posa_enable_return_validity || pos_settings.value?.posa_enable_return_validity,
+	return (
+		parseBooleanSetting(pos_profile.value?.posa_enable_return_validity) ||
+		parseBooleanSetting(pos_settings.value?.posa_enable_return_validity)
 	);
 });
 
@@ -724,6 +728,23 @@ const giftCardsEnabled = computed(() =>
 const cashierIsSupervisor = computed(() =>
 	parseBooleanSetting(currentCashier.value?.is_supervisor),
 );
+
+const showImmediateSettlement = computed(() =>
+	Boolean(is_cashback.value && invoice_doc.value),
+);
+
+const showRedemptionSection = computed(() => {
+	const hasLoyalty =
+		Number(customer_info.value?.loyalty_points || 0) > 0 &&
+		!invoice_doc.value?.is_return;
+
+	const hasCredit =
+		available_customer_credit.value > 0 &&
+		redeem_customer_credit.value &&
+		!invoice_doc.value?.is_return;
+
+	return hasLoyalty || hasCredit;
+});
 
 const isGiftCardPayment = (payment) => {
 	if (!giftCardsEnabled.value) {
@@ -2198,277 +2219,4 @@ defineExpose({
 });
 </script>
 
-<style scoped>
-/* Remove readonly styling */
-.v-text-field--readonly {
-	cursor: text;
-}
-
-.v-text-field--readonly:hover {
-	background-color: transparent;
-}
-
-.cards {
-	background-color: var(--pos-surface-muted) !important;
-}
-
-.payment-shell {
-	padding: 0;
-}
-
-.payment-shell--dialog {
-	height: calc(100dvh - 48px);
-	display: flex;
-	flex-direction: column;
-	gap: var(--pos-space-2);
-}
-
-.payment-card {
-	padding: var(--pos-space-2);
-}
-
-.payment-card--dialog {
-	flex: 1 1 auto;
-	min-height: 0;
-	height: auto;
-	max-height: none;
-	margin-top: 0;
-	display: flex;
-	flex-direction: column;
-}
-
-.payment-scroll {
-	padding: var(--pos-space-3);
-	display: flex;
-	flex-direction: column;
-	gap: var(--pos-space-3);
-	flex: 1 1 auto;
-	min-height: 0;
-}
-
-.payment-sections {
-	display: flex;
-	flex-direction: column;
-	gap: var(--pos-space-3);
-}
-
-.payment-sections--dialog {
-	display: grid;
-	grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-	gap: var(--pos-space-2);
-	align-items: start;
-	grid-template-areas:
-		"summary adjustments"
-		"methods adjustments"
-		"settlement adjustments"
-		"settlement meta";
-}
-
-.payment-section {
-	background: var(--pos-surface-muted);
-	border: 1px solid var(--pos-border-light);
-	border-radius: var(--pos-radius-md);
-	padding: var(--pos-space-3);
-	display: flex;
-	flex-direction: column;
-	gap: var(--pos-space-3);
-}
-
-.payment-sections--dialog .payment-section {
-	padding: 10px;
-	gap: 10px;
-}
-
-.payment-sections--dialog .payment-section--summary {
-	grid-area: summary;
-}
-
-.payment-sections--dialog .payment-section--methods {
-	grid-area: methods;
-}
-
-.payment-sections--dialog .payment-section--settlement {
-	grid-area: settlement;
-}
-
-.payment-sections--dialog .payment-section--adjustments {
-	grid-area: adjustments;
-}
-
-.payment-sections--dialog .payment-section--meta {
-	grid-area: meta;
-}
-
-.payment-section--summary {
-	background: linear-gradient(180deg, rgba(var(--v-theme-primary), 0.08) 0%, var(--pos-surface-muted) 100%);
-}
-
-.payment-section__header {
-	display: flex;
-	flex-direction: column;
-	gap: 0;
-}
-
-.payment-section__subsection {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	padding-top: var(--pos-space-1);
-	border-top: 1px solid var(--pos-border-light);
-}
-
-.payment-section__title {
-	margin: 0;
-	font-size: 1rem;
-	font-weight: 700;
-	line-height: 1.2;
-	color: var(--pos-text-primary);
-}
-
-.payment-section__title--subsection {
-	font-size: 0.92rem;
-}
-
-:deep(.payment-section .v-divider) {
-	display: none;
-}
-
-:deep(.payment-section .v-field) {
-	border-radius: var(--pos-radius-sm);
-}
-
-.payment-footer {
-	flex: 0 0 auto;
-	position: sticky;
-	bottom: 0;
-	z-index: 8;
-	padding-top: 8px;
-	background: linear-gradient(180deg, rgba(255, 255, 255, 0), var(--pos-surface) 30%);
-}
-
-.payment-footer--dialog {
-	margin-top: 0;
-}
-
-:deep(.payment-footer--dialog .cards) {
-	margin-top: 0 !important;
-}
-
-:deep(.payment-footer--dialog .v-btn) {
-	min-height: 42px;
-}
-
-:deep(.payment-shell--dialog .payment-methods) {
-	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: var(--pos-space-2);
-}
-
-:deep(.payment-shell--dialog .payment-method-card) {
-	padding: 10px;
-	gap: 10px;
-}
-
-:deep(.payment-shell--dialog .payment-summary-grid),
-:deep(.payment-shell--dialog .invoice-totals-grid),
-:deep(.payment-shell--dialog .payments),
-:deep(.payment-shell--dialog .selection-fields .v-row) {
-	row-gap: 6px;
-}
-
-:deep(.payment-shell--dialog .selection-fields p) {
-	display: none;
-}
-
-:deep(.payment-shell--dialog .payment-summary-grid .v-col),
-:deep(.payment-shell--dialog .invoice-totals-grid .v-col),
-:deep(.payment-shell--dialog .payments .v-col),
-:deep(.payment-shell--dialog .selection-fields .v-col) {
-	padding-top: 2px;
-	padding-bottom: 2px;
-}
-
-:deep(.payment-shell--dialog .payment-section .v-field__input) {
-	min-height: 34px;
-	padding-top: 4px;
-	padding-bottom: 4px;
-}
-
-:deep(.payment-shell--dialog .payment-section .v-label) {
-	font-size: 0.78rem;
-}
-
-:deep(.payment-shell--dialog .payment-section .v-input) {
-	font-size: 0.86rem;
-}
-
-:deep(.payment-shell--dialog .v-switch) {
-	margin-top: 0;
-	margin-bottom: 0;
-}
-
-:deep(.payment-shell--dialog .v-switch .v-label) {
-	font-size: 0.82rem;
-}
-
-.submit-highlight {
-	box-shadow: 0 0 0 4px rgb(var(--v-theme-primary));
-	transition: box-shadow 0.3s ease-in-out;
-}
-
-.pos-themed-card {
-	background-color: rgb(var(--v-theme-surface));
-	color: rgb(var(--v-theme-on-surface));
-}
-
-@media (max-width: 768px) {
-	.payment-shell {
-		display: flex;
-		flex-direction: column;
-		gap: var(--pos-space-2);
-		overflow: visible;
-	}
-
-	.payment-card {
-		padding: var(--pos-space-1);
-		height: auto !important;
-		max-height: none !important;
-		overflow: visible !important;
-	}
-
-	.payment-shell--dialog {
-		height: auto;
-	}
-
-	.payment-scroll {
-		padding: var(--pos-space-2);
-		gap: var(--pos-space-2);
-		overflow: visible !important;
-		min-height: auto;
-		max-height: none;
-	}
-
-	.payment-sections {
-		overflow: visible;
-	}
-
-	.payment-sections--dialog {
-		grid-template-columns: 1fr;
-	}
-
-	:deep(.payment-shell--dialog .payment-methods) {
-		grid-template-columns: 1fr;
-	}
-
-	.payment-section {
-		padding: var(--pos-space-2);
-		gap: var(--pos-space-2);
-	}
-
-	.payment-footer {
-		position: sticky;
-		margin-top: 0;
-		padding-bottom: calc(env(safe-area-inset-bottom) + 4px);
-	}
-}
-</style>
+<style scoped src="./Payments.vue.css"></style>

@@ -27,6 +27,19 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.7.1.1 — Payment Shell Integration & Visibility Acceptance (Complete ✅).
+
+Scope:
+
+- **Strict 4-Tier Fixed/Scroll Layout Integration**: Directly connected `Payments.vue.css` via `<style scoped src="./Payments.vue.css"></style>` and eliminated all legacy layout CSS rules (`payment-card`, `payment-scroll`, `payment-sections`, etc.). Enforced `.payment-shell__body` as the ONLY scroll region with `overflow-y: auto` and `overscroll-behavior: contain`.
+- **Navigation Lock During Submission**: Updated [PaymentScreenHeader.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentScreenHeader.vue) to bind `:disabled="loading"` and render `<v-progress-circular>` when `loading` is true, preventing exit during payment processing.
+- **Gift Cards Visibility Contract**: Wrapped both `<PaymentMethods>` and `<PaymentGiftCardSection>` inside `v-if="showImmediateSettlement"` (`is_cashback && invoice_doc`). Gift Cards no longer render during Credit Sale or Credit Return mode.
+- **Controlled Section Shells**: Updated [PaymentSectionShell.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentSectionShell.vue) with `watch` props, `update:expanded` emit, keyboard listeners (`enter`/`space`), and accessibility attributes (`role="button"`, `tabindex="0"`, `aria-expanded`).
+- **Empty Section Prevention**: Added `showRedemptionSection` guard preventing empty Redemption card rendering when customer has no loyalty points or credit.
+- **Boolean POS Profile Normalization**: Normalized `posProfile` flags in `PaymentOptions.vue` and `returnValidityEnabled` in `Payments.vue` using `parseBooleanSetting()`.
+- **Compact Overview Mode**: Added `compact` prop to [PaymentSummary.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentSummary.vue) rendering Paid Amount and Remaining/Change Due in a 1-row fixed header grid.
+- **Automated Tests**: Updated [paymentShellLayout.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentShellLayout.spec.ts) testing header navigation locks, controlled section expand/collapse, and boolean setting parsing across `"0"`, `"1"`, `0`, `1`, `false`, `true`.
+
 Pass 6.7.1 — Payment Screen Shell and Responsive Layout (Complete ✅).
 
 Scope:

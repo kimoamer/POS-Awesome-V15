@@ -1,12 +1,20 @@
 <template>
 	<section class="payment-section-shell" :class="{ 'payment-section-shell--collapsible': collapsible }">
-		<header class="payment-section-shell__header" @click="collapsible && toggleExpand()">
+		<header
+			class="payment-section-shell__header"
+			:role="collapsible ? 'button' : undefined"
+			:tabindex="collapsible ? 0 : undefined"
+			:aria-expanded="collapsible ? internalExpanded : undefined"
+			@click="toggleExpand"
+			@keydown.enter.prevent="toggleExpand"
+			@keydown.space.prevent="toggleExpand"
+		>
 			<div class="payment-section-shell__title-group">
 				<v-icon v-if="icon" size="20" class="payment-section-shell__icon">
 					{{ icon }}
 				</v-icon>
 				<h3 class="payment-section-shell__title">{{ title }}</h3>
-				<v-chip v-if="badge" size="x-small" color="primary" variant="tonal" class="ml-2">
+				<v-chip v-if="badge" size="x-small" color="primary" variant="tonal" class="payment-section-shell__badge">
 					{{ badge }}
 				</v-chip>
 			</div>
@@ -19,27 +27,28 @@
 					variant="text"
 					size="x-small"
 					class="payment-section-shell__toggle-btn"
+					:aria-label="internalExpanded ? __('Collapse section') : __('Expand section')"
 					@click.stop="toggleExpand()"
 				>
 					<v-icon size="18">
-						{{ isExpanded ? "mdi-chevron-up" : "mdi-chevron-down" }}
+						{{ internalExpanded ? "mdi-chevron-up" : "mdi-chevron-down" }}
 					</v-icon>
 				</v-btn>
 			</div>
 		</header>
 
-		<div v-show="!collapsible || isExpanded" class="payment-section-shell__body">
+		<div v-show="!collapsible || internalExpanded" class="payment-section-shell__body">
 			<slot></slot>
 		</div>
 
-		<footer v-if="$slots.footer && (!collapsible || isExpanded)" class="payment-section-shell__footer">
+		<footer v-if="$slots.footer && (!collapsible || internalExpanded)" class="payment-section-shell__footer">
 			<slot name="footer"></slot>
 		</footer>
 	</section>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch } from "vue";
 
 interface Props {
 	title: string;
@@ -54,13 +63,26 @@ const props = withDefaults(defineProps<Props>(), {
 	expanded: true,
 });
 
-const isExpanded = ref(props.expanded);
+const emit = defineEmits<{
+	(e: "update:expanded", value: boolean): void;
+}>();
+
+const internalExpanded = ref(props.expanded);
+
+watch(
+	() => props.expanded,
+	(val) => {
+		internalExpanded.value = val;
+	},
+);
 
 const toggleExpand = () => {
-	if (props.collapsible) {
-		isExpanded.value = !isExpanded.value;
-	}
+	if (!props.collapsible) return;
+	internalExpanded.value = !internalExpanded.value;
+	emit("update:expanded", internalExpanded.value);
 };
+
+const __ = (window as any).__ || ((s: string) => s);
 </script>
 
 <style scoped>
@@ -70,7 +92,6 @@ const toggleExpand = () => {
 	border-radius: var(--pos-radius-md, 12px);
 	box-shadow: 0 4px 14px var(--pos-shadow-light, rgba(0, 0, 0, 0.03));
 	overflow: hidden;
-	margin-bottom: 12px;
 	transition: all 0.15s ease;
 }
 
@@ -89,6 +110,11 @@ const toggleExpand = () => {
 	user-select: none;
 }
 
+.payment-section-shell__header:focus-visible {
+	outline: 2px solid var(--pos-primary, #2563eb);
+	outline-offset: -2px;
+}
+
 .payment-section-shell__title-group {
 	display: flex;
 	align-items: center;
@@ -105,6 +131,10 @@ const toggleExpand = () => {
 	font-weight: 700;
 	line-height: 1.3;
 	color: var(--pos-text-primary, #0f172a);
+}
+
+.payment-section-shell__badge {
+	margin-inline-start: 8px;
 }
 
 .payment-section-shell__actions {

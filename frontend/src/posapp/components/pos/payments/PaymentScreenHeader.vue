@@ -6,10 +6,13 @@
 				variant="text"
 				size="small"
 				class="payment-screen-header__back-btn"
+				:disabled="loading"
+				:aria-disabled="loading"
 				:aria-label="dialogMode ? __('Close payment') : __('Back to cart')"
-				@click="$emit('back')"
+				@click="!loading && $emit('back')"
 			>
-				<v-icon size="22">
+				<v-progress-circular v-if="loading" indeterminate size="20" color="primary" />
+				<v-icon v-else size="22">
 					{{ dialogMode ? "mdi-close" : "mdi-arrow-left" }}
 				</v-icon>
 			</v-btn>

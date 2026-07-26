@@ -3,7 +3,7 @@
 		<div class="payment-options-layout">
 			<div class="payment-options-toggles">
 				<v-row class="pa-1" align="start" no-gutters>
-					<v-col cols="12" v-if="posProfile.posa_allow_credit_sale && !invoiceDoc.is_return">
+					<v-col cols="12" v-if="allowCreditSale && !invoiceDoc.is_return">
 						<v-switch
 							:model-value="isCreditSale"
 							color="primary"
@@ -15,7 +15,7 @@
 					<v-col
 						cols="12"
 						v-if="
-							posProfile.posa_allow_write_off_change && diffPayment > 0 && !invoiceDoc.is_return
+							allowWriteOff && diffPayment > 0 && !invoiceDoc.is_return
 						"
 					>
 						<v-switch
@@ -27,7 +27,7 @@
 							@update:model-value="$emit('update:isWriteOffChange', $event)"
 						></v-switch>
 					</v-col>
-					<v-col cols="12" v-if="invoiceDoc.is_return && posProfile.use_cashback">
+					<v-col cols="12" v-if="invoiceDoc.is_return && allowCashback">
 						<v-switch
 							:model-value="isCashback"
 							color="primary"
@@ -47,7 +47,7 @@
 							@update:model-value="$emit('update:isCreditReturn', $event)"
 						></v-switch>
 					</v-col>
-					<v-col cols="12" v-if="!invoiceDoc.is_return && posProfile.use_customer_credit">
+					<v-col cols="12" v-if="!invoiceDoc.is_return && allowCustomerCredit">
 						<v-switch
 							:model-value="redeemCustomerCredit"
 							color="primary"
@@ -240,7 +240,25 @@ const emit = defineEmits([
 	"get-available-credit",
 ]);
 
-const $frappe = inject("frappe", window.frappe);
+import { parseBooleanSetting } from "../../../utils/stock";
+
+const allowCreditSale = computed(() =>
+	parseBooleanSetting(props.posProfile?.posa_allow_credit_sale),
+);
+
+const allowWriteOff = computed(() =>
+	parseBooleanSetting(props.posProfile?.posa_allow_write_off_change),
+);
+
+const allowCashback = computed(() =>
+	parseBooleanSetting(props.posProfile?.use_cashback),
+);
+
+const allowCustomerCredit = computed(() =>
+	parseBooleanSetting(
+		props.posProfile?.use_customer_credit ?? props.posProfile?.posa_use_customer_credit,
+	),
+);
 
 const handleRedeemCustomerCreditUpdate = (val) => {
 	emit("update:redeemCustomerCredit", val);

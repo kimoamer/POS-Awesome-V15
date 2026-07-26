@@ -1,6 +1,6 @@
 <template>
-	<v-row v-if="invoice_doc" class="payment-summary-grid" dense>
-		<v-col cols="12" sm="7">
+	<v-row v-if="invoice_doc" class="payment-summary-grid" :class="{ 'payment-summary-grid--compact': compact }" dense>
+		<v-col cols="6">
 			<v-text-field
 				variant="solo"
 				color="primary"
@@ -14,7 +14,7 @@
 				@click="$emit('show-paid-amount')"
 			></v-text-field>
 		</v-col>
-		<v-col cols="12" sm="5">
+		<v-col cols="6">
 			<v-text-field
 				variant="solo"
 				color="primary"
@@ -29,7 +29,7 @@
 			></v-text-field>
 		</v-col>
 
-		<v-col v-if="invoice_doc && giftCardAppliedAmount > 0" cols="12">
+		<v-col v-if="!compact && invoice_doc && giftCardAppliedAmount > 0" cols="12">
 			<div class="payment-summary-pill payment-summary-pill--gift-card">
 				<div class="payment-summary-pill__copy">
 					<p class="payment-summary-pill__label">{{ frappe._("Gift Card Applied") }}</p>
@@ -46,8 +46,8 @@
 			</div>
 		</v-col>
 
-		<!-- Paid Change (if applicable) -->
-		<v-col cols="12" sm="7" v-if="invoice_doc && change_due > 0 && !invoice_doc.is_return">
+		<!-- Paid Change (if applicable and not compact) -->
+		<v-col cols="12" sm="7" v-if="!compact && invoice_doc && change_due > 0 && !invoice_doc.is_return">
 			<v-text-field
 				variant="solo"
 				color="primary"
@@ -63,8 +63,8 @@
 			></v-text-field>
 		</v-col>
 
-		<!-- Credit Change (if applicable) -->
-		<v-col cols="12" sm="5" v-if="invoice_doc && change_due > 0 && !invoice_doc.is_return">
+		<!-- Credit Change (if applicable and not compact) -->
+		<v-col cols="12" sm="5" v-if="!compact && invoice_doc && change_due > 0 && !invoice_doc.is_return">
 			<v-text-field
 				variant="solo"
 				color="primary"
@@ -82,6 +82,10 @@
 
 <script setup>
 defineProps({
+	compact: {
+		type: Boolean,
+		default: false,
+	},
 	invoice_doc: Object,
 	total_payments_display: String,
 	diff_payment_display: String,
