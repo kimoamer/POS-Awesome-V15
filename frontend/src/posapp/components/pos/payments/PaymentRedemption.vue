@@ -1,18 +1,21 @@
 <template>
 	<div v-if="invoiceDoc" class="loyalty-redemption">
-		<!-- Loyalty Points Redemption -->
+		<!-- Loyalty Points Redemption Grid -->
 		<div v-if="hasRedeemableLoyaltyPoints && !invoiceDoc.is_return" class="loyalty-redemption-grid">
 			<v-text-field
 				density="compact"
 				variant="outlined"
 				color="primary"
 				:label="__('Redeem Loyalty Points')"
-				class="sleek-field pos-themed-input"
+				class="sleek-field pos-themed-input loyalty-control-target"
 				hide-details
-				:model-value="formatCurrency(loyaltyAmount)"
-				type="text"
-				@change="handleLoyaltyChange"
+				:model-value="loyaltyAmount || ''"
+				type="number"
+				step="any"
+				min="0"
 				:prefix="currencySymbol(invoiceDoc.currency)"
+				@input="handleLoyaltyInput"
+				@change="handleLoyaltyChange"
 			></v-text-field>
 
 			<v-text-field
@@ -21,9 +24,9 @@
 				color="primary"
 				:label="
 					__('Available') +
-					(customerInfo.loyalty_points ? ` (${customerInfo.loyalty_points} pts)` : '')
+					(customerInfo?.loyalty_points ? ` (${customerInfo.loyalty_points} pts)` : '')
 				"
-				class="sleek-field pos-themed-input"
+				class="sleek-field pos-themed-input loyalty-control-target"
 				hide-details
 				:model-value="formatFloat(availablePointsAmount)"
 				:prefix="currencySymbol(invoiceDoc.currency)"
@@ -35,38 +38,6 @@
 		<div v-else-if="!invoiceDoc.is_return" class="loyalty-empty-state">
 			<v-icon size="16" color="grey">mdi-star-off-outline</v-icon>
 			<span>{{ __("No loyalty points available for this customer.") }}</span>
-		</div>
-
-		<!-- Customer Credit Redemption -->
-		<div
-			class="credit-redemption-grid"
-			v-if="availableCustomerCredit > 0 && !invoiceDoc.is_return && redeemCustomerCredit"
-		>
-			<v-text-field
-				density="compact"
-				variant="outlined"
-				color="primary"
-				:label="__('Applied Stored Value')"
-				class="sleek-field pos-themed-input"
-				hide-details
-				:model-value="formatCurrency(redeemedCustomerCredit)"
-				type="text"
-				@change="handleCreditChange"
-				:prefix="currencySymbol(invoiceDoc.currency)"
-				readonly
-			></v-text-field>
-
-			<v-text-field
-				density="compact"
-				variant="outlined"
-				color="primary"
-				:label="__('Available Stored Value')"
-				class="sleek-field pos-themed-input"
-				hide-details
-				:model-value="formatCurrency(availableCustomerCredit)"
-				:prefix="currencySymbol(invoiceDoc.currency)"
-				readonly
-			></v-text-field>
 		</div>
 	</div>
 </template>
@@ -83,10 +54,6 @@ const props = defineProps({
 		type: [Object, String],
 		default: () => ({}),
 	},
-	posProfile: {
-		type: [Object, String],
-		default: () => ({}),
-	},
 	availablePointsAmount: {
 		type: Number,
 		default: 0,
@@ -95,17 +62,9 @@ const props = defineProps({
 		type: Number,
 		default: 0,
 	},
-	availableCustomerCredit: {
-		type: Number,
-		default: 0,
-	},
-	redeemCustomerCredit: {
-		type: Boolean,
-		default: false,
-	},
-	redeemedCustomerCredit: {
-		type: Number,
-		default: 0,
+	viewportMode: {
+		type: String,
+		default: "desktop",
 	},
 	formatCurrency: {
 		type: Function,
@@ -121,7 +80,7 @@ const props = defineProps({
 	},
 });
 
-const emit = defineEmits(["update:loyaltyAmount", "update:redeemedCustomerCredit", "set-formatted-currency"]);
+const emit = defineEmits(["update:loyaltyAmount", "set-formatted-currency"]);
 
 const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
 
@@ -130,24 +89,21 @@ const hasRedeemableLoyaltyPoints = computed(() => {
 	return Number.isFinite(points) && points > 0;
 });
 
+const handleLoyaltyInput = (event) => {
+	const val = parseFloat(event.target.value) || 0;
+	emit("update:loyaltyAmount", val);
+};
+
 const handleLoyaltyChange = (event) => {
 	emit("set-formatted-currency", {
 		field: "loyalty_amount",
 		value: event.target.value,
 	});
 };
-
-const handleCreditChange = (event) => {
-	emit("set-formatted-currency", {
-		field: "redeemed_customer_credit",
-		value: event.target.value,
-	});
-};
 </script>
 
 <style scoped>
-.loyalty-redemption-grid,
-.credit-redemption-grid {
+.loyalty-redemption-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: var(--payment-space-2, 8px);
@@ -167,10 +123,23 @@ const handleCreditChange = (event) => {
 	font-weight: 500;
 }
 
-@media (max-width: 599px) {
-	.loyalty-redemption-grid,
-	.credit-redemption-grid {
+.loyalty-control-target :deep(.v-field) {
+	min-height: 40px;
+}
+
+@media (max-width: 899px) {
+	.loyalty-redemption-grid {
 		grid-template-columns: 1fr;
+	}
+
+	.loyalty-control-target :deep(.v-field) {
+		min-height: 42px;
+	}
+}
+
+@media (max-width: 599px) {
+	.loyalty-control-target :deep(.v-field) {
+		min-height: 44px;
 	}
 }
 </style>

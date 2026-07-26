@@ -9,6 +9,7 @@ export interface PaymentUiCapabilitiesParams {
 	invoiceType?: Ref<string>;
 	currentCashier?: Ref<any>;
 	isCashback?: Ref<any>;
+	isCreditSale?: Ref<any>;
 }
 
 export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
@@ -20,6 +21,7 @@ export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
 		invoiceType,
 		currentCashier,
 		isCashback,
+		isCreditSale,
 	} = params;
 
 	const isReturn = computed(() => Boolean(invoiceDoc.value?.is_return));
@@ -62,14 +64,26 @@ export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
 	const showCreditReturn = computed(() => allowStoreAsCredit.value);
 
 	// ── Immediate Settlement (Payment Methods visible) ──
-	const showImmediateSettlement = computed(() => {
-		return Boolean((isCashback?.value ?? true) && invoiceDoc.value);
+	// Decoupled: Normal sales show payment methods regardless of use_cashback.
+	// Return sales show payment methods ONLY if cashback mode is active.
+	const allowNormalPaymentMethods = computed(() => {
+		return Boolean(invoiceDoc.value) && !isReturn.value && !(isCreditSale?.value ?? false);
 	});
+
+	const allowReturnPaymentMethods = computed(() => {
+		return isReturn.value && Boolean(isCashback?.value ?? true);
+	});
+
+	const showPaymentMethods = computed(() => {
+		return allowNormalPaymentMethods.value || allowReturnPaymentMethods.value;
+	});
+
+	const showImmediateSettlement = showPaymentMethods;
 
 	// ── Gift Cards ──
 	const allowGiftCards = computed(() => {
 		const enabled = parseBooleanSetting(posProfile.value?.posa_use_gift_cards);
-		return showImmediateSettlement.value && enabled && !isReturn.value;
+		return showPaymentMethods.value && enabled && !isReturn.value;
 	});
 
 	// ── Loyalty ──
@@ -190,11 +204,13 @@ export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
 		allowSalesPerson: allowSalesPerson.value,
 		allowPrintFormat: allowPrintFormat.value,
 		isSupervisor: isSupervisor.value,
+		showPaymentMethods: showPaymentMethods.value,
 	});
 
 	return {
 		isReturn,
 		// Settlement & Payment
+		showPaymentMethods,
 		showImmediateSettlement,
 		allowCreditSale,
 		allowCreditDueDate,

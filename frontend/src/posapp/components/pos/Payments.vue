@@ -56,9 +56,9 @@
 						icon="mdi-credit-card-outline"
 						:title="__('Payment Methods')"
 					>
-						<template v-if="capabilities.showImmediateSettlement.value">
+						<template v-if="capabilities.showPaymentMethods.value">
 							<PaymentMethods
-								v-if="is_cashback && invoice_doc"
+								v-if="invoice_doc"
 								:viewport-mode="viewportMode"
 								:payments="visiblePaymentMethods"
 								:currency="invoice_doc.currency"
@@ -102,6 +102,13 @@
 								@clear="clearGiftCardRedemption"
 							/>
 						</template>
+						<div v-else-if="invoice_doc?.is_return && !capabilities.allowCashback.value && !capabilities.allowStoreAsCredit.value" class="posa-credit-settlement-notice pa-4 text-center">
+							<v-icon color="error" size="28" class="mb-2">mdi-alert-circle-outline</v-icon>
+							<div class="text-subtitle-2 font-weight-bold text-error">{{ __("Return Settlement Disabled") }}</div>
+							<div class="text-caption text-medium-emphasis">
+								{{ __("No return settlement option (Cashback or Customer Credit) is enabled in your POS Profile.") }}
+							</div>
+						</div>
 						<div v-else class="posa-credit-settlement-notice pa-4 text-center">
 							<v-icon color="info" size="28" class="mb-2">mdi-information-outline</v-icon>
 							<div class="text-subtitle-2 font-weight-bold">{{ __("Credit Settlement") }}</div>
@@ -144,17 +151,15 @@
 						v-model:expanded="loyaltyExpanded"
 					>
 						<PaymentRedemption
+							:viewport-mode="viewportMode"
 							:invoice-doc="invoice_doc"
 							:customer-info="customer_info"
-							:pos-profile="pos_profile"
 							:available-points-amount="available_points_amount"
 							:loyalty-amount="loyalty_amount"
-							:available-customer-credit="available_customer_credit"
-							:redeem-customer-credit="redeem_customer_credit"
-							:redeemed-customer-credit="redeemed_customer_credit"
 							:format-currency="formatCurrency"
 							:format-float="formatFloat"
 							:currency-symbol="currencySymbol"
+							@update:loyalty-amount="loyalty_amount = $event"
 							@set-formatted-currency="handleRedemptionFormattedCurrency"
 						/>
 					</PaymentSectionShell>
@@ -167,6 +172,7 @@
 						v-model:expanded="settlementOptionsExpanded"
 					>
 						<PaymentOptions
+							:viewport-mode="viewportMode"
 							:invoice-doc="invoice_doc"
 							:allow-credit-sale="capabilities.allowCreditSale.value"
 							:allow-write-off="capabilities.allowWriteOff.value"
@@ -206,6 +212,7 @@
 							@get-available-credit="loadCustomerCredit"
 						/>
 						<PaymentCustomerCreditDetails
+							v-if="capabilities.allowCustomerCredit.value"
 							:viewport-mode="viewportMode"
 							:invoice-doc="invoice_doc"
 							:available-customer-credit="available_customer_credit"
@@ -233,6 +240,7 @@
 						v-model:expanded="orderDetailsExpanded"
 					>
 						<PaymentAdditionalInfo
+							:viewport-mode="viewportMode"
 							:invoice-doc="invoice_doc"
 							:allow-delivery-date="capabilities.allowDeliveryDate.value"
 							:allow-shipping-address="capabilities.allowShippingAddress.value"
@@ -262,6 +270,7 @@
 							@retry-addresses="loadAddresses({ force: true })"
 						/>
 						<PaymentPurchaseOrder
+							:viewport-mode="viewportMode"
 							:invoice-doc="invoice_doc"
 							:allow-purchase-order="capabilities.allowPurchaseOrder.value"
 							:new-po-date="new_po_date"
@@ -518,6 +527,7 @@ const capabilities = usePaymentUiCapabilities({
 	invoiceType,
 	currentCashier,
 	isCashback: is_cashback,
+	isCreditSale: is_credit_sale,
 });
 const print_format = ref("");
 const print_formats = ref([]);
@@ -836,19 +846,23 @@ const { ensureReturnPaymentsAreNegative, restoreReturnPayments, validateSubmissi
 		currencyPrecision: currency_precision,
 	});
 
-const isGiftCardPayment = (payment) => {
-	if (!capabilities.showGiftCards.value) {
-		return false;
-	}
+const isGiftCardConfiguredRow = (payment) => {
 	return String(payment?.mode_of_payment || "")
 		.trim()
 		.toLowerCase()
 		.includes("gift");
 };
 
+const isGiftCardPayment = (payment) => {
+	if (!capabilities.showGiftCards.value) {
+		return false;
+	}
+	return isGiftCardConfiguredRow(payment);
+};
+
 const visiblePaymentMethods = computed(() =>
 	(Array.isArray(invoice_doc.value?.payments) ? invoice_doc.value.payments : []).filter(
-		(payment) => !isGiftCardPayment(payment),
+		(payment) => !isGiftCardConfiguredRow(payment),
 	),
 );
 
@@ -933,6 +947,7 @@ const toggleGiftCardInline = () => {
 };
 
 const openGiftCardDialog = (payment = null) => {
+	if (!capabilities.allowGiftCards.value) return;
 	activeGiftCardPayment.value = payment;
 	giftCardDialogOpen.value = true;
 	giftCardCode.value = giftCardRedemptions.value[0]?.gift_card_code || "";
@@ -947,6 +962,7 @@ const openGiftCardDialog = (payment = null) => {
 };
 
 const checkGiftCardBalance = async () => {
+	if (!capabilities.allowGiftCards.value) return;
 	if (!giftCardCode.value || !pos_profile.value?.company) {
 		giftCardError.value = __("Gift card code is required.");
 		return;
@@ -987,6 +1003,7 @@ const checkGiftCardBalance = async () => {
 };
 
 const applyGiftCardRedemption = async () => {
+	if (!capabilities.allowGiftCards.value) return;
 	if (!giftCardBalance.value || !giftCardStatus.value) {
 		await checkGiftCardBalance();
 		if (!giftCardBalance.value || giftCardError.value) {
@@ -1024,6 +1041,7 @@ const applyGiftCardRedemption = async () => {
 };
 
 const issueGiftCard = async () => {
+	if (!capabilities.allowGiftCards.value) return;
 	if (!currentCashier.value?.is_supervisor) {
 		giftCardError.value = __("A POS supervisor is required for this action.");
 		return;
@@ -1054,6 +1072,7 @@ const issueGiftCard = async () => {
 };
 
 const topUpGiftCard = async () => {
+	if (!capabilities.allowGiftCards.value) return;
 	if (!currentCashier.value?.is_supervisor) {
 		giftCardError.value = __("A POS supervisor is required for this action.");
 		return;

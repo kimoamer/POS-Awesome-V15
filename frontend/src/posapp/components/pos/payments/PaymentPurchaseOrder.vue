@@ -31,6 +31,10 @@
 
 <script setup>
 const props = defineProps({
+	viewportMode: {
+		type: String,
+		default: "desktop",
+	},
 	invoiceDoc: {
 		type: Object,
 		required: true,

@@ -1,5 +1,5 @@
 <template>
-	<div v-if="invoiceDoc" class="payment-additional-info">
+	<div v-if="invoiceDoc" :class="['payment-additional-info', `payment-additional-info--${viewportMode}`]">
 		<div class="payment-details-grid">
 			<!-- Delivery Date (if applicable) -->
 			<div v-if="allowDeliveryDate" class="payment-details-cell">
@@ -143,6 +143,10 @@
 
 <script setup>
 const props = defineProps({
+	viewportMode: {
+		type: String,
+		default: "desktop",
+	},
 	invoiceDoc: {
 		type: Object,
 		required: true,
@@ -247,6 +251,35 @@ const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?
 	min-width: 40px;
 }
 
+.payment-additional-info--tablet-portrait .create-address-btn,
+.payment-additional-info--tablet-landscape .create-address-btn {
+	height: 42px;
+	width: 42px;
+	min-width: 42px;
+}
+
+.payment-additional-info--phone .create-address-btn {
+	height: 44px;
+	width: 44px;
+	min-width: 44px;
+}
+
+.address-retry-action {
+	min-height: 40px;
+	min-width: 40px;
+}
+
+.payment-additional-info--tablet-portrait .address-retry-action,
+.payment-additional-info--tablet-landscape .address-retry-action {
+	min-height: 42px;
+	min-width: 42px;
+}
+
+.payment-additional-info--phone .address-retry-action {
+	min-height: 44px;
+	min-width: 44px;
+}
+
 .pos-themed-input :deep(.v-field__input) {
 	font-weight: 500;
 }
@@ -254,12 +287,6 @@ const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?
 @media (max-width: 899px) {
 	.payment-details-grid {
 		grid-template-columns: 1fr;
-	}
-
-	.create-address-btn {
-		height: 44px;
-		width: 44px;
-		min-width: 44px;
 	}
 }
 </style>
