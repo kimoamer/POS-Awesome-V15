@@ -1,16 +1,45 @@
-﻿<!-- eslint-disable vue/multi-word-component-names -->
+<!-- eslint-disable vue/multi-word-component-names -->
 <template>
 	<div
 		ref="paymentRoot"
 		data-pos-keyboard-root="payment"
 		:class="['payment-shell', { 'payment-shell--dialog': dialogMode }]"
 	>
-		<v-card
-			:class="[
-				'selection mx-auto my-0 pos-themed-card payment-card',
-				dialogMode ? 'payment-card--dialog' : 'mt-3',
-			]"
-		>
+		<!-- Fixed Header -->
+		<PaymentScreenHeader
+			:dialog-mode="dialogMode"
+			:invoice-doc="invoice_doc"
+			:customer-info="customer_info"
+			:invoice-type="invoiceType"
+			:loading="loading"
+			@back="back_to_invoice"
+		/>
+
+		<!-- Fixed Overview Summary -->
+		<section class="payment-shell__overview" aria-label="Payment overview">
+			<PaymentSummary
+				:invoice_doc="invoice_doc"
+				:total_payments_display="total_payments_display"
+				:diff_payment_display="diff_payment_display"
+				:diff_label="diff_label"
+				:diff-payment="diff_payment"
+				:change_due="change_due"
+				:paid_change="paid_change"
+				:credit_change="credit_change"
+				:paid_change_rules="paid_change_rules"
+				:currencySymbol="currencySymbol"
+				:formatCurrency="formatCurrency"
+				:gift-card-applied-amount="giftCardAppliedAmount"
+				:gift-card-code="giftCardRedemptions[0]?.gift_card_code || ''"
+				@show-paid-amount="showPaidAmount"
+				@show-diff-payment="showDiffPayment"
+				@show-paid-change="showPaidChange"
+				@update-credit-change="handleCreditChangeUpdate"
+			/>
+		</section>
+
+		<!-- Scrollable Body Container -->
+		<main ref="paymentContainer" class="payment-shell__body">
 			<v-progress-linear
 				:active="loading"
 				:indeterminate="loading"
@@ -18,41 +47,16 @@
 				location="top"
 				color="info"
 			></v-progress-linear>
-			<div ref="paymentContainer" class="overflow-y-auto payment-scroll">
-				<div :class="['payment-sections', { 'payment-sections--dialog': dialogMode }]">
-					<section class="payment-section payment-section--summary">
-						<div class="payment-section__header">
-							<h3 class="payment-section__title">{{ __("Payment Summary") }}</h3>
-						</div>
-						<PaymentSummary
-							:invoice_doc="invoice_doc"
-							:total_payments_display="total_payments_display"
-							:diff_payment_display="diff_payment_display"
-							:diff_label="diff_label"
-							:diff-payment="diff_payment"
-							:change_due="change_due"
-							:paid_change="paid_change"
-							:credit_change="credit_change"
-							:paid_change_rules="paid_change_rules"
-							:currencySymbol="currencySymbol"
-							:formatCurrency="formatCurrency"
-							:gift-card-applied-amount="giftCardAppliedAmount"
-							:gift-card-code="giftCardRedemptions[0]?.gift_card_code || ''"
-							@show-paid-amount="showPaidAmount"
-							@show-diff-payment="showDiffPayment"
-							@show-paid-change="showPaidChange"
-							@update-credit-change="handleCreditChangeUpdate"
-						/>
-					</section>
 
-					<section
-						v-if="is_cashback && invoice_doc"
-						class="payment-section payment-section--methods"
+			<div class="payment-layout">
+				<!-- Primary Column: Payment Methods & Gift Cards -->
+				<div class="payment-layout__primary">
+					<PaymentSectionShell
+						icon="mdi-wallet-outline"
+						:title="__('Payment Methods')"
 					>
-						<div class="payment-section__header">
-							<h3 class="payment-section__title">{{ __("Payment Methods") }}</h3>
-						</div>
 						<PaymentMethods
+							v-if="is_cashback && invoice_doc"
 							:payments="visiblePaymentMethods"
 							:currency="invoice_doc.currency"
 							:isReturn="invoice_doc.is_return"
@@ -72,8 +76,16 @@
 							@set-rest-amount="set_rest_amount"
 							@open-gift-card="openGiftCardDialog"
 						/>
+						<div v-else class="posa-credit-settlement-notice pa-4 text-center">
+							<v-icon color="info" size="28" class="mb-2">mdi-information-outline</v-icon>
+							<div class="text-subtitle-2 font-weight-bold">{{ __("Credit Settlement") }}</div>
+							<div class="text-caption text-medium-emphasis">
+								{{ __("No immediate payment method is required.") }}
+							</div>
+						</div>
+
 						<PaymentGiftCardSection
-							:enabled="Boolean(pos_profile?.posa_use_gift_cards)"
+							:enabled="giftCardsEnabled"
 							:expanded="giftCardInlineExpanded"
 							:applied-amount="giftCardAppliedAmount"
 							:card-code="giftCardCode || giftCardRedemptions[0]?.gift_card_code || ''"
@@ -90,12 +102,30 @@
 							@apply="applyGiftCardRedemption"
 							@clear="clearGiftCardRedemption"
 						/>
-					</section>
+					</PaymentSectionShell>
+				</div>
 
-					<section class="payment-section payment-section--adjustments">
-						<div class="payment-section__header">
-							<h3 class="payment-section__title">{{ __("Redemption and Totals") }}</h3>
-						</div>
+				<!-- Secondary Column: Invoice Summary, Redemption, Settlement Options, Additional Info -->
+				<div class="payment-layout__secondary">
+					<PaymentSectionShell
+						icon="mdi-receipt-text-outline"
+						:title="__('Invoice Summary')"
+					>
+						<InvoiceTotals
+							:invoice_doc="invoice_doc"
+							:displayCurrency="displayCurrency"
+							:diff_payment="diff_payment"
+							:diff_label="diff_label"
+							:item-discount-total="paymentItemDiscountTotal"
+							:currencySymbol="currencySymbol"
+							:formatCurrency="formatCurrency"
+						/>
+					</PaymentSectionShell>
+
+					<PaymentSectionShell
+						icon="mdi-star-circle-outline"
+						:title="__('Redemption')"
+					>
 						<PaymentRedemption
 							:invoice-doc="invoice_doc"
 							:customer-info="customer_info"
@@ -110,61 +140,12 @@
 							:currency-symbol="currencySymbol"
 							@set-formatted-currency="handleRedemptionFormattedCurrency"
 						/>
-						<InvoiceTotals
-							:invoice_doc="invoice_doc"
-							:displayCurrency="displayCurrency"
-							:diff_payment="diff_payment"
-							:diff_label="diff_label"
-							:item-discount-total="paymentItemDiscountTotal"
-							:currencySymbol="currencySymbol"
-							:formatCurrency="formatCurrency"
-						/>
-						<div class="payment-section__subsection">
-							<h3 class="payment-section__title payment-section__title--subsection">
-								{{ __("Fulfillment Details") }}
-							</h3>
-						</div>
-						<PaymentAdditionalInfo
-							:invoice-doc="invoice_doc"
-							:pos-profile="pos_profile"
-							:invoice-type="invoiceType"
-							:return-validity-enabled="returnValidityEnabled"
-							:return-validity-min-date="returnValidityMinDate"
-							:addresses="addresses"
-							:new-delivery-date="new_delivery_date"
-							:return-valid-upto-date="return_valid_upto_date"
-							:address-filter="addressFilter"
-							@update:new-delivery-date="
-								(val) => {
-									new_delivery_date = val;
-									update_delivery_date();
-								}
-							"
-							@update:return-valid-upto-date="
-								(val) => {
-									return_valid_upto_date = val;
-									updateReturnValidUpto();
-								}
-							"
-							@new-address="new_address"
-						/>
-						<PaymentPurchaseOrder
-							:invoice-doc="invoice_doc"
-							:pos-profile="pos_profile"
-							:new-po-date="new_po_date"
-							@update:new-po-date="
-								(val) => {
-									new_po_date = val;
-									update_po_date();
-								}
-							"
-						/>
-					</section>
+					</PaymentSectionShell>
 
-					<section class="payment-section payment-section--settlement">
-						<div class="payment-section__header">
-							<h3 class="payment-section__title">{{ __("Credit and Output") }}</h3>
-						</div>
+					<PaymentSectionShell
+						icon="mdi-tune-variant"
+						:title="__('Settlement Options')"
+					>
 						<PaymentOptions
 							:invoice-doc="invoice_doc"
 							:pos-profile="pos_profile"
@@ -213,12 +194,47 @@
 									setFormatedCurrency(data.target, data.field, null, false, data.value)
 							"
 						/>
-					</section>
+					</PaymentSectionShell>
 
-					<section class="payment-section payment-section--meta">
-						<div class="payment-section__header">
-							<h3 class="payment-section__title">{{ __("Sales Person and Print") }}</h3>
-						</div>
+					<PaymentSectionShell
+						icon="mdi-truck-outline"
+						:title="__('Additional Details')"
+					>
+						<PaymentAdditionalInfo
+							:invoice-doc="invoice_doc"
+							:pos-profile="pos_profile"
+							:invoice-type="invoiceType"
+							:return-validity-enabled="returnValidityEnabled"
+							:return-validity-min-date="returnValidityMinDate"
+							:addresses="addresses"
+							:new-delivery-date="new_delivery_date"
+							:return-valid-upto-date="return_valid_upto_date"
+							:address-filter="addressFilter"
+							@update:new-delivery-date="
+								(val) => {
+									new_delivery_date = val;
+									update_delivery_date();
+								}
+							"
+							@update:return-valid-upto-date="
+								(val) => {
+									return_valid_upto_date = val;
+									updateReturnValidUpto();
+								}
+							"
+							@new-address="new_address"
+						/>
+						<PaymentPurchaseOrder
+							:invoice-doc="invoice_doc"
+							:pos-profile="pos_profile"
+							:new-po-date="new_po_date"
+							@update:new-po-date="
+								(val) => {
+									new_po_date = val;
+									update_po_date();
+								}
+							"
+						/>
 						<PaymentSelectionFields
 							:sales-persons="sales_persons"
 							:sales-person="sales_person"
@@ -231,12 +247,13 @@
 							@update:sales-person="sales_person = $event"
 							@update:print-format="print_format = $event"
 						/>
-					</section>
+					</PaymentSectionShell>
 				</div>
 			</div>
-		</v-card>
+		</main>
 
-		<div :class="['payment-footer', { 'payment-footer--dialog': dialogMode }]">
+		<!-- Fixed Action Footer -->
+		<footer :class="['payment-shell__footer', { 'payment-shell__footer--dialog': dialogMode }]">
 			<PaymentActionButtons
 				ref="submitButton"
 				:loading="loading"
@@ -247,7 +264,8 @@
 				@submit-and-print="submit(undefined, false, true)"
 				@cancel="back_to_invoice"
 			/>
-		</div>
+		</footer>
+
 		<!-- Dialogs Section (Custom Days, Phone Payment) -->
 		<PaymentDialogs
 			:custom-days-dialog="custom_days_dialog"
@@ -266,7 +284,7 @@
 			:redeem-amount="giftCardAmount"
 			:balance="giftCardBalance"
 			:status="giftCardStatus"
-			:is-supervisor="Boolean(currentCashier?.is_supervisor)"
+			:is-supervisor="cashierIsSupervisor"
 			:loading="giftCardLoading"
 			:mode="giftCardMode"
 			:error-message="giftCardError"
@@ -285,6 +303,10 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount, getCurrentInstance, nextTick } from "vue";
 import { storeToRefs } from "pinia";
+
+// Component Shell Wrappers
+import PaymentScreenHeader from "./payments/PaymentScreenHeader.vue";
+import PaymentSectionShell from "./payments/PaymentSectionShell.vue";
 
 // Stores
 import { useInvoiceStore } from "../../stores/invoiceStore.js";
@@ -695,8 +717,16 @@ const { ensureReturnPaymentsAreNegative, restoreReturnPayments, validateSubmissi
 		currencyPrecision: currency_precision,
 	});
 
+const giftCardsEnabled = computed(() =>
+	parseBooleanSetting(pos_profile.value?.posa_use_gift_cards),
+);
+
+const cashierIsSupervisor = computed(() =>
+	parseBooleanSetting(currentCashier.value?.is_supervisor),
+);
+
 const isGiftCardPayment = (payment) => {
-	if (!pos_profile.value?.posa_use_gift_cards) {
+	if (!giftCardsEnabled.value) {
 		return false;
 	}
 	return String(payment?.mode_of_payment || "")

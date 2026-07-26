@@ -27,6 +27,20 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.7.1 — Payment Screen Shell and Responsive Layout (Complete ✅).
+
+Scope:
+
+- **4-Tier Fixed/Scroll Layout**: Restructured `Payments.vue` into 4 distinct regions:
+  1. Fixed Header ([PaymentScreenHeader.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentScreenHeader.vue))
+  2. Fixed Overview Summary (`.payment-shell__overview` holding `<PaymentSummary>`)
+  3. Single Scrollable Body (`.payment-shell__body`)
+  4. Fixed Action Footer (`.payment-shell__footer` holding `<PaymentActionButtons>`)
+- **Presentation Section Shells**: Created [PaymentSectionShell.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentSectionShell.vue) wrapping Payment Methods, Invoice Summary, Redemption, Settlement Options, and Additional Details.
+- **Desktop & Mobile Responsive Grid**: Implemented 2-column desktop grid (`1.08fr` / `0.92fr`) and 1-column mobile/tablet responsive layout in [Payments.vue.css](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue.css).
+- **POS Profile Setting Normalization**: Normalized `posa_use_gift_cards` and `is_supervisor` using `parseBooleanSetting()` preventing string `"0"` false-positives.
+- **Automated Tests**: Created [paymentShellLayout.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentShellLayout.spec.ts) validating header rendering, section shell collapse/expand, and back event emitters.
+
 Pass 6.7.0 — Payment Flow Audit and Contract Freeze (Complete ✅).
 
 Scope:
