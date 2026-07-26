@@ -13,7 +13,7 @@
 					<v-icon size="20" color="primary">mdi-dots-vertical</v-icon>
 				</v-btn>
 			</template>
-			<v-list density="compact" class="pa-1">
+			<v-list density="compact" class="payment-more-menu-list">
 				<v-list-item
 					link
 					:disabled="loading || validatePayment"
@@ -136,6 +136,10 @@ const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?
 	background: var(--pos-surface-raised, #ffffff) !important;
 	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.12)) !important;
 	border-radius: var(--payment-radius-sm, 8px) !important;
+}
+
+.payment-more-menu-list {
+	padding: var(--payment-space-1, 4px) !important;
 }
 
 .compact :deep(.v-btn),

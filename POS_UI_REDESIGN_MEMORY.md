@@ -27,6 +27,16 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.7.2.4 — Runtime Proof and Mobile Chrome Finalization (Complete ✅).
+
+Scope:
+
+- **Complete Navbar DOM Removal**: Moved `v-if="!hideNavbarForPayment"` directly onto root `<nav>` tag in [Navbar.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/Navbar.vue). The entire `<nav>` wrapper element is completely removed from the DOM during mobile/tablet payment view (<1200px), eliminating top dead space and double-header chrome.
+- **Direct `Payments.vue` Zero Grand Total Integration Test**: Added direct integration test in [paymentGeometry.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentGeometry.spec.ts) mounting `Payments.vue` with `invoice_doc: { grand_total: 0, currency: "EGP" }` asserting `0.00` appears in collapsed header.
+- **Compacted Phone Overview Row Height (60px)**: Updated `.payment-shell--phone` in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) to `grid-template-rows: 52px 60px minmax(0, 1fr) auto`. Adjusted metric padding to `4px 8px` and label font size to `10px` in [PaymentSummary.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentSummary.vue).
+- **Finished Spacing Audit**: Replaced `<v-list density="compact" class="pa-1">` with `.payment-more-menu-list` in [PaymentActionButtons.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentActionButtons.vue).
+- **Automated Tests**: Updated [paymentGeometry.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentGeometry.spec.ts).
+
 Pass 6.7.2.3 — Final Payment Visual Acceptance & CSS Hygiene (Complete ✅).
 
 Scope:

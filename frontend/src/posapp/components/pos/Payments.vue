@@ -2338,7 +2338,7 @@ defineExpose({
 .payment-shell--phone {
 	height: 100dvh;
 	min-height: 0;
-	grid-template-rows: 52px 68px minmax(0, 1fr) auto;
+	grid-template-rows: 52px 60px minmax(0, 1fr) auto;
 }
 
 .payment-shell--phone .payment-shell__body {

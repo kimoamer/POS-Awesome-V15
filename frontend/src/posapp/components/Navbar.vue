@@ -1,8 +1,7 @@
 <template>
-	<nav :class="['pos-themed-card', rtlClasses]">
+	<nav v-if="!hideNavbarForPayment" :class="['pos-themed-card', rtlClasses]">
 		<!-- Use the modular NavbarAppBar component -->
 		<NavbarAppBar
-			v-if="!hideNavbarForPayment"
 			:pos-profile="posProfile"
 			:company="company"
 			:company-img="companyImg"

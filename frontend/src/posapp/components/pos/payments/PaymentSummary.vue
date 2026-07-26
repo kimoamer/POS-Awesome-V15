@@ -81,7 +81,7 @@ const renderMoney = (val) => {
 	min-width: 0;
 	min-height: 0;
 	height: 100%;
-	padding: 4px 10px;
+	padding: 4px 8px;
 	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
 	border-radius: var(--payment-radius-sm, 8px);
 	background: var(--pos-surface-raised, #ffffff);
@@ -97,9 +97,9 @@ const renderMoney = (val) => {
 }
 
 .payment-overview-metric__label {
-	font-size: 11px;
+	font-size: 10px;
 	font-weight: 700;
-	line-height: 1.1;
+	line-height: 1.15;
 	margin-bottom: 2px;
 	color: var(--pos-text-secondary, #64748b);
 	text-transform: uppercase;

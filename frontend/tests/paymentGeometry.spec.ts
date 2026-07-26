@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
+import { createPinia, setActivePinia } from "pinia";
+// @ts-ignore
+import Payments from "../src/posapp/components/pos/Payments.vue";
 // @ts-ignore
 import PaymentMethods from "../src/posapp/components/pos/payments/PaymentMethods.vue";
 // @ts-ignore
@@ -53,5 +56,40 @@ describe("Payment Geometry & Viewport Recovery Contract", () => {
 
 		expect(wrapper.find(".test-total").exists()).toBe(true);
 		expect(wrapper.text()).toContain("E£ 0.00");
+	});
+
+	it("displays zero Grand Total in Payments.vue collapsed Invoice Summary header", () => {
+		const pinia = createPinia();
+		setActivePinia(pinia);
+
+		const wrapper = mount(Payments, {
+			global: {
+				plugins: [pinia],
+				stubs: {
+					PaymentScreenHeader: true,
+					PaymentSummary: true,
+					PaymentMethods: true,
+					InvoiceTotals: true,
+					PaymentActionButtons: true,
+				},
+			},
+			props: {
+				viewportMode: "phone",
+			},
+			data() {
+				return {
+					invoice_doc: {
+						grand_total: 0,
+						currency: "EGP",
+						payments: [],
+					},
+					invoiceSummaryExpanded: false,
+				};
+			},
+		});
+
+		const headerTotal = wrapper.find(".payment-section-header-total");
+		expect(headerTotal.exists()).toBe(true);
+		expect(headerTotal.text()).toContain("0.00");
 	});
 });
