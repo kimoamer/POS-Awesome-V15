@@ -27,6 +27,17 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.7.1.7 — Premium Responsive Payment UI System (Complete ✅).
+
+Scope:
+
+- **Explicit Device Modes**: Configured 4 explicit viewport modes in [Pos.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/shell/Pos.vue): `phone` (<600px), `tablet-portrait` (600-899px), `tablet-landscape` (900-1199px), `desktop` (>=1200px).
+- **Desktop Dialog Breakpoint**: Changed `usePaymentDialog` in [Pos.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/shell/Pos.vue) to trigger centered dialog mode ONLY when `windowWidth >= 1200`. Under 1200px (tablet and mobile), payments renders as a dedicated full-screen view.
+- **Premium Design System & Tokens**: Added CSS design tokens (`--payment-space-1` through `4`, `--payment-radius-sm/md/lg`, `--payment-font-*`, `--payment-icon-*`) inside [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) scoped styles.
+- **Tonal Icon Box Containers**: Updated [PaymentSectionShell.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentSectionShell.vue) header to render a 28px x 28px tonal primary icon container (`payment-section-shell__icon-box`) with clean subtle borders and zero heavy shadows.
+- **Payment Method Icon Adapter**: Implemented `getPaymentMethodIcon` in [PaymentMethods.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentMethods.vue) to map method types (`Cash`, `Card`, `Phone`, `Bank`, `Gift Card`) to dedicated MDI icons.
+- **Automated Tests**: Created [paymentResponsiveLayout.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentResponsiveLayout.spec.ts).
+
 Pass 6.7.1.6 — Payment Capability Wiring and Final Parity Acceptance (Complete ✅).
 
 Scope:

@@ -30,7 +30,7 @@
 			@update:model-value="handlePaymentDialogUpdate"
 			@after-leave="handlePaymentDialogAfterLeave"
 		>
-			<Payments dialog-mode />
+			<Payments dialog-mode :viewport-mode="paymentViewportMode" />
 		</v-dialog>
 		<div
 			v-show="!dialog"
@@ -60,7 +60,7 @@
 				class="pos pos-pane pos-products-pane dynamic-col dynamic-col--selector"
 				data-pos-region="products"
 			>
-				<Payments></Payments>
+				<Payments :viewport-mode="paymentViewportMode"></Payments>
 			</section>
 
 			<section
@@ -242,7 +242,14 @@ export default {
 			additionalDiscount,
 			additionalDiscountPercentage,
 		} = storeToRefs(invoiceStore);
-		const usePaymentDialog = computed(() => responsive.windowWidth.value >= 992);
+		const usePaymentDialog = computed(() => responsive.windowWidth.value >= 1200);
+		const paymentViewportMode = computed(() => {
+			const width = responsive.windowWidth.value;
+			if (width < 600) return "phone";
+			if (width < 900) return "tablet-portrait";
+			if (width < 1200) return "tablet-landscape";
+			return "desktop";
+		});
 		const useCompactPosSwitcher = computed(() => responsive.windowWidth.value < 1200);
 		const compactPanel = ref("selector");
 		const isPhone = computed(() => responsive.isPhone.value);
@@ -593,6 +600,7 @@ export default {
 			paymentDialogOpen,
 			isPhone,
 			usePaymentDialog,
+			paymentViewportMode,
 			useCompactPosSwitcher,
 			showBottomDock,
 			layoutStyleOverrides,

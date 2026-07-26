@@ -2,9 +2,14 @@
 	<div v-if="payments && payments.length" class="payment-methods">
 		<div v-for="payment in payments" :key="payment.name" class="payment-method-card">
 			<div class="payment-method-card__header">
-				<div>
-					<p class="payment-method-card__label">{{ __("Method") }}</p>
-					<h4 class="payment-method-card__title">{{ payment.mode_of_payment }}</h4>
+				<div class="d-flex align-center gap-2">
+					<span class="payment-method-card__icon-box">
+						<v-icon size="16">{{ getPaymentMethodIcon(payment) }}</v-icon>
+					</span>
+					<div>
+						<p class="payment-method-card__label">{{ __("Method") }}</p>
+						<h4 class="payment-method-card__title">{{ payment.mode_of_payment }}</h4>
+					</div>
 				</div>
 				<div class="payment-method-card__badges">
 					<span
@@ -24,7 +29,7 @@
 					<v-text-field
 						data-pos-keyboard-target="payment-amount"
 						density="compact"
-						variant="solo"
+						variant="outlined"
 						:color="isReturn ? 'error' : 'primary'"
 						:label="__('Amount')"
 						:class="['sleek-field pos-themed-input', isReturn ? 'pos-themed-input--refund' : '']"
@@ -123,6 +128,16 @@ const __ = (s) =>
 		? (window.__ || window.frappe._)(s)
 		: s;
 
+function getPaymentMethodIcon(payment) {
+	const type = String(payment?.type || payment?.mode_of_payment || "").toLowerCase();
+	if (type.includes("cash")) return "mdi-cash";
+	if (type.includes("card") || type.includes("credit")) return "mdi-credit-card-outline";
+	if (type.includes("phone") || type.includes("mpesa") || type.includes("mobile")) return "mdi-cellphone";
+	if (type.includes("bank")) return "mdi-bank-outline";
+	if (type.includes("gift")) return "mdi-gift-outline";
+	return "mdi-wallet-outline";
+}
+
 const props = defineProps({
 	payments: Array,
 	currency: String,
@@ -185,6 +200,17 @@ const blurTarget = (event) => {
 	align-items: flex-start;
 	justify-content: space-between;
 	gap: var(--pos-space-2);
+}
+
+.payment-method-card__icon-box {
+	width: 28px;
+	height: 28px;
+	flex: 0 0 28px;
+	display: grid;
+	place-items: center;
+	border-radius: var(--payment-radius-sm, 8px);
+	background: color-mix(in srgb, var(--pos-primary, #2563eb) 9%, transparent);
+	color: var(--pos-primary, #2563eb);
 }
 
 .payment-method-card__label {

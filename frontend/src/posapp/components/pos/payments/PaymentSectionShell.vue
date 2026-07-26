@@ -10,10 +10,13 @@
 			@keydown.space.prevent="toggleExpand"
 		>
 			<div class="payment-section-shell__title-group">
-				<v-icon v-if="icon" size="20" class="payment-section-shell__icon">
-					{{ icon }}
-				</v-icon>
-				<h3 class="payment-section-shell__title">{{ title }}</h3>
+				<span v-if="icon" class="payment-section-shell__icon-box">
+					<v-icon size="16">{{ icon }}</v-icon>
+				</span>
+				<div class="payment-section-shell__copy">
+					<h3 class="payment-section-shell__title">{{ title }}</h3>
+					<small v-if="description" class="payment-section-shell__description">{{ description }}</small>
+				</div>
 				<v-chip v-if="badge" size="x-small" color="primary" variant="tonal" class="payment-section-shell__badge">
 					{{ badge }}
 				</v-chip>
@@ -52,6 +55,7 @@ import { ref, watch } from "vue";
 
 interface Props {
 	title: string;
+	description?: string;
 	icon?: string;
 	badge?: string;
 	collapsible?: boolean;
@@ -89,19 +93,19 @@ const __ = (window as any).__ || ((s: string) => s);
 .payment-section-shell {
 	background: var(--pos-card-bg, var(--pos-surface-raised, #ffffff));
 	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
-	border-radius: var(--pos-radius-md, 12px);
-	box-shadow: 0 4px 14px var(--pos-shadow-light, rgba(0, 0, 0, 0.03));
+	border-radius: var(--payment-radius-md, 10px);
+	box-shadow: none;
 	overflow: hidden;
-	transition: all 0.15s ease;
+	transition: border-color 0.15s ease;
 }
 
 .payment-section-shell__header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	min-height: 44px;
-	padding: 10px 14px;
-	background: var(--pos-surface-muted, rgba(0, 0, 0, 0.02));
+	min-height: 38px;
+	padding: 6px 9px;
+	background: transparent;
 	border-bottom: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.06));
 }
 
@@ -121,34 +125,51 @@ const __ = (window as any).__ || ((s: string) => s);
 	gap: 8px;
 }
 
-.payment-section-shell__icon {
+.payment-section-shell__icon-box {
+	width: 28px;
+	height: 28px;
+	flex: 0 0 28px;
+	display: grid;
+	place-items: center;
+	border-radius: var(--payment-radius-sm, 8px);
+	background: color-mix(in srgb, var(--pos-primary, #2563eb) 9%, transparent);
 	color: var(--pos-primary, #2563eb);
+}
+
+.payment-section-shell__copy {
+	display: flex;
+	flex-direction: column;
 }
 
 .payment-section-shell__title {
 	margin: 0;
-	font-size: 0.9375rem;
+	font-size: 13px;
 	font-weight: 700;
-	line-height: 1.3;
+	line-height: 1.2;
 	color: var(--pos-text-primary, #0f172a);
 }
 
+.payment-section-shell__description {
+	font-size: 11px;
+	color: var(--pos-text-secondary, #64748b);
+}
+
 .payment-section-shell__badge {
-	margin-inline-start: 8px;
+	margin-inline-start: 6px;
 }
 
 .payment-section-shell__actions {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: 4px;
 }
 
 .payment-section-shell__body {
-	padding: 14px;
+	padding: 8px 10px 10px;
 }
 
 .payment-section-shell__footer {
-	padding: 10px 14px;
+	padding: 8px 10px;
 	background: var(--pos-surface-muted, rgba(0, 0, 0, 0.02));
 	border-top: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.06));
 }
