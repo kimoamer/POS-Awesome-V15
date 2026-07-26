@@ -95,7 +95,7 @@
 					{{ __("Submit") }}
 				</v-btn>
 			</div>
-		</card>
+		</v-card>
 	</v-dialog>
 </template>
 
