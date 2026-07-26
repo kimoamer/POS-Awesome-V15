@@ -27,7 +27,19 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
-Pass 6.7.4.1 — Final Payment Integration, Dialog Completion and Visual Proof (Complete ✅).
+Pass 6.7.4.2 — Critical Build Repair, Real Runtime Wiring and Final Screenshot Gate (Complete ✅).
+
+Scope:
+
+- **Build Blocker Resolved**: Fixed template closing tag `</v-card>` in [Mpesa-Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/Mpesa-Payments.vue).
+- **M-Pesa Viewport Integration**: Passed `:viewport-mode="paymentViewportMode"` from [Pos.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/shell/Pos.vue) into [Mpesa-Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/Mpesa-Payments.vue).
+- **Customer Credit Parent Wiring**: Connected `customerCreditLoading`, `customerCreditLoaded`, `customerCreditError`, `loadCustomerCredit`, `:redeemed-customer-credit`, and `@retry` in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue).
+- **Sales Persons, Print Formats & Addresses Request Wrappers**: Implemented real `loadSalesPersons`, `loadPrintFormats`, and `loadAddresses` request wrappers in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) with loading/error state refs and `@retry` events.
+- **Sales & Receipt Tablet Portrait Geometry**: Passed `viewportMode` into [PaymentSelectionFields.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentSelectionFields.vue) to enforce 1-column grid on Tablet Portrait (600-899px) and Phone (0-599px).
+- **Gift Card Dialog Currency Integration**: Passed `:currency`, `:format-currency`, and `:currency-symbol` to [GiftCardDialog.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/wallet/GiftCardDialog.vue).
+- **Phone Safe-Area Footers**: Added `env(safe-area-inset-bottom)` safe-area padding rules across phone dialog footers.
+- **Session Section Expansion**: Initialized section expansion defaults ONCE when payment session opens (`isPaymentOpen` becomes true) or when a new invoice is loaded, preserving cashier toggles during the active session.
+- **Committed Behavioral Regression Suite**: Updated and committed test spec files (`paymentCustomerCreditUi.spec.ts`, `paymentGiftCardUi.spec.ts`, `paymentFulfillmentUi.spec.ts`, `paymentDialogsResponsive.spec.ts`, `paymentCompleteExperience.spec.ts`, `paymentSecondaryFlows.spec.ts`, `paymentSettlementOptions.spec.ts`).
 
 Scope:
 

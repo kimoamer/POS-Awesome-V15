@@ -9,7 +9,7 @@
 		<SalesOrders></SalesOrders>
 		<Returns></Returns>
 		<NewAddress></NewAddress>
-		<MpesaPayments></MpesaPayments>
+		<MpesaPayments :viewport-mode="paymentViewportMode"></MpesaPayments>
 		<Variants></Variants>
 		<OpeningDialog
 			v-if="dialog"

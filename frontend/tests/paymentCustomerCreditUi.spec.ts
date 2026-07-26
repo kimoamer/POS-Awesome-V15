@@ -13,13 +13,13 @@ describe("Payment Customer Credit UI Contract", () => {
 				redeemedCustomerCredit: 0,
 				customerCreditDict: [],
 				creditSourceLabel: (row: any) => row.name,
-				formatCurrency: (val: number) => `E£ ${val}`,
+				formatCurrency: (val: number) => `E£ ${val}.00`,
 				currencySymbol: () => "E£",
 			},
 		});
 
 		expect(wrapper.text()).toContain("Customer Credit Available");
-		expect(wrapper.text()).toContain("E£ 500");
+		expect(wrapper.text()).toContain("E£ 500.00");
 		expect(wrapper.text()).not.toContain("Credit Sources");
 	});
 
@@ -34,17 +34,17 @@ describe("Payment Customer Credit UI Contract", () => {
 					{ name: "INV-0001", total_credit: 300, credit_to_redeem: 200 },
 				],
 				creditSourceLabel: (row: any) => row.name,
-				formatCurrency: (val: number) => `E£ ${val}`,
+				formatCurrency: (val: number) => `E£ ${val}.00`,
 				currencySymbol: () => "E£",
 			},
 		});
 
 		expect(wrapper.text()).toContain("Applied Now");
-		expect(wrapper.text()).toContain("E£ 200");
+		expect(wrapper.text()).toContain("E£ 200.00");
 		expect(wrapper.text()).toContain("INV-0001");
 	});
 
-	it("renders loading, error and empty states correctly", () => {
+	it("renders loading, error and empty states correctly and emits retry", async () => {
 		const loadingWrapper = mount(PaymentCustomerCreditDetails, {
 			props: {
 				invoiceDoc: { is_return: false },
@@ -73,14 +73,17 @@ describe("Payment Customer Credit UI Contract", () => {
 			props: {
 				invoiceDoc: { is_return: false },
 				loading: false,
-				errorMessage: "Network error",
+				errorMessage: "Unable to load customer credit",
 				availableCustomerCredit: 0,
 				formatCurrency: (val: number) => `$${val}`,
 				currencySymbol: () => "$",
 				creditSourceLabel: () => "",
 			},
 		});
-		expect(errorWrapper.text()).toContain("Network error");
-		expect(errorWrapper.text()).toContain("Retry");
+		expect(errorWrapper.text()).toContain("Unable to load customer credit");
+		const retryBtn = errorWrapper.find("button");
+		expect(retryBtn.exists()).toBe(true);
+		await retryBtn.trigger("click");
+		expect(errorWrapper.emitted("retry")).toBeTruthy();
 	});
 });

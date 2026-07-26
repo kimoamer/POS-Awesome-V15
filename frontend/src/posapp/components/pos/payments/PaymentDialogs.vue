@@ -216,5 +216,9 @@ const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?
 		flex-direction: column;
 		align-items: stretch;
 	}
+
+	.payment-dialog--phone .payment-dialog__footer {
+		padding-bottom: max(var(--payment-space-3, 12px), env(safe-area-inset-bottom));
+	}
 }
 </style>

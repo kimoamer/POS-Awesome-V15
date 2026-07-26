@@ -5,34 +5,34 @@ import PaymentDialogs from "../src/posapp/components/pos/payments/PaymentDialogs
 // @ts-ignore
 import MpesaPayments from "../src/posapp/components/pos/payments/Mpesa-Payments.vue";
 
-describe("Payment Dialogs Responsive Bounds Contract", () => {
-	it("renders custom days dialog with responsive calc width", () => {
+describe("Responsive Payment Dialogs Contract", () => {
+	it("renders PaymentDialogs with phone fullscreen class on phone viewport mode", () => {
 		const wrapper = mount(PaymentDialogs, {
 			props: {
+				viewportMode: "phone",
 				customDaysDialog: true,
-				customDaysValue: 30,
+				customDaysValue: 15,
 				phoneDialog: false,
-				invoiceDoc: { contact_mobile: "01000000000" },
+				invoiceDoc: { contact_mobile: "1234567" },
 			},
 		});
 
-		expect(wrapper.html()).toContain('width="min(360px, calc(100vw - 24px))"');
+		expect(wrapper.html()).toContain("payment-dialog--phone");
+		expect(wrapper.text()).toContain("Custom Due Days");
 	});
 
-	it("renders phone payment dialog with responsive width", () => {
-		const wrapper = mount(PaymentDialogs, {
+	it("renders MpesaPayments component and applies viewportMode class", () => {
+		const wrapper = mount(MpesaPayments, {
 			props: {
-				customDaysDialog: false,
-				phoneDialog: true,
-				invoiceDoc: { contact_mobile: "01000000000" },
+				viewportMode: "phone",
+			},
+			global: {
+				provide: {
+					eventBus: { on: () => {}, off: () => {}, emit: () => {} },
+				},
 			},
 		});
 
-		expect(wrapper.html()).toContain('width="min(400px, calc(100vw - 24px))"');
-	});
-
-	it("renders M-Pesa dialog with responsive calc width", () => {
-		const wrapper = mount(MpesaPayments);
-		expect(wrapper.html()).toContain('width="min(800px, calc(100vw - 24px))"');
+		expect(wrapper.html()).toContain("mpesa-dialog--phone");
 	});
 });

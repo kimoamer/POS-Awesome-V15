@@ -387,5 +387,9 @@ const displayMoney = (val) => {
 		flex-direction: column;
 		align-items: stretch;
 	}
+
+	.gift-card-dialog--phone .gift-card-dialog__actions {
+		padding-bottom: max(var(--payment-space-3, 12px), env(safe-area-inset-bottom));
+	}
 }
 </style>

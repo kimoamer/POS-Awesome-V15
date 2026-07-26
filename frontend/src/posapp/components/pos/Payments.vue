@@ -205,7 +205,10 @@
 							:invoice-doc="invoice_doc"
 							:available-customer-credit="available_customer_credit"
 							:redeem-customer-credit="redeem_customer_credit"
+							:redeemed-customer-credit="redeemed_customer_credit"
 							:customer-credit-dict="customer_credit_dict"
+							:loading="customerCreditLoading"
+							:error-message="customerCreditError"
 							:credit-source-label="creditSourceLabel"
 							:format-currency="formatCurrency"
 							:currency-symbol="currencySymbol"
@@ -213,6 +216,7 @@
 								(data) =>
 									setFormatedCurrency(data.target, data.field, null, false, data.value)
 							"
+							@retry="loadCustomerCredit"
 						/>
 					</PaymentSectionShell>
 
@@ -230,8 +234,8 @@
 							:return-validity-enabled="returnValidityEnabled"
 							:return-validity-min-date="returnValidityMinDate"
 							:addresses="addresses"
-							:addresses-loading="addresses_loading"
-							:addresses-error="addresses_error"
+							:addresses-loading="addressesLoading"
+							:addresses-error="addressesError"
 							:new-delivery-date="new_delivery_date"
 							:return-valid-upto-date="return_valid_upto_date"
 							:address-filter="addressFilter"
@@ -248,7 +252,7 @@
 								}
 							"
 							@new-address="new_address"
-							@retry-addresses="get_addresses"
+							@retry-addresses="loadAddresses({ force: true })"
 						/>
 						<PaymentPurchaseOrder
 							:invoice-doc="invoice_doc"
@@ -271,18 +275,23 @@
 						v-model:expanded="salesReceiptExpanded"
 					>
 						<PaymentSelectionFields
+							:viewport-mode="viewportMode"
 							:sales-persons="sales_persons"
 							:sales-person="sales_person"
-							:sales-persons-loading="sales_persons_loading"
+							:sales-persons-loading="salesPersonsLoading"
+							:sales-persons-error="salesPersonsError"
 							:readonly="readonly"
 							:print-formats="print_formats"
 							:print-format="print_format"
-							:print-formats-loading="print_formats_loading"
+							:print-formats-loading="printFormatsLoading"
+							:print-formats-error="printFormatsError"
 							:show-print-format="
 								parseBooleanSetting(pos_profile?.posa_allow_select_print_format_in_payments)
 							"
 							@update:sales-person="sales_person = $event"
 							@update:print-format="print_format = $event"
+							@retry-sales-persons="loadSalesPersons({ force: true })"
+							@retry-print-formats="loadPrintFormats({ force: true })"
 						/>
 					</PaymentSectionShell>
 				</div>
@@ -324,6 +333,9 @@
 			:redeem-amount="giftCardAmount"
 			:balance="giftCardBalance"
 			:status="giftCardStatus"
+			:currency="invoice_doc?.currency"
+			:format-currency="formatCurrency"
+			:currency-symbol="currencySymbol"
 			:is-supervisor="capabilities.isSupervisor.value"
 			:loading="giftCardLoading"
 			:mode="giftCardMode"
@@ -461,10 +473,21 @@ const applyDefaultSectionExpansion = (mode = props.viewportMode) => {
 };
 
 // State
-const sales_persons_loading = ref(false);
-const print_formats_loading = ref(false);
-const addresses_loading = ref(false);
-const addresses_error = ref("");
+const customerCreditLoading = ref(false);
+const customerCreditLoaded = ref(false);
+const customerCreditError = ref("");
+
+const salesPersonsLoading = ref(false);
+const salesPersonsLoaded = ref(false);
+const salesPersonsError = ref("");
+
+const printFormatsLoading = ref(false);
+const printFormatsLoaded = ref(false);
+const printFormatsError = ref("");
+
+const addressesLoading = ref(false);
+const addressesLoaded = ref(false);
+const addressesError = ref("");
 
 const is_return = ref(false);
 const is_credit_sale = ref(false);
@@ -1053,6 +1076,74 @@ const topUpGiftCard = async () => {
 
 // Methods
 
+const loadCustomerCredit = async (...args) => {
+	if (customerCreditLoading.value) return;
+	customerCreditLoading.value = true;
+	customerCreditError.value = "";
+	try {
+		const res = get_available_credit(...args);
+		if (res && typeof res.then === "function") {
+			await res;
+		}
+		customerCreditLoaded.value = true;
+	} catch (error) {
+		customerCreditError.value = error?.message || __("Unable to load customer credit");
+	} finally {
+		customerCreditLoading.value = false;
+	}
+};
+
+const loadSalesPersons = async ({ force = false } = {}) => {
+	if (salesPersonsLoading.value) return;
+	if (salesPersonsLoaded.value && !force) return;
+	salesPersonsLoading.value = true;
+	salesPersonsError.value = "";
+	try {
+		const res = get_sales_person_names();
+		if (res && typeof res.then === "function") {
+			await res;
+		}
+		salesPersonsLoaded.value = true;
+	} catch (error) {
+		salesPersonsError.value = error?.message || __("Unable to load Sales Persons");
+	} finally {
+		salesPersonsLoading.value = false;
+	}
+};
+
+const loadPrintFormats = async ({ force = false } = {}) => {
+	if (printFormatsLoading.value) return;
+	if (printFormatsLoaded.value && !force) return;
+	printFormatsLoading.value = true;
+	printFormatsError.value = "";
+	try {
+		await get_print_formats();
+		printFormatsLoaded.value = true;
+	} catch (error) {
+		printFormatsError.value = error?.message || __("Unable to load Print Formats");
+	} finally {
+		printFormatsLoading.value = false;
+	}
+};
+
+const loadAddresses = async ({ force = false } = {}) => {
+	if (addressesLoading.value) return;
+	if (addressesLoaded.value && !force) return;
+	addressesLoading.value = true;
+	addressesError.value = "";
+	try {
+		const res = get_addresses();
+		if (res && typeof res.then === "function") {
+			await res;
+		}
+		addressesLoaded.value = true;
+	} catch (error) {
+		addressesError.value = error?.message || __("Unable to load addresses");
+	} finally {
+		addressesLoading.value = false;
+	}
+};
+
 const get_print_formats = async () => {
 	const doctypes = resolvePaymentPrintFormatDoctypes({
 		profile: pos_profile.value,
@@ -1080,6 +1171,7 @@ const get_print_formats = async () => {
 		console.error("Failed to fetch payment print formats", error);
 		print_formats.value = [];
 		set_print_format();
+		throw error;
 	}
 };
 
@@ -2125,10 +2217,19 @@ watch(
 	},
 );
 
-watch(isPaymentOpen, (isOpen) => {
+watch(isPaymentOpen, (isOpen, wasOpen) => {
 	if (isOpen) {
+		if (!wasOpen) {
+			applyDefaultSectionExpansion(props.viewportMode);
+		}
 		ensurePaymentLinesInitialized();
 		handleShowPayment();
+		void loadSalesPersons();
+		void loadPrintFormats();
+		if (invoice_doc.value?.customer) {
+			void loadAddresses();
+			void loadCustomerCredit();
+		}
 	} else {
 		releaseActiveFocus();
 		paymentVisible.value = false;
@@ -2220,9 +2321,11 @@ onMounted(() => {
 			redeemed_customer_credit.value = 0;
 			resetGiftCardState({ clearPayment: true });
 			if (doc.customer) {
-				get_addresses();
+				void loadAddresses({ force: true });
+				void loadCustomerCredit();
 			}
-			get_sales_person_names();
+			void loadSalesPersons({ force: true });
+			void loadPrintFormats({ force: true });
 		});
 
 		eventBus.on("register_pos_profile", (data) => {

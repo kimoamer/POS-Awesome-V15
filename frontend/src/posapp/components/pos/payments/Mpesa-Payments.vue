@@ -385,5 +385,9 @@ onBeforeUnmount(() => {
 		flex-direction: column;
 		align-items: stretch;
 	}
+
+	.mpesa-dialog--phone .mpesa-dialog__footer {
+		padding-bottom: max(var(--payment-space-3, 12px), env(safe-area-inset-bottom));
+	}
 }
 </style>
