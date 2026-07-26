@@ -1,29 +1,37 @@
 <template>
 	<v-dialog
 		:model-value="modelValue"
-		width="min(520px, calc(100vw - 24px))"
+		:fullscreen="viewportMode === 'phone'"
+		:width="viewportMode === 'phone' ? undefined : dialogWidth"
+		:transition="viewportMode === 'phone' ? 'dialog-bottom-transition' : 'dialog-transition'"
 		@update:model-value="$emit('update:modelValue', $event)"
 	>
-		<v-card class="gift-card-dialog">
+		<v-card class="gift-card-dialog" :class="[`gift-card-dialog--${viewportMode}`]">
+			<!-- Dialog Header -->
 			<div class="gift-card-dialog__header">
 				<div class="gift-card-dialog__header-copy">
-					<p class="gift-card-dialog__eyebrow">{{ __("Gift Card") }}</p>
 					<h3 class="gift-card-dialog__title">{{ __("Gift Card") }}</h3>
-					<p class="gift-card-dialog__subtitle">
-						{{ __("Scan or enter a gift card code to check balance or redeem.") }}
-					</p>
+					<span class="gift-card-dialog__subtitle">
+						{{ __("Scan or enter code to check balance or redeem") }}
+					</span>
 				</div>
-				<div class="gift-card-dialog__hero-chip">
-					{{ modeMeta.badge }}
-				</div>
+				<v-btn
+					icon="mdi-close"
+					variant="text"
+					density="compact"
+					class="dialog-close-btn"
+					:aria-label="__('Close')"
+					@click="$emit('update:modelValue', false)"
+				></v-btn>
 			</div>
 
 			<v-card-text class="gift-card-dialog__content">
+				<!-- Mode Selection for Supervisors -->
 				<div v-if="isSupervisor" class="gift-card-dialog__modes">
 					<v-btn
 						:variant="mode === 'issue' ? 'flat' : 'tonal'"
 						:color="mode === 'issue' ? 'primary' : undefined"
-						size="small"
+						class="dialog-action-btn"
 						@click="$emit('set-mode', 'issue')"
 					>
 						{{ __("Issue New Card") }}
@@ -31,7 +39,7 @@
 					<v-btn
 						:variant="mode === 'top_up' ? 'flat' : 'tonal'"
 						:color="mode === 'top_up' ? 'primary' : undefined"
-						size="small"
+						class="dialog-action-btn"
 						@click="$emit('set-mode', 'top_up')"
 					>
 						{{ __("Top Up Card") }}
@@ -39,22 +47,14 @@
 					<v-btn
 						:variant="mode === 'redeem' ? 'flat' : 'tonal'"
 						:color="mode === 'redeem' ? 'primary' : undefined"
-						size="small"
+						class="dialog-action-btn"
 						@click="$emit('set-mode', 'redeem')"
 					>
 						{{ __("Redeem") }}
 					</v-btn>
 				</div>
 
-				<div class="gift-card-dialog__scan-banner">
-					<div>
-						<p class="gift-card-dialog__section-label">{{ modeMeta.label }}</p>
-						<h4>{{ modeMeta.title }}</h4>
-						<p>{{ modeMeta.description }}</p>
-					</div>
-					<span class="gift-card-dialog__scan-chip">{{ __("Barcode / QR Ready") }}</span>
-				</div>
-
+				<!-- Gift Card Code Field -->
 				<v-text-field
 					:model-value="cardCode"
 					:label="__('Gift Card Code')"
@@ -65,6 +65,7 @@
 					@update:model-value="$emit('update:cardCode', $event)"
 				/>
 
+				<!-- Status & Balance Stats -->
 				<div class="gift-card-dialog__stats">
 					<div class="gift-card-dialog__stat">
 						<span>{{ __("Status") }}</span>
@@ -80,6 +81,7 @@
 					</div>
 				</div>
 
+				<!-- Amount Input Field -->
 				<v-text-field
 					v-if="mode === 'redeem'"
 					:model-value="redeemAmount"
@@ -102,28 +104,21 @@
 					@update:model-value="$emit('update:redeemAmount', $event)"
 				/>
 
-				<p v-if="mode === 'redeem'" class="gift-card-dialog__hint">
-					{{
-						__(
-							"Apply only the amount you want to redeem on this invoice. The remaining balance stays on the card.",
-						)
-					}}
-				</p>
-
 				<p v-if="errorMessage" class="gift-card-dialog__error">{{ errorMessage }}</p>
 			</v-card-text>
 
 			<v-card-actions class="gift-card-dialog__actions">
-				<v-btn variant="text" @click="$emit('update:modelValue', false)">
+				<v-btn variant="outlined" class="dialog-action-btn" @click="$emit('update:modelValue', false)">
 					{{ __("Close") }}
 				</v-btn>
-				<v-btn variant="tonal" :disabled="loading" @click="$emit('check-balance')">
+				<v-btn variant="tonal" class="dialog-action-btn" :disabled="loading" @click="$emit('check-balance')">
 					{{ __("Check Balance") }}
 				</v-btn>
 				<v-btn
 					v-if="mode === 'redeem'"
 					color="primary"
 					variant="flat"
+					class="dialog-action-btn"
 					:disabled="loading"
 					@click="$emit('apply-redemption')"
 				>
@@ -133,6 +128,7 @@
 					v-else-if="mode === 'issue'"
 					color="primary"
 					variant="flat"
+					class="dialog-action-btn"
 					:disabled="loading"
 					@click="$emit('issue-card')"
 				>
@@ -142,6 +138,7 @@
 					v-else
 					color="primary"
 					variant="flat"
+					class="dialog-action-btn"
 					:disabled="loading"
 					@click="$emit('top-up-card')"
 				>
@@ -159,6 +156,10 @@ const props = defineProps({
 	modelValue: {
 		type: Boolean,
 		default: false,
+	},
+	viewportMode: {
+		type: String,
+		default: "desktop",
 	},
 	cardCode: {
 		type: String,
@@ -205,196 +206,135 @@ defineEmits([
 	"top-up-card",
 ]);
 
-const __ = window.__;
+const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
+
+const dialogWidth = computed(() => {
+	if (props.viewportMode === "tablet-landscape") return "min(640px, calc(100vw - 24px))";
+	if (props.viewportMode === "tablet-portrait") return "min(600px, calc(100vw - 24px))";
+	return "min(520px, calc(100vw - 24px))";
+});
 
 const redeemAmountDisplay = computed(() => {
 	const amount = props.redeemAmount;
 	return amount === null || amount === undefined || amount === "" ? "0" : String(amount);
 });
-
-const modeMeta = computed(() => {
-	if (props.mode === "issue") {
-		return {
-			badge: __("Issue Mode"),
-			label: __("Create"),
-			title: __("Create and preload a new gift card"),
-			description: __("Generate a fresh prepaid card and start it with an opening balance."),
-		};
-	}
-	if (props.mode === "top_up") {
-		return {
-			badge: __("Top Up Mode"),
-			label: __("Reload"),
-			title: __("Add more value to an existing gift card"),
-			description: __("Scan an existing card and top it up without leaving the payment flow."),
-		};
-	}
-	return {
-		badge: __("Redeem Mode"),
-		label: __("Redeem"),
-		title: __("Check live balance before applying redemption"),
-		description: __("Use one field for manual code entry, barcode scans, or QR scans."),
-	};
-});
 </script>
 
 <style scoped>
 .gift-card-dialog {
-	border-radius: var(--pos-radius-lg);
-	overflow: hidden;
-	background:
-		radial-gradient(circle at top right, rgba(var(--v-theme-primary), 0.14), transparent 40%),
-		var(--pos-surface-raised);
+	display: flex;
+	flex-direction: column;
+	background: var(--pos-surface-raised, #ffffff);
+	border-radius: var(--payment-radius-md, 10px);
+}
+
+.gift-card-dialog--phone {
+	height: 100dvh;
+	border-radius: 0;
 }
 
 .gift-card-dialog__header {
 	display: flex;
-	align-items: flex-start;
-	justify-content: space-between;
-	gap: var(--pos-space-3);
-	padding: var(--pos-space-4) var(--pos-space-4) 0;
-}
-
-.gift-card-dialog__header-copy {
-	max-width: 420px;
-}
-
-.gift-card-dialog__eyebrow,
-.gift-card-dialog__section-label {
-	margin: 0;
-	font-size: 0.74rem;
-	font-weight: 700;
-	letter-spacing: 0.08em;
-	text-transform: uppercase;
-	color: var(--pos-text-secondary);
-}
-
-.gift-card-dialog__hero-chip,
-.gift-card-dialog__scan-chip {
-	display: inline-flex;
 	align-items: center;
-	padding: 8px 12px;
-	border-radius: 999px;
-	font-size: 0.78rem;
-	font-weight: 700;
-	border: 1px solid rgba(var(--v-theme-primary), 0.12);
-}
-
-.gift-card-dialog__hero-chip {
-	background: rgba(var(--v-theme-primary), 0.12);
-	color: var(--pos-text-primary);
+	justify-content: space-between;
+	padding: var(--payment-space-3, 12px) var(--payment-space-4, 16px);
+	border-bottom: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
+	min-height: 54px;
 }
 
 .gift-card-dialog__title {
 	margin: 0;
-	font-size: 1.16rem;
+	font-size: var(--payment-font-section, 14px);
 	font-weight: 700;
+	color: var(--pos-text-primary, #0f172a);
 }
 
 .gift-card-dialog__subtitle {
-	margin: 6px 0 0;
-	color: var(--pos-text-secondary);
-	font-size: 0.92rem;
+	font-size: var(--payment-font-caption, 11px);
+	color: var(--pos-text-secondary, #64748b);
 }
 
 .gift-card-dialog__content {
 	display: flex;
 	flex-direction: column;
-	gap: var(--pos-space-3);
-}
-
-.gift-card-dialog__scan-banner {
-	display: flex;
-	align-items: flex-start;
-	justify-content: space-between;
-	gap: var(--pos-space-3);
-	padding: 14px 16px;
-	border-radius: var(--pos-radius-md);
-	background:
-		radial-gradient(circle at top left, rgba(var(--v-theme-primary), 0.1), transparent 38%),
-		var(--pos-surface-muted);
-	border: 1px solid rgba(var(--v-theme-primary), 0.12);
-}
-
-.gift-card-dialog__scan-banner h4 {
-	margin: 4px 0 6px;
-	font-size: 1rem;
-	color: var(--pos-text-primary);
-}
-
-.gift-card-dialog__scan-banner p:last-child {
-	margin: 0;
-	color: var(--pos-text-secondary);
-	font-size: 0.9rem;
-}
-
-.gift-card-dialog__scan-chip {
-	background: rgba(var(--v-theme-surface), 0.82);
-	color: var(--pos-text-primary);
-	white-space: nowrap;
+	gap: var(--payment-space-3, 12px);
+	padding: var(--payment-space-4, 16px);
+	overflow-y: auto;
+	flex: 1;
 }
 
 .gift-card-dialog__modes {
 	display: flex;
 	flex-wrap: wrap;
-	gap: var(--pos-space-2);
+	gap: var(--payment-space-2, 8px);
 }
 
 .gift-card-dialog__stats {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
-	gap: 10px;
+	gap: var(--payment-space-2, 8px);
 }
 
 .gift-card-dialog__stat {
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
-	padding: 12px 14px;
-	border-radius: 14px;
-	border: 1px solid rgba(var(--v-theme-primary), 0.1);
-	background: rgba(var(--v-theme-primary), 0.05);
+	gap: 2px;
+	padding: 8px 10px;
+	border-radius: var(--payment-radius-sm, 8px);
+	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.06));
+	background: var(--pos-surface-muted, rgba(0, 0, 0, 0.02));
 }
 
 .gift-card-dialog__stat span {
-	font-size: 0.74rem;
+	font-size: 10px;
 	font-weight: 700;
-	letter-spacing: 0.08em;
 	text-transform: uppercase;
-	color: var(--pos-text-secondary);
+	color: var(--pos-text-secondary, #64748b);
 }
 
 .gift-card-dialog__stat strong {
-	color: var(--pos-text-primary);
-	font-size: 0.98rem;
-}
-
-.gift-card-dialog__hint {
-	margin: 0;
-	color: var(--pos-text-secondary);
-	font-size: 0.88rem;
-	line-height: 1.5;
+	font-size: var(--payment-font-body, 13px);
+	color: var(--pos-text-primary, #0f172a);
 }
 
 .gift-card-dialog__actions {
-	padding: 0 var(--pos-space-4) var(--pos-space-4);
-	gap: var(--pos-space-2);
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--payment-space-2, 8px);
+	padding: var(--payment-space-3, 12px) var(--payment-space-4, 16px);
+	border-top: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
+}
+
+.dialog-action-btn {
+	min-height: 40px;
+}
+
+.gift-card-dialog--tablet-portrait .dialog-action-btn,
+.gift-card-dialog--tablet-landscape .dialog-action-btn {
+	min-height: 42px;
+}
+
+.gift-card-dialog--phone .dialog-action-btn {
+	min-height: 44px;
 }
 
 .gift-card-dialog__error {
 	margin: 0;
-	color: rgb(var(--v-theme-error));
+	font-size: 11px;
 	font-weight: 600;
+	color: rgb(220, 38, 38);
 }
 
-@media (max-width: 768px) {
-	.gift-card-dialog__header,
-	.gift-card-dialog__scan-banner {
-		flex-direction: column;
-	}
-
+@media (max-width: 599px) {
 	.gift-card-dialog__stats {
 		grid-template-columns: 1fr;
+	}
+
+	.gift-card-dialog__actions {
+		flex-direction: column;
+		align-items: stretch;
 	}
 }
 </style>

@@ -75,7 +75,7 @@ const allowPurchaseOrder = computed(() => parseBooleanSetting(props.posProfile?.
 	font-weight: 500;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 899px) {
 	.payment-po-grid {
 		grid-template-columns: 1fr;
 	}

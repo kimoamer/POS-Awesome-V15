@@ -32,7 +32,22 @@
 
 			<!-- Shipping Address Selection -->
 			<div v-if="invoiceDoc.posa_delivery_date" class="payment-details-cell payment-details-cell--full">
-				<div class="address-field-wrapper">
+				<!-- Loading State -->
+				<div v-if="addressesLoading" class="address-state-box">
+					<v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
+					<span>{{ __("Loading addresses...") }}</span>
+				</div>
+
+				<!-- Error State -->
+				<div v-else-if="addressesError" class="address-state-box address-state-box--error">
+					<v-icon size="16" color="error">mdi-alert-circle-outline</v-icon>
+					<span>{{ addressesError }}</span>
+					<v-btn density="compact" variant="text" color="primary" size="small" @click="$emit('retry-addresses')">
+						{{ __("Retry") }}
+					</v-btn>
+				</div>
+
+				<div v-else class="address-field-wrapper">
 					<v-autocomplete
 						density="compact"
 						clearable
@@ -155,6 +170,14 @@ const props = defineProps({
 		type: Array,
 		default: () => [],
 	},
+	addressesLoading: {
+		type: Boolean,
+		default: false,
+	},
+	addressesError: {
+		type: String,
+		default: "",
+	},
 	newDeliveryDate: {
 		type: String,
 		default: null,
@@ -169,7 +192,7 @@ const props = defineProps({
 	},
 });
 
-defineEmits(["update:newDeliveryDate", "update:returnValidUptoDate", "new-address"]);
+defineEmits(["update:newDeliveryDate", "update:returnValidUptoDate", "new-address", "retry-addresses"]);
 
 const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
 
@@ -194,6 +217,22 @@ const showAuthorizationCode = computed(() => parseBooleanSetting(props.posProfil
 	grid-column: 1 / -1;
 }
 
+.address-state-box {
+	display: flex;
+	align-items: center;
+	gap: var(--payment-space-2, 8px);
+	padding: var(--payment-space-2, 8px);
+	font-size: var(--payment-font-caption, 11px);
+	color: var(--pos-text-secondary, #64748b);
+	border-radius: var(--payment-radius-sm, 8px);
+	background: var(--pos-surface-muted, rgba(0, 0, 0, 0.02));
+}
+
+.address-state-box--error {
+	color: rgb(220, 38, 38);
+	background: rgba(220, 38, 38, 0.06);
+}
+
 .address-field-wrapper {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto;
@@ -204,15 +243,22 @@ const showAuthorizationCode = computed(() => parseBooleanSetting(props.posProfil
 .create-address-btn {
 	height: 40px;
 	width: 40px;
+	min-width: 40px;
 }
 
 .pos-themed-input :deep(.v-field__input) {
 	font-weight: 500;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 899px) {
 	.payment-details-grid {
 		grid-template-columns: 1fr;
+	}
+
+	.create-address-btn {
+		height: 44px;
+		width: 44px;
+		min-width: 44px;
 	}
 }
 </style>

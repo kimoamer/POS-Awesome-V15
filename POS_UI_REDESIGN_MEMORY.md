@@ -27,7 +27,17 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
-Pass 6.7.3.1 — Complete Missing Secondary Flows, Correct Contracts and Runtime Acceptance (Complete ✅).
+Pass 6.7.4 — Full Payment Release Gate, Cross-Viewport Completion and Runtime Acceptance (Complete ✅).
+
+Scope:
+
+- **Invoice Summary Density**: Redesigned [InvoiceTotals.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/InvoiceTotals.vue) with `--payment-space-1..4` tokens, `--payment-font-label` (11-12px) for labels, `--payment-font-body` for values, and consistent row layout.
+- **Customer Credit Complete Architecture**: Updated [PaymentCustomerCreditDetails.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentCustomerCreditDetails.vue) to display available customer credit **BEFORE** toggle activation, and applied summary, remaining credit, source breakdown, and loading/empty/error/retry states when active. Fixed currency duplication (`E£ E£ 500.00`).
+- **Gift Card Dialog per Viewport Mode**: Rebuilt [GiftCardDialog.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/wallet/GiftCardDialog.vue) with `viewportMode` support: Desktop modal (max 520px), Tablet Landscape modal (max 640px), Tablet Portrait modal (max 600px), and Phone fullscreen dialog (`.gift-card-dialog--phone`) with 54px header, scrollable content, safe-area footer, and 44px touch targets. Removed marketing clutter.
+- **Order & Fulfillment Breakpoints**: Fixed breakpoint in [PaymentAdditionalInfo.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentAdditionalInfo.vue) and [PaymentPurchaseOrder.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentPurchaseOrder.vue) to `899px` (2 cols on Desktop & Tablet Landscape; 1 col on Tablet Portrait & Phone). Added address loading/error/retry states and set Create Address button touch target to 44px on Phone.
+- **Sales & Receipt Parent Wiring**: Wired `sales_persons_loading`, `sales_persons_error`, `print_formats_loading`, `print_formats_error` in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) into [PaymentSelectionFields.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentSelectionFields.vue).
+- **Expansion State Preserved**: Called `applyDefaultSectionExpansion(props.viewportMode)` inside `send_invoice_doc_payment` event listener in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) to apply section defaults on payment open without resetting during active cashier sessions.
+- **Automated Regression Suite**: Expanded behavioral unit test files (`paymentCustomerCreditUi.spec.ts`, `paymentGiftCardUi.spec.ts`, `paymentFulfillmentUi.spec.ts`, `paymentDialogsResponsive.spec.ts`, `paymentCompleteExperience.spec.ts`, `paymentSecondaryFlows.spec.ts`, `paymentSettlementOptions.spec.ts`).
 
 Scope:
 

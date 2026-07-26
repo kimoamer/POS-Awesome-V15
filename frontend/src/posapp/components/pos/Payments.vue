@@ -230,6 +230,8 @@
 							:return-validity-enabled="returnValidityEnabled"
 							:return-validity-min-date="returnValidityMinDate"
 							:addresses="addresses"
+							:addresses-loading="addresses_loading"
+							:addresses-error="addresses_error"
 							:new-delivery-date="new_delivery_date"
 							:return-valid-upto-date="return_valid_upto_date"
 							:address-filter="addressFilter"
@@ -246,6 +248,7 @@
 								}
 							"
 							@new-address="new_address"
+							@retry-addresses="get_addresses"
 						/>
 						<PaymentPurchaseOrder
 							:invoice-doc="invoice_doc"
@@ -270,9 +273,11 @@
 						<PaymentSelectionFields
 							:sales-persons="sales_persons"
 							:sales-person="sales_person"
+							:sales-persons-loading="sales_persons_loading"
 							:readonly="readonly"
 							:print-formats="print_formats"
 							:print-format="print_format"
+							:print-formats-loading="print_formats_loading"
 							:show-print-format="
 								parseBooleanSetting(pos_profile?.posa_allow_select_print_format_in_payments)
 							"
@@ -313,6 +318,7 @@
 		/>
 		<GiftCardDialog
 			:model-value="giftCardDialogOpen"
+			:viewport-mode="viewportMode"
 			:card-code="giftCardCode"
 			:redeem-amount="giftCardAmount"
 			:balance="giftCardBalance"
@@ -454,6 +460,11 @@ const applyDefaultSectionExpansion = (mode = props.viewportMode) => {
 };
 
 // State
+const sales_persons_loading = ref(false);
+const print_formats_loading = ref(false);
+const addresses_loading = ref(false);
+const addresses_error = ref("");
+
 const is_return = ref(false);
 const is_credit_sale = ref(false);
 const is_write_off_change = ref(false);
@@ -2179,6 +2190,7 @@ onMounted(() => {
 
 	if (eventBus) {
 		eventBus.on("send_invoice_doc_payment", (doc) => {
+			applyDefaultSectionExpansion(props.viewportMode);
 			invoiceStore.setInvoiceDoc(doc);
 			void refreshPaymentCustomerInfo(doc);
 			paid_change.value = flt(doc.paid_change || 0, currency_precision.value);

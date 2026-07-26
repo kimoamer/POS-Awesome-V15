@@ -27,7 +27,7 @@
 							:aria-label="__('Discount clarity')"
 							@click.stop
 						>
-							<v-icon icon="mdi-information-outline" size="16" />
+							<v-icon icon="mdi-information-outline" size="14" />
 						</button>
 					</template>
 				</v-tooltip>
@@ -35,7 +35,7 @@
 			<bdi class="invoice-total-row__value">{{ displayMoney(itemDiscountTotal) }}</bdi>
 		</div>
 
-		<div v-if="invoice_doc.discount_amount" class="invoice-total-row">
+		<div class="invoice-total-row">
 			<span class="invoice-total-row__label">{{ __("Additional Discount") }}</span>
 			<bdi class="invoice-total-row__value">{{ displayMoney(invoice_doc.discount_amount) }}</bdi>
 		</div>
@@ -99,9 +99,9 @@ const discountHelpText = computed(
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 12px;
-	min-height: 38px;
-	padding-block: 6px;
+	gap: var(--payment-space-3, 12px);
+	min-height: 30px;
+	padding-block: var(--payment-space-1, 4px);
 	border-bottom: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.06));
 }
 
@@ -113,32 +113,33 @@ const discountHelpText = computed(
 	display: inline-flex;
 	align-items: center;
 	gap: 4px;
-	font-size: 0.875rem;
+	font-size: var(--payment-font-label, 11px);
 	font-weight: 500;
 	color: var(--pos-text-secondary, #64748b);
 }
 
 .invoice-total-row__value {
-	font-size: 0.9375rem;
-	font-weight: 600;
+	font-size: var(--payment-font-body, 13px);
+	font-weight: 650;
 	font-variant-numeric: tabular-nums;
 	color: var(--pos-text-primary, #0f172a);
 }
 
 .invoice-total-row--grand {
-	margin-top: 4px;
-	padding-top: 10px;
+	min-height: 36px;
+	margin-top: var(--payment-space-1, 4px);
+	padding-top: var(--payment-space-2, 8px);
 	border-top: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.12));
 }
 
 .invoice-total-row--grand .invoice-total-row__label {
-	font-size: 1rem;
+	font-size: var(--payment-font-section, 13px);
 	font-weight: 700;
 	color: var(--pos-text-primary, #0f172a);
 }
 
 .invoice-total-row--grand .invoice-total-row__value {
-	font-size: 1.125rem;
+	font-size: 1.05rem;
 	font-weight: 750;
 	color: var(--pos-primary, #2563eb);
 }
@@ -147,8 +148,8 @@ const discountHelpText = computed(
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 20px;
-	height: 20px;
+	width: 18px;
+	height: 18px;
 	margin-inline-start: 2px;
 	border-radius: 999px;
 	border: 0;
