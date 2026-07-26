@@ -35,14 +35,14 @@
 				<!-- Loading State -->
 				<div v-if="addressesLoading" class="address-state-box">
 					<v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
-					<span>{{ __("Loading addresses...") }}</span>
+					<span>{{ __("Loading shipping addresses...") }}</span>
 				</div>
 
-				<!-- Error State -->
+				<!-- Error State with Retry -->
 				<div v-else-if="addressesError" class="address-state-box address-state-box--error">
 					<v-icon size="16" color="error">mdi-alert-circle-outline</v-icon>
 					<span>{{ addressesError }}</span>
-					<v-btn density="compact" variant="text" color="primary" size="small" @click="$emit('retry-addresses')">
+					<v-btn density="compact" variant="text" color="primary" class="address-retry-action" @click="$emit('retry-addresses')">
 						{{ __("Retry") }}
 					</v-btn>
 				</div>

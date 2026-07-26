@@ -78,6 +78,7 @@ export function useRedemptionLogic(options: RedemptionLogicOptions) {
 
 		if (!customer || !company) {
 			customer_credit_dict.value = [];
+			redeemed_customer_credit.value = 0;
 			return [];
 		}
 
@@ -87,11 +88,10 @@ export function useRedemptionLogic(options: RedemptionLogicOptions) {
 				? JSON.parse(JSON.stringify(cachedSnapshot.sources))
 				: [];
 			data.forEach((row: any) => {
-				if (typeof row.credit_to_redeem !== "number") {
-					row.credit_to_redeem = 0;
-				}
+				row.credit_to_redeem = 0;
 			});
 			customer_credit_dict.value = data;
+			redeemed_customer_credit.value = 0;
 			return data;
 		}
 
@@ -103,14 +103,13 @@ export function useRedemptionLogic(options: RedemptionLogicOptions) {
 		if (Array.isArray(data) && data.length) {
 			saveStoredValueSnapshot(customer, company, data);
 			data.forEach((row: any) => {
-				if (typeof row.credit_to_redeem !== "number") {
-					row.credit_to_redeem = 0;
-				}
+				row.credit_to_redeem = 0;
 			});
 			customer_credit_dict.value = data;
 		} else {
 			customer_credit_dict.value = [];
 		}
+		redeemed_customer_credit.value = 0;
 		return customer_credit_dict.value;
 	};
 

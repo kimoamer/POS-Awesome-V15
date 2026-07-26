@@ -162,8 +162,13 @@ export function useInvoiceDetails(options: InvoiceDetailsOptions) {
 			return Promise.resolve([]);
 		}
 
+		const requestedCustomer = String(doc.customer || "");
+
 		const applyCachedAddresses = () => {
-			const cachedAddresses = getCachedCustomerAddresses(doc.customer);
+			if (String(unref(invoiceDoc)?.customer || "") !== requestedCustomer) {
+				return false;
+			}
+			const cachedAddresses = getCachedCustomerAddresses(requestedCustomer);
 			if (!Array.isArray(cachedAddresses) || !cachedAddresses.length) {
 				return false;
 			}
@@ -181,24 +186,32 @@ export function useInvoiceDetails(options: InvoiceDetailsOptions) {
 		return new Promise((resolve, reject) => {
 			frappe.call({
 				method: "posawesome.posawesome.api.customers.get_customer_addresses",
-				args: { customer: doc.customer },
+				args: { customer: requestedCustomer },
 				async: true,
 				callback: function (r: any) {
+					const currentCustomer = String(unref(invoiceDoc)?.customer || "");
+					if (currentCustomer !== requestedCustomer) {
+						resolve([]);
+						return;
+					}
+
 					if (!r.exc) {
 						const records = Array.isArray(r.message) ? r.message : [];
 						const normalized = records
 							.map((row) => normalizeAddress(row))
 							.filter((row): row is Address => row !== null);
 						addresses.value = normalized;
-						saveCustomerAddressesCache(doc.customer, normalized);
+						saveCustomerAddressesCache(requestedCustomer, normalized);
 
+						const currentDoc = unref(invoiceDoc);
 						if (
-							doc.shipping_address_name &&
+							currentDoc &&
+							currentDoc.shipping_address_name &&
 							!normalized.some(
-								(row) => row.name === doc.shipping_address_name,
+								(row) => row.name === currentDoc.shipping_address_name,
 							)
 						) {
-							doc.shipping_address_name = null;
+							currentDoc.shipping_address_name = null;
 						}
 						resolve(normalized);
 					} else {
@@ -209,6 +222,11 @@ export function useInvoiceDetails(options: InvoiceDetailsOptions) {
 					}
 				},
 				error: function (error: any) {
+					const currentCustomer = String(unref(invoiceDoc)?.customer || "");
+					if (currentCustomer !== requestedCustomer) {
+						resolve([]);
+						return;
+					}
 					if (!applyCachedAddresses()) {
 						addresses.value = [];
 					}

@@ -1077,72 +1077,119 @@ const topUpGiftCard = async () => {
 
 // Methods
 
+let customerCreditRequestId = 0;
+let queuedCreditIntent: boolean | undefined = undefined;
+
 const loadCustomerCredit = async (useCredit) => {
-	if (customerCreditLoading.value) return;
+	if (customerCreditLoading.value) {
+		if (typeof useCredit === "boolean") {
+			queuedCreditIntent = useCredit;
+		}
+		return;
+	}
+
+	const reqId = ++customerCreditRequestId;
+	const contextKey = [invoice_doc.value?.customer, pos_profile.value?.company].join("::");
+
 	customerCreditLoading.value = true;
 	customerCreditError.value = "";
+
 	try {
 		if (typeof useCredit === "boolean") {
 			await get_available_credit(useCredit);
 		} else {
 			await prefetch_available_credit();
 		}
+
+		const currentKey = [invoice_doc.value?.customer, pos_profile.value?.company].join("::");
+		if (reqId !== customerCreditRequestId || contextKey !== currentKey) {
+			return;
+		}
 		customerCreditLoaded.value = true;
 	} catch (error) {
-		customerCreditError.value = error?.message || __("Unable to load customer credit");
+		if (reqId === customerCreditRequestId) {
+			customerCreditError.value = error?.message || __("Unable to load customer credit");
+		}
 	} finally {
-		customerCreditLoading.value = false;
+		if (reqId === customerCreditRequestId) {
+			customerCreditLoading.value = false;
+		}
+		if (queuedCreditIntent !== undefined) {
+			const nextIntent = queuedCreditIntent;
+			queuedCreditIntent = undefined;
+			await loadCustomerCredit(nextIntent);
+		}
 	}
 };
 
+let salesPersonsRequestId = 0;
 const loadSalesPersons = async ({ force = false } = {}) => {
-	if (salesPersonsLoading.value) return;
+	if (salesPersonsLoading.value && !force) return;
 	if (salesPersonsLoaded.value && !force) return;
+
+	const reqId = ++salesPersonsRequestId;
 	salesPersonsLoading.value = true;
 	salesPersonsError.value = "";
 	try {
-		const res = get_sales_person_names();
-		if (res && typeof res.then === "function") {
-			await res;
-		}
+		await get_sales_person_names();
+		if (reqId !== salesPersonsRequestId) return;
 		salesPersonsLoaded.value = true;
 	} catch (error) {
-		salesPersonsError.value = error?.message || __("Unable to load Sales Persons");
+		if (reqId === salesPersonsRequestId) {
+			salesPersonsError.value = error?.message || __("Unable to load Sales Persons");
+		}
 	} finally {
-		salesPersonsLoading.value = false;
+		if (reqId === salesPersonsRequestId) {
+			salesPersonsLoading.value = false;
+		}
 	}
 };
 
+let printFormatsRequestId = 0;
 const loadPrintFormats = async ({ force = false } = {}) => {
-	if (printFormatsLoading.value) return;
+	if (printFormatsLoading.value && !force) return;
 	if (printFormatsLoaded.value && !force) return;
+
+	const reqId = ++printFormatsRequestId;
 	printFormatsLoading.value = true;
 	printFormatsError.value = "";
 	try {
 		await get_print_formats();
+		if (reqId !== printFormatsRequestId) return;
 		printFormatsLoaded.value = true;
 	} catch (error) {
-		printFormatsError.value = error?.message || __("Unable to load Print Formats");
+		if (reqId === printFormatsRequestId) {
+			printFormatsError.value = error?.message || __("Unable to load Print Formats");
+		}
 	} finally {
-		printFormatsLoading.value = false;
+		if (reqId === printFormatsRequestId) {
+			printFormatsLoading.value = false;
+		}
 	}
 };
 
+let addressesRequestId = 0;
 const loadAddresses = async ({ force = false } = {}) => {
-	if (addressesLoading.value) return;
+	if (addressesLoading.value && !force) return;
 	if (addressesLoaded.value && !force) return;
+
+	const reqId = ++addressesRequestId;
+	const reqCustomer = String(invoice_doc.value?.customer || "");
+
 	addressesLoading.value = true;
 	addressesError.value = "";
 	try {
-		const res = get_addresses();
-		if (res && typeof res.then === "function") {
-			await res;
-		}
+		await get_addresses();
+		if (reqId !== addressesRequestId || String(invoice_doc.value?.customer || "") !== reqCustomer) return;
 		addressesLoaded.value = true;
 	} catch (error) {
-		addressesError.value = error?.message || __("Unable to load addresses");
+		if (reqId === addressesRequestId) {
+			addressesError.value = error?.message || __("Unable to load shipping addresses...");
+		}
 	} finally {
-		addressesLoading.value = false;
+		if (reqId === addressesRequestId) {
+			addressesLoading.value = false;
+		}
 	}
 };
 
@@ -2210,7 +2257,7 @@ watch(
 	() => invoice_doc.value.customer,
 	(customer, previous) => {
 		if (customer && customer !== previous) {
-			get_addresses();
+			void loadAddresses({ force: true });
 			set_print_format();
 		} else if (!customer) {
 			addresses.value = [];
@@ -2252,7 +2299,7 @@ watch(
 			return;
 		}
 		if (invoice_doc.value && invoice_doc.value.customer) {
-			get_addresses();
+			void loadAddresses({ force: true });
 		}
 	},
 );
@@ -2343,6 +2390,10 @@ onMounted(() => {
 		eventBus.on("register_pos_profile", (data) => {
 			pos_profile.value = data.pos_profile;
 			stock_settings.value = data.stock_settings;
+			salesPersonsLoaded.value = false;
+			printFormatsLoaded.value = false;
+			customerCreditLoaded.value = false;
+			addressesLoaded.value = false;
 		});
 		eventBus.on("add_the_new_address", (data) => {
 			const normalized = normalizeAddress(data);

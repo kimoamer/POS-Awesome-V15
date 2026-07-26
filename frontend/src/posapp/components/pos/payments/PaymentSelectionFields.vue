@@ -6,7 +6,7 @@
 				<div v-if="salesPersonsError" class="selection-error-box">
 					<v-icon size="16" color="error">mdi-alert-circle-outline</v-icon>
 					<span>{{ salesPersonsError }}</span>
-					<v-btn density="compact" variant="text" color="primary" size="small" @click="$emit('retry-sales-persons')">
+					<v-btn density="compact" variant="text" color="primary" class="selection-retry-action" @click="$emit('retry-sales-persons')">
 						{{ __("Retry") }}
 					</v-btn>
 				</div>
@@ -35,7 +35,7 @@
 				<div v-if="printFormatsError" class="selection-error-box">
 					<v-icon size="16" color="error">mdi-alert-circle-outline</v-icon>
 					<span>{{ printFormatsError }}</span>
-					<v-btn density="compact" variant="text" color="primary" size="small" @click="$emit('retry-print-formats')">
+					<v-btn density="compact" variant="text" color="primary" class="selection-retry-action" @click="$emit('retry-print-formats')">
 						{{ __("Retry") }}
 					</v-btn>
 				</div>
@@ -175,6 +175,19 @@ const normalizedPrintFormats = computed(() => {
 
 .pos-themed-input :deep(.v-field__input) {
 	font-weight: 500;
+}
+
+.selection-retry-action {
+	min-height: 40px;
+}
+
+.selection-fields--tablet-portrait .selection-retry-action,
+.selection-fields--tablet-landscape .selection-retry-action {
+	min-height: 42px;
+}
+
+.selection-fields--phone .selection-retry-action {
+	min-height: 44px;
 }
 
 .selection-fields--phone .selection-fields-grid,
