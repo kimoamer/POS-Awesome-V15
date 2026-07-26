@@ -306,6 +306,7 @@
 
 		<!-- Dialogs Section (Custom Days, Phone Payment) -->
 		<PaymentDialogs
+			:viewport-mode="viewportMode"
 			:custom-days-dialog="custom_days_dialog"
 			:custom-days-value="custom_days_value"
 			:phone-dialog="phone_dialog"

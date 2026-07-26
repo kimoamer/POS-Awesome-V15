@@ -1,9 +1,17 @@
 <template>
-	<div class="selection-fields">
+	<div :class="['selection-fields', `selection-fields--${viewportMode}`]">
 		<div class="selection-fields-grid">
 			<!-- Sales Person Selection -->
 			<div class="selection-field-cell">
+				<div v-if="salesPersonsError" class="selection-error-box">
+					<v-icon size="16" color="error">mdi-alert-circle-outline</v-icon>
+					<span>{{ salesPersonsError }}</span>
+					<v-btn density="compact" variant="text" color="primary" size="small" @click="$emit('retry-sales-persons')">
+						{{ __("Retry") }}
+					</v-btn>
+				</div>
 				<v-select
+					v-else
 					density="compact"
 					clearable
 					variant="outlined"
@@ -24,7 +32,15 @@
 
 			<!-- Print Format Selection -->
 			<div v-if="showPrintFormat" class="selection-field-cell">
+				<div v-if="printFormatsError" class="selection-error-box">
+					<v-icon size="16" color="error">mdi-alert-circle-outline</v-icon>
+					<span>{{ printFormatsError }}</span>
+					<v-btn density="compact" variant="text" color="primary" size="small" @click="$emit('retry-print-formats')">
+						{{ __("Retry") }}
+					</v-btn>
+				</div>
 				<v-select
+					v-else
 					density="compact"
 					clearable
 					variant="outlined"
@@ -49,6 +65,10 @@
 import { computed } from "vue";
 
 const props = defineProps({
+	viewportMode: {
+		type: String,
+		default: "desktop",
+	},
 	salesPersons: {
 		type: Array,
 		default: () => [],
@@ -60,6 +80,10 @@ const props = defineProps({
 	salesPersonsLoading: {
 		type: Boolean,
 		default: false,
+	},
+	salesPersonsError: {
+		type: String,
+		default: "",
 	},
 	readonly: {
 		type: Boolean,
@@ -77,13 +101,17 @@ const props = defineProps({
 		type: Boolean,
 		default: false,
 	},
+	printFormatsError: {
+		type: String,
+		default: "",
+	},
 	showPrintFormat: {
 		type: Boolean,
 		default: true,
 	},
 });
 
-defineEmits(["update:sales-person", "update:print-format"]);
+defineEmits(["update:sales-person", "update:print-format", "retry-sales-persons", "retry-print-formats"]);
 
 const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
 
@@ -134,13 +162,28 @@ const normalizedPrintFormats = computed(() => {
 	min-width: 0;
 }
 
+.selection-error-box {
+	display: flex;
+	align-items: center;
+	gap: var(--payment-space-2, 8px);
+	padding: var(--payment-space-2, 8px);
+	font-size: var(--payment-font-caption, 11px);
+	color: rgb(220, 38, 38);
+	background: rgba(220, 38, 38, 0.06);
+	border-radius: var(--payment-radius-sm, 8px);
+}
+
 .pos-themed-input :deep(.v-field__input) {
 	font-weight: 500;
 }
 
-@media (max-width: 599px) {
-	.selection-fields-grid {
-		grid-template-columns: 1fr;
-	}
+.selection-fields--phone .selection-fields-grid,
+.selection-fields--tablet-portrait .selection-fields-grid {
+	grid-template-columns: 1fr;
+}
+
+.selection-fields--tablet-landscape .selection-fields-grid,
+.selection-fields--desktop .selection-fields-grid {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 </style>

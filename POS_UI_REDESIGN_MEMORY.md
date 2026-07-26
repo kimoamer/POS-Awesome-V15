@@ -27,7 +27,16 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
-Pass 6.7.4 — Full Payment Release Gate, Cross-Viewport Completion and Runtime Acceptance (Complete ✅).
+Pass 6.7.4.1 — Final Payment Integration, Dialog Completion and Visual Proof (Complete ✅).
+
+Scope:
+
+- **Customer Credit Parent Wiring & Numeric Inputs**: Connected `customerCreditLoading`, `customerCreditLoaded`, `customerCreditError`, and `loadCustomerCredit` wrapper in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) to [PaymentCustomerCreditDetails.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentCustomerCreditDetails.vue). Fixed editable input to use raw numeric `:model-value="row.credit_to_redeem"` (`type="number"` and `:prefix`) and read-only `<bdi>` labels.
+- **Sales Persons, Print Formats & Address Request States**: Added request wrappers (`loadSalesPersons`, `loadPrintFormats`, `loadAddresses`) with loading, loaded, and error refs in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue). Passed state props and `@retry` handlers to child components.
+- **Sales & Receipt Tablet Portrait Geometry**: Passed `viewportMode` into [PaymentSelectionFields.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentSelectionFields.vue) and applied CSS Grid rules: 1 column on Phone (0-599px) & Tablet Portrait (600-899px); 2 columns on Tablet Landscape (900-1199px) & Desktop (1200px+).
+- **Gift Card Dialog Money & Close Button Fix**: Updated [GiftCardDialog.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/wallet/GiftCardDialog.vue) to format currency using `formatCurrency`, fixed close button sizing (`.gift-card-dialog__close`: Desktop 40px, Tablet 42px, Phone 44px), and removed `text-transform: uppercase` on stat labels.
+- **Rebuilt Responsive Dialogs**: Updated [PaymentDialogs.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentDialogs.vue) and [Mpesa-Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/Mpesa-Payments.vue) to accept `viewportMode` and render Phone fullscreen dialogs with 54px header, 44px controls, and safe-area footers while removing legacy Vuetify utilities.
+- **Expanded Behavioral Regression Suite**: Updated test spec files to test real state wiring, emits, dialog adaptive bounds, and currency formatting.
 
 Scope:
 

@@ -19,7 +19,7 @@
 					icon="mdi-close"
 					variant="text"
 					density="compact"
-					class="dialog-close-btn"
+					class="gift-card-dialog__close"
 					:aria-label="__('Close')"
 					@click="$emit('update:modelValue', false)"
 				></v-btn>
@@ -73,11 +73,15 @@
 					</div>
 					<div class="gift-card-dialog__stat">
 						<span>{{ __("Balance") }}</span>
-						<strong>{{ balance }}</strong>
+						<strong>
+							<bdi>{{ displayMoney(balance) }}</bdi>
+						</strong>
 					</div>
 					<div class="gift-card-dialog__stat">
 						<span>{{ mode === "redeem" ? __("Applying") : __("Amount") }}</span>
-						<strong>{{ redeemAmountDisplay }}</strong>
+						<strong>
+							<bdi>{{ displayMoney(redeemAmount) }}</bdi>
+						</strong>
 					</div>
 				</div>
 
@@ -86,6 +90,9 @@
 					v-if="mode === 'redeem'"
 					:model-value="redeemAmount"
 					:label="__('Redeem Amount')"
+					type="number"
+					inputmode="decimal"
+					:prefix="currencyPrefix"
 					variant="outlined"
 					density="compact"
 					hide-details
@@ -97,6 +104,9 @@
 					v-else
 					:model-value="redeemAmount"
 					:label="mode === 'issue' ? __('Initial Amount') : __('Top Up Amount')"
+					type="number"
+					inputmode="decimal"
+					:prefix="currencyPrefix"
 					variant="outlined"
 					density="compact"
 					hide-details
@@ -177,6 +187,18 @@ const props = defineProps({
 		type: String,
 		default: "",
 	},
+	currency: {
+		type: String,
+		default: "",
+	},
+	formatCurrency: {
+		type: Function,
+		default: null,
+	},
+	currencySymbol: {
+		type: Function,
+		default: null,
+	},
 	isSupervisor: {
 		type: Boolean,
 		default: false,
@@ -214,10 +236,21 @@ const dialogWidth = computed(() => {
 	return "min(520px, calc(100vw - 24px))";
 });
 
-const redeemAmountDisplay = computed(() => {
-	const amount = props.redeemAmount;
-	return amount === null || amount === undefined || amount === "" ? "0" : String(amount);
+const currencyPrefix = computed(() => {
+	if (props.currencySymbol && props.currency) {
+		return props.currencySymbol(props.currency);
+	}
+	return "";
 });
+
+const displayMoney = (val) => {
+	const num = Number(val || 0);
+	const safe = Number.isFinite(num) ? num : 0;
+	if (props.formatCurrency) {
+		return props.formatCurrency(safe);
+	}
+	return currencyPrefix.value ? `${currencyPrefix.value} ${safe.toFixed(2)}` : safe.toFixed(2);
+};
 </script>
 
 <style scoped>
@@ -254,6 +287,25 @@ const redeemAmountDisplay = computed(() => {
 	color: var(--pos-text-secondary, #64748b);
 }
 
+.gift-card-dialog__close {
+	width: 40px;
+	min-width: 40px;
+	height: 40px;
+}
+
+.gift-card-dialog--tablet-portrait .gift-card-dialog__close,
+.gift-card-dialog--tablet-landscape .gift-card-dialog__close {
+	width: 42px;
+	min-width: 42px;
+	height: 42px;
+}
+
+.gift-card-dialog--phone .gift-card-dialog__close {
+	width: 44px;
+	min-width: 44px;
+	height: 44px;
+}
+
 .gift-card-dialog__content {
 	display: flex;
 	flex-direction: column;
@@ -287,8 +339,7 @@ const redeemAmountDisplay = computed(() => {
 
 .gift-card-dialog__stat span {
 	font-size: 10px;
-	font-weight: 700;
-	text-transform: uppercase;
+	font-weight: 600;
 	color: var(--pos-text-secondary, #64748b);
 }
 

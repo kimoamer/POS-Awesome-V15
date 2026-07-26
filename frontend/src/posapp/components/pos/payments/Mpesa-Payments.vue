@@ -1,94 +1,102 @@
 <template>
-	<v-row justify="center">
-		<v-dialog v-model="dialog" width="min(800px, calc(100vw - 24px))">
-			<v-card class="rounded-lg">
-				<v-card-title class="pa-4 pb-2">
-					<span class="text-h6 font-weight-bold text-primary">{{ __("Select Payment") }}</span>
-				</v-card-title>
-				<v-container class="pa-4">
-					<v-row class="mb-2" align="center">
-						<v-col cols="12" sm="5">
-							<v-text-field
-								color="primary"
-								variant="outlined"
-								:label="__('Full Name')"
-								class="pos-themed-input"
-								hide-details
-								v-model="full_name"
-								density="compact"
-								clearable
-							></v-text-field>
-						</v-col>
-						<v-col cols="12" sm="5">
-							<v-text-field
-								color="primary"
-								variant="outlined"
-								:label="__('Mobile No')"
-								class="pos-themed-input"
-								hide-details
-								v-model="mobile_no"
-								density="compact"
-								clearable
-							></v-text-field>
-						</v-col>
-						<v-col cols="12" sm="2" class="d-flex justify-end">
-							<v-btn
-								variant="tonal"
-								color="primary"
-								:loading="isLoading"
-								:disabled="isLoading || isSubmitting"
-								block
-								density="compact"
-								@click="search"
-							>{{ __("Search") }}</v-btn>
-						</v-col>
-					</v-row>
-					<v-row v-if="errorMessage">
-						<v-col cols="12" class="pt-0">
-							<v-alert type="error" density="compact" border="start">
-								{{ errorMessage }}
-							</v-alert>
-						</v-col>
-					</v-row>
-					<v-row>
-						<v-col cols="12" class="pa-0" v-if="dialog_data">
-							<v-data-table
-								:headers="headers"
-								:items="dialog_data"
-								item-key="name"
-								class="elevation-0 border rounded"
-								show-select
-								v-model="selected"
-								return-object
-								select-strategy="single"
-								density="compact"
-							>
-								<template v-slot:item.amount="{ item }">{{
-									formatCurrency(item.amount)
-								}}</template>
-								<template v-slot:item.posting_date="{ item }">{{
-									item.posting_date.slice(0, 16)
-								}}</template>
-							</v-data-table>
-						</v-col>
-					</v-row>
-				</v-container>
-				<v-card-actions class="pa-4 pt-2">
-					<v-spacer></v-spacer>
-					<v-btn variant="outlined" color="error" density="compact" @click="close_dialog">{{ __("Close") }}</v-btn>
-					<v-btn
-						v-if="selected.length"
+	<v-dialog
+		v-model="dialog"
+		:fullscreen="viewportMode === 'phone'"
+		:width="viewportMode === 'phone' ? undefined : 'min(800px, calc(100vw - 24px))'"
+		:transition="viewportMode === 'phone' ? 'dialog-bottom-transition' : 'dialog-transition'"
+	>
+		<v-card class="mpesa-dialog" :class="[`mpesa-dialog--${viewportMode}`]">
+			<div class="mpesa-dialog__header">
+				<h3 class="mpesa-dialog__title">{{ __("Select M-Pesa Payment") }}</h3>
+				<v-btn
+					icon="mdi-close"
+					variant="text"
+					density="compact"
+					class="mpesa-dialog__close"
+					:aria-label="__('Close')"
+					@click="close_dialog"
+				></v-btn>
+			</div>
+
+			<div class="mpesa-dialog__body">
+				<div class="mpesa-search-grid">
+					<v-text-field
 						color="primary"
-						variant="flat"
+						variant="outlined"
+						:label="__('Full Name')"
+						class="sleek-field pos-themed-input"
+						hide-details
+						v-model="full_name"
 						density="compact"
-						:loading="isSubmitting"
-						:disabled="isSubmitting"
-						@click="submit_dialog"
-					>{{ __("Submit") }}</v-btn>
-				</v-card-actions>
-			</v-card>
-		</v-dialog>
-	</v-row>
+						clearable
+					></v-text-field>
+
+					<v-text-field
+						color="primary"
+						variant="outlined"
+						:label="__('Mobile No')"
+						class="sleek-field pos-themed-input"
+						hide-details
+						v-model="mobile_no"
+						density="compact"
+						clearable
+					></v-text-field>
+
+					<v-btn
+						variant="tonal"
+						color="primary"
+						class="mpesa-search-btn"
+						:loading="isLoading"
+						:disabled="isLoading || isSubmitting"
+						@click="search"
+					>
+						{{ __("Search") }}
+					</v-btn>
+				</div>
+
+				<div v-if="errorMessage" class="mpesa-error-box">
+					<v-icon size="16" color="error">mdi-alert-circle-outline</v-icon>
+					<span>{{ errorMessage }}</span>
+				</div>
+
+				<div v-if="dialog_data" class="mpesa-table-container">
+					<v-data-table
+						:headers="headers"
+						:items="dialog_data"
+						item-key="name"
+						class="mpesa-data-table border rounded"
+						show-select
+						v-model="selected"
+						return-object
+						select-strategy="single"
+						density="compact"
+					>
+						<template v-slot:item.amount="{ item }">
+							<bdi>{{ formatCurrency(item.amount) }}</bdi>
+						</template>
+						<template v-slot:item.posting_date="{ item }">
+							{{ item.posting_date.slice(0, 16) }}
+						</template>
+					</v-data-table>
+				</div>
+			</div>
+
+			<div class="mpesa-dialog__footer">
+				<v-btn variant="outlined" class="dialog-action-btn" @click="close_dialog">{{ __("Close") }}</v-btn>
+				<v-btn
+					v-if="selected.length"
+					color="primary"
+					variant="flat"
+					class="dialog-action-btn"
+					:loading="isSubmitting"
+					:disabled="isSubmitting"
+					@click="submit_dialog"
+				>
+					{{ __("Submit") }}
+				</v-btn>
+			</div>
+		</card>
+	</v-dialog>
 </template>
 
 <script setup>
@@ -97,6 +105,13 @@ import { formatUtils } from "../../../format";
 
 defineOptions({
 	name: "MpesaPayments",
+});
+
+const props = defineProps({
+	viewportMode: {
+		type: String,
+		default: "desktop",
+	},
 });
 
 const __ = (s) =>
@@ -246,3 +261,129 @@ onBeforeUnmount(() => {
 	eventBus?.off("open_mpesa_payments");
 });
 </script>
+
+<style scoped>
+.mpesa-dialog {
+	display: flex;
+	flex-direction: column;
+	background: var(--pos-surface-raised, #ffffff);
+	border-radius: var(--payment-radius-md, 10px);
+}
+
+.mpesa-dialog--phone {
+	height: 100dvh;
+	border-radius: 0;
+}
+
+.mpesa-dialog__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: var(--payment-space-3, 12px) var(--payment-space-4, 16px);
+	border-bottom: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
+	min-height: 54px;
+}
+
+.mpesa-dialog__title {
+	margin: 0;
+	font-size: var(--payment-font-section, 14px);
+	font-weight: 700;
+	color: var(--pos-text-primary, #0f172a);
+}
+
+.mpesa-dialog__close {
+	width: 40px;
+	min-width: 40px;
+	height: 40px;
+}
+
+.mpesa-dialog--tablet-portrait .mpesa-dialog__close,
+.mpesa-dialog--tablet-landscape .mpesa-dialog__close {
+	width: 42px;
+	min-width: 42px;
+	height: 42px;
+}
+
+.mpesa-dialog--phone .mpesa-dialog__close {
+	width: 44px;
+	min-width: 44px;
+	height: 44px;
+}
+
+.mpesa-dialog__body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--payment-space-3, 12px);
+	padding: var(--payment-space-4, 16px);
+	flex: 1;
+	overflow-y: auto;
+}
+
+.mpesa-search-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+	gap: var(--payment-space-2, 8px);
+	align-items: center;
+}
+
+.mpesa-search-btn {
+	min-height: 40px;
+}
+
+.mpesa-error-box {
+	display: flex;
+	align-items: center;
+	gap: var(--payment-space-2, 8px);
+	padding: var(--payment-space-2, 8px);
+	font-size: var(--payment-font-caption, 11px);
+	color: rgb(220, 38, 38);
+	background: rgba(220, 38, 38, 0.06);
+	border-radius: var(--payment-radius-sm, 8px);
+}
+
+.mpesa-table-container {
+	min-width: 0;
+	overflow-x: auto;
+}
+
+.mpesa-dialog__footer {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--payment-space-2, 8px);
+	padding: var(--payment-space-3, 12px) var(--payment-space-4, 16px);
+	border-top: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
+}
+
+.dialog-action-btn {
+	min-height: 40px;
+}
+
+.mpesa-dialog--tablet-portrait .dialog-action-btn,
+.mpesa-dialog--tablet-landscape .dialog-action-btn {
+	min-height: 42px;
+}
+
+.mpesa-dialog--phone .dialog-action-btn {
+	min-height: 44px;
+}
+
+.pos-themed-input :deep(.v-field__input) {
+	font-weight: 500;
+}
+
+@media (max-width: 899px) {
+	.mpesa-search-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.mpesa-search-btn {
+		min-height: 44px;
+	}
+
+	.mpesa-dialog__footer {
+		flex-direction: column;
+		align-items: stretch;
+	}
+}
+</style>

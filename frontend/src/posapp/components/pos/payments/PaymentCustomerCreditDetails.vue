@@ -10,7 +10,7 @@
 		<div v-else-if="errorMessage" class="credit-state-box credit-state-box--error">
 			<v-icon size="16" color="error">mdi-alert-circle-outline</v-icon>
 			<span>{{ errorMessage }}</span>
-			<v-btn density="compact" variant="text" color="primary" size="small" @click="emit('retry')">
+			<v-btn density="compact" variant="text" color="primary" size="small" @click="$emit('retry')">
 				{{ __("Retry") }}
 			</v-btn>
 		</div>
@@ -50,27 +50,20 @@
 							{{ creditSourceLabel(row) }}
 						</div>
 						<div class="customer-credit-source__field">
-							<v-text-field
-								density="compact"
-								variant="outlined"
-								color="primary"
-								:label="__('Total Source Credit')"
-								class="sleek-field pos-themed-input"
-								hide-details
-								:model-value="formatCurrency(row.total_credit)"
-								readonly
-							></v-text-field>
+							<bdi class="customer-credit-source__total">{{ formatCurrency(row.total_credit) }}</bdi>
 						</div>
 						<div class="customer-credit-source__field">
 							<v-text-field
 								density="compact"
 								variant="outlined"
 								color="primary"
+								type="number"
+								inputmode="decimal"
+								:prefix="currencySymbol(invoiceDoc.currency)"
 								:label="__('Apply Stored Value')"
 								class="sleek-field pos-themed-input"
 								hide-details
-								type="text"
-								:model-value="formatCurrency(row.credit_to_redeem)"
+								:model-value="row.credit_to_redeem"
 								@change="handleCreditToRedeemChange(row, $event)"
 							></v-text-field>
 						</div>
@@ -263,6 +256,13 @@ const handleCreditToRedeemChange = (row, event) => {
 	font-weight: 600;
 	color: var(--pos-text-primary, #0f172a);
 	padding-inline: 4px;
+}
+
+.customer-credit-source__total {
+	font-size: 12px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	color: var(--pos-text-secondary, #64748b);
 }
 
 .customer-credit-source__field {
