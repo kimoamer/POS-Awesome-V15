@@ -311,8 +311,17 @@ export function useFormat() {
 		return toArabicNumerals(formatted);
 	};
 
-	const currencySymbol = (currency: string): string => {
-		return get_currency_symbol(currency);
+	const currencySymbol = (currency?: string): string => {
+		if (!currency || typeof currency !== "string") return "";
+		if (typeof window !== "undefined" && typeof (window as any).get_currency_symbol === "function") {
+			try {
+				const sym = (window as any).get_currency_symbol(currency);
+				if (sym) return sym;
+			} catch {
+				/* fallback */
+			}
+		}
+		return currency;
 	};
 
 	const isNumber = (value: any): boolean | string => {
@@ -467,8 +476,17 @@ export default {
 			});
 			return toArabicNumerals(formatted);
 		},
-		currencySymbol(currency: string): string {
-			return get_currency_symbol(currency);
+		currencySymbol(currency?: string): string {
+			if (!currency || typeof currency !== "string") return "";
+			if (typeof window !== "undefined" && typeof (window as any).get_currency_symbol === "function") {
+				try {
+					const sym = (window as any).get_currency_symbol(currency);
+					if (sym) return sym;
+				} catch {
+					/* fallback */
+				}
+			}
+			return currency;
 		},
 		isNumber(value: any): boolean | string {
 			const westernValue = fromArabicNumerals(String(value));

@@ -27,6 +27,19 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.7.1.2 — Payment Runtime Stabilization & Money Formatting Recovery (Complete ✅).
+
+Scope:
+
+- **Root Cause Fix for `Cannot read properties of undefined (reading '-')`**: Updated `currencySymbol` in [format.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/format.ts) to safely handle `undefined` currency or uninitialized `get_currency_symbol` without throwing exceptions.
+- **`Payments.vue.css` File Validity**: Wrote pure CSS rules into [Payments.vue.css](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue.css) containing NO `<style>` or `<style scoped>` tags.
+- **Parent Dialog Overlay Width**: Updated parent `v-dialog` in [Pos.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/shell/Pos.vue) with `content-class="posa-payment-dialog-overlay"`, `max-width="1180"`, `width="calc(100vw - 32px)"`, and added global overlay rule in [theme.css](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/styles/theme.css).
+- **Desktop Two-Column Grid (1200px+)**: Enforced `.payment-layout` two-column grid (`1.08fr` / `0.92fr`) on desktop viewports (1200px+), collapsing to single column only under `< 1200px`.
+- **Redesigned Fixed Overview Cards**: Replaced large readonly inputs in [PaymentSummary.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentSummary.vue) with semantic metric display buttons (`payment-overview-metric`).
+- **Redesigned Invoice Totals List Rows**: Replaced readonly inputs in [InvoiceTotals.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/InvoiceTotals.vue) with clean list rows (`invoice-total-row`).
+- **Eliminated Duplicate Currency Prefix**: Updated [PaymentMethods.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentMethods.vue) editable amount input to use raw numeric `:model-value="payment.amount"` with a single prefix.
+- **Automated Unit Tests**: Added [paymentRuntimeStability.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentRuntimeStability.spec.ts), [paymentMoneyDisplay.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentMoneyDisplay.spec.ts), and [paymentDialogLayout.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentDialogLayout.spec.ts).
+
 Pass 6.7.1.1 — Payment Shell Integration & Visibility Acceptance (Complete ✅).
 
 Scope:

@@ -812,3 +812,13 @@ body[data-page-route="posapp"] #body {
 body[data-page-route="posapp"] .desk-container {
 	padding-left: 0 !important;
 }
+
+/* Payment Modal Dialog Container Overlay */
+.posa-payment-dialog-overlay {
+	width: min(1180px, calc(100vw - 32px)) !important;
+	max-width: calc(100vw - 32px) !important;
+	max-height: calc(100dvh - 32px) !important;
+	margin: 16px !important;
+	overflow: hidden !important;
+	border-radius: 14px !important;
+}

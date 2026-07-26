@@ -1,87 +1,31 @@
 <template>
-	<v-row v-if="invoice_doc" class="payment-summary-grid" :class="{ 'payment-summary-grid--compact': compact }" dense>
-		<v-col cols="6">
-			<v-text-field
-				variant="solo"
-				color="primary"
-				:label="frappe._('Paid Amount')"
-				class="sleek-field pos-themed-input"
-				hide-details
-				:model-value="total_payments_display"
-				readonly
-				:prefix="currencySymbol(invoice_doc.currency)"
-				density="compact"
-				@click="$emit('show-paid-amount')"
-			></v-text-field>
-		</v-col>
-		<v-col cols="6">
-			<v-text-field
-				variant="solo"
-				color="primary"
-				:label="diff_label"
-				class="sleek-field pos-themed-input"
-				hide-details
-				:model-value="diff_payment_display"
-				:prefix="currencySymbol(invoice_doc.currency)"
-				density="compact"
-				@focus="$emit('show-diff-payment')"
-				persistent-placeholder
-			></v-text-field>
-		</v-col>
+	<div v-if="invoice_doc" class="payment-overview-grid">
+		<button
+			type="button"
+			class="payment-overview-metric"
+			@click="$emit('show-paid-amount')"
+		>
+			<span class="payment-overview-metric__label">{{ __("Paid Amount") }}</span>
+			<bdi class="payment-overview-metric__value">
+				{{ displayMoney(total_payments_display) }}
+			</bdi>
+		</button>
 
-		<v-col v-if="!compact && invoice_doc && giftCardAppliedAmount > 0" cols="12">
-			<div class="payment-summary-pill payment-summary-pill--gift-card">
-				<div class="payment-summary-pill__copy">
-					<p class="payment-summary-pill__label">{{ frappe._("Gift Card Applied") }}</p>
-					<h4 class="payment-summary-pill__amount">
-						{{ formatCurrency(giftCardAppliedAmount) }}
-					</h4>
-					<p class="payment-summary-pill__meta">
-						{{ giftCardCode || frappe._("Gift card") }}
-						<span class="payment-summary-pill__dot">•</span>
-						{{ frappe._("Included in settlement") }}
-					</p>
-				</div>
-				<span class="payment-summary-pill__state">{{ frappe._("Applied") }}</span>
-			</div>
-		</v-col>
-
-		<!-- Paid Change (if applicable and not compact) -->
-		<v-col cols="12" sm="7" v-if="!compact && invoice_doc && change_due > 0 && !invoice_doc.is_return">
-			<v-text-field
-				variant="solo"
-				color="primary"
-				:label="frappe._('Paid Change')"
-				class="sleek-field pos-themed-input"
-				:model-value="formatCurrency(paid_change)"
-				:prefix="currencySymbol(invoice_doc.currency)"
-				:rules="paid_change_rules"
-				density="compact"
-				readonly
-				type="text"
-				@click="$emit('show-paid-change')"
-			></v-text-field>
-		</v-col>
-
-		<!-- Credit Change (if applicable and not compact) -->
-		<v-col cols="12" sm="5" v-if="!compact && invoice_doc && change_due > 0 && !invoice_doc.is_return">
-			<v-text-field
-				variant="solo"
-				color="primary"
-				:label="frappe._('Credit Change')"
-				class="sleek-field pos-themed-input"
-				:model-value="formatCurrency(Math.abs(credit_change))"
-				:prefix="currencySymbol(invoice_doc.currency)"
-				density="compact"
-				type="text"
-				@change="$emit('update-credit-change', $event)"
-			></v-text-field>
-		</v-col>
-	</v-row>
+		<button
+			type="button"
+			class="payment-overview-metric"
+			@click="$emit('show-diff-payment')"
+		>
+			<span class="payment-overview-metric__label">{{ diff_label || __("To Pay") }}</span>
+			<bdi class="payment-overview-metric__value">
+				{{ displayMoney(diff_payment_display) }}
+			</bdi>
+		</button>
+	</div>
 </template>
 
 <script setup>
-defineProps({
+const props = defineProps({
 	compact: {
 		type: Boolean,
 		default: false,
@@ -112,80 +56,63 @@ defineProps({
 
 defineEmits(["show-paid-amount", "show-diff-payment", "show-paid-change", "update-credit-change"]);
 
-const frappe = window.frappe;
+const __ = (window && window.__) || ((s) => s);
+
+const displayMoney = (val) => {
+	if (val === null || val === undefined) return "0.00";
+	const strVal = String(val).trim();
+	const symbol = props.currencySymbol?.(props.invoice_doc?.currency) || "";
+	if (symbol && !strVal.includes(symbol)) {
+		return `${symbol} ${strVal}`;
+	}
+	return strVal;
+};
 </script>
 
 <style scoped>
-.payment-summary-grid {
-	margin: 0;
-	row-gap: var(--pos-space-2);
+.payment-overview-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
 }
 
-.payment-summary-grid :deep(.v-col) {
-	padding-top: 0;
-	padding-bottom: 0;
-}
-
-.payment-summary-grid :deep(.v-field) {
-	border-radius: var(--pos-radius-sm);
-	background: var(--pos-surface-raised);
-}
-
-.payment-summary-pill {
+.payment-overview-metric {
 	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var(--pos-space-3);
-	padding: 14px 16px;
-	border-radius: var(--pos-radius-md);
-	background:
-		linear-gradient(
-			180deg,
-			rgba(var(--v-theme-success), 0.1) 0%,
-			rgba(var(--v-theme-success), 0.04) 100%
-		),
-		var(--pos-surface-raised);
-	border: 1px solid rgba(var(--v-theme-success), 0.18);
-}
-
-.payment-summary-pill__copy {
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: center;
 	min-width: 0;
+	min-height: 56px;
+	padding: 8px 12px;
+	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
+	border-radius: var(--pos-radius-sm, 10px);
+	background: var(--pos-surface-raised, #ffffff);
+	text-align: start;
+	cursor: pointer;
+	transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.payment-summary-pill__label {
-	margin: 0;
-	font-size: 0.72rem;
-	font-weight: 700;
-	letter-spacing: 0.08em;
+.payment-overview-metric:hover {
+	background: var(--pos-surface-muted, rgba(0, 0, 0, 0.02));
+	border-color: var(--pos-primary, #2563eb);
+}
+
+.payment-overview-metric__label {
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: var(--pos-text-secondary, #64748b);
 	text-transform: uppercase;
-	color: var(--pos-text-secondary);
+	letter-spacing: 0.04em;
 }
 
-.payment-summary-pill__amount {
-	margin: 4px 0 0;
-	font-size: 1.05rem;
-	font-weight: 700;
-	color: var(--pos-text-primary);
-}
-
-.payment-summary-pill__meta {
-	margin: 6px 0 0;
-	font-size: 0.82rem;
-	color: var(--pos-text-secondary);
-}
-
-.payment-summary-pill__dot {
-	margin: 0 6px;
-}
-
-.payment-summary-pill__state {
-	display: inline-flex;
-	align-items: center;
-	padding: 6px 10px;
-	border-radius: 999px;
-	background: rgba(var(--v-theme-success), 0.12);
-	color: rgb(var(--v-theme-success));
-	font-size: 0.74rem;
-	font-weight: 700;
+.payment-overview-metric__value {
+	width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 1.25rem;
+	font-weight: 750;
+	font-variant-numeric: tabular-nums;
+	color: var(--pos-text-primary, #0f172a);
 }
 </style>
