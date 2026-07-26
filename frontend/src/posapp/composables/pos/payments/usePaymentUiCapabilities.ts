@@ -36,8 +36,12 @@ export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
 
 	// Redemption Capabilities (Loyalty points only in Redemption section shell)
 	const showLoyaltyRedemption = computed(() => {
+		const profileEnabled =
+			posProfile.value?.posa_use_loyalty_points !== undefined
+				? parseBooleanSetting(posProfile.value?.posa_use_loyalty_points)
+				: true;
 		const points = Number(customerInfo?.value?.loyalty_points || 0);
-		return !isReturn.value && Number.isFinite(points) && points > 0;
+		return !isReturn.value && profileEnabled && Number.isFinite(points) && points > 0;
 	});
 
 	const showCustomerCreditRedemption = computed(() => {
@@ -66,15 +70,17 @@ export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
 	});
 
 	const showCreditReturn = computed(() => {
-		return isReturn.value;
+		const creditEnabled = parseBooleanSetting(
+			posProfile.value?.use_customer_credit ?? posProfile.value?.posa_use_customer_credit,
+		);
+		return isReturn.value && creditEnabled && Boolean(invoiceDoc.value?.customer);
 	});
 
 	const showStoreAsCredit = computed(() => {
-		return (
-			parseBooleanSetting(
-				posProfile.value?.use_customer_credit ?? posProfile.value?.posa_use_customer_credit,
-			) && Boolean(invoiceDoc.value?.customer)
+		const creditEnabled = parseBooleanSetting(
+			posProfile.value?.use_customer_credit ?? posProfile.value?.posa_use_customer_credit,
 		);
+		return isReturn.value && creditEnabled && Boolean(invoiceDoc.value?.customer);
 	});
 
 	const showCustomerCreditDetails = computed(() => {
@@ -109,7 +115,8 @@ export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
 	});
 
 	const showShippingAddress = computed(() => {
-		return Boolean(invoiceDoc.value?.posa_delivery_date);
+		const allowSalesOrder = parseBooleanSetting(posProfile.value?.posa_allow_sales_order);
+		return allowSalesOrder && Boolean(invoiceDoc.value?.posa_delivery_date);
 	});
 
 	const showAdditionalNotes = computed(() => {

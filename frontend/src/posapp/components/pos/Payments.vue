@@ -2211,7 +2211,9 @@ watch(sales_person, (newVal) => {
 
 watch(salesReceiptExpanded, (expanded) => {
 	if (expanded && (!sales_persons.value || sales_persons.value.length === 0)) {
-		get_sales_person_names();
+		if (capabilities.showSalesPerson.value) {
+			void loadSalesPersons();
+		}
 	}
 });
 
@@ -2270,11 +2272,19 @@ watch(isPaymentOpen, (isOpen, wasOpen) => {
 		}
 		ensurePaymentLinesInitialized();
 		handleShowPayment();
-		void loadSalesPersons();
-		void loadPrintFormats();
+		if (capabilities.showSalesPerson.value) {
+			void loadSalesPersons();
+		}
+		if (capabilities.showPrintFormat.value) {
+			void loadPrintFormats();
+		}
 		if (invoice_doc.value?.customer) {
-			void loadAddresses();
-			void loadCustomerCredit("preview");
+			if (capabilities.showShippingAddress.value) {
+				void loadAddresses();
+			}
+			if (capabilities.showCustomerCreditRedemption.value || capabilities.showStoreAsCredit.value) {
+				void loadCustomerCredit("preview");
+			}
 		}
 	} else {
 		releaseActiveFocus();
@@ -2400,10 +2410,44 @@ onMounted(() => {
 		eventBus.on("register_pos_profile", (data) => {
 			pos_profile.value = data.pos_profile;
 			stock_settings.value = data.stock_settings;
+
+			salesPersonsRequestId++;
+			printFormatsRequestId++;
+			customerCreditRequestId++;
+			addressesRequestId++;
+			queuedCreditRequest = null;
+
 			salesPersonsLoaded.value = false;
 			printFormatsLoaded.value = false;
 			customerCreditLoaded.value = false;
 			addressesLoaded.value = false;
+
+			if (!capabilities.showCreditSale.value) {
+				is_credit_sale.value = false;
+				credit_due_days.value = 0;
+				new_credit_due_date.value = null;
+			}
+
+			if (!capabilities.showWriteOff.value) {
+				is_write_off_change.value = false;
+				handleWriteOffAmountUpdate(0);
+			}
+
+			if (!capabilities.showCustomerCreditRedemption.value && !capabilities.showStoreAsCredit.value) {
+				redeem_customer_credit.value = false;
+				redeemed_customer_credit.value = 0;
+				customer_credit_dict.value = [];
+				is_credit_return.value = false;
+			}
+
+			if (!capabilities.showGiftCards.value) {
+				giftCardDialogOpen.value = false;
+				resetGiftCardState({ clearPayment: true });
+			}
+
+			if (!capabilities.showLoyaltyRedemption.value) {
+				loyalty_amount.value = 0;
+			}
 		});
 		eventBus.on("add_the_new_address", (data) => {
 			const normalized = normalizeAddress(data);
