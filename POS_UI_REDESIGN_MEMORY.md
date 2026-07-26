@@ -27,7 +27,19 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
-Pass 6.7.4.2 — Critical Build Repair, Real Runtime Wiring and Final Screenshot Gate (Complete ✅).
+Pass 6.7.5 — Complete Payment Feature Lifecycle, Profile Switching, Submission Safety and Visual Release (Complete ✅).
+
+Scope:
+
+- **POS Profile Schema Verification**: Created [PAYMENT_POS_PROFILE_RUNTIME_SCHEMA.md](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PAYMENT_POS_PROFILE_RUNTIME_SCHEMA.md) mapping all 11 payment Check fields confirmed in `custom_field.json`. Removed invented `posa_use_loyalty_points` field reference.
+- **Authoritative Capability Composable**: Updated [usePaymentUiCapabilities.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/composables/pos/payments/usePaymentUiCapabilities.ts) to export clean `allow*` capabilities, loyalty customer-eligibility gating, and `snapshotCapabilities()` for profile switching diffing.
+- **Single Source of Truth (Child Components)**: Updated [PaymentOptions.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentOptions.vue), [PaymentAdditionalInfo.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentAdditionalInfo.vue), and [PaymentPurchaseOrder.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentPurchaseOrder.vue) to receive final boolean capability props from parent, removing duplicate local profile parsing and fixing Store as Credit `v-if` gating.
+- **Return Settlement State Machine & Default Safety**: Fixed `applyReturnCreditDefault()`, `is_credit_return` watcher, and `handleCustomerContextChange` in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) to respect `capabilities.showStoreAsCredit` and `capabilities.showCashback`.
+- **Feature-Gated Request Wrappers**: Added `shouldLoad*` helpers and short-circuit guards inside `loadCustomerCredit`, `loadAddresses`, `loadPrintFormats`, `loadSalesPersons` and all lifecycle caller locations in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue).
+- **Pre-Submission Feature Invariant Guard**: Added `assertPaymentFeatureInvariants()` in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) invoked before invoice submission to guarantee no disabled feature affects payment totals or submission payload.
+- **Profile Switching Cleanup & Initialization**: Added disabled feature cleanup and newly-enabled feature request triggering upon `register_pos_profile` events.
+- **Expanded Feature Gate Matrix**: Updated [PAYMENT_POS_PROFILE_GATE_MATRIX.md](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PAYMENT_POS_PROFILE_GATE_MATRIX.md) covering all 23 payment features.
+- **New Test Suites**: Created 5 dedicated test specs: `paymentFeatureLifecycle.spec.ts`, `paymentReturnSettlementModes.spec.ts`, `paymentProfileRequestGates.spec.ts`, `paymentSubmissionFeatureGuards.spec.ts`, `paymentProfileSwitching.spec.ts`.
 
 Scope:
 

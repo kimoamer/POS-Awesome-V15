@@ -168,7 +168,11 @@
 					>
 						<PaymentOptions
 							:invoice-doc="invoice_doc"
-							:pos-profile="pos_profile"
+							:allow-credit-sale="capabilities.allowCreditSale.value"
+							:allow-write-off="capabilities.allowWriteOff.value"
+							:allow-cashback="capabilities.allowCashback.value"
+							:allow-customer-credit="capabilities.allowCustomerCredit.value"
+							:allow-store-as-credit="capabilities.allowStoreAsCredit.value"
 							:diff-payment="diff_payment"
 							:credit-change="credit_change"
 							:is-write-off-change="is_write_off_change"
@@ -230,9 +234,11 @@
 					>
 						<PaymentAdditionalInfo
 							:invoice-doc="invoice_doc"
-							:pos-profile="pos_profile"
-							:invoice-type="invoiceType"
-							:return-validity-enabled="returnValidityEnabled"
+							:allow-delivery-date="capabilities.allowDeliveryDate.value"
+							:allow-shipping-address="capabilities.allowShippingAddress.value"
+							:allow-return-validity="capabilities.allowReturnValidity.value"
+							:allow-additional-notes="capabilities.allowAdditionalNotes.value"
+							:allow-authorization-code="capabilities.allowAuthorizationCode.value"
 							:return-validity-min-date="returnValidityMinDate"
 							:addresses="addresses"
 							:addresses-loading="addressesLoading"
@@ -257,7 +263,7 @@
 						/>
 						<PaymentPurchaseOrder
 							:invoice-doc="invoice_doc"
-							:pos-profile="pos_profile"
+							:allow-purchase-order="capabilities.allowPurchaseOrder.value"
 							:new-po-date="new_po_date"
 							@update:new-po-date="
 								(val) => {
@@ -286,9 +292,7 @@
 							:print-format="print_format"
 							:print-formats-loading="printFormatsLoading"
 							:print-formats-error="printFormatsError"
-							:show-print-format="
-								parseBooleanSetting(pos_profile?.posa_allow_select_print_format_in_payments)
-							"
+							:show-print-format="capabilities.allowPrintFormat.value"
 							@update:sales-person="sales_person = $event"
 							@update:print-format="print_format = $event"
 							@retry-sales-persons="loadSalesPersons({ force: true })"
@@ -1076,12 +1080,19 @@ const topUpGiftCard = async () => {
 	giftCardLoading.value = false;
 };
 
-// Methods
+// Capability-gated request helpers
+const shouldLoadCustomerCredit = () =>
+	capabilities.showCustomerCreditRedemption.value || capabilities.showStoreAsCredit.value;
+const shouldLoadAddresses = () => capabilities.showShippingAddress.value;
+const shouldLoadPrintFormats = () => capabilities.showPrintFormat.value;
+const shouldLoadSalesPersons = () => capabilities.showSalesPerson.value;
 
 let customerCreditRequestId = 0;
 let queuedCreditRequest = null;
 
 const loadCustomerCredit = async (useCreditArg) => {
+	if (!shouldLoadCustomerCredit()) return;
+
 	let intent = "preview";
 	if (typeof useCreditArg === "boolean") {
 		intent = useCreditArg ? "apply" : "clear";
@@ -1135,6 +1146,7 @@ const loadCustomerCredit = async (useCreditArg) => {
 
 let salesPersonsRequestId = 0;
 const loadSalesPersons = async ({ force = false } = {}) => {
+	if (!shouldLoadSalesPersons()) return;
 	if (salesPersonsLoading.value && !force) return;
 	if (salesPersonsLoaded.value && !force) return;
 
@@ -1158,6 +1170,7 @@ const loadSalesPersons = async ({ force = false } = {}) => {
 
 let printFormatsRequestId = 0;
 const loadPrintFormats = async ({ force = false } = {}) => {
+	if (!shouldLoadPrintFormats()) return;
 	if (printFormatsLoading.value && !force) return;
 	if (printFormatsLoaded.value && !force) return;
 
@@ -1181,6 +1194,7 @@ const loadPrintFormats = async ({ force = false } = {}) => {
 
 let addressesRequestId = 0;
 const loadAddresses = async ({ force = false } = {}) => {
+	if (!shouldLoadAddresses()) return;
 	if (addressesLoading.value && !force) return;
 	if (addressesLoaded.value && !force) return;
 
@@ -1519,16 +1533,21 @@ const applyReturnCreditDefault = (doc) => {
 	if (!doc || !doc.is_return) {
 		return;
 	}
+	if (!capabilities.showStoreAsCredit.value) {
+		is_credit_return.value = false;
+		is_cashback.value = capabilities.showCashback.value;
+		return;
+	}
 	if (!shouldApplyReturnRefundCap(doc)) {
 		is_credit_return.value = false;
-		is_cashback.value = true;
+		is_cashback.value = capabilities.showCashback.value;
 		return;
 	}
 	const refundable = doc.posa_refundable_amount;
 	const returnTotal = Math.abs(flt(doc.rounded_total || doc.grand_total, currency_precision.value));
 	const shouldCredit = flt(refundable, currency_precision.value) < returnTotal - 0.0001;
 	is_credit_return.value = shouldCredit;
-	is_cashback.value = !shouldCredit;
+	is_cashback.value = shouldCredit ? false : capabilities.showCashback.value;
 };
 
 const restorePaymentLinesAfterFailedSubmit = () => {
@@ -1915,11 +1934,40 @@ const submit = async (_event, payment_received = false, print = false) => {
 	});
 };
 
+const assertPaymentFeatureInvariants = () => {
+	if (!capabilities.showCreditSale.value) {
+		is_credit_sale.value = false;
+	}
+	if (!capabilities.showWriteOff.value) {
+		is_write_off_change.value = false;
+		if (invoice_doc.value) invoice_doc.value.write_off_amount = 0;
+	}
+	if (!capabilities.showCustomerCreditRedemption.value) {
+		redeem_customer_credit.value = false;
+		redeemed_customer_credit.value = 0;
+	}
+	if (!capabilities.showStoreAsCredit.value) {
+		is_credit_return.value = false;
+	}
+	if (!capabilities.showLoyaltyRedemption.value) {
+		loyalty_amount.value = 0;
+		if (invoice_doc.value) {
+			invoice_doc.value.loyalty_amount = 0;
+			invoice_doc.value.redeem_loyalty_points = 0;
+		}
+	}
+	if (invoice_doc.value?.is_return && !capabilities.showCashback.value && !capabilities.showStoreAsCredit.value) {
+		is_cashback.value = false;
+		is_credit_return.value = false;
+	}
+};
+
 const submitInvoiceWrapper = async (print, callbackOverrides = {}, options = {}) => {
 	if (submissionInFlight.value) {
 		return;
 	}
 
+	assertPaymentFeatureInvariants();
 	submissionInFlight.value = true;
 	loading.value = true;
 	try {
@@ -2248,7 +2296,7 @@ watch(is_credit_return, (newVal) => {
 			}
 		});
 	} else {
-		is_cashback.value = true;
+		is_cashback.value = capabilities.showCashback.value;
 		ensureReturnPaymentsAreNegative();
 	}
 });
@@ -2322,7 +2370,7 @@ const handleCustomerContextChange = (newCustomer, oldCustomer) => {
 
 	customer_credit_dict.value = [];
 	redeem_customer_credit.value = false;
-	is_cashback.value = true;
+	is_cashback.value = capabilities.showCashback.value;
 	is_credit_return.value = false;
 	loyalty_amount.value = 0;
 	resetGiftCardState({ clearPayment: true });
@@ -2339,8 +2387,8 @@ const handleCustomerContextChange = (newCustomer, oldCustomer) => {
 	}
 
 	if (newCustomer) {
-		void loadAddresses({ force: true });
-		void loadCustomerCredit("preview");
+		if (shouldLoadAddresses()) void loadAddresses({ force: true });
+		if (shouldLoadCustomerCredit()) void loadCustomerCredit("preview");
 		set_print_format();
 	} else {
 		addresses.value = [];
@@ -2433,6 +2481,10 @@ onMounted(() => {
 				is_credit_return.value = false;
 			}
 
+			if (!capabilities.showCashback.value && !is_credit_return.value) {
+				is_cashback.value = false;
+			}
+
 			if (!capabilities.showGiftCards.value) {
 				giftCardDialogOpen.value = false;
 				resetGiftCardState({ clearPayment: true });
@@ -2440,6 +2492,14 @@ onMounted(() => {
 
 			if (!capabilities.showLoyaltyRedemption.value) {
 				loyalty_amount.value = 0;
+			}
+
+			// Trigger data loads for newly-enabled capabilities
+			if (shouldLoadSalesPersons()) void loadSalesPersons();
+			if (shouldLoadPrintFormats()) void loadPrintFormats();
+			if (invoice_doc.value?.customer) {
+				if (shouldLoadAddresses()) void loadAddresses();
+				if (shouldLoadCustomerCredit()) void loadCustomerCredit("preview");
 			}
 		});
 		eventBus.on("add_the_new_address", (data) => {

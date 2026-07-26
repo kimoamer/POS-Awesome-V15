@@ -1,25 +1,47 @@
-# POS Profile Payment Feature Gate Matrix
+# Payment POS Profile Feature-Gate Matrix
 
-This document defines the authoritative POS Profile feature gate matrix for the POSAwesome payment experience. Every feature setting is evaluated through `parseBooleanSetting()` where `0`, `"0"`, `false`, `"false"`, `null`, and `undefined` mean **disabled**, and `1`, `"1"`, `true`, and `"true"` mean **enabled**.
+This document defines the authoritative POS Profile capability matrix for all payment screen features, their data sources, section shells, request gates, submission invariants, and profile-switching cleanup rules.
 
----
+## Matrix Summary
 
-| Feature Name | Canonical POS Profile Setting Field | Fallback / Context Requirement | Visible Control & Section Shell | Request / API Gate | Profile-Change State Cleanup |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Credit Sale** | `posa_allow_credit_sale` | — | Switch in Settlement Options (`showCreditSale`) | — | Clears `is_credit_sale = false`, resets credit due days and date |
-| **Write Off Change** | `posa_allow_write_off_change` | — | Switch in Settlement Options (`showWriteOff`) | — | Clears `is_write_off_change = false`, resets write-off amount to `0` |
-| **Cashback** | `use_cashback` | Return Invoices only | Switch in Settlement Options (`showCashback`) | — | Resets cashback toggle defaults |
-| **Use Customer Credit** | `use_customer_credit` / `posa_use_customer_credit` | Customer must be selected | Switch in Settlement & Credit Details (`showCustomerCreditRedemption`) | `loadCustomerCredit("preview")` gated | Sets `redeem_customer_credit = false`, `redeemed_customer_credit = 0`, clears `customer_credit_dict = []` |
-| **Store Return as Credit** | `use_customer_credit` / `posa_use_customer_credit` | Return Invoice & Customer selected | Switch in Settlement Options (`showStoreAsCredit` / `showCreditReturn`) | — | Resets `is_credit_return = false` |
-| **Gift Cards** | `posa_use_gift_cards` | Immediate settlement, Non-return invoice | Gift Card Section Shell & Dialog (`showGiftCards`) | Card lookup / issue / topup APIs gated | Closes `giftCardDialogOpen = false`, clears gift card redemptions |
-| **Loyalty Redemption** | `posa_use_loyalty_points` (or Customer Points Eligibility) | Non-return invoice, positive points | Redemption Section Shell (`showLoyaltyRedemption`) | — | Resets `loyalty_amount = 0` |
-| **Sales Order / Delivery Date** | `posa_allow_sales_order` | Invoice Type == 'Order' or delivery date set | Delivery Date Picker in Order Details (`showDeliveryDate`) | — | Resets delivery date selections if feature disabled |
-| **Shipping Address** | `posa_allow_sales_order` | Delivery date set | Address Select in Order Details (`showShippingAddress`) | `loadAddresses()` gated | Clears `shipping_address_name = null` if delivery date or feature disabled |
-| **Return Validity** | `posa_enable_return_validity` | Non-return invoice | Return Validity Picker (`showReturnValidity`) | — | Clears return validity date if feature disabled |
-| **Additional Notes** | `posa_display_additional_notes` | — | Additional Notes field (`showAdditionalNotes`) | — | Clears notes input state if feature disabled |
-| **Authorization Code** | `posa_display_authorization_code` | — | Auth Code field (`showAuthorizationCode`) | — | Clears auth code input state if feature disabled |
-| **Customer Purchase Order** | `posa_allow_customer_purchase_order` | — | PO Number & Date fields (`showPurchaseOrder`) | — | Clears PO fields if feature disabled |
-| **Sales Person Selector** | Standard field | `showSalesPerson` capability | Sales Person Select in Sales & Receipt (`showSalesPerson`) | `loadSalesPersons()` gated | Resets sales team array if feature disabled |
-| **Print Format Selector** | `posa_allow_select_print_format_in_payments` | — | Print Format Select in Sales & Receipt (`showPrintFormat`) | `loadPrintFormats()` gated | Resets print format selection if feature disabled |
+| # | Feature Key | Source Type | Canonical Field | Metadata Verified | Section Shell | Request Gate | Submission Invariant | Profile-Switch Cleanup |
+|---|-------------|-------------|-----------------|-------------------|---------------|--------------|----------------------|------------------------|
+| 1 | `immediateSettlement` | Invoice context | `invoiceDoc` + `isCashback` | N/A | Payment Methods | N/A | `is_cashback` mode enforced | N/A |
+| 2 | `creditSale` | POS Profile | `posa_allow_credit_sale` | ✅ | Settlement Options | N/A | `is_credit_sale = false` if disabled | `is_credit_sale = false`, `credit_due_days = 0`, `new_credit_due_date = null` |
+| 3 | `creditDueDate` | POS Profile | `posa_allow_credit_sale` | ✅ | Settlement Options | N/A | Ignored if `is_credit_sale = false` | Cleared with Credit Sale |
+| 4 | `writeOff` | POS Profile | `posa_allow_write_off_change` | ✅ | Settlement Options | N/A | `is_write_off_change = false`, `write_off_amount = 0` | `is_write_off_change = false`, `write_off_amount = 0` |
+| 5 | `cashback` | POS Profile | `use_cashback` | ✅ | Settlement Options | N/A | Ignored if `!allowCashback` | Recalculates `is_cashback` mode |
+| 6 | `customerCredit` | POS Profile | `use_customer_credit` | ✅ | Settlement Options | `shouldLoadCustomerCredit()` | `redeem_customer_credit = false`, `redeemed_customer_credit = 0` | `redeem_customer_credit = false`, `redeemed_customer_credit = 0`, `customer_credit_dict = []` |
+| 7 | `storeReturnAsCredit` | POS Profile | `use_customer_credit` | ✅ | Settlement Options | `shouldLoadCustomerCredit()` | `is_credit_return = false` if disabled | `is_credit_return = false` |
+| 8 | `loyalty` | Customer context | Customer `loyalty_points > 0` | Standard ERPNext | Redemption | N/A | `loyalty_amount = 0` if disabled | `loyalty_amount = 0` |
+| 9 | `giftCardRedeem` | POS Profile | `posa_use_gift_cards` | ✅ | Primary / Gift Card Section | `openGiftCardDialog` / `checkGiftCardBalance` | Unapplied redemption cleared | Dialog closed, redemption reset |
+| 10 | `giftCardIssue` | POS Profile | `posa_use_gift_cards` | ✅ | Gift Card Dialog | Handler gated | Blocked if disabled | N/A |
+| 11 | `giftCardTopUp` | POS Profile | `posa_use_gift_cards` | ✅ | Gift Card Dialog | Handler gated | Blocked if disabled | N/A |
+| 12 | `salesOrder` | POS Profile | `posa_allow_sales_order` | ✅ | Order & Fulfillment | N/A | N/A | N/A |
+| 13 | `deliveryDate` | POS Profile | `posa_allow_sales_order` | ✅ | Order & Fulfillment | N/A | Delivery validation skipped if disabled | N/A |
+| 14 | `shippingAddress` | POS Profile | `posa_allow_sales_order` | ✅ | Order & Fulfillment | `shouldLoadAddresses()` | Address validation skipped if disabled | `addressesLoaded = false` |
+| 15 | `returnValidity` | POS Profile / POS Settings | `posa_enable_return_validity` | ✅ | Order & Fulfillment | N/A | Validity date omitted if disabled | N/A |
+| 16 | `additionalNotes` | POS Profile | `posa_display_additional_notes` | ✅ | Order & Fulfillment | N/A | Control hidden if disabled | N/A |
+| 17 | `authorizationCode` | POS Profile | `posa_display_authorization_code` | ✅ | Order & Fulfillment | N/A | Control hidden if disabled | N/A |
+| 18 | `customerPurchaseOrder` | POS Profile | `posa_allow_customer_purchase_order` | ✅ | Order & Fulfillment | N/A | Control hidden if disabled | N/A |
+| 19 | `salesPerson` | Standard | Always available | Standard | Sales & Receipt | `shouldLoadSalesPersons()` | Default sales person used if disabled | `salesPersonsLoaded = false` |
+| 20 | `printFormat` | POS Profile | `posa_allow_select_print_format_in_payments` | ✅ | Sales & Receipt | `shouldLoadPrintFormats()` | Default print format path used if disabled | `printFormatsLoaded = false` |
+| 21 | `mpesaC2b` | Payment row | Row metadata `is_mpesa_c2b` | Standard | Payment Methods | Handler gated | Row action hidden if non-Mpesa | Dialog closed on mode change |
+| 22 | `phonePaymentRequest` | POS Profile / Field | `request_for_payment` button field | Standard | Payment Methods | Handler gated | Action hidden if not configured | Dialog closed |
+| 23 | `isSupervisor` | Cashier context | `currentCashier.is_supervisor` | Standard | Dialogs / Permissions | Handler gated | Gated in Gift Card Issue / Top-up | N/A |
 
----
+## POS Profile Field Verification
+
+All Check fields are evaluated via `parseBooleanSetting(val)`:
+- `"0"`, `0`, `false`, `"false"`, `null`, `undefined` → **disabled**
+- `"1"`, `1`, `true`, `"true"` → **enabled**
+
+## Pre-Submission Invariant Guard
+
+Before invoice submission, `assertPaymentFeatureInvariants()` is called to enforce:
+1. `is_credit_sale = false` if Credit Sale capability is false.
+2. `is_write_off_change = false` and `write_off_amount = 0` if Write Off capability is false.
+3. `redeem_customer_credit = false` and `redeemed_customer_credit = 0` if Customer Credit capability is false.
+4. `is_credit_return = false` if Store Return as Credit capability is false.
+5. `loyalty_amount = 0` if Loyalty capability is false.
+6. For return invoices where both Cashback and Store as Credit are disabled, both settlement modes are set to false to prevent hidden active modes.

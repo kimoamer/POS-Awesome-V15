@@ -2,7 +2,7 @@
 	<div v-if="invoiceDoc" class="payment-additional-info">
 		<div class="payment-details-grid">
 			<!-- Delivery Date (if applicable) -->
-			<div v-if="allowSalesOrder && invoiceType === 'Order'" class="payment-details-cell">
+			<div v-if="allowDeliveryDate" class="payment-details-cell">
 				<VueDatePicker
 					:model-value="newDeliveryDate"
 					model-type="format"
@@ -16,7 +16,7 @@
 			</div>
 
 			<!-- Return Valid Until -->
-			<div v-if="returnValidityEnabled && !invoiceDoc.is_return" class="payment-details-cell">
+			<div v-if="allowReturnValidity && !invoiceDoc.is_return" class="payment-details-cell">
 				<VueDatePicker
 					:model-value="returnValidUptoDate"
 					model-type="format"
@@ -31,7 +31,7 @@
 			</div>
 
 			<!-- Shipping Address Selection -->
-			<div v-if="invoiceDoc.posa_delivery_date" class="payment-details-cell payment-details-cell--full">
+			<div v-if="allowShippingAddress" class="payment-details-cell payment-details-cell--full">
 				<!-- Loading State -->
 				<div v-if="addressesLoading" class="address-state-box">
 					<v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
@@ -107,7 +107,7 @@
 			</div>
 
 			<!-- Additional Notes -->
-			<div v-if="showAdditionalNotes" class="payment-details-cell payment-details-cell--full">
+			<div v-if="allowAdditionalNotes" class="payment-details-cell payment-details-cell--full">
 				<v-textarea
 					class="payment-notes-field sleek-field"
 					variant="outlined"
@@ -123,7 +123,7 @@
 			</div>
 
 			<!-- Authorization Code -->
-			<div v-if="showAuthorizationCode" class="payment-details-cell">
+			<div v-if="allowAuthorizationCode" class="payment-details-cell">
 				<v-text-field
 					class="sleek-field pos-themed-input"
 					variant="outlined"
@@ -142,23 +142,28 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
-import { parseBooleanSetting } from "../../../utils/stock";
-
 const props = defineProps({
 	invoiceDoc: {
 		type: Object,
 		required: true,
 	},
-	posProfile: {
-		type: [Object, String],
-		default: () => ({}),
+	allowDeliveryDate: {
+		type: Boolean,
+		default: false,
 	},
-	invoiceType: {
-		type: String,
-		default: "Invoice",
+	allowShippingAddress: {
+		type: Boolean,
+		default: false,
 	},
-	returnValidityEnabled: {
+	allowReturnValidity: {
+		type: Boolean,
+		default: false,
+	},
+	allowAdditionalNotes: {
+		type: Boolean,
+		default: false,
+	},
+	allowAuthorizationCode: {
 		type: Boolean,
 		default: false,
 	},
@@ -195,10 +200,6 @@ const props = defineProps({
 defineEmits(["update:newDeliveryDate", "update:returnValidUptoDate", "new-address", "retry-addresses"]);
 
 const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
-
-const allowSalesOrder = computed(() => parseBooleanSetting(props.posProfile?.posa_allow_sales_order));
-const showAdditionalNotes = computed(() => parseBooleanSetting(props.posProfile?.posa_display_additional_notes));
-const showAuthorizationCode = computed(() => parseBooleanSetting(props.posProfile?.posa_display_authorization_code));
 </script>
 
 <style scoped>

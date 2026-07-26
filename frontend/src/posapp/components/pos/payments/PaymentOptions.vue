@@ -124,7 +124,7 @@
 			</div>
 
 			<!-- Store Return as Credit Option -->
-			<div v-if="invoiceDoc.is_return" class="settlement-option">
+			<div v-if="allowStoreAsCredit" class="settlement-option">
 				<span class="settlement-option__icon">
 					<v-icon size="16">mdi-cash-refund</v-icon>
 				</span>
@@ -188,16 +188,31 @@
 
 <script setup>
 import { computed } from "vue";
-import { parseBooleanSetting } from "../../../utils/stock";
 
 const props = defineProps({
 	invoiceDoc: {
 		type: Object,
 		required: true,
 	},
-	posProfile: {
-		type: [Object, String],
-		default: () => ({}),
+	allowCreditSale: {
+		type: Boolean,
+		default: false,
+	},
+	allowWriteOff: {
+		type: Boolean,
+		default: false,
+	},
+	allowCashback: {
+		type: Boolean,
+		default: false,
+	},
+	allowCustomerCredit: {
+		type: Boolean,
+		default: false,
+	},
+	allowStoreAsCredit: {
+		type: Boolean,
+		default: false,
 	},
 	creditChange: {
 		type: Number,
@@ -277,13 +292,6 @@ const emit = defineEmits([
 	"apply-due-preset",
 	"get-available-credit",
 ]);
-
-const allowCreditSale = computed(() => parseBooleanSetting(props.posProfile?.posa_allow_credit_sale));
-const allowWriteOff = computed(() => parseBooleanSetting(props.posProfile?.posa_allow_write_off_change));
-const allowCashback = computed(() => parseBooleanSetting(props.posProfile?.use_cashback));
-const allowCustomerCredit = computed(() =>
-	parseBooleanSetting(props.posProfile?.use_customer_credit ?? props.posProfile?.posa_use_customer_credit),
-);
 
 const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
 

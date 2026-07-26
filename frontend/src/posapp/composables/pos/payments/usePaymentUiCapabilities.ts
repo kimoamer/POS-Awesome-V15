@@ -24,89 +24,98 @@ export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
 
 	const isReturn = computed(() => Boolean(invoiceDoc.value?.is_return));
 
-	// Immediate Settlement & Gift Cards Capabilities
+	// ── Credit Sale ──
+	const allowCreditSale = computed(() =>
+		parseBooleanSetting(posProfile.value?.posa_allow_credit_sale),
+	);
+
+	const allowCreditDueDate = computed(() => allowCreditSale.value);
+
+	// ── Write Off ──
+	const allowWriteOff = computed(() =>
+		parseBooleanSetting(posProfile.value?.posa_allow_write_off_change),
+	);
+
+	// ── Cashback (Return settlement via payment methods) ──
+	const allowCashback = computed(() =>
+		parseBooleanSetting(posProfile.value?.use_cashback),
+	);
+
+	// ── Customer Credit ──
+	const customerCreditEnabled = computed(() =>
+		parseBooleanSetting(
+			posProfile.value?.use_customer_credit ?? posProfile.value?.posa_use_customer_credit,
+		),
+	);
+
+	const allowCustomerCredit = computed(() => {
+		const hasCustomer = Boolean(invoiceDoc.value?.customer);
+		return !isReturn.value && customerCreditEnabled.value && hasCustomer;
+	});
+
+	// ── Store Return as Credit ──
+	const allowStoreAsCredit = computed(() => {
+		return isReturn.value && customerCreditEnabled.value && Boolean(invoiceDoc.value?.customer);
+	});
+
+	// ── Credit Return (alias for section visibility) ──
+	const showCreditReturn = computed(() => allowStoreAsCredit.value);
+
+	// ── Immediate Settlement (Payment Methods visible) ──
 	const showImmediateSettlement = computed(() => {
 		return Boolean((isCashback?.value ?? true) && invoiceDoc.value);
 	});
 
-	const showGiftCards = computed(() => {
+	// ── Gift Cards ──
+	const allowGiftCards = computed(() => {
 		const enabled = parseBooleanSetting(posProfile.value?.posa_use_gift_cards);
 		return showImmediateSettlement.value && enabled && !isReturn.value;
 	});
 
-	// Redemption Capabilities (Loyalty points only in Redemption section shell)
-	const showLoyaltyRedemption = computed(() => {
-		const profileEnabled =
-			posProfile.value?.posa_use_loyalty_points !== undefined
-				? parseBooleanSetting(posProfile.value?.posa_use_loyalty_points)
-				: true;
+	// ── Loyalty ──
+	// No POS Profile field exists for loyalty. Controlled entirely by
+	// ERPNext Loyalty Program + Customer eligibility (points > 0).
+	const allowLoyaltyRedemption = computed(() => {
 		const points = Number(customerInfo?.value?.loyalty_points || 0);
-		return !isReturn.value && profileEnabled && Number.isFinite(points) && points > 0;
+		return !isReturn.value && Number.isFinite(points) && points > 0;
 	});
 
-	const showCustomerCreditRedemption = computed(() => {
-		const creditEnabled = parseBooleanSetting(
-			posProfile.value?.use_customer_credit ?? posProfile.value?.posa_use_customer_credit,
-		);
-		const hasCustomer = Boolean(invoiceDoc.value?.customer);
-		return !isReturn.value && creditEnabled && hasCustomer;
-	});
+	// ── Customer Credit Details (within Settlement section) ──
+	const showCustomerCreditDetails = computed(() => allowCustomerCredit.value);
 
-	const showRedemptionSection = computed(() => {
-		return showLoyaltyRedemption.value;
-	});
+	// ── Redemption Section (Loyalty) ──
+	const showRedemptionSection = computed(() => allowLoyaltyRedemption.value);
 
-	// Settlement Capabilities
-	const showCreditSale = computed(() => {
-		return parseBooleanSetting(posProfile.value?.posa_allow_credit_sale);
-	});
-
-	const showWriteOff = computed(() => {
-		return parseBooleanSetting(posProfile.value?.posa_allow_write_off_change);
-	});
-
-	const showCashback = computed(() => {
-		return parseBooleanSetting(posProfile.value?.use_cashback);
-	});
-
-	const showCreditReturn = computed(() => {
-		const creditEnabled = parseBooleanSetting(
-			posProfile.value?.use_customer_credit ?? posProfile.value?.posa_use_customer_credit,
-		);
-		return isReturn.value && creditEnabled && Boolean(invoiceDoc.value?.customer);
-	});
-
-	const showStoreAsCredit = computed(() => {
-		const creditEnabled = parseBooleanSetting(
-			posProfile.value?.use_customer_credit ?? posProfile.value?.posa_use_customer_credit,
-		);
-		return isReturn.value && creditEnabled && Boolean(invoiceDoc.value?.customer);
-	});
-
-	const showCustomerCreditDetails = computed(() => {
-		return showCustomerCreditRedemption.value;
-	});
-
+	// ── Settlement Options Section ──
 	const showSettlementOptions = computed(() => {
 		return (
-			showCreditSale.value ||
-			showWriteOff.value ||
-			showCashback.value ||
+			allowCreditSale.value ||
+			allowWriteOff.value ||
+			allowCashback.value ||
 			showCreditReturn.value ||
-			showStoreAsCredit.value ||
+			allowStoreAsCredit.value ||
 			showCustomerCreditDetails.value
 		);
 	});
 
-	// Order & Fulfillment Capabilities
-	const showDeliveryDate = computed(() => {
+	// ── Sales Order / Delivery ──
+	const allowSalesOrder = computed(() =>
+		parseBooleanSetting(posProfile.value?.posa_allow_sales_order),
+	);
+
+	const allowDeliveryDate = computed(() => {
 		return (
-			parseBooleanSetting(posProfile.value?.posa_allow_sales_order) &&
+			allowSalesOrder.value &&
 			(invoiceType?.value === "Order" || Boolean(invoiceDoc.value?.posa_delivery_date))
 		);
 	});
 
-	const showReturnValidity = computed(() => {
+	const allowShippingAddress = computed(() => {
+		return allowSalesOrder.value && Boolean(invoiceDoc.value?.posa_delivery_date);
+	});
+
+	// ── Return Validity ──
+	const allowReturnValidity = computed(() => {
 		return (
 			!isReturn.value &&
 			(parseBooleanSetting(posProfile.value?.posa_enable_return_validity) ||
@@ -114,77 +123,127 @@ export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
 		);
 	});
 
-	const showShippingAddress = computed(() => {
-		const allowSalesOrder = parseBooleanSetting(posProfile.value?.posa_allow_sales_order);
-		return allowSalesOrder && Boolean(invoiceDoc.value?.posa_delivery_date);
-	});
+	// ── Additional Notes ──
+	const allowAdditionalNotes = computed(() =>
+		parseBooleanSetting(posProfile.value?.posa_display_additional_notes),
+	);
 
-	const showAdditionalNotes = computed(() => {
-		return parseBooleanSetting(posProfile.value?.posa_display_additional_notes);
-	});
+	// ── Authorization Code ──
+	const allowAuthorizationCode = computed(() =>
+		parseBooleanSetting(posProfile.value?.posa_display_authorization_code),
+	);
 
-	const showAuthorizationCode = computed(() => {
-		return parseBooleanSetting(posProfile.value?.posa_display_authorization_code);
-	});
-
-	const showPurchaseOrder = computed(() => {
+	// ── Purchase Order ──
+	const allowPurchaseOrder = computed(() => {
 		return (
 			parseBooleanSetting(posProfile.value?.posa_allow_customer_purchase_order) &&
 			Boolean(invoiceDoc.value)
 		);
 	});
 
-	const showSalesPerson = computed(() => {
-		return true; // Standard sales person selector
-	});
+	// ── Sales Person (always available — no POS Profile field) ──
+	const allowSalesPerson = computed(() => true);
 
-	const showPrintFormat = computed(() => {
-		return parseBooleanSetting(posProfile.value?.posa_allow_select_print_format_in_payments);
-	});
+	// ── Print Format ──
+	const allowPrintFormat = computed(() =>
+		parseBooleanSetting(posProfile.value?.posa_allow_select_print_format_in_payments),
+	);
 
+	// ── Order & Fulfillment Section ──
 	const showOrderDetails = computed(() => {
 		return (
-			showDeliveryDate.value ||
-			showReturnValidity.value ||
-			showShippingAddress.value ||
-			showAdditionalNotes.value ||
-			showAuthorizationCode.value ||
-			showPurchaseOrder.value
+			allowDeliveryDate.value ||
+			allowReturnValidity.value ||
+			allowShippingAddress.value ||
+			allowAdditionalNotes.value ||
+			allowAuthorizationCode.value ||
+			allowPurchaseOrder.value
 		);
 	});
 
+	// ── Sales & Receipt Section ──
 	const showSalesAndReceiptDetails = computed(() => {
-		return showSalesPerson.value || showPrintFormat.value;
+		return allowSalesPerson.value || allowPrintFormat.value;
 	});
 
-	const isSupervisor = computed(() => {
-		return parseBooleanSetting(currentCashier?.value?.is_supervisor);
+	// ── Supervisor ──
+	const isSupervisor = computed(() =>
+		parseBooleanSetting(currentCashier?.value?.is_supervisor),
+	);
+
+	// ── Snapshot for profile-switch diffing ──
+	const snapshotCapabilities = () => ({
+		allowCreditSale: allowCreditSale.value,
+		allowWriteOff: allowWriteOff.value,
+		allowCashback: allowCashback.value,
+		allowCustomerCredit: allowCustomerCredit.value,
+		allowStoreAsCredit: allowStoreAsCredit.value,
+		allowLoyaltyRedemption: allowLoyaltyRedemption.value,
+		allowGiftCards: allowGiftCards.value,
+		allowSalesOrder: allowSalesOrder.value,
+		allowDeliveryDate: allowDeliveryDate.value,
+		allowShippingAddress: allowShippingAddress.value,
+		allowReturnValidity: allowReturnValidity.value,
+		allowAdditionalNotes: allowAdditionalNotes.value,
+		allowAuthorizationCode: allowAuthorizationCode.value,
+		allowPurchaseOrder: allowPurchaseOrder.value,
+		allowSalesPerson: allowSalesPerson.value,
+		allowPrintFormat: allowPrintFormat.value,
+		isSupervisor: isSupervisor.value,
 	});
 
 	return {
 		isReturn,
+		// Settlement & Payment
 		showImmediateSettlement,
-		showGiftCards,
-		showLoyaltyRedemption,
-		showCustomerCreditRedemption,
-		showRedemptionSection,
-		showCreditSale,
-		showWriteOff,
-		showCashback,
+		allowCreditSale,
+		allowCreditDueDate,
+		allowWriteOff,
+		allowCashback,
+		allowCustomerCredit,
+		allowStoreAsCredit,
 		showCreditReturn,
-		showStoreAsCredit,
 		showCustomerCreditDetails,
 		showSettlementOptions,
-		showDeliveryDate,
-		showReturnValidity,
-		showShippingAddress,
-		showAdditionalNotes,
-		showAuthorizationCode,
-		showPurchaseOrder,
-		showSalesPerson,
-		showPrintFormat,
+		// Gift Cards
+		allowGiftCards,
+		// Loyalty & Redemption
+		allowLoyaltyRedemption,
+		showRedemptionSection,
+		// Order & Fulfillment
+		allowSalesOrder,
+		allowDeliveryDate,
+		allowShippingAddress,
+		allowReturnValidity,
+		allowAdditionalNotes,
+		allowAuthorizationCode,
+		allowPurchaseOrder,
+		// Sales & Receipt
+		allowSalesPerson,
+		allowPrintFormat,
+		// Sections
 		showOrderDetails,
 		showSalesAndReceiptDetails,
+		// Permissions
 		isSupervisor,
+		// Utility
+		snapshotCapabilities,
+
+		// Backward-compatible aliases (old show* names → new allow* names)
+		showGiftCards: allowGiftCards,
+		showLoyaltyRedemption: allowLoyaltyRedemption,
+		showCreditSale: allowCreditSale,
+		showWriteOff: allowWriteOff,
+		showCashback: allowCashback,
+		showStoreAsCredit: allowStoreAsCredit,
+		showCustomerCreditRedemption: allowCustomerCredit,
+		showDeliveryDate: allowDeliveryDate,
+		showReturnValidity: allowReturnValidity,
+		showShippingAddress: allowShippingAddress,
+		showAdditionalNotes: allowAdditionalNotes,
+		showAuthorizationCode: allowAuthorizationCode,
+		showPurchaseOrder: allowPurchaseOrder,
+		showSalesPerson: allowSalesPerson,
+		showPrintFormat: allowPrintFormat,
 	};
 }

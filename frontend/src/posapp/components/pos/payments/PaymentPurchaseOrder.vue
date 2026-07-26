@@ -30,17 +30,14 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
-import { parseBooleanSetting } from "../../../utils/stock";
-
 const props = defineProps({
 	invoiceDoc: {
 		type: Object,
 		required: true,
 	},
-	posProfile: {
-		type: [Object, String],
-		default: () => ({}),
+	allowPurchaseOrder: {
+		type: Boolean,
+		default: false,
 	},
 	newPoDate: {
 		type: String,
@@ -51,8 +48,6 @@ const props = defineProps({
 defineEmits(["update:newPoDate"]);
 
 const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
-
-const allowPurchaseOrder = computed(() => parseBooleanSetting(props.posProfile?.posa_allow_customer_purchase_order));
 </script>
 
 <style scoped>
