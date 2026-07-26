@@ -456,13 +456,15 @@ const clearPaymentAmount = (payment) => {
 }
 
 .payment-method-card__amount :deep(.v-field__input) {
-	font-size: 14px;
-	font-weight: 650;
+	font-size: 18px;
+	font-weight: 700;
 	font-variant-numeric: tabular-nums;
+	color: var(--pos-text-primary, #0f172a);
 }
 
 .payment-method-card__amount :deep(.v-field__prefix) {
-	font-size: 13px;
+	font-size: 15px;
+	font-weight: 600;
 	color: var(--pos-text-secondary, #64748b);
 }
 

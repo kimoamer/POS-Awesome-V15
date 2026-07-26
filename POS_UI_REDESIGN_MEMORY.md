@@ -27,6 +27,15 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.7.2.5 — Runtime Screenshot Gate & Integration-Test Correction (Complete ✅).
+
+Scope:
+
+- **Corrected Integration Test Data Path**: Replaced fake `data()` option injection in [paymentGeometry.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentGeometry.spec.ts) with real runtime event bus emission `eventBus.emit("send_invoice_doc_payment", { grand_total: 0, currency: "EGP", payments: [] })`. Removed unused `vi` import.
+- **Navbar DOM Unmount Test**: Added integration test in [paymentResponsiveLayout.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentResponsiveLayout.spec.ts) asserting that `uiStore.activeView = "payment"` unmounts the root `<nav>` element on mobile viewports.
+- **Visual Evidence Checklist Verified**: Confirmed single payment header, compact overview height (60px), zero Grand Total display (`0.00`), unified Set Remaining calculator icon button across all viewports, and complete preservation of all 10 payment actions/events.
+- **Payment Amount Input Typography**: Increased font size of main payment method input text to `18px` (`font-weight: 700`) and currency prefix to `15px` (`font-weight: 600`) in [PaymentMethods.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentMethods.vue), making amounts bold, clear, and prominent inside input containers.
+
 Pass 6.7.2.4 — Runtime Proof and Mobile Chrome Finalization (Complete ✅).
 
 Scope:
