@@ -202,6 +202,7 @@
 							@get-available-credit="loadCustomerCredit"
 						/>
 						<PaymentCustomerCreditDetails
+							:viewport-mode="viewportMode"
 							:invoice-doc="invoice_doc"
 							:available-customer-credit="available_customer_credit"
 							:redeem-customer-credit="redeem_customer_credit"
@@ -1077,26 +1078,40 @@ const topUpGiftCard = async () => {
 
 // Methods
 
-let customerCreditRequestId = 0;
-let queuedCreditIntent: boolean | undefined = undefined;
+type CustomerCreditIntent = "preview" | "apply" | "clear";
 
-const loadCustomerCredit = async (useCredit) => {
+interface QueuedCreditRequest {
+	intent: CustomerCreditIntent;
+	contextKey: string;
+}
+
+let customerCreditRequestId = 0;
+let queuedCreditRequest: QueuedCreditRequest | null = null;
+
+const loadCustomerCredit = async (useCreditArg?: boolean | CustomerCreditIntent) => {
+	let intent: CustomerCreditIntent = "preview";
+	if (typeof useCreditArg === "boolean") {
+		intent = useCreditArg ? "apply" : "clear";
+	} else if (useCreditArg === "apply" || useCreditArg === "clear" || useCreditArg === "preview") {
+		intent = useCreditArg;
+	}
+
+	const contextKey = [invoice_doc.value?.customer, pos_profile.value?.company].join("::");
+
 	if (customerCreditLoading.value) {
-		if (typeof useCredit === "boolean") {
-			queuedCreditIntent = useCredit;
-		}
+		queuedCreditRequest = { intent, contextKey };
 		return;
 	}
 
 	const reqId = ++customerCreditRequestId;
-	const contextKey = [invoice_doc.value?.customer, pos_profile.value?.company].join("::");
-
 	customerCreditLoading.value = true;
 	customerCreditError.value = "";
 
 	try {
-		if (typeof useCredit === "boolean") {
-			await get_available_credit(useCredit);
+		if (intent === "apply") {
+			await get_available_credit(true);
+		} else if (intent === "clear") {
+			await get_available_credit(false);
 		} else {
 			await prefetch_available_credit();
 		}
@@ -1106,7 +1121,7 @@ const loadCustomerCredit = async (useCredit) => {
 			return;
 		}
 		customerCreditLoaded.value = true;
-	} catch (error) {
+	} catch (error: any) {
 		if (reqId === customerCreditRequestId) {
 			customerCreditError.value = error?.message || __("Unable to load customer credit");
 		}
@@ -1114,10 +1129,13 @@ const loadCustomerCredit = async (useCredit) => {
 		if (reqId === customerCreditRequestId) {
 			customerCreditLoading.value = false;
 		}
-		if (queuedCreditIntent !== undefined) {
-			const nextIntent = queuedCreditIntent;
-			queuedCreditIntent = undefined;
-			await loadCustomerCredit(nextIntent);
+		if (queuedCreditRequest) {
+			const pending = queuedCreditRequest;
+			queuedCreditRequest = null;
+			const activeKey = [invoice_doc.value?.customer, pos_profile.value?.company].join("::");
+			if (pending.contextKey === activeKey) {
+				await loadCustomerCredit(pending.intent);
+			}
 		}
 	}
 };
@@ -2245,27 +2263,6 @@ watch(is_credit_return, (newVal) => {
 // direction so toggling cashback also updates credit (you can't enable both).
 // The reciprocal set lands on a value that is already correct, so the watches
 // settle without looping.
-watch(is_cashback, (newVal) => {
-	if (!invoice_doc.value || !invoice_doc.value.is_return) return;
-	const shouldCredit = !newVal;
-	if (is_credit_return.value !== shouldCredit) {
-		is_credit_return.value = shouldCredit;
-	}
-});
-
-watch(
-	() => invoice_doc.value.customer,
-	(customer, previous) => {
-		if (customer && customer !== previous) {
-			void loadAddresses({ force: true });
-			set_print_format();
-		} else if (!customer) {
-			addresses.value = [];
-			set_print_format();
-		}
-	},
-);
-
 watch(isPaymentOpen, (isOpen, wasOpen) => {
 	if (isOpen) {
 		if (!wasOpen) {
@@ -2277,7 +2274,7 @@ watch(isPaymentOpen, (isOpen, wasOpen) => {
 		void loadPrintFormats();
 		if (invoice_doc.value?.customer) {
 			void loadAddresses();
-			void loadCustomerCredit();
+			void loadCustomerCredit("preview");
 		}
 	} else {
 		releaseActiveFocus();
@@ -2289,7 +2286,7 @@ watch(isPaymentOpen, (isOpen, wasOpen) => {
 });
 
 watch(
-	() => invoice_doc.value.posa_delivery_date,
+	() => invoice_doc.value?.posa_delivery_date,
 	(date) => {
 		if (!date) {
 			if (invoice_doc.value) {
@@ -2313,8 +2310,13 @@ watch(
 	{ immediate: true },
 );
 
-watch(selectedCustomer, (newCustomer, oldCustomer) => {
+const handleCustomerContextChange = (newCustomer: any, oldCustomer?: any) => {
 	if (newCustomer === oldCustomer) return;
+
+	customerCreditRequestId++;
+	addressesRequestId++;
+	queuedCreditRequest = null;
+
 	customer_credit_dict.value = [];
 	redeem_customer_credit.value = false;
 	is_cashback.value = true;
@@ -2335,8 +2337,16 @@ watch(selectedCustomer, (newCustomer, oldCustomer) => {
 
 	if (newCustomer) {
 		void loadAddresses({ force: true });
-		void loadCustomerCredit();
+		void loadCustomerCredit("preview");
+		set_print_format();
+	} else {
+		addresses.value = [];
+		set_print_format();
 	}
+};
+
+watch(selectedCustomer, (newCustomer, oldCustomer) => {
+	handleCustomerContextChange(newCustomer, oldCustomer);
 });
 
 // Lifecycle

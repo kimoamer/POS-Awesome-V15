@@ -71,6 +71,30 @@ export function useRedemptionLogic(options: RedemptionLogicOptions) {
 		return Math.max(normalizeFloat(invoiceTotal - loyaltyCovered), 0);
 	};
 
+	// Pure data fetcher (does not mutate refs)
+	const fetch_available_credit_sources = async (customer: string, company: string): Promise<any[]> => {
+		if (!customer || !company) return [];
+
+		if (isOffline()) {
+			const cachedSnapshot = getCachedStoredValueSnapshot(customer, company);
+			return Array.isArray(cachedSnapshot?.sources)
+				? JSON.parse(JSON.stringify(cachedSnapshot.sources))
+				: [];
+		}
+
+		const r: any = await frappe.call({
+			method: "posawesome.posawesome.api.payments.get_available_credit",
+			args: { customer, company },
+		});
+
+		const data = r?.message || [];
+		if (Array.isArray(data) && data.length) {
+			saveStoredValueSnapshot(customer, company, data);
+			return JSON.parse(JSON.stringify(data));
+		}
+		return [];
+	};
+
 	// Prefetch available credit sources for preview (does not apply redemption)
 	const prefetch_available_credit = async () => {
 		const customer = unref(invoiceDoc)?.customer;
@@ -82,39 +106,22 @@ export function useRedemptionLogic(options: RedemptionLogicOptions) {
 			return [];
 		}
 
-		if (isOffline()) {
-			const cachedSnapshot = getCachedStoredValueSnapshot(customer, company);
-			const data = Array.isArray(cachedSnapshot?.sources)
-				? JSON.parse(JSON.stringify(cachedSnapshot.sources))
-				: [];
-			data.forEach((row: any) => {
-				row.credit_to_redeem = 0;
-			});
-			customer_credit_dict.value = data;
-			redeemed_customer_credit.value = 0;
-			return data;
+		const sources = await fetch_available_credit_sources(customer, company);
+		if (unref(invoiceDoc)?.customer !== customer || unref(posProfile)?.company !== company) {
+			return customer_credit_dict.value;
 		}
 
-		const r: any = await frappe.call({
-			method: "posawesome.posawesome.api.payments.get_available_credit",
-			args: { customer, company },
+		const data = Array.isArray(sources) ? sources : [];
+		data.forEach((row: any) => {
+			row.credit_to_redeem = 0;
 		});
-		const data = r?.message || [];
-		if (Array.isArray(data) && data.length) {
-			saveStoredValueSnapshot(customer, company, data);
-			data.forEach((row: any) => {
-				row.credit_to_redeem = 0;
-			});
-			customer_credit_dict.value = data;
-		} else {
-			customer_credit_dict.value = [];
-		}
+		customer_credit_dict.value = data;
 		redeemed_customer_credit.value = 0;
-		return customer_credit_dict.value;
+		return data;
 	};
 
 	// Get / apply available customer credit
-	const get_available_credit = (use_credit: boolean) => {
+	const get_available_credit = async (use_credit: boolean) => {
 		if (options.onClearAmounts && use_credit) {
 			options.onClearAmounts();
 		}
@@ -124,77 +131,49 @@ export function useRedemptionLogic(options: RedemptionLogicOptions) {
 
 		if (!customer || !company) {
 			customer_credit_dict.value = [];
-			return Promise.resolve([]);
+			redeemed_customer_credit.value = 0;
+			return [];
 		}
 
 		if (!use_credit) {
-			customer_credit_dict.value.forEach((row: any) => {
-				row.credit_to_redeem = 0;
-			});
-			redeemed_customer_credit.value = 0;
-			return Promise.resolve(customer_credit_dict.value);
-		}
-
-		if (isOffline()) {
-			const cachedSnapshot = getCachedStoredValueSnapshot(customer, company);
-			const data = Array.isArray(cachedSnapshot?.sources)
-				? JSON.parse(JSON.stringify(cachedSnapshot.sources))
-				: [];
-			if (data.length) {
-				const doc = unref(invoiceDoc);
-				const amount = doc.rounded_total || doc.grand_total;
-				let remainAmount = amount;
-				data.forEach((row: any) => {
-					if (remainAmount > 0) {
-						if (remainAmount >= row.total_credit) {
-							row.credit_to_redeem = row.total_credit;
-							remainAmount -= row.total_credit;
-						} else {
-							row.credit_to_redeem = remainAmount;
-							remainAmount = 0;
-						}
-					} else {
-						row.credit_to_redeem = 0;
-					}
+			if (unref(invoiceDoc)?.customer === customer && unref(posProfile)?.company === company) {
+				customer_credit_dict.value.forEach((row: any) => {
+					row.credit_to_redeem = 0;
 				});
-				customer_credit_dict.value = data;
-			} else {
-				customer_credit_dict.value = [];
+				redeemed_customer_credit.value = 0;
 			}
-			return Promise.resolve(customer_credit_dict.value);
+			return customer_credit_dict.value;
 		}
 
-		return frappe
-			.call({
-				method: "posawesome.posawesome.api.payments.get_available_credit",
-				args: { customer, company },
-			})
-			.then((r: any) => {
-				const data = r.message;
-				if (data && data.length) {
-					saveStoredValueSnapshot(customer, company, data);
-					const doc = unref(invoiceDoc);
-					const amount = doc.rounded_total || doc.grand_total;
-					let remainAmount = amount;
-					data.forEach((row: any) => {
-						if (remainAmount > 0) {
-							if (remainAmount >= row.total_credit) {
-								row.credit_to_redeem = row.total_credit;
-								remainAmount -= row.total_credit;
-							} else {
-								row.credit_to_redeem = remainAmount;
-								remainAmount = 0;
-							}
-						} else {
-							row.credit_to_redeem = 0;
-						}
-					});
-					customer_credit_dict.value = data;
+		const sources = await fetch_available_credit_sources(customer, company);
+		if (unref(invoiceDoc)?.customer !== customer || unref(posProfile)?.company !== company) {
+			return customer_credit_dict.value;
+		}
+
+		const data = Array.isArray(sources) ? sources : [];
+		if (data.length) {
+			const doc = unref(invoiceDoc);
+			const amount = doc ? normalizeFloat(doc.rounded_total || doc.grand_total || 0) : 0;
+			let remainAmount = amount;
+			data.forEach((row: any) => {
+				const rowCredit = normalizeFloat(row.total_credit || 0);
+				if (remainAmount > 0) {
+					if (remainAmount >= rowCredit) {
+						row.credit_to_redeem = rowCredit;
+						remainAmount -= rowCredit;
+					} else {
+						row.credit_to_redeem = remainAmount;
+						remainAmount = 0;
+					}
 				} else {
-					customer_credit_dict.value = [];
+					row.credit_to_redeem = 0;
 				}
-				return customer_credit_dict.value;
 			});
+			customer_credit_dict.value = data;
+		} else {
+			customer_credit_dict.value = [];
+		}
+		return customer_credit_dict.value;
 	};
 
 	// Watchers

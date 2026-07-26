@@ -1,5 +1,5 @@
 <template>
-	<div v-if="invoiceDoc && !invoiceDoc.is_return" class="customer-credit-container">
+	<div v-if="invoiceDoc && !invoiceDoc.is_return" :class="['customer-credit-container', `customer-credit-container--${viewportMode}`]">
 		<!-- Loading State -->
 		<div v-if="loading" class="credit-state-box credit-state-box--loading">
 			<v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
@@ -10,7 +10,7 @@
 		<div v-else-if="errorMessage" class="credit-state-box credit-state-box--error">
 			<v-icon size="16" color="error">mdi-alert-circle-outline</v-icon>
 			<span>{{ errorMessage }}</span>
-			<v-btn density="compact" variant="text" color="primary" size="small" @click="$emit('retry')">
+			<v-btn density="compact" variant="text" color="primary" class="credit-retry-action" @click="$emit('retry')">
 				{{ __("Retry") }}
 			</v-btn>
 		</div>
@@ -82,6 +82,10 @@
 
 <script setup>
 const props = defineProps({
+	viewportMode: {
+		type: String,
+		default: "desktop",
+	},
 	invoiceDoc: {
 		type: Object,
 		required: true,
@@ -271,6 +275,22 @@ const handleCreditToRedeemChange = (row, event) => {
 
 .pos-themed-input :deep(.v-field__input) {
 	font-weight: 500;
+}
+
+.credit-retry-action {
+	min-height: 40px;
+	min-width: 40px;
+}
+
+.customer-credit-container--tablet-portrait .credit-retry-action,
+.customer-credit-container--tablet-landscape .credit-retry-action {
+	min-height: 42px;
+	min-width: 42px;
+}
+
+.customer-credit-container--phone .credit-retry-action {
+	min-height: 44px;
+	min-width: 44px;
 }
 
 @media (max-width: 599px) {
