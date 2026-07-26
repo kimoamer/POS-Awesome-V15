@@ -38,7 +38,7 @@ describe("Payment Geometry & Viewport Recovery Contract", () => {
 		expect(remainingBtn.attributes("aria-label")).toBe("Set Remaining");
 	});
 
-	it("renders header-meta slot in PaymentSectionShell for collapsed Grand Total", () => {
+	it("renders header-meta slot in PaymentSectionShell even for zero Grand Total", () => {
 		const wrapper = mount(PaymentSectionShell, {
 			props: {
 				title: "Invoice Summary",
@@ -47,11 +47,11 @@ describe("Payment Geometry & Viewport Recovery Contract", () => {
 				expanded: false,
 			},
 			slots: {
-				"header-meta": "<span class='test-total'>$150.00</span>",
+				"header-meta": "<span class='test-total'>E£ 0.00</span>",
 			},
 		});
 
 		expect(wrapper.find(".test-total").exists()).toBe(true);
-		expect(wrapper.text()).toContain("$150.00");
+		expect(wrapper.text()).toContain("E£ 0.00");
 	});
 });

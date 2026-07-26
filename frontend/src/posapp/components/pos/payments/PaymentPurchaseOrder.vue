@@ -1,7 +1,7 @@
 <template>
 	<div v-if="invoiceDoc && allowPurchaseOrder">
 		<v-divider></v-divider>
-		<v-row class="pa-1" justify="center" align="start">
+		<v-row class="payment-po-row" justify="center" align="start">
 			<v-col cols="6">
 				<v-text-field
 					v-model="invoiceDoc.po_no"
@@ -67,6 +67,10 @@ const allowPurchaseOrder = computed(() =>
 </script>
 
 <style scoped>
+.payment-po-row {
+	padding: var(--payment-space-1, 4px);
+}
+
 .pos-themed-input :deep(.v-field__input) {
 	font-weight: 500;
 }

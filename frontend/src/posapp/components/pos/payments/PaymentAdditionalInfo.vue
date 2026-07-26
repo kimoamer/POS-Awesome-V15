@@ -1,7 +1,7 @@
 <template>
 	<div v-if="invoiceDoc">
 		<!-- Additional Invoice Information (Delivery, Address, Notes) -->
-		<v-row class="pa-1">
+		<v-row class="payment-additional-info-row">
 			<!-- Delivery Date and Address (if applicable) -->
 			<v-col cols="6" v-if="allowSalesOrder && invoiceType === 'Order'">
 				<VueDatePicker
@@ -85,7 +85,7 @@
 			<!-- Additional Notes (if enabled in POS profile) -->
 			<v-col cols="12" v-if="showAdditionalNotes">
 				<v-textarea
-					class="pa-0 sleek-field"
+					class="payment-notes-field sleek-field"
 					variant="outlined"
 					density="compact"
 					clearable
@@ -167,6 +167,14 @@ const showAuthorizationCode = computed(() => parseBooleanSetting(props.posProfil
 </script>
 
 <style scoped>
+.payment-additional-info-row {
+	padding: var(--payment-space-1, 4px);
+}
+
+.payment-notes-field {
+	padding: 0;
+}
+
 .pos-themed-input :deep(.v-field__input) {
 	font-weight: 500;
 }

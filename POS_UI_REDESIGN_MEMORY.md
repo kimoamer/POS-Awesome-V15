@@ -27,6 +27,17 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.7.2.3 — Final Payment Visual Acceptance & CSS Hygiene (Complete ✅).
+
+Scope:
+
+- **Zero Grand Total Visibility Fix**: Updated `#header-meta` condition in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) to `!invoiceSummaryExpanded && invoice_doc && invoice_doc.grand_total != null`. Ensures `E£ 0.00` is displayed when `grand_total === 0`.
+- **Restored Safe Phone Viewport Height (`100dvh`)**: Restored `height: 100dvh; min-height: 0;` on `.payment-shell--phone` in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue).
+- **Merged Duplicate Phone Layout CSS**: Merged all `.payment-shell--phone .payment-layout` CSS rules into a single block in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue).
+- **Spacing Utility Audit**: Audited and replaced layout-related Vuetify utility classes (`pa-`, `ma-`, `pb-`, `mb-`) with semantic CSS classes using `--payment-space-1..4` tokens in [PaymentSelectionFields.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentSelectionFields.vue), [PaymentPurchaseOrder.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentPurchaseOrder.vue), and [PaymentAdditionalInfo.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentAdditionalInfo.vue).
+- **Dedicated Payment Chrome on Mobile**: Added computed `hideNavbarForPayment` in [Navbar.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/Navbar.vue) to hide global POS toolbar when payment view is open on Mobile/Tablet (<1200px), leaving 1 clean payment navigation header. Restored immediately after exiting payment view.
+- **Automated Tests**: Updated [paymentGeometry.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentGeometry.spec.ts).
+
 Pass 6.7.2.2 — Payment Geometry, Width and Cross-Viewport Recovery (Complete ✅).
 
 Scope:

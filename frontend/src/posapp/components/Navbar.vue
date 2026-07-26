@@ -2,6 +2,7 @@
 	<nav :class="['pos-themed-card', rtlClasses]">
 		<!-- Use the modular NavbarAppBar component -->
 		<NavbarAppBar
+			v-if="!hideNavbarForPayment"
 			:pos-profile="posProfile"
 			:company="company"
 			:company-img="companyImg"
@@ -168,6 +169,7 @@ import { forceClearAllCache } from "../../offline/index";
 import { clearAllCaches } from "../../utils/clearAllCaches";
 import { isOffline } from "../../offline/index";
 import { useRtl } from "../composables/core/useRtl";
+import { useResponsive } from "../composables/core/useResponsive";
 
 const ServerUsageGadget = defineAsyncComponent(() => import("./navbar/ServerUsageGadget.vue"));
 const DatabaseUsageGadget = defineAsyncComponent(() => import("./navbar/DatabaseUsageGadget.vue"));
@@ -182,6 +184,7 @@ export default {
 	name: "NavBar",
 	setup() {
 		const { isRtl, rtlStyles, rtlClasses } = useRtl();
+		const responsive = useResponsive();
 		const toastStore = useToastStore();
 		const uiStore = useUIStore();
 		const employeeStore = useEmployeeStore();
@@ -204,6 +207,7 @@ export default {
 			isRtl,
 			rtlStyles,
 			rtlClasses,
+			responsive,
 			toastStore,
 			uiStore,
 			offlineSyncStore,
@@ -352,6 +356,9 @@ export default {
 		},
 	},
 	computed: {
+		hideNavbarForPayment() {
+			return this.uiStore?.activeView === "payment" && Number(this.responsive?.windowWidth?.value || 0) < 1200;
+		},
 		appBarColor() {
 			return this.isDark ? this.$vuetify.theme.themes.dark.colors.surface : "white";
 		},

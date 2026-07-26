@@ -120,7 +120,7 @@
 						:collapsible="viewportMode === 'phone' || viewportMode === 'tablet-portrait'"
 						v-model:expanded="invoiceSummaryExpanded"
 					>
-						<template #header-meta v-if="!invoiceSummaryExpanded && invoice_doc?.grand_total">
+						<template #header-meta v-if="!invoiceSummaryExpanded && invoice_doc && invoice_doc.grand_total != null">
 							<bdi class="payment-section-header-total">
 								{{ formatPaymentMoney(invoice_doc.grand_total) }}
 							</bdi>
@@ -2336,8 +2336,9 @@ defineExpose({
 }
 
 .payment-shell--phone {
-	height: 100%;
-	grid-template-rows: 54px 68px minmax(0, 1fr) auto;
+	height: 100dvh;
+	min-height: 0;
+	grid-template-rows: 52px 68px minmax(0, 1fr) auto;
 }
 
 .payment-shell--phone .payment-shell__body {
@@ -2370,12 +2371,6 @@ defineExpose({
 	font-variant-numeric: tabular-nums;
 	color: var(--pos-primary, #2563eb);
 	white-space: nowrap;
-}
-
-.payment-shell--phone .payment-layout {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
 }
 
 /* Header Region */

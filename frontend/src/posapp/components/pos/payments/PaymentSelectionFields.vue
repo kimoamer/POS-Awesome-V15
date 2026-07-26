@@ -1,7 +1,7 @@
 <template>
 	<div class="selection-fields">
 		<!-- Sales Person Selection -->
-		<v-row class="pb-0 mb-2" align="start">
+		<v-row class="payment-selection-row" align="start">
 			<v-col cols="12">
 				<v-select
 					density="compact"
@@ -22,7 +22,7 @@
 			</v-col>
 		</v-row>
 		<!-- Print Format Selection -->
-		<v-row v-if="showPrintFormat" class="pb-0 mb-2" align="start">
+		<v-row v-if="showPrintFormat" class="payment-selection-row" align="start">
 			<v-col cols="12">
 				<v-select
 					density="compact"
@@ -76,6 +76,10 @@ const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?
 </script>
 
 <style scoped>
+.payment-selection-row {
+	margin-bottom: var(--payment-space-2, 8px);
+}
+
 .pos-themed-input :deep(.v-field__input) {
 	font-weight: 500;
 }
