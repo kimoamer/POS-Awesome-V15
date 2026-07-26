@@ -5,7 +5,9 @@
 			variant="flat"
 			class="payment-cancel-btn payment-footer-btn"
 			data-pos-keyboard-target="payment-cancel"
-			@click="$emit('cancel')"
+			:disabled="loading"
+			:aria-disabled="loading"
+			@click="!loading && $emit('cancel')"
 		>
 			{{ __("Cancel Payment") }}
 		</v-btn>

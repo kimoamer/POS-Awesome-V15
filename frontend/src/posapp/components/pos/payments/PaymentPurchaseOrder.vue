@@ -1,5 +1,5 @@
 <template>
-	<div v-if="invoiceDoc && posProfile.posa_allow_customer_purchase_order">
+	<div v-if="invoiceDoc && allowPurchaseOrder">
 		<v-divider></v-divider>
 		<v-row class="pa-1" justify="center" align="start">
 			<v-col cols="6">
@@ -39,7 +39,10 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from "vue";
+import { parseBooleanSetting } from "../../../utils/stock";
+
+const props = defineProps({
 	invoiceDoc: {
 		type: Object,
 		required: true,
@@ -57,6 +60,10 @@ defineProps({
 defineEmits(["update:newPoDate"]);
 
 const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
+
+const allowPurchaseOrder = computed(() =>
+	parseBooleanSetting(props.posProfile?.posa_allow_customer_purchase_order),
+);
 </script>
 
 <style scoped>

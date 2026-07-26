@@ -38,4 +38,16 @@ describe("Payment Footer Action Buttons Contract", () => {
 		expect(wrapper.emitted("submit")).toBeTruthy();
 		expect(wrapper.emitted("submit-and-print")).toBeTruthy();
 	});
+
+	it("disables Cancel Payment button when loading is true", () => {
+		const wrapper = mount(PaymentActionButtons, {
+			props: {
+				loading: true,
+				validatePayment: false,
+			},
+		});
+
+		const cancelButton = wrapper.find(".payment-cancel-btn");
+		expect((cancelButton.element as HTMLButtonElement).disabled).toBe(true);
+	});
 });

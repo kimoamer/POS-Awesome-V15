@@ -46,10 +46,10 @@
 				<!-- Primary Column: Payment Methods & Gift Cards -->
 				<div class="payment-layout__primary">
 					<PaymentSectionShell
-						icon="mdi-wallet-outline"
+						icon="mdi-credit-card-outline"
 						:title="__('Payment Methods')"
 					>
-						<template v-if="showImmediateSettlement">
+						<template v-if="capabilities.showImmediateSettlement.value">
 							<PaymentMethods
 								v-if="is_cashback && invoice_doc"
 								:payments="visiblePaymentMethods"
@@ -72,7 +72,7 @@
 								@open-gift-card="openGiftCardDialog"
 							/>
 							<PaymentGiftCardSection
-								:enabled="giftCardsEnabled"
+								:enabled="capabilities.showGiftCards.value"
 								:expanded="giftCardInlineExpanded"
 								:applied-amount="giftCardAppliedAmount"
 								:card-code="giftCardCode || giftCardRedemptions[0]?.gift_card_code || ''"
@@ -293,7 +293,7 @@
 			:redeem-amount="giftCardAmount"
 			:balance="giftCardBalance"
 			:status="giftCardStatus"
-			:is-supervisor="cashierIsSupervisor"
+			:is-supervisor="capabilities.isSupervisor.value"
 			:loading="giftCardLoading"
 			:mode="giftCardMode"
 			:error-message="giftCardError"
@@ -423,9 +423,10 @@ const capabilities = usePaymentUiCapabilities({
 	posProfile: pos_profile,
 	posSettings: pos_settings,
 	invoiceDoc: computed(() => invoiceStore.invoiceDoc || {}),
-	customerInfo,
+	customerInfo: customer_info,
 	invoiceType,
 	currentCashier,
+	isCashback: is_cashback,
 });
 const is_cashback = ref(true);
 const paid_change = ref(0);
@@ -510,7 +511,7 @@ const netInvoiceSettlementAmount = computed(() => {
 
 const validatePayment = computed(() => {
 	const profile = pos_profile.value;
-	if (!profile || !profile.posa_allow_sales_order) {
+	if (!profile || !parseBooleanSetting(profile.posa_allow_sales_order)) {
 		return false;
 	}
 	if (invoiceType.value !== "Order") {
@@ -751,56 +752,8 @@ const { ensureReturnPaymentsAreNegative, restoreReturnPayments, validateSubmissi
 		currencyPrecision: currency_precision,
 	});
 
-const giftCardsEnabled = computed(() =>
-	parseBooleanSetting(pos_profile.value?.posa_use_gift_cards),
-);
-
-const cashierIsSupervisor = computed(() =>
-	parseBooleanSetting(currentCashier.value?.is_supervisor),
-);
-
-const showImmediateSettlement = computed(() =>
-	Boolean(is_cashback.value && invoice_doc.value),
-);
-
-const showRedemptionSection = computed(() => {
-	const hasLoyalty =
-		Number(customer_info.value?.loyalty_points || 0) > 0 &&
-		!invoice_doc.value?.is_return;
-
-	const hasCredit =
-		available_customer_credit.value > 0 &&
-		redeem_customer_credit.value &&
-		!invoice_doc.value?.is_return;
-
-	return hasLoyalty || hasCredit;
-});
-
-const additionalDetailsExpanded = ref(false);
-
-const showAdditionalDetails = computed(() => {
-	return (
-		(Array.isArray(sales_persons.value) && sales_persons.value.length > 0) ||
-		parseBooleanSetting(pos_profile.value?.posa_allow_select_print_format_in_payments) ||
-		invoiceType.value === "Order" ||
-		Boolean(invoice_doc.value?.is_return) ||
-		(Array.isArray(addresses.value) && addresses.value.length > 0)
-	);
-});
-
-const showSettlementOptions = computed(() => {
-	const profile = pos_profile.value || {};
-	return (
-		parseBooleanSetting(profile.posa_allow_credit_sale) ||
-		parseBooleanSetting(profile.posa_allow_write_off_change) ||
-		parseBooleanSetting(profile.use_cashback) ||
-		parseBooleanSetting(profile.use_customer_credit ?? profile.posa_use_customer_credit) ||
-		Boolean(invoice_doc.value?.is_return)
-	);
-});
-
 const isGiftCardPayment = (payment) => {
-	if (!giftCardsEnabled.value) {
+	if (!capabilities.showGiftCards.value) {
 		return false;
 	}
 	return String(payment?.mode_of_payment || "")

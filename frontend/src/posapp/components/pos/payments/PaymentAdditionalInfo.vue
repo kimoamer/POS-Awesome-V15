@@ -3,7 +3,7 @@
 		<!-- Additional Invoice Information (Delivery, Address, Notes) -->
 		<v-row class="pa-1">
 			<!-- Delivery Date and Address (if applicable) -->
-			<v-col cols="6" v-if="posProfile.posa_allow_sales_order && invoiceType === 'Order'">
+			<v-col cols="6" v-if="allowSalesOrder && invoiceType === 'Order'">
 				<VueDatePicker
 					:model-value="newDeliveryDate"
 					model-type="format"
@@ -83,7 +83,7 @@
 			</v-col>
 
 			<!-- Additional Notes (if enabled in POS profile) -->
-			<v-col cols="12" v-if="posProfile.posa_display_additional_notes">
+			<v-col cols="12" v-if="showAdditionalNotes">
 				<v-textarea
 					class="pa-0 sleek-field"
 					variant="solo"
@@ -96,7 +96,7 @@
 					v-model="invoiceDoc.posa_notes"
 				></v-textarea>
 			</v-col>
-			<v-col cols="12" md="6" v-if="posProfile.posa_display_authorization_code">
+			<v-col cols="12" md="6" v-if="showAuthorizationCode">
 				<v-text-field
 					class="sleek-field pos-themed-input"
 					variant="solo"
@@ -115,7 +115,10 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from "vue";
+import { parseBooleanSetting } from "../../../utils/stock";
+
+const props = defineProps({
 	invoiceDoc: {
 		type: Object,
 		required: true,
@@ -157,6 +160,10 @@ defineProps({
 defineEmits(["update:newDeliveryDate", "update:returnValidUptoDate", "new-address"]);
 
 const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
+
+const allowSalesOrder = computed(() => parseBooleanSetting(props.posProfile?.posa_allow_sales_order));
+const showAdditionalNotes = computed(() => parseBooleanSetting(props.posProfile?.posa_display_additional_notes));
+const showAuthorizationCode = computed(() => parseBooleanSetting(props.posProfile?.posa_display_authorization_code));
 </script>
 
 <style scoped>

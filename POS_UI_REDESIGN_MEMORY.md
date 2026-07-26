@@ -27,6 +27,22 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.7.1.6 — Payment Capability Wiring and Final Parity Acceptance (Complete ✅).
+
+Scope:
+
+- **Single Visibility Source**: Updated [usePaymentUiCapabilities.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/composables/pos/payments/usePaymentUiCapabilities.ts) to calculate `showImmediateSettlement` and return `showImmediateSettlement`, `showGiftCards`, `isSupervisor`, `showLoyaltyRedemption`, `showCustomerCreditRedemption`, `showRedemptionSection`, `showSettlementOptions`, `showOrderDetails`, `showSalesAndReceiptDetails`.
+- **Removed Duplicate Visibility Variables**: Removed stale computed variables from [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) (`giftCardsEnabled`, `cashierIsSupervisor`, `showImmediateSettlement`, `showRedemptionSection`, `showAdditionalDetails`, `showSettlementOptions`).
+- **Customer Ref Alignment**: Passed `customerInfo: customer_info` and `isCashback: is_cashback` to `usePaymentUiCapabilities` in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue), aligning capability resolution with the active payment flow customer ref.
+- **Redemption vs Settlement Ownership**: Configured `Redemption` section shell for Loyalty points ONLY (`showRedemptionSection = showLoyaltyRedemption`), preventing empty Redemption cards when customer credit is enabled but loyalty points are 0. Placed Customer Credit toggle, balance, and source rows in `Settlement Options`.
+- **Child Component Boolean Normalization**: Normalized `parseBooleanSetting()` evaluation in:
+  - [PaymentAdditionalInfo.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentAdditionalInfo.vue) (`posa_allow_sales_order`, `posa_display_additional_notes`, `posa_display_authorization_code`).
+  - [PaymentPurchaseOrder.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentPurchaseOrder.vue) (`posa_allow_customer_purchase_order`).
+  - [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) (`validatePayment` check for `posa_allow_sales_order`).
+- **Gift Card Permission Wiring**: Wired `capabilities.showGiftCards.value` to `<PaymentGiftCardSection :enabled="..." />` and `capabilities.isSupervisor.value` to `<GiftCardDialog :is-supervisor="..." />`.
+- **Submission Loading Guard**: Added `:disabled="loading"` to `Cancel Payment` button in [PaymentActionButtons.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentActionButtons.vue).
+- **Automated Tests**: Updated [paymentFooterActions.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentFooterActions.spec.ts).
+
 Pass 6.7.1.5 — Payment Feature Parity, Settings and Permissions Recovery (Complete ✅).
 
 Scope:

@@ -8,6 +8,7 @@ export interface PaymentUiCapabilitiesParams {
 	customerInfo?: Ref<any>;
 	invoiceType?: Ref<string>;
 	currentCashier?: Ref<any>;
+	isCashback?: Ref<any>;
 }
 
 export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
@@ -18,17 +19,22 @@ export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
 		customerInfo,
 		invoiceType,
 		currentCashier,
+		isCashback,
 	} = params;
 
 	const isReturn = computed(() => Boolean(invoiceDoc.value?.is_return));
 
-	// Gift Cards Capability
-	const showGiftCards = computed(() => {
-		const enabled = parseBooleanSetting(posProfile.value?.posa_use_gift_cards);
-		return enabled && !isReturn.value;
+	// Immediate Settlement & Gift Cards Capabilities
+	const showImmediateSettlement = computed(() => {
+		return Boolean((isCashback?.value ?? true) && invoiceDoc.value);
 	});
 
-	// Redemption Capabilities
+	const showGiftCards = computed(() => {
+		const enabled = parseBooleanSetting(posProfile.value?.posa_use_gift_cards);
+		return showImmediateSettlement.value && enabled && !isReturn.value;
+	});
+
+	// Redemption Capabilities (Loyalty points only in Redemption section shell)
 	const showLoyaltyRedemption = computed(() => {
 		const points = Number(customerInfo?.value?.loyalty_points || 0);
 		return !isReturn.value && Number.isFinite(points) && points > 0;
@@ -43,7 +49,7 @@ export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
 	});
 
 	const showRedemptionSection = computed(() => {
-		return showLoyaltyRedemption.value || showCustomerCreditRedemption.value;
+		return showLoyaltyRedemption.value;
 	});
 
 	// Settlement Capabilities
@@ -122,7 +128,7 @@ export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
 	});
 
 	const showSalesPerson = computed(() => {
-		return true; // Sales Person selector is standard unless cashier is restricted
+		return true; // Standard sales person selector
 	});
 
 	const showPrintFormat = computed(() => {
@@ -150,6 +156,7 @@ export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
 
 	return {
 		isReturn,
+		showImmediateSettlement,
 		showGiftCards,
 		showLoyaltyRedemption,
 		showCustomerCreditRedemption,
