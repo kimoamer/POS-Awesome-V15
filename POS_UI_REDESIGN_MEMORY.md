@@ -27,6 +27,20 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.7.1.4 — Payment UI Hard Reset and Reference Match (Complete ✅).
+
+Scope:
+
+- **100% Deterministic Inline Layout CSS**: Removed external `<style scoped src="./Payments.vue.css"></style>` and embedded pure layout CSS directly inside `<style scoped>` in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue).
+- **Deterministic 4-Row Grid Container**: Configured `grid-template-rows: 72px 76px minmax(0, 1fr) 66px`, ensuring fixed Header (72px), compact Paid/Change Overview (76px), single scrollable Body (`minmax(0, 1fr)`), and fixed Action Footer (66px).
+- **Desktop Two-Column Grid**: Enforced `grid-template-columns: minmax(0, 1.15fr) minmax(350px, 0.85fr)` in desktop mode, collapsing to 1 column only on screens `< 900px`.
+- **Capped Parent Dialog Modal**: Updated [Pos.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/shell/Pos.vue) with `:width="1120"`, `:max-width="1120"`, `content-class="posa-payment-dialog-overlay"`, and updated [theme.css](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/styles/theme.css) with `width: min(1120px, calc(100vw - 24px))` and `height: min(780px, calc(100dvh - 24px))`.
+- **Action Button Labeling**: Changed primary method action button label in [PaymentMethods.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentMethods.vue) to `__("Set Remaining")` (or `__("Redeem / Scan")`).
+- **Cleaned Selection Fields**: Removed developer count text (`sales persons found`) from [PaymentSelectionFields.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentSelectionFields.vue).
+- **Collapsed Additional Details**: Configured `additionalDetailsExpanded = ref(false)` and `showAdditionalDetails` guard in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue).
+- **Consistent Currency Adapter**: Configured `paymentDisplayCurrency` and `formatPaymentMoney` in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue).
+- **Automated Tests**: Updated [paymentDialogLayout.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentDialogLayout.spec.ts).
+
 Pass 6.7.1.3 — Payment Runtime Translation & Container Layout Acceptance (Complete ✅).
 
 Scope:

@@ -52,7 +52,7 @@
 							:data-test="`payment-method-action-${payment.mode_of_payment}`"
 							@click="handlePrimaryAction(payment)"
 						>
-							{{ isGiftCardPayment(payment) ? __("Redeem / Scan") : payment.mode_of_payment }}
+							{{ isGiftCardPayment(payment) ? __("Redeem / Scan") : __("Set Remaining") }}
 						</v-btn>
 					</div>
 				</v-col>

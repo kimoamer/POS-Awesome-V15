@@ -194,8 +194,11 @@
 					</PaymentSectionShell>
 
 					<PaymentSectionShell
+						v-if="showAdditionalDetails"
 						icon="mdi-truck-outline"
 						:title="__('Additional Details')"
+						collapsible
+						v-model:expanded="additionalDetailsExpanded"
 					>
 						<PaymentAdditionalInfo
 							:invoice-doc="invoice_doc"
@@ -537,17 +540,14 @@ const returnValidityEnabled = computed(() => {
 	);
 });
 
+const paymentDisplayCurrency = computed(() =>
+	String(invoice_doc.value?.currency || pos_profile.value?.currency || "").trim(),
+);
+
 const formatPaymentMoney = (value) => {
 	const parsed = Number(value ?? 0);
 	const amount = Number.isFinite(parsed) ? parsed : 0;
-	const currency = String(invoice_doc.value?.currency || pos_profile.value?.currency || "").trim();
-	const number = formatCurrency(amount);
-	const symbol = currencySymbol(currency);
-
-	if (symbol && !number.includes(symbol)) {
-		return `${symbol} ${number}`;
-	}
-	return number;
+	return formatCurrency(amount, paymentDisplayCurrency.value);
 };
 
 const returnValidityMinDate = computed(() => {
@@ -751,6 +751,18 @@ const showRedemptionSection = computed(() => {
 		!invoice_doc.value?.is_return;
 
 	return hasLoyalty || hasCredit;
+});
+
+const additionalDetailsExpanded = ref(false);
+
+const showAdditionalDetails = computed(() => {
+	return (
+		(Array.isArray(sales_persons.value) && sales_persons.value.length > 0) ||
+		parseBooleanSetting(pos_profile.value?.posa_allow_select_print_format_in_payments) ||
+		invoiceType.value === "Order" ||
+		Boolean(invoice_doc.value?.is_return) ||
+		(Array.isArray(addresses.value) && addresses.value.length > 0)
+	);
 });
 
 const showSettlementOptions = computed(() => {
@@ -2237,4 +2249,142 @@ defineExpose({
 });
 </script>
 
-<style scoped src="./Payments.vue.css"></style>
+<style scoped>
+/* POS Payment Shell Layout Rules */
+
+.payment-shell {
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+	display: grid;
+	grid-template-rows: 72px 76px minmax(0, 1fr) 66px;
+	overflow: hidden;
+	background: var(--pos-bg-primary, var(--pos-surface, #f8fafc));
+	color: var(--pos-text-primary, #0f172a);
+}
+
+.payment-shell--dialog {
+	border-radius: inherit;
+}
+
+/* Header Region */
+.payment-screen-header {
+	height: 72px;
+	min-height: 72px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding-inline: 14px;
+	background: var(--pos-card-bg, var(--pos-surface-raised, #ffffff));
+	border-bottom: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
+}
+
+/* Compact Overview Region */
+.payment-shell__overview {
+	height: 76px;
+	min-height: 76px;
+	padding: 8px 10px;
+	background: var(--pos-surface-muted, rgba(0, 0, 0, 0.02));
+	border-bottom: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
+	overflow: hidden;
+}
+
+.payment-overview-grid {
+	height: 100%;
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+}
+
+.payment-overview-metric {
+	min-height: 0;
+	height: 100%;
+	padding: 8px 12px;
+	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
+	border-radius: var(--pos-radius-sm, 10px);
+	background: var(--pos-card-bg, var(--pos-surface-raised, #ffffff));
+	text-align: start;
+}
+
+/* Body Scroll Container */
+.payment-shell__body {
+	min-width: 0;
+	min-height: 0;
+	padding: 10px;
+	overflow-y: auto;
+	overflow-x: hidden;
+	overscroll-behavior: contain;
+}
+
+/* Desktop Two-Column Layout Grid */
+.payment-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1.15fr) minmax(350px, 0.85fr);
+	gap: 10px;
+	width: 100%;
+	min-width: 0;
+	align-items: start;
+}
+
+.payment-layout__primary,
+.payment-layout__secondary {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	min-width: 0;
+}
+
+/* Mobile Fallback Grid */
+@media (max-width: 899px) {
+	.payment-shell {
+		grid-template-rows: 64px 72px minmax(0, 1fr) auto;
+	}
+
+	.payment-layout {
+		grid-template-columns: 1fr;
+	}
+
+	.payment-shell__footer {
+		height: auto;
+		min-height: 64px;
+		padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+	}
+}
+
+/* Compact Section Shell Styling */
+:deep(.payment-section-shell) {
+	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
+	border-radius: var(--pos-radius-sm, 10px);
+	box-shadow: none;
+	overflow: hidden;
+	background: var(--pos-card-bg, var(--pos-surface-raised, #ffffff));
+}
+
+:deep(.payment-section-shell__header) {
+	min-height: 42px;
+	padding: 8px 12px;
+}
+
+:deep(.payment-section-shell__body) {
+	padding: 10px 12px;
+}
+
+/* Fixed Action Footer (Row 4) */
+.payment-shell__footer {
+	height: 66px;
+	min-height: 66px;
+	display: flex;
+	align-items: center;
+	padding: 9px 12px;
+	background: var(--pos-card-bg, var(--pos-surface-raised, #ffffff));
+	border-top: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
+	box-shadow: 0 -6px 18px rgba(15, 23, 42, 0.05);
+	overflow: hidden;
+}
+
+.submit-highlight {
+	box-shadow: 0 0 0 4px rgb(var(--v-theme-primary));
+	transition: box-shadow 0.3s ease-in-out;
+}
+</style>
