@@ -118,7 +118,7 @@
 					</PaymentSectionShell>
 
 					<PaymentSectionShell
-						v-if="showRedemptionSection"
+						v-if="capabilities.showRedemptionSection.value"
 						icon="mdi-star-circle-outline"
 						:title="__('Redemption')"
 					>
@@ -139,7 +139,7 @@
 					</PaymentSectionShell>
 
 					<PaymentSectionShell
-						v-if="showSettlementOptions"
+						v-if="capabilities.showSettlementOptions.value"
 						icon="mdi-tune-variant"
 						:title="__('Settlement Options')"
 					>
@@ -194,11 +194,11 @@
 					</PaymentSectionShell>
 
 					<PaymentSectionShell
-						v-if="showAdditionalDetails"
+						v-if="capabilities.showOrderDetails.value"
 						icon="mdi-truck-outline"
-						:title="__('Additional Details')"
+						:title="__('Order & Fulfillment')"
 						collapsible
-						v-model:expanded="additionalDetailsExpanded"
+						v-model:expanded="orderDetailsExpanded"
 					>
 						<PaymentAdditionalInfo
 							:invoice-doc="invoice_doc"
@@ -235,6 +235,15 @@
 								}
 							"
 						/>
+					</PaymentSectionShell>
+
+					<PaymentSectionShell
+						v-if="capabilities.showSalesAndReceiptDetails.value"
+						icon="mdi-account-tie-outline"
+						:title="__('Sales & Receipt')"
+						collapsible
+						v-model:expanded="salesReceiptExpanded"
+					>
 						<PaymentSelectionFields
 							:sales-persons="sales_persons"
 							:sales-person="sales_person"
@@ -318,6 +327,7 @@ import { useSocketStore } from "../../stores/socketStore";
 import { useEmployeeStore } from "../../stores/employeeStore";
 
 // Composables
+import { usePaymentUiCapabilities } from "../../composables/pos/payments/usePaymentUiCapabilities";
 import { usePaymentCalculations } from "../../composables/pos/payments/usePaymentCalculations";
 import { usePaymentSubmission } from "../../composables/pos/payments/usePaymentSubmission";
 import { useRedemptionLogic } from "../../composables/pos/payments/useRedemptionLogic";
@@ -396,6 +406,10 @@ const { invoiceType } = storeToRefs(invoiceStore);
 const employeeStore = useEmployeeStore();
 const { currentCashier } = storeToRefs(employeeStore);
 
+// Capability Matrix & Section Expanded State
+const orderDetailsExpanded = ref(false);
+const salesReceiptExpanded = ref(false);
+
 // State
 const is_return = ref(false);
 const is_credit_sale = ref(false);
@@ -404,6 +418,15 @@ const redeem_customer_credit = ref(false);
 const pos_profile = ref("");
 const stock_settings = ref("");
 const pos_settings = ref({});
+
+const capabilities = usePaymentUiCapabilities({
+	posProfile: pos_profile,
+	posSettings: pos_settings,
+	invoiceDoc: computed(() => invoiceStore.invoiceDoc || {}),
+	customerInfo,
+	invoiceType,
+	currentCashier,
+});
 const is_cashback = ref(true);
 const paid_change = ref(0);
 const credit_change = ref(0);
@@ -2258,7 +2281,7 @@ defineExpose({
 	min-width: 0;
 	min-height: 0;
 	display: grid;
-	grid-template-rows: 72px 76px minmax(0, 1fr) 66px;
+	grid-template-rows: 72px 76px minmax(0, 1fr) 68px;
 	overflow: hidden;
 	background: var(--pos-bg-primary, var(--pos-surface, #f8fafc));
 	color: var(--pos-text-primary, #0f172a);
@@ -2372,8 +2395,8 @@ defineExpose({
 
 /* Fixed Action Footer (Row 4) */
 .payment-shell__footer {
-	height: 66px;
-	min-height: 66px;
+	height: 68px;
+	min-height: 68px;
 	display: flex;
 	align-items: center;
 	padding: 9px 12px;

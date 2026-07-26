@@ -27,6 +27,20 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.7.1.5 — Payment Feature Parity, Settings and Permissions Recovery (Complete ✅).
+
+Scope:
+
+- **Feature Parity Manifest**: Created [PAYMENT_FEATURE_PARITY.md](file:///home/frappe/frappe-bench/apps/posawesome/PAYMENT_FEATURE_PARITY.md) documenting the complete inventory of 14 payment components, baseline conditions, POS Profile settings, role permissions, and section destinations.
+- **Central Capability Composable**: Created [usePaymentUiCapabilities.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/composables/pos/payments/usePaymentUiCapabilities.ts) to resolve all feature capability flags safely with `parseBooleanSetting()`.
+- **Non-Circular Customer Credit Redemption**: Fixed Customer Credit redemption section visibility in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) so it displays balance and toggle controls whenever Customer Credit is enabled in POS Profile and customer is attached (without requiring `redeem_customer_credit` toggle to already be active).
+- **OR-Based Settlement Options Guard**: Configured `showSettlementOptions` to display whenever at least one sub-feature capability (`showCreditSale`, `showWriteOff`, `showCashback`, `showCreditReturn`, `showStoreAsCredit`, `showCustomerCreditDetails`) is active.
+- **Independent Collapsible Detail Sections**: Split generic `Additional Details` in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue) into two distinct collapsible section shells:
+  1. **Order & Fulfillment** (`showOrderDetails`): contains [PaymentAdditionalInfo.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentAdditionalInfo.vue) & [PaymentPurchaseOrder.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentPurchaseOrder.vue).
+  2. **Sales & Receipt** (`showSalesAndReceiptDetails`): contains [PaymentSelectionFields.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentSelectionFields.vue).
+- **Single-Row Footer Action Layout**: Updated [PaymentActionButtons.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentActionButtons.vue) to render all three actions (`Cancel Payment`, `Submit`, `Submit & Print`) in a single 3-column row on desktop without clipping.
+- **Automated Tests**: Created [paymentFeatureParity.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentFeatureParity.spec.ts), [paymentSectionPermissions.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentSectionPermissions.spec.ts), and [paymentFooterActions.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentFooterActions.spec.ts).
+
 Pass 6.7.1.4 — Payment UI Hard Reset and Reference Match (Complete ✅).
 
 Scope:

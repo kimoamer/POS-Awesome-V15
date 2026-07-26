@@ -1,53 +1,41 @@
 <template>
-	<v-card flat :class="['cards mb-0 mt-3 pa-0', { compact }]">
-		<v-row align="start" no-gutters>
-			<v-col cols="12" sm="6">
-				<v-btn
-					ref="submitButton"
-					block
-					size="large"
-					color="primary"
-					variant="flat"
-					class="payment-submit-btn payment-footer-btn"
-					data-pos-keyboard-target="payment-submit"
-					@click="$emit('submit')"
-					:loading="loading"
-					:disabled="loading || validatePayment"
-					:class="{ 'submit-highlight': highlightSubmit }"
-				>
-					{{ __("Submit") }}
-				</v-btn>
-			</v-col>
-			<v-col cols="12" sm="6" class="payment-action-col">
-				<v-btn
-					block
-					size="large"
-					color="success"
-					variant="flat"
-					class="payment-submit-print-btn payment-footer-btn"
-					data-pos-keyboard-target="payment-submit-print"
-					@click="$emit('submit-and-print')"
-					:loading="loading"
-					:disabled="loading || validatePayment"
-				>
-					{{ __("Submit & Print") }}
-				</v-btn>
-			</v-col>
-			<v-col cols="12">
-				<v-btn
-					block
-					size="large"
-					color="error"
-					variant="flat"
-					class="mt-2 pa-1 payment-cancel-btn payment-footer-btn"
-					data-pos-keyboard-target="payment-cancel"
-					@click="$emit('cancel')"
-				>
-					{{ __("Cancel Payment") }}
-				</v-btn>
-			</v-col>
-		</v-row>
-	</v-card>
+	<div :class="['payment-action-buttons', { compact }]">
+		<v-btn
+			color="error"
+			variant="flat"
+			class="payment-cancel-btn payment-footer-btn"
+			data-pos-keyboard-target="payment-cancel"
+			@click="$emit('cancel')"
+		>
+			{{ __("Cancel Payment") }}
+		</v-btn>
+
+		<v-btn
+			ref="submitButton"
+			color="primary"
+			variant="flat"
+			class="payment-submit-btn payment-footer-btn"
+			data-pos-keyboard-target="payment-submit"
+			@click="$emit('submit')"
+			:loading="loading"
+			:disabled="loading || validatePayment"
+			:class="{ 'submit-highlight': highlightSubmit }"
+		>
+			{{ __("Submit") }}
+		</v-btn>
+
+		<v-btn
+			color="success"
+			variant="flat"
+			class="payment-submit-print-btn payment-footer-btn"
+			data-pos-keyboard-target="payment-submit-print"
+			@click="$emit('submit-and-print')"
+			:loading="loading"
+			:disabled="loading || validatePayment"
+		>
+			{{ __("Submit & Print") }}
+		</v-btn>
+	</div>
 </template>
 
 <script setup>
@@ -60,17 +48,21 @@ defineProps({
 
 defineEmits(["submit", "submit-and-print", "cancel"]);
 
-const __ = window.__;
+const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
 </script>
 
 <style scoped>
-.cards {
-	background: transparent !important;
+.payment-action-buttons {
+	width: 100%;
+	display: grid;
+	grid-template-columns: minmax(140px, 0.85fr) minmax(160px, 1fr) minmax(180px, 1.15fr);
+	gap: 8px;
+	align-items: center;
 }
 
 .compact :deep(.v-btn),
 :deep(.compact .v-btn) {
-	min-height: 42px;
+	min-height: 40px;
 }
 
 .payment-footer-btn {
@@ -80,7 +72,8 @@ const __ = window.__;
 		background-color 0.18s ease,
 		transform 0.18s ease !important;
 	color: #ffffff !important;
-	min-height: 48px !important;
+	min-height: 44px !important;
+	font-weight: 600 !important;
 }
 
 .payment-submit-btn {
@@ -124,10 +117,6 @@ const __ = window.__;
 	background-color: rgba(var(--v-theme-error), 0.9) !important;
 }
 
-.payment-action-col {
-	padding-left: 4px;
-}
-
 .payment-footer-btn:active {
 	transform: translateY(0);
 }
@@ -139,40 +128,14 @@ const __ = window.__;
 }
 
 @media (max-width: 768px) {
-	.cards {
-		margin-top: 0 !important;
-	}
-
-	.payment-action-col {
-		padding-left: 0;
-		padding-top: 6px;
+	.payment-action-buttons {
+		grid-template-columns: 1fr;
+		gap: 6px;
 	}
 
 	.payment-footer-btn {
-		font-size: 0.82rem !important;
-	}
-
-	:deep(.payment-footer-btn.v-btn) {
-		min-height: 38px !important;
-	}
-
-	:deep(.payment-footer-btn .v-btn__content) {
-		font-size: 0.82rem !important;
-		line-height: 1.15;
-	}
-}
-
-@media (max-width: 480px) {
-	.payment-footer-btn {
-		font-size: 0.76rem !important;
-	}
-
-	:deep(.payment-footer-btn.v-btn) {
-		min-height: 34px !important;
-	}
-
-	:deep(.payment-footer-btn .v-btn__content) {
-		font-size: 0.76rem !important;
+		font-size: 0.85rem !important;
+		min-height: 40px !important;
 	}
 }
 </style>
