@@ -926,6 +926,16 @@ export default {
 	padding: 0 !important;
 }
 
+:deep(.v-overlay__content.posa-payment-dialog-overlay),
+.v-overlay__content.posa-payment-dialog-overlay {
+	width: min(1120px, calc(100vw - 24px)) !important;
+	height: min(720px, calc(100dvh - 24px)) !important;
+	min-height: min(560px, calc(100dvh - 24px)) !important;
+	max-height: calc(100dvh - 24px) !important;
+	border-radius: 14px !important;
+	overflow: hidden !important;
+}
+
 .mobile-pos-stack {
 	position: fixed;
 	left: max(10px, env(safe-area-inset-left));

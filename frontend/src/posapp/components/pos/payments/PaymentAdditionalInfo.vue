@@ -33,7 +33,7 @@
 					density="compact"
 					clearable
 					auto-select-first
-					variant="solo"
+					variant="outlined"
 					color="primary"
 					:label="__('Address')"
 					v-model="invoiceDoc.shipping_address_name"
@@ -86,7 +86,7 @@
 			<v-col cols="12" v-if="showAdditionalNotes">
 				<v-textarea
 					class="pa-0 sleek-field"
-					variant="solo"
+					variant="outlined"
 					density="compact"
 					clearable
 					color="primary"
@@ -99,7 +99,7 @@
 			<v-col cols="12" md="6" v-if="showAuthorizationCode">
 				<v-text-field
 					class="sleek-field pos-themed-input"
-					variant="solo"
+					variant="outlined"
 					density="compact"
 					clearable
 					color="primary"

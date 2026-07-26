@@ -4,7 +4,7 @@
 		<div v-if="showSplitAllocationContext" class="payment-allocation-context" :class="allocationStatusClass">
 			<span class="payment-allocation-context__text">
 				{{ __("Allocated") }} <strong>{{ renderMoney(totalPaid) }}</strong>
-				<span class="mx-1">·</span>
+				<span class="payment-allocation-context__separator">·</span>
 				{{ diffLabel || __("Remaining") }} <strong>{{ renderMoney(differenceAmount) }}</strong>
 			</span>
 		</div>
@@ -73,41 +73,22 @@
 					</div>
 
 					<div class="payment-method-card__primary-action">
-						<!-- Phone / Tablet Portrait Compact Tonal Icon Button -->
+						<!-- Unified Icon Action on All Viewports -->
 						<v-btn
-							v-if="isCompactMode"
 							icon
 							color="primary"
 							variant="tonal"
 							class="payment-use-remaining-btn"
 							data-pos-keyboard-target="payment-action"
 							:data-test="`payment-method-action-${payment.mode_of_payment}`"
-							:aria-label="__('Set Remaining')"
-							:title="__('Set Remaining')"
+							:aria-label="isGiftCardPayment(payment) ? __('Redeem / Scan') : __('Set Remaining')"
+							:title="isGiftCardPayment(payment) ? __('Redeem / Scan') : __('Set Remaining')"
 							:disabled="loading"
 							@click="handlePrimaryAction(payment)"
 						>
 							<v-icon size="18">
 								{{ isGiftCardPayment(payment) ? "mdi-qrcode-scan" : "mdi-calculator-variant-outline" }}
 							</v-icon>
-						</v-btn>
-
-						<!-- Desktop / Landscape Tonal Button -->
-						<v-btn
-							v-else
-							block
-							color="primary"
-							variant="tonal"
-							class="payment-method-action-btn"
-							data-pos-keyboard-target="payment-action"
-							:data-test="`payment-method-action-${payment.mode_of_payment}`"
-							:disabled="loading"
-							@click="handlePrimaryAction(payment)"
-						>
-							<v-icon start size="16">
-								{{ isGiftCardPayment(payment) ? "mdi-qrcode-scan" : "mdi-calculator-variant-outline" }}
-							</v-icon>
-							{{ isGiftCardPayment(payment) ? __("Redeem / Scan") : __("Set Remaining") }}
 						</v-btn>
 					</div>
 				</div>
@@ -282,10 +263,6 @@ const emit = defineEmits([
 
 const showSplitAllocationContext = computed(() => props.payments && props.payments.length > 1);
 
-const isCompactMode = computed(
-	() => props.viewportMode === "phone" || props.viewportMode === "tablet-portrait",
-);
-
 function getPaymentMethodIcon(payment) {
 	const type = String(payment?.type || payment?.mode_of_payment || "").toLowerCase();
 	if (type.includes("cash")) return "mdi-cash";
@@ -347,6 +324,15 @@ const clearPaymentAmount = (payment) => {
 </script>
 
 <style scoped>
+.payment-methods-container,
+.payment-methods-list,
+.payment-method-card,
+.payment-method-card__main,
+.payment-method-card__amount {
+	min-width: 0;
+	max-width: 100%;
+}
+
 .payment-methods-container {
 	display: flex;
 	flex-direction: column;
@@ -367,7 +353,11 @@ const clearPaymentAmount = (payment) => {
 	font-variant-numeric: tabular-nums;
 }
 
-/* Payment Methods Flat List (No Nested Outer Cards) */
+.payment-allocation-context__separator {
+	margin-inline: var(--payment-space-1, 4px);
+}
+
+/* Payment Methods Flat List */
 .payment-methods-list {
 	display: flex;
 	flex-direction: column;
@@ -446,18 +436,34 @@ const clearPaymentAmount = (payment) => {
 
 .payment-method-card__main {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) 44px;
+	grid-template-columns: minmax(0, 1fr) 40px;
 	gap: var(--payment-space-2, 8px);
 	align-items: center;
+	width: 100%;
 }
 
-:deep(.payment-shell--desktop) .payment-method-card__main,
-:deep(.payment-shell--tablet-landscape) .payment-method-card__main {
-	grid-template-columns: minmax(0, 1fr) minmax(132px, 0.34fr);
+:deep(.payment-shell--tablet-landscape) .payment-method-card__main,
+:deep(.payment-shell--tablet-portrait) .payment-method-card__main {
+	grid-template-columns: minmax(0, 1fr) 42px;
+}
+
+:deep(.payment-shell--phone) .payment-method-card__main {
+	grid-template-columns: minmax(0, 1fr) 44px;
 }
 
 .payment-method-card__amount {
 	min-width: 0;
+}
+
+.payment-method-card__amount :deep(.v-field__input) {
+	font-size: 14px;
+	font-weight: 650;
+	font-variant-numeric: tabular-nums;
+}
+
+.payment-method-card__amount :deep(.v-field__prefix) {
+	font-size: 13px;
+	color: var(--pos-text-secondary, #64748b);
 }
 
 /* Hide browser input spinner controls */
@@ -477,10 +483,27 @@ const clearPaymentAmount = (payment) => {
 }
 
 .payment-use-remaining-btn {
+	width: 40px !important;
+	min-width: 40px !important;
+	height: 40px !important;
+	min-height: 40px !important;
+	align-self: stretch;
+	border-radius: var(--payment-radius-sm, 8px) !important;
+}
+
+:deep(.payment-shell--tablet-landscape) .payment-use-remaining-btn,
+:deep(.payment-shell--tablet-portrait) .payment-use-remaining-btn {
+	width: 42px !important;
+	min-width: 42px !important;
+	height: 42px !important;
+	min-height: 42px !important;
+}
+
+:deep(.payment-shell--phone) .payment-use-remaining-btn {
 	width: 44px !important;
 	min-width: 44px !important;
 	height: 44px !important;
-	border-radius: var(--payment-radius-sm, 8px) !important;
+	min-height: 44px !important;
 }
 
 .payment-method-action-btn {

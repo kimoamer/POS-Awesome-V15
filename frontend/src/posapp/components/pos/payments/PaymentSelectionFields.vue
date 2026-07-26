@@ -6,7 +6,7 @@
 				<v-select
 					density="compact"
 					clearable
-					variant="solo"
+					variant="outlined"
 					color="primary"
 					:label="__('Sales Person')"
 					:model-value="salesPerson"
@@ -27,7 +27,7 @@
 				<v-select
 					density="compact"
 					clearable
-					variant="solo"
+					variant="outlined"
 					color="primary"
 					:label="__('Print Format')"
 					:model-value="printFormat"

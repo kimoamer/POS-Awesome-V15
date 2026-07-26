@@ -27,6 +27,17 @@ Redesign POSAwesome into POSMate with a premium, compact, responsive UI while pr
 
 - Pass 4.2 Product Card Spacing and Virtual Slot Alignment: `ItemCard.vue` uses fixed CSS Grid rows; product card metrics and virtual slots stay aligned.
 
+Pass 6.7.2.2 — Payment Geometry, Width and Cross-Viewport Recovery (Complete ✅).
+
+Scope:
+
+- **Unified `Set Remaining` Icon Action**: Standardized `Set Remaining` across ALL viewports (`desktop`, `tablet-landscape`, `tablet-portrait`, `phone`) using a compact tonal calculator icon button (`.payment-use-remaining-btn` with `mdi-calculator-variant-outline`). Removed separate desktop text button branch, preventing text clipping and input field overlap.
+- **Fixed Payment Method Grid Geometry**: Enforced strict CSS grid column dimensions (`minmax(0, 1fr) 40px` on desktop, `42px` on tablet, `44px` on phone) with `min-width: 0; max-width: 100%` on container & amount wrappers.
+- **Full-Width Section Shells**: Enforced full width (`width: 100%; min-width: 0; align-self: stretch`) on `.payment-section-shell` and `.payment-layout` across mobile and portrait modes.
+- **Collapsed `Invoice Summary` Grand Total**: Added `#header-meta` slot in [PaymentSectionShell.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentSectionShell.vue) displaying Grand Total (e.g. `E£ 0.00`) next to title when collapsed in [Payments.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/Payments.vue).
+- **Compact Desktop Dialog & Phone Header**: Reduced desktop dialog height dead space (max 720px) in [Pos.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/shell/Pos.vue). Set compact 52px phone header in [PaymentScreenHeader.vue](file:///home/frappe/frappe-bench/apps/posawesome/frontend/src/posapp/components/pos/payments/PaymentScreenHeader.vue).
+- **Automated Tests**: Created [paymentGeometry.spec.ts](file:///home/frappe/frappe-bench/apps/posawesome/frontend/tests/paymentGeometry.spec.ts).
+
 Pass 6.7.2.1 — Mobile Payment Visual Recovery and Action Clarity (Complete ✅).
 
 Scope:

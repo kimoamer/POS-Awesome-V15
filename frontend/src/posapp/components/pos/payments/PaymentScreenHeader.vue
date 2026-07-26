@@ -119,12 +119,19 @@ const __ = (window as any).__ || ((s: string) => s);
 }
 
 .payment-screen-header--phone {
-	min-height: 54px;
-	padding-inline: 8px;
+	min-height: 52px;
+	height: 52px;
+	padding-inline: 6px;
 }
 
 .payment-screen-header--phone .payment-screen-header__title {
 	font-size: 16px;
+	line-height: 1.15;
+}
+
+.payment-screen-header--phone .payment-screen-header__subtitle {
+	font-size: 11px;
+	line-height: 1.15;
 }
 
 .payment-screen-header__leading {

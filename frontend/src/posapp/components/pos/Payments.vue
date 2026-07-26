@@ -119,12 +119,12 @@
 						:title="__('Invoice Summary')"
 						:collapsible="viewportMode === 'phone' || viewportMode === 'tablet-portrait'"
 						v-model:expanded="invoiceSummaryExpanded"
-						:badge="
-							viewportMode === 'phone' && !invoiceSummaryExpanded && invoice_doc?.grand_total
-								? formatCurrency(invoice_doc.grand_total, invoice_doc.currency)
-								: undefined
-						"
 					>
+						<template #header-meta v-if="!invoiceSummaryExpanded && invoice_doc?.grand_total">
+							<bdi class="payment-section-header-total">
+								{{ formatPaymentMoney(invoice_doc.grand_total) }}
+							</bdi>
+						</template>
 						<InvoiceTotals
 							:invoice_doc="invoice_doc"
 							:displayCurrency="displayCurrency"
@@ -2302,8 +2302,9 @@ defineExpose({
 
 .payment-shell--desktop .payment-layout {
 	display: grid;
-	grid-template-columns: minmax(0, 1.12fr) minmax(350px, 0.88fr);
+	grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
 	gap: var(--payment-space-3);
+	align-items: start;
 }
 
 .payment-shell--tablet-landscape {
@@ -2318,6 +2319,7 @@ defineExpose({
 	display: grid;
 	grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
 	gap: var(--payment-space-2);
+	align-items: start;
 }
 
 .payment-shell--tablet-portrait {
@@ -2328,16 +2330,46 @@ defineExpose({
 	display: flex;
 	flex-direction: column;
 	gap: var(--payment-space-2);
+	width: 100%;
+	min-width: 0;
+	align-items: stretch;
 }
 
 .payment-shell--phone {
-	height: 100dvh;
+	height: 100%;
 	grid-template-rows: 54px 68px minmax(0, 1fr) auto;
 }
 
 .payment-shell--phone .payment-shell__body {
 	padding: 6px;
 	scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+}
+
+.payment-shell--phone .payment-layout {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	width: 100%;
+	min-width: 0;
+	align-items: stretch;
+}
+
+.payment-shell--phone .payment-layout__primary,
+.payment-shell--phone .payment-layout__secondary,
+.payment-shell--tablet-portrait .payment-layout__primary,
+.payment-shell--tablet-portrait .payment-layout__secondary {
+	width: 100%;
+	min-width: 0;
+	align-items: stretch;
+}
+
+.payment-section-header-total {
+	margin-inline-start: auto;
+	font-size: var(--payment-font-label, 12px);
+	font-weight: 750;
+	font-variant-numeric: tabular-nums;
+	color: var(--pos-primary, #2563eb);
+	white-space: nowrap;
 }
 
 .payment-shell--phone .payment-layout {

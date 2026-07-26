@@ -23,6 +23,7 @@
 			</div>
 
 			<div class="payment-section-shell__actions" @click.stop>
+				<slot name="header-meta"></slot>
 				<slot name="actions"></slot>
 				<v-btn
 					v-if="collapsible"
@@ -91,6 +92,9 @@ const __ = (window as any).__ || ((s: string) => s);
 
 <style scoped>
 .payment-section-shell {
+	width: 100%;
+	min-width: 0;
+	align-self: stretch;
 	background: var(--pos-card-bg, var(--pos-surface-raised, #ffffff));
 	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
 	border-radius: var(--payment-radius-md, 10px);
@@ -100,11 +104,13 @@ const __ = (window as any).__ || ((s: string) => s);
 }
 
 .payment-section-shell__header {
+	width: 100%;
+	min-width: 0;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	min-height: 38px;
-	padding: 6px 9px;
+	min-height: 40px;
+	padding: 4px 8px;
 	background: transparent;
 	border-bottom: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.06));
 }
@@ -120,6 +126,8 @@ const __ = (window as any).__ || ((s: string) => s);
 }
 
 .payment-section-shell__title-group {
+	flex: 1 1 auto;
+	min-width: 0;
 	display: flex;
 	align-items: center;
 	gap: 8px;
@@ -139,6 +147,7 @@ const __ = (window as any).__ || ((s: string) => s);
 .payment-section-shell__copy {
 	display: flex;
 	flex-direction: column;
+	min-width: 0;
 }
 
 .payment-section-shell__title {
@@ -147,6 +156,9 @@ const __ = (window as any).__ || ((s: string) => s);
 	font-weight: 700;
 	line-height: 1.2;
 	color: var(--pos-text-primary, #0f172a);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .payment-section-shell__description {
@@ -159,6 +171,8 @@ const __ = (window as any).__ || ((s: string) => s);
 }
 
 .payment-section-shell__actions {
+	flex: 0 0 auto;
+	margin-inline-start: var(--payment-space-2, 8px);
 	display: flex;
 	align-items: center;
 	gap: 4px;

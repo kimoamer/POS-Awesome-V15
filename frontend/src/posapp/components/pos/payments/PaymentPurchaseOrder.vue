@@ -6,7 +6,7 @@
 				<v-text-field
 					v-model="invoiceDoc.po_no"
 					:label="__('Purchase Order')"
-					variant="solo"
+					variant="outlined"
 					density="compact"
 					class="sleek-field pos-themed-input"
 					clearable
@@ -28,7 +28,7 @@
 					v-model="invoiceDoc.po_date"
 					:label="__('Purchase Order Date')"
 					readonly
-					variant="solo"
+					variant="outlined"
 					density="compact"
 					hide-details
 					color="primary"
