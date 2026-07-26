@@ -1078,18 +1078,11 @@ const topUpGiftCard = async () => {
 
 // Methods
 
-type CustomerCreditIntent = "preview" | "apply" | "clear";
-
-interface QueuedCreditRequest {
-	intent: CustomerCreditIntent;
-	contextKey: string;
-}
-
 let customerCreditRequestId = 0;
-let queuedCreditRequest: QueuedCreditRequest | null = null;
+let queuedCreditRequest = null;
 
-const loadCustomerCredit = async (useCreditArg?: boolean | CustomerCreditIntent) => {
-	let intent: CustomerCreditIntent = "preview";
+const loadCustomerCredit = async (useCreditArg) => {
+	let intent = "preview";
 	if (typeof useCreditArg === "boolean") {
 		intent = useCreditArg ? "apply" : "clear";
 	} else if (useCreditArg === "apply" || useCreditArg === "clear" || useCreditArg === "preview") {
@@ -1121,7 +1114,7 @@ const loadCustomerCredit = async (useCreditArg?: boolean | CustomerCreditIntent)
 			return;
 		}
 		customerCreditLoaded.value = true;
-	} catch (error: any) {
+	} catch (error) {
 		if (reqId === customerCreditRequestId) {
 			customerCreditError.value = error?.message || __("Unable to load customer credit");
 		}
@@ -2320,7 +2313,7 @@ watch(
 	{ immediate: true },
 );
 
-const handleCustomerContextChange = (newCustomer: any, oldCustomer?: any) => {
+const handleCustomerContextChange = (newCustomer, oldCustomer) => {
 	if (newCustomer === oldCustomer) return;
 
 	customerCreditRequestId++;
