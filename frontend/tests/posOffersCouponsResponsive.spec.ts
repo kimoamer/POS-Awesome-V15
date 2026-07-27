@@ -5,7 +5,7 @@ import PosCoupons from "../src/posapp/components/pos/offers/PosCoupons.vue";
 import { createPinia, setActivePinia } from "pinia";
 
 describe("Offers & Coupons Responsive Workspace Sizing", () => {
-	it("renders action buttons in PosOffers and PosCoupons", () => {
+	it("renders action buttons and responsive containers in PosOffers and PosCoupons", () => {
 		const pinia = createPinia();
 		setActivePinia(pinia);
 
@@ -20,5 +20,6 @@ describe("Offers & Coupons Responsive Workspace Sizing", () => {
 
 		expect(offersWrapper.find(".pos-offers-back-btn").exists()).toBe(true);
 		expect(couponsWrapper.find(".add-coupon-btn").exists()).toBe(true);
+		expect(couponsWrapper.find(".coupon-input-group").exists()).toBe(true);
 	});
 });

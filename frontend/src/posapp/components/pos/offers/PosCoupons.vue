@@ -1,5 +1,8 @@
 <template>
-	<div class="pos-coupons-container">
+	<div class="pos-coupons-container" :aria-busy="loading || validating">
+		<!-- Screen reader aria-live region -->
+		<div class="sr-only" aria-live="polite">{{ announcement }}</div>
+
 		<!-- Header & Badges -->
 		<div class="pos-coupons-header px-3 py-2 border-b">
 			<div class="pos-coupons-header__info">
@@ -20,11 +23,11 @@
 				variant="tonal"
 				density="compact"
 				color="warning"
-				class="pos-coupons-back-btn"
+				class="pos-coupons-back-btn ms-auto"
 				@click="back_to_invoice"
 			>
-				<v-icon size="18" class="mr-1">mdi-arrow-left</v-icon>
-				{{ __("Back") }}
+				<v-icon size="18">{{ browseBackIcon }}</v-icon>
+				<span>{{ __("Back") }}</span>
 			</v-btn>
 		</div>
 
@@ -32,7 +35,7 @@
 		<div class="pos-coupons-customer-bar px-3 py-2 border-b">
 			<div v-if="customer" class="d-flex align-center gap-2 text-body-2 text-medium-emphasis">
 				<v-icon size="18" color="primary">mdi-account-check-outline</v-icon>
-				<span>{{ __("Customer") }}: <strong class="text-high-emphasis">{{ customer }}</strong></span>
+				<span>{{ __("Customer") }}: <strong class="text-high-emphasis"><bdi>{{ customer }}</bdi></strong></span>
 			</div>
 			<div v-else class="d-flex align-center gap-2 text-caption text-warning">
 				<v-icon size="18" color="warning">mdi-account-alert-outline</v-icon>
@@ -42,7 +45,7 @@
 
 		<!-- Input & Add Bar -->
 		<div class="pos-coupons-input-bar pa-3 border-b">
-			<div class="d-flex align-center gap-2">
+			<div class="coupon-input-group d-flex align-center gap-2">
 				<v-text-field
 					density="compact"
 					variant="outlined"
@@ -52,6 +55,7 @@
 					hide-details
 					v-model="new_coupon"
 					:placeholder="__('Enter coupon code')"
+					:disabled="!customer || validating"
 					@keydown.enter="add_coupon(new_coupon)"
 				>
 					<template #prepend-inner>
@@ -63,12 +67,23 @@
 					class="add-coupon-btn px-4"
 					color="success"
 					theme="dark"
-					:disabled="!customer || !new_coupon"
+					:disabled="!customer || !new_coupon || validating"
+					:loading="validating"
 					@click="add_coupon(new_coupon)"
 				>
 					<v-icon size="18" class="mr-1">mdi-plus</v-icon>
-					{{ __("Add") }}
+					<span>{{ __("Add") }}</span>
 				</v-btn>
+			</div>
+
+			<!-- Inline Validation Error Notice -->
+			<div
+				v-if="validationErrorMessage"
+				class="pos-coupon-validation-message mt-2 text-caption text-error d-flex align-center gap-1"
+				aria-live="polite"
+			>
+				<v-icon size="16" color="error">mdi-alert-circle-outline</v-icon>
+				<span>{{ validationErrorMessage }}</span>
 			</div>
 		</div>
 
@@ -128,6 +143,11 @@ export default {
 	},
 	data: () => ({
 		loading: false,
+		validating: false,
+		validationErrorMessage: "",
+		loadingGiftCoupons: false,
+		giftCouponError: null,
+		announcement: "",
 		pos_profile: "",
 		customer: "",
 		posa_coupons: [],
@@ -149,6 +169,21 @@ export default {
 		appliedCouponsCount() {
 			return (this.posa_coupons || []).filter((el) => !!el.applied).length;
 		},
+		isRtl() {
+			if (this.$vuetify?.locale?.isRTL !== undefined) {
+				return this.$vuetify.locale.isRTL;
+			}
+			if (typeof window !== "undefined" && window.frappe?.utils?.is_rtl) {
+				return window.frappe.utils.is_rtl();
+			}
+			if (typeof document !== "undefined") {
+				return document.documentElement?.dir === "rtl";
+			}
+			return false;
+		},
+		browseBackIcon() {
+			return this.isRtl ? "mdi-arrow-right" : "mdi-arrow-left";
+		},
 	},
 
 	methods: {
@@ -156,11 +191,13 @@ export default {
 			this.uiStore.setActiveView("items");
 		},
 		add_coupon(new_coupon, options = {}) {
+			if (this.validating) return;
 			const silentDuplicate = !!options.silentDuplicate;
 			const normalizedCoupon = String(new_coupon || "")
 				.trim()
 				.toUpperCase();
 			if (!this.customer || !normalizedCoupon) {
+				this.validationErrorMessage = __("Select a customer to use coupon");
 				this.toastStore.show({
 					title: __("Select a customer to use coupon"),
 					color: "error",
@@ -176,6 +213,7 @@ export default {
 			);
 			if (exist) {
 				if (!silentDuplicate) {
+					this.validationErrorMessage = __("This coupon already used !");
 					this.toastStore.show({
 						title: __("This coupon already used !"),
 						color: "error",
@@ -183,6 +221,9 @@ export default {
 				}
 				return;
 			}
+
+			this.validating = true;
+			this.validationErrorMessage = "";
 			const vm = this;
 			frappe.call({
 				method: "posawesome.posawesome.api.offers.get_pos_coupon",
@@ -192,15 +233,18 @@ export default {
 					company: vm.pos_profile.company,
 				},
 				callback: function (r) {
+					vm.validating = false;
 					if (r.message) {
 						const res = r.message;
 						if (res.msg != "Apply" || !res.coupon) {
+							vm.validationErrorMessage = res.msg || __("Invalid Coupon");
 							vm.toastStore.show({
 								title: res.msg,
 								color: "error",
 							});
 						} else {
 							vm.new_coupon = null;
+							vm.validationErrorMessage = "";
 							const coupon = res.coupon;
 							if (!vm.posa_coupons) vm.posa_coupons = [];
 							vm.posa_coupons.push({
@@ -211,13 +255,20 @@ export default {
 								pos_offer: coupon.pos_offer,
 								customer: coupon.customer || vm.customer,
 							});
+							vm.announcement = `${coupon.coupon_code} ${__("added")}`;
 						}
 					}
+				},
+				error: function (err) {
+					vm.validating = false;
+					vm.validationErrorMessage = err?.message || __("Error validating coupon");
 				},
 			});
 		},
 		setActiveGiftCoupons() {
 			if (!this.customer) return;
+			this.loadingGiftCoupons = true;
+			this.giftCouponError = null;
 			const vm = this;
 			frappe.call({
 				method: "posawesome.posawesome.api.offers.get_active_gift_coupons",
@@ -226,12 +277,17 @@ export default {
 					company: vm.pos_profile.company,
 				},
 				callback: function (r) {
+					vm.loadingGiftCoupons = false;
 					if (r.message) {
 						const coupons = r.message;
 						coupons.forEach((coupon_code) => {
 							vm.add_coupon(coupon_code, { silentDuplicate: true });
 						});
 					}
+				},
+				error: function (err) {
+					vm.loadingGiftCoupons = false;
+					vm.giftCouponError = err?.message || __("Failed to load gift coupons");
 				},
 			});
 		},
@@ -404,5 +460,26 @@ export default {
 	.pos-coupons-back-btn {
 		min-height: 44px;
 	}
+
+	.coupon-input-group {
+		flex-direction: column;
+		align-items: stretch !important;
+	}
+
+	.add-coupon-btn {
+		width: 100% !important;
+	}
+}
+
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
 }
 </style>

@@ -17,8 +17,58 @@
 			></v-progress-linear>
 
 			<div class="browse-panel dynamic-padding">
+				<nav
+					class="pos-segmented-tabs mb-2"
+					role="tablist"
+					aria-label="POS Navigation"
+				>
+					<button
+						id="tab-items"
+						role="tab"
+						type="button"
+						:aria-selected="activeBrowsePanel === 'items'"
+						aria-controls="panel-items"
+						class="pos-tab-btn"
+						:class="{ 'pos-tab-btn--active': activeBrowsePanel === 'items' }"
+						@click="setBrowsePanel('items')"
+					>
+						<v-icon size="18" class="pos-tab-icon">mdi-cube-outline</v-icon>
+						<span class="pos-tab-label">{{ __("Products") }}</span>
+					</button>
+					<button
+						id="tab-offers"
+						role="tab"
+						type="button"
+						:aria-selected="activeBrowsePanel === 'offers'"
+						aria-controls="panel-offers"
+						class="pos-tab-btn"
+						:class="{ 'pos-tab-btn--active': activeBrowsePanel === 'offers' }"
+						@click="setBrowsePanel('offers')"
+					>
+						<v-icon size="18" class="pos-tab-icon">mdi-tag-outline</v-icon>
+						<span class="pos-tab-label">{{ __("Offers") }}</span>
+						<span v-if="offersCount > 0" class="pos-tab-badge" aria-hidden="true">{{ offersCount > 99 ? '99+' : offersCount }}</span>
+					</button>
+					<button
+						id="tab-coupons"
+						role="tab"
+						type="button"
+						:aria-selected="activeBrowsePanel === 'coupons'"
+						aria-controls="panel-coupons"
+						class="pos-tab-btn"
+						:class="{ 'pos-tab-btn--active': activeBrowsePanel === 'coupons' }"
+						@click="setBrowsePanel('coupons')"
+					>
+						<v-icon size="18" class="pos-tab-icon">mdi-ticket-percent-outline</v-icon>
+						<span class="pos-tab-label">{{ __("Coupons") }}</span>
+						<span v-if="couponsCount > 0" class="pos-tab-badge" aria-hidden="true">{{ couponsCount > 99 ? '99+' : couponsCount }}</span>
+					</button>
+				</nav>
 				<div class="browse-view-stack">
 					<section
+						id="panel-items"
+						role="tabpanel"
+						aria-labelledby="tab-items"
 						class="browse-view browse-view--items"
 						:class="{ 'browse-view--active': activeBrowsePanel === 'items' }"
 						:aria-hidden="activeBrowsePanel !== 'items'"
@@ -167,6 +217,9 @@
 					</section>
 
 					<section
+						id="panel-offers"
+						role="tabpanel"
+						aria-labelledby="tab-offers"
 						class="browse-view browse-subview-panel selector-section-card pos-themed-card"
 						:class="{ 'browse-view--active': activeBrowsePanel === 'offers' }"
 						:aria-hidden="activeBrowsePanel !== 'offers'"
@@ -196,6 +249,9 @@
 					</section>
 
 					<section
+						id="panel-coupons"
+						role="tabpanel"
+						aria-labelledby="tab-coupons"
 						class="browse-view browse-subview-panel selector-section-card pos-themed-card"
 						:class="{ 'browse-view--active': activeBrowsePanel === 'coupons' }"
 						:aria-hidden="activeBrowsePanel !== 'coupons'"
@@ -637,6 +693,12 @@ const setBrowsePanel = async (
 		await refreshItemsLayoutAfterActivation(focusSearch);
 	}
 };
+
+watch(activeView, (newView) => {
+	if (isBrowsePanel(newView) && activeBrowsePanel.value !== newView) {
+		void setBrowsePanel(newView, { syncStore: false });
+	}
+});
 
 const openBrowsePanel = (panel: BrowsePanel) => {
 	void setBrowsePanel(panel);
@@ -2032,5 +2094,87 @@ defineExpose({
 	position: sticky;
 	bottom: 0;
 	z-index: 9;
+}
+
+/* Segmented Tabs Navigation Bar */
+.pos-segmented-tabs {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px;
+	background: var(--pos-surface-muted, #f8fafc);
+	border: 1px solid var(--pos-border-light, #e2e8f0);
+	border-radius: var(--pos-radius-control, 10px);
+	width: 100%;
+}
+
+.pos-tab-btn {
+	flex: 1;
+	min-height: 40px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 0 12px;
+	border: 0;
+	border-radius: var(--pos-radius-sm, 8px);
+	background: transparent;
+	color: var(--pos-text-muted, #64748b);
+	font-size: var(--pos-font-control, 13px);
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.15s ease;
+	outline: none;
+	position: relative;
+}
+
+.pos-tab-btn:hover,
+.pos-tab-btn:focus-visible {
+	color: var(--pos-text-primary, #1e293b);
+	background: color-mix(in srgb, var(--pos-primary, #2563eb) 8%, transparent);
+}
+
+.pos-tab-btn:focus-visible {
+	outline: 2px solid var(--pos-primary, #2563eb);
+	outline-offset: 1px;
+}
+
+.pos-tab-btn--active {
+	background: var(--pos-surface-raised, #ffffff) !important;
+	color: var(--pos-primary, #2563eb) !important;
+	font-weight: 700;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.pos-tab-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	border-radius: 999px;
+	background: var(--pos-primary, #2563eb);
+	color: #ffffff;
+	font-size: 11px;
+	font-weight: 700;
+	line-height: 1;
+}
+
+@media (min-width: 600px) and (max-width: 1199px) {
+	.pos-tab-btn {
+		min-height: 42px;
+	}
+}
+
+@media (max-width: 599px) {
+	.pos-tab-btn {
+		min-height: 44px;
+		padding: 0 8px;
+		font-size: 12px;
+	}
+	.pos-tab-label {
+		white-space: nowrap;
+	}
 }
 </style>

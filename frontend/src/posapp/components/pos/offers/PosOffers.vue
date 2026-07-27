@@ -1,5 +1,8 @@
 <template>
-	<div class="pos-offers-container">
+	<div class="pos-offers-container" :aria-busy="loading">
+		<!-- Screen reader aria-live region -->
+		<div class="sr-only" aria-live="polite">{{ announcement }}</div>
+
 		<!-- Summary & Header -->
 		<div class="pos-offers-header px-3 py-2 border-b">
 			<div class="pos-offers-header__info">
@@ -20,17 +23,22 @@
 				variant="tonal"
 				density="compact"
 				color="warning"
-				class="pos-offers-back-btn"
+				class="pos-offers-back-btn ms-auto"
 				@click="back_to_invoice"
 			>
-				<v-icon size="18" class="mr-1">mdi-arrow-left</v-icon>
-				{{ __("Back") }}
+				<v-icon size="18">{{ browseBackIcon }}</v-icon>
+				<span>{{ __("Back") }}</span>
 			</v-btn>
 		</div>
 
 		<!-- Offers List -->
 		<div class="pos-offers-body pa-3 overflow-y-auto">
-			<div v-if="pos_offers.length === 0" class="pos-offers-empty pa-6 text-center text-muted">
+			<div v-if="loading" class="pos-offers-loading pa-6 text-center text-muted">
+				<v-progress-circular indeterminate color="primary" class="mb-2"></v-progress-circular>
+				<div class="text-body-2">{{ __("Loading offers...") }}</div>
+			</div>
+
+			<div v-else-if="pos_offers.length === 0" class="pos-offers-empty pa-6 text-center text-muted">
 				<v-icon size="40" class="mb-2">mdi-tag-off-outline</v-icon>
 				<div class="text-body-2">{{ __("No offers available") }}</div>
 			</div>
@@ -42,16 +50,18 @@
 					variant="outlined"
 					class="pos-offer-card mb-3 pa-3"
 					:class="{ 'pos-offer-card--applied': item.offer_applied }"
+					:aria-expanded="item.description || item.offer == 'Give Product' ? 'true' : 'false'"
+					:aria-controls="item.description || item.offer == 'Give Product' ? 'offer-details-' + getOfferId(item) : undefined"
 				>
 					<div class="pos-offer-card__header d-flex align-center justify-space-between gap-3">
 						<div class="pos-offer-card__title-area">
-							<span class="pos-offer-card__name font-weight-bold text-body-2">{{ item.name }}</span>
+							<bdi class="pos-offer-card__name font-weight-bold text-body-2">{{ item.name }}</bdi>
 							<div class="pos-offer-card__meta d-flex align-center gap-1 mt-1">
 								<v-chip size="x-small" variant="flat" color="blue-lighten-5" class="text-blue-darken-3">
-									{{ item.apply_on || __("Item") }}
+									<bdi>{{ item.apply_on || __("Item") }}</bdi>
 								</v-chip>
 								<v-chip size="x-small" variant="flat" color="purple-lighten-5" class="text-purple-darken-3">
-									{{ item.offer || __("Discount") }}
+									<bdi>{{ item.offer || __("Discount") }}</bdi>
 								</v-chip>
 							</div>
 						</div>
@@ -88,12 +98,27 @@
 					</div>
 
 					<!-- Description / Give Item Details -->
-					<div v-if="item.description || item.offer == 'Give Product'" class="pos-offer-card__details mt-2 pt-2 border-t">
+					<div
+						v-if="item.description || item.offer == 'Give Product'"
+						:id="'offer-details-' + getOfferId(item)"
+						class="pos-offer-card__details mt-2 pt-2 border-t"
+					>
 						<div v-if="item.description" class="posa-offer-description text-caption text-medium-emphasis mb-2">
 							{{ item.description }}
 						</div>
 						<div v-if="item.offer == 'Give Product'" class="pos-offer-give-item">
+							<div v-if="groupItemLoading[item.apply_item_group]" class="text-caption text-info d-flex align-center gap-1 my-1">
+								<v-progress-circular indeterminate size="16" color="primary"></v-progress-circular>
+								<span>{{ __("Loading group items...") }}</span>
+							</div>
+							<div v-else-if="groupItemError[item.apply_item_group]" class="group-item-error text-caption text-error d-flex align-center justify-space-between gap-1 my-1 pa-2 border rounded">
+								<span>{{ groupItemError[item.apply_item_group] }}</span>
+								<v-btn size="x-small" variant="text" color="primary" @click="fetchGroupItems(item.apply_item_group)">
+									{{ __("Retry") }}
+								</v-btn>
+							</div>
 							<v-autocomplete
+								v-else
 								v-model="item.give_item"
 								:items="get_give_items(item)"
 								item-title="item_name"
@@ -134,6 +159,9 @@ export default {
 	},
 	data: () => ({
 		loading: false,
+		announcement: "",
+		groupItemLoading: {},
+		groupItemError: {},
 		pos_profile: "",
 		pos_offers: [],
 		allItems: [],
@@ -157,6 +185,21 @@ export default {
 		appliedOffersCount() {
 			return this.pos_offers.filter((el) => !!el.offer_applied).length;
 		},
+		isRtl() {
+			if (this.$vuetify?.locale?.isRTL !== undefined) {
+				return this.$vuetify.locale.isRTL;
+			}
+			if (typeof window !== "undefined" && window.frappe?.utils?.is_rtl) {
+				return window.frappe.utils.is_rtl();
+			}
+			if (typeof document !== "undefined") {
+				return document.documentElement?.dir === "rtl";
+			}
+			return false;
+		},
+		browseBackIcon() {
+			return this.isRtl ? "mdi-arrow-right" : "mdi-arrow-left";
+		},
 	},
 
 	methods: {
@@ -164,26 +207,26 @@ export default {
 			this.uiStore.setActiveView("items");
 		},
 		async fetchGroupItems(group) {
+			if (!group) return;
+			this.groupItemLoading = { ...this.groupItemLoading, [group]: true };
+			this.groupItemError = { ...this.groupItemError, [group]: null };
 			try {
 				const { message } = await frappe.call({
 					method: "posawesome.posawesome.api.items.get_items",
 					args: {
 						pos_profile: JSON.stringify(this.pos_profile),
 						item_group: group,
-						// fetch complete inventory; backend paginates internally
 					},
 				});
 
 				const fullItems = message || [];
 
-				// cache minimal info for dropdown use
 				this.groupItemCache[group] = fullItems.map((it) => ({
 					item_code: it.item_code,
 					item_name: it.item_name || it.item_code,
 					rate: it.price_list_rate,
 				}));
 
-				// merge fetched items into allItems so offer application has details
 				const existing = new Set(this.allItems.map((it) => it.item_code));
 				const newItems = fullItems.filter((it) => !existing.has(it.item_code));
 				if (newItems.length) {
@@ -194,6 +237,12 @@ export default {
 				this.forceUpdateItem();
 			} catch (error) {
 				console.error("Failed to fetch group items", error);
+				this.groupItemError = {
+					...this.groupItemError,
+					[group]: error?.message || __("Failed to load group items"),
+				};
+			} finally {
+				this.groupItemLoading = { ...this.groupItemLoading, [group]: false };
 			}
 		},
 		forceUpdateItem() {
@@ -203,10 +252,12 @@ export default {
 		},
 		applyOffer(item) {
 			item.offer_applied = true;
+			this.announcement = `${item.name || __("Offer")} ${__("applied")}`;
 			this.forceUpdateItem();
 		},
 		removeOffer(item) {
 			item.offer_applied = false;
+			this.announcement = `${item.name || __("Offer")} ${__("removed")}`;
 			this.forceUpdateItem();
 		},
 		normalizeOfferRowId(value) {
@@ -459,9 +510,30 @@ export default {
 	.pos-offers-back-btn {
 		min-height: 44px;
 	}
+
+	.pos-offer-card__header {
+		flex-direction: column;
+		align-items: stretch !important;
+	}
+
+	.pos-offer-action-btn {
+		width: 100% !important;
+	}
 }
 
 .posa-offer-description {
 	white-space: pre-line;
+}
+
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
 }
 </style>
