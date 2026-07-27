@@ -461,37 +461,25 @@ function handleMinusClick() {
 
 .invoice-item-card--phone {
 	display: grid;
-	grid-template-columns: 48px minmax(0, 1fr) auto;
+	grid-template-columns: minmax(0, 1fr) auto;
 	grid-template-areas:
-		"image identity total"
-		"image meta total"
-		"qty qty actions"
-		"details details details";
-	column-gap: 8px;
-	row-gap: 4px;
+		"identity amount"
+		"qty actions"
+		"rate rate";
+	gap: 8px;
 	padding: 10px;
-	min-height: 124px;
-}
-
-.invoice-item-card--phone .invoice-item-card__thumb {
-	grid-area: image;
-	width: 48px;
-	height: 48px;
+	min-height: 112px;
 }
 
 .invoice-item-card--phone .invoice-item-card__identity {
 	grid-area: identity;
-	align-self: center;
-}
-
-.invoice-item-card--phone .invoice-item-card__meta {
-	grid-area: meta;
+	min-width: 0;
 }
 
 .invoice-item-card--phone .invoice-item-card__amount {
-	grid-area: total;
+	grid-area: amount;
 	justify-self: end;
-	align-self: center;
+	align-self: flex-start;
 }
 
 .invoice-item-card--phone .invoice-item-card__qty {
@@ -504,10 +492,12 @@ function handleMinusClick() {
 	justify-self: end;
 }
 
-.invoice-item-card--phone .invoice-item-card__details {
-	grid-area: details;
-	font-size: 0.78rem;
-	color: var(--pos-text-secondary, #64748b);
+.invoice-item-card--phone .invoice-item-card__rate {
+	grid-area: rate;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
 }
 
 .invoice-item-card__identity {

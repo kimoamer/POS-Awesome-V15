@@ -1,43 +1,46 @@
 <template>
 	<div class="invoice-action-bar" :class="{ 'invoice-action-bar--compact': compactExternalPay }">
-		<!-- Secondary Direct Actions -->
-		<div class="invoice-action-bar__secondary">
+		<!-- Compact 3-Icon Slots (Save, Drafts, More) -->
+		<template v-if="compactExternalPay">
 			<v-btn
-				v-for="action in directActions"
-				:key="action.key"
 				variant="tonal"
 				color="secondary"
-				class="invoice-action-btn invoice-action-btn--secondary"
-				:loading="action.loading"
-				:disabled="action.loading"
-				data-pos-keyboard-target="invoice-action"
-				@click="handleAction(action.key)"
+				class="cmd-icon-btn invoice-action-btn"
+				:loading="saveLoading"
+				:disabled="!hasItems || saveLoading"
+				:aria-label="__('Save & Clear')"
+				@click="handleAction('saveAndClear')"
 			>
-				<v-icon start size="small">{{ action.icon }}</v-icon>
-				<span>{{ action.label }}</span>
+				<v-icon size="small">mdi-content-save-outline</v-icon>
 			</v-btn>
 
-			<!-- More Actions Menu -->
+			<v-btn
+				variant="tonal"
+				color="secondary"
+				class="cmd-icon-btn invoice-action-btn"
+				:loading="loadDraftsLoading"
+				:disabled="loadDraftsLoading"
+				:aria-label="__('Drafts')"
+				@click="handleAction('loadDrafts')"
+			>
+				<v-icon size="small">mdi-file-document-outline</v-icon>
+			</v-btn>
+
 			<v-menu
 				v-if="menuActions.length > 0"
 				v-model="moreMenuOpen"
 				location="top end"
 				offset="6"
-				:aria-expanded="moreMenuOpen"
-				aria-haspopup="menu"
 			>
 				<template #activator="{ props: menuProps }">
 					<v-btn
 						v-bind="menuProps"
 						variant="tonal"
 						color="secondary"
-						class="invoice-action-btn invoice-action-btn--more"
-						data-pos-keyboard-target="invoice-action"
+						class="cmd-icon-btn invoice-action-btn"
 						:aria-label="__('More invoice actions')"
 					>
-						<v-icon start size="small">mdi-dots-horizontal</v-icon>
-						<span>{{ __("More") }}</span>
-						<v-icon end size="x-small">mdi-chevron-down</v-icon>
+						<v-icon size="small">mdi-dots-horizontal</v-icon>
 					</v-btn>
 				</template>
 
@@ -50,14 +53,7 @@
 						@click="handleAction(action.key)"
 					>
 						<template #prepend>
-							<v-progress-circular
-								v-if="action.loading"
-								indeterminate
-								size="18"
-								width="2"
-								class="mr-2"
-							/>
-							<v-icon v-else size="small" class="mr-2">{{ action.icon }}</v-icon>
+							<v-icon size="small" class="mr-2">{{ action.icon }}</v-icon>
 						</template>
 						<v-list-item-title>{{ action.label }}</v-list-item-title>
 					</v-list-item>
@@ -74,15 +70,7 @@
 						@click="handleAction(action.key)"
 					>
 						<template #prepend>
-							<v-progress-circular
-								v-if="action.loading"
-								indeterminate
-								size="18"
-								width="2"
-								color="error"
-								class="mr-2"
-							/>
-							<v-icon v-else size="small" color="error" class="mr-2">{{ action.icon }}</v-icon>
+							<v-icon size="small" color="error" class="mr-2">{{ action.icon }}</v-icon>
 						</template>
 						<v-list-item-title class="text-error font-weight-medium">
 							{{ action.label }}
@@ -90,27 +78,121 @@
 					</v-list-item>
 				</v-list>
 			</v-menu>
-		</div>
+		</template>
 
-		<!-- Primary Pay Button -->
-		<div v-if="!compactExternalPay" class="invoice-action-bar__primary">
-			<v-btn
-				color="primary"
-				size="large"
-				variant="flat"
-				class="invoice-pay-btn"
-				:loading="paymentLoading"
-				:disabled="!hasItems || paymentLoading || payClickLocked"
-				data-pos-keyboard-target="pay"
-				@click="handlePayClick"
-			>
-				<v-icon start size="medium">mdi-credit-card-outline</v-icon>
-				<span class="pay-btn__label">{{ __("Pay") }}</span>
-				<bdi class="pay-btn__amount" v-if="payableTotalFormatted">
-					· {{ payableTotalFormatted }}
-				</bdi>
-			</v-btn>
-		</div>
+		<!-- Desktop Standard Layout -->
+		<template v-else>
+			<div class="invoice-action-bar__secondary">
+				<v-btn
+					v-for="action in directActions"
+					:key="action.key"
+					variant="tonal"
+					color="secondary"
+					class="invoice-action-btn invoice-action-btn--secondary"
+					:loading="action.loading"
+					:disabled="action.loading"
+					data-pos-keyboard-target="invoice-action"
+					@click="handleAction(action.key)"
+				>
+					<v-icon start size="small">{{ action.icon }}</v-icon>
+					<span>{{ action.label }}</span>
+				</v-btn>
+
+				<!-- More Actions Menu -->
+				<v-menu
+					v-if="menuActions.length > 0"
+					v-model="moreMenuOpen"
+					location="top end"
+					offset="6"
+					:aria-expanded="moreMenuOpen"
+					aria-haspopup="menu"
+				>
+					<template #activator="{ props: menuProps }">
+						<v-btn
+							v-bind="menuProps"
+							variant="tonal"
+							color="secondary"
+							class="invoice-action-btn invoice-action-btn--more"
+							data-pos-keyboard-target="invoice-action"
+							:aria-label="__('More invoice actions')"
+						>
+							<v-icon start size="small">mdi-dots-horizontal</v-icon>
+							<span>{{ __("More") }}</span>
+							<v-icon end size="x-small">mdi-chevron-down</v-icon>
+						</v-btn>
+					</template>
+
+					<v-list density="compact" class="invoice-actions-menu py-1">
+						<v-list-item
+							v-for="action in normalMenuActions"
+							:key="action.key"
+							:value="action.key"
+							:disabled="action.loading"
+							@click="handleAction(action.key)"
+						>
+							<template #prepend>
+								<v-progress-circular
+									v-if="action.loading"
+									indeterminate
+									size="18"
+									width="2"
+									class="mr-2"
+								/>
+								<v-icon v-else size="small" class="mr-2">{{ action.icon }}</v-icon>
+							</template>
+							<v-list-item-title>{{ action.label }}</v-list-item-title>
+						</v-list-item>
+
+						<v-divider v-if="dangerMenuActions.length > 0 && normalMenuActions.length > 0" class="my-1" />
+
+						<v-list-item
+							v-for="action in dangerMenuActions"
+							:key="action.key"
+							:value="action.key"
+							color="error"
+							class="text-error"
+							:disabled="action.loading"
+							@click="handleAction(action.key)"
+						>
+							<template #prepend>
+								<v-progress-circular
+									v-if="action.loading"
+									indeterminate
+									size="18"
+									width="2"
+									color="error"
+									class="mr-2"
+								/>
+								<v-icon v-else size="small" color="error" class="mr-2">{{ action.icon }}</v-icon>
+							</template>
+							<v-list-item-title class="text-error font-weight-medium">
+								{{ action.label }}
+							</v-list-item-title>
+						</v-list-item>
+					</v-list>
+				</v-menu>
+			</div>
+
+			<!-- Primary Pay Button -->
+			<div class="invoice-action-bar__primary">
+				<v-btn
+					color="primary"
+					size="large"
+					variant="flat"
+					class="invoice-pay-btn"
+					:loading="paymentLoading"
+					:disabled="!hasItems || paymentLoading || payClickLocked"
+					data-pos-keyboard-target="pay"
+					@click="handlePayClick"
+				>
+					<v-icon start size="medium">mdi-credit-card-outline</v-icon>
+					<span class="pay-btn__label">{{ __("Pay") }}</span>
+					<bdi class="pay-btn__amount" v-if="payableTotalFormatted">
+						· {{ payableTotalFormatted }}
+					</bdi>
+				</v-btn>
+			</div>
+		</template>
 	</div>
 </template>
 

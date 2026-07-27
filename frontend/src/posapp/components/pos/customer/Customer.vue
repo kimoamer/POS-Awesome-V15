@@ -700,3 +700,36 @@ export default {
 	},
 };
 </script>
+
+<style scoped>
+.customer-input-wrapper {
+	width: 100%;
+}
+
+.customer-field-shell {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	width: 100%;
+}
+
+.customer-autocomplete {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.customer-autocomplete :deep(.v-field) {
+	min-height: 40px !important;
+	height: 40px !important;
+	border-radius: 8px !important;
+}
+
+.customer-action-btn {
+	flex: 0 0 auto;
+	width: 40px !important;
+	height: 40px !important;
+	min-width: 40px !important;
+	border-radius: 8px !important;
+	margin: 0 !important;
+}
+</style>

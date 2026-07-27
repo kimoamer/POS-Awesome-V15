@@ -465,7 +465,8 @@ export default {
 				bottomDockHeight.value = 0;
 				return;
 			}
-			bottomDockHeight.value = dockElement.offsetHeight + 20;
+			const dockRect = dockElement.getBoundingClientRect();
+			bottomDockHeight.value = Math.ceil(dockRect.height) + 4;
 		};
 		const layoutStyleOverrides = computed(() => {
 			if (!showBottomDock.value) {
@@ -786,6 +787,9 @@ export default {
 .pos-workspace--compact {
 	display: flex;
 	flex-direction: column;
+	height: 100% !important;
+	min-height: 0 !important;
+	flex: 1 1 auto !important;
 }
 
 .dynamic-col {

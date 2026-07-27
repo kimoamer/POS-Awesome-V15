@@ -1424,19 +1424,31 @@ export default {
 	overflow: hidden;
 }
 
+.invoice-shell {
+	height: 100%;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+}
+
 .invoice-main-card--compact {
 	height: 100% !important;
 	max-height: 100% !important;
 	margin-top: 0 !important;
 	border-radius: 0 !important;
 	border: 0 !important;
+	display: flex !important;
+	flex-direction: column !important;
+	flex: 1 1 auto !important;
 }
 
 .invoice-workspace--compact {
 	display: grid !important;
-	grid-template-rows: auto auto minmax(220px, 1fr) auto !important;
+	grid-template-rows: auto auto minmax(0, 1fr) auto !important;
 	height: 100% !important;
 	min-height: 0 !important;
+	flex: 1 1 auto !important;
 }
 
 .invoice-workspace--compact .invoice-customer-region {
@@ -1453,17 +1465,16 @@ export default {
 	display: flex !important;
 	flex-direction: column !important;
 	flex: 1 1 auto !important;
-	min-height: 220px !important;
+	min-height: 0 !important;
 	height: 100% !important;
 	min-width: 0 !important;
-	overflow-y: auto !important;
-	overflow-x: hidden !important;
+	overflow: hidden !important;
 }
 
 .invoice-workspace--compact .invoice-footer-region {
 	flex: 0 0 auto !important;
 	border-block-start: 1px solid var(--pos-border-light);
-	padding-block-start: 2px !important;
+	padding-block-start: 0 !important;
 }
 
 .invoice-region {

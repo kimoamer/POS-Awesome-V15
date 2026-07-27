@@ -25,46 +25,44 @@
 					<span class="mobile-cart-command-bar__qty">· {{ formatFloat ? formatFloat(total_qty, hide_qty_decimals ? 0 : undefined) : total_qty }} {{ __("qty") }}</span>
 				</div>
 
-				<div class="mobile-cart-command-bar__actions">
-					<v-btn
-						variant="tonal"
-						color="secondary"
-						class="mobile-cart-action-btn"
-						:disabled="!canEditAdditionalDiscount"
-						@click="showDiscountDialog = true"
-					>
-						<v-icon size="small" start>mdi-cash-minus</v-icon>
-						<span>{{ __("Discount") }}</span>
-					</v-btn>
+				<v-btn
+					variant="tonal"
+					color="secondary"
+					class="cmd-icon-btn mobile-cart-action-btn"
+					:disabled="!canEditAdditionalDiscount"
+					@click="showDiscountDialog = true"
+					:aria-label="__('Additional Discount')"
+				>
+					<v-icon size="small">mdi-cash-minus</v-icon>
+				</v-btn>
 
-					<InvoiceActionButtons
-						:compact-external-pay="compactExternalPay"
-						:pos_profile="pos_profile"
-						:has-items="Math.abs(Number(total_qty || 0)) > 0"
-						:saveLoading="saveLoading"
-						:loadDraftsLoading="loadDraftsLoading"
-						:selectOrderLoading="selectOrderLoading"
-						:cancelLoading="cancelLoading"
-						:invoiceManagementLoading="invoiceManagementLoading"
-						:returnsLoading="returnsLoading"
-						:printLoading="printLoading"
-						:paymentLoading="paymentLoading"
-						:customerDisplayLoading="customerDisplayLoading"
-						:subtotal="subtotal"
-						:displayCurrency="displayCurrency"
-						:formatCurrency="formatCurrency"
-						:currencySymbol="currencySymbol"
-						@save-and-clear="handleSaveAndClear"
-						@load-drafts="handleLoadDrafts"
-						@select-order="handleSelectOrder"
-						@cancel-sale="handleCancelSale"
-						@open-invoice-management="handleOpenInvoiceManagement"
-						@open-returns="handleOpenReturns"
-						@print-draft="handlePrintDraft"
-						@show-payment="handleShowPayment"
-						@open-customer-display="handleOpenCustomerDisplay"
-					/>
-				</div>
+				<InvoiceActionButtons
+					:compact-external-pay="compactExternalPay"
+					:pos_profile="pos_profile"
+					:has-items="Math.abs(Number(total_qty || 0)) > 0"
+					:saveLoading="saveLoading"
+					:loadDraftsLoading="loadDraftsLoading"
+					:selectOrderLoading="selectOrderLoading"
+					:cancelLoading="cancelLoading"
+					:invoiceManagementLoading="invoiceManagementLoading"
+					:returnsLoading="returnsLoading"
+					:printLoading="printLoading"
+					:paymentLoading="paymentLoading"
+					:customerDisplayLoading="customerDisplayLoading"
+					:subtotal="subtotal"
+					:displayCurrency="displayCurrency"
+					:formatCurrency="formatCurrency"
+					:currencySymbol="currencySymbol"
+					@save-and-clear="handleSaveAndClear"
+					@load-drafts="handleLoadDrafts"
+					@select-order="handleSelectOrder"
+					@cancel-sale="handleCancelSale"
+					@open-invoice-management="handleOpenInvoiceManagement"
+					@open-returns="handleOpenReturns"
+					@print-draft="handlePrintDraft"
+					@show-payment="handleShowPayment"
+					@open-customer-display="handleOpenCustomerDisplay"
+				/>
 
 				<v-dialog v-model="showDiscountDialog" max-width="360">
 					<v-card class="pa-4 pos-themed-card">
@@ -702,25 +700,25 @@ defineExpose({
 }
 
 .mobile-cart-command-bar {
-	display: flex;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) repeat(4, 44px);
 	align-items: center;
-	justify-content: space-between;
-	gap: 6px;
-	height: 58px;
-	min-height: 58px;
-	padding: 4px 8px;
+	gap: 4px;
+	height: 56px;
+	min-height: 56px;
+	padding: 6px 8px;
 	width: 100%;
 }
 
 .mobile-cart-command-bar__summary {
 	display: flex;
 	flex-direction: column;
-	min-width: 104px;
-	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
 }
 
 .mobile-cart-command-bar__label {
-	font-size: 0.7rem;
+	font-size: 0.68rem;
 	text-transform: uppercase;
 	font-weight: 700;
 	color: var(--pos-text-secondary, #64748b);
@@ -732,27 +730,24 @@ defineExpose({
 	font-weight: 800;
 	line-height: 1.2;
 	color: var(--pos-text-primary, #0f172a);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .mobile-cart-command-bar__qty {
-	font-size: 0.72rem;
+	font-size: 0.7rem;
 	color: var(--pos-text-secondary, #64748b);
 	line-height: 1;
+	white-space: nowrap;
 }
 
-.mobile-cart-command-bar__actions {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	flex: 0 0 auto;
-}
-
-.mobile-cart-action-btn {
-	height: 42px !important;
+.cmd-icon-btn {
+	width: 44px !important;
+	height: 44px !important;
 	min-width: 44px !important;
-	padding-inline: 8px !important;
-	font-size: 0.78rem !important;
-	border-radius: 8px !important;
+	border-radius: 10px !important;
+	padding: 0 !important;
 }
 
 .summary-hero {

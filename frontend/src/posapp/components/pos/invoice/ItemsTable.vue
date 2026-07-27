@@ -634,7 +634,7 @@ defineExpose({
 	width: 100%;
 	height: 100%;
 	min-width: 0;
-	min-height: 220px;
+	min-height: 0;
 	overflow-y: auto;
 	transition:
 		width 0.2s ease,
