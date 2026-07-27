@@ -385,7 +385,8 @@ import { useSocketStore } from "../../stores/socketStore";
 import { useEmployeeStore } from "../../stores/employeeStore";
 
 // Composables
-import { usePaymentUiCapabilities } from "../../composables/pos/payments/usePaymentUiCapabilities";
+import { usePosRuntimeCapabilities } from "../../composables/pos/usePosRuntimeCapabilities";
+import { usePosProfileOrchestrator } from "../../composables/pos/usePosProfileOrchestrator";
 import { usePaymentCalculations } from "../../composables/pos/payments/usePaymentCalculations";
 import { usePaymentSubmission } from "../../composables/pos/payments/usePaymentSubmission";
 import { useRedemptionLogic } from "../../composables/pos/payments/useRedemptionLogic";
@@ -554,7 +555,7 @@ const handleReturnSettlementChange = (mode, active) => {
 	}
 };
 
-const capabilities = usePaymentUiCapabilities({
+const capabilities = usePosRuntimeCapabilities({
 	posProfile: pos_profile,
 	posSettings: pos_settings,
 	invoiceDoc: computed(() => invoiceStore.invoiceDoc || {}),
@@ -2296,17 +2297,84 @@ const queueShortcutSubmit = (payload = {}) => {
 	}
 };
 
+const { applyPosProfileChange } = usePosProfileOrchestrator();
+
+const handlePosProfileSwitch = async (newProfile, newStockSettings) => {
+	if (!newProfile) return;
+	await applyPosProfileChange({
+		uiStore,
+		nextProfile: newProfile,
+		nextStockSettings: newStockSettings,
+		onReconcileState: () => {
+			pos_profile.value = newProfile;
+			if (newStockSettings) stock_settings.value = newStockSettings;
+
+			salesPersonsRequestId++;
+			printFormatsRequestId++;
+			customerCreditRequestId++;
+			addressesRequestId++;
+			queuedCreditRequest = null;
+
+			salesPersonsLoaded.value = false;
+			printFormatsLoaded.value = false;
+			customerCreditLoaded.value = false;
+			addressesLoaded.value = false;
+
+			reconcilePaymentRowsForProfile(invoice_doc.value, newProfile);
+
+			if (!capabilities.showCreditSale.value) {
+				is_credit_sale.value = false;
+				credit_due_days.value = 0;
+				new_credit_due_date.value = null;
+			}
+			if (!capabilities.showWriteOff.value) {
+				is_write_off_change.value = false;
+				handleWriteOffAmountUpdate(0);
+			}
+			if (!capabilities.showCustomerCreditRedemption.value && !capabilities.showStoreAsCredit.value) {
+				redeem_customer_credit.value = false;
+				redeemed_customer_credit.value = 0;
+				customer_credit_dict.value = [];
+				if (returnSettlementMode.value === RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT) {
+					returnSettlementMode.value = capabilities.allowCashback.value
+						? RETURN_SETTLEMENT_MODES.CASHBACK
+						: RETURN_SETTLEMENT_MODES.NONE;
+				}
+			}
+			if (!capabilities.showCashback.value && returnSettlementMode.value === RETURN_SETTLEMENT_MODES.CASHBACK) {
+				returnSettlementMode.value = capabilities.allowStoreAsCredit.value
+					? RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT
+					: RETURN_SETTLEMENT_MODES.NONE;
+			}
+			if (!capabilities.showGiftCards.value) {
+				giftCardDialogOpen.value = false;
+				resetGiftCardState({ clearPayment: true });
+			}
+			if (!capabilities.showLoyaltyRedemption.value) {
+				loyalty_amount.value = 0;
+			}
+		},
+		onReloadFeatures: () => {
+			get_mpesa_modes();
+			if (shouldLoadSalesPersons()) void loadSalesPersons();
+			if (shouldLoadPrintFormats()) void loadPrintFormats();
+			if (invoice_doc.value?.customer) {
+				if (shouldLoadAddresses()) void loadAddresses();
+				if (shouldLoadCustomerCredit()) void loadCustomerCredit("preview");
+			}
+		},
+		onRecalculateInvoice: () => {
+			rebalancePreferredPaymentCoverage();
+		},
+	});
+};
+
 // Watchers
 watch(
 	() => uiStore.posProfile,
 	(p) => {
 		if (p) {
-			pos_profile.value = p;
-			stock_settings.value = uiStore.stockSettings || {};
-			reconcilePaymentRowsForProfile(invoice_doc.value, p);
-			get_mpesa_modes();
-			loadPrintFormats({ force: true });
-			resetGiftCardState({ clearPayment: true });
+			void handlePosProfileSwitch(p, uiStore.stockSettings);
 		}
 	},
 	{ immediate: true },
@@ -2636,64 +2704,7 @@ onMounted(() => {
 		});
 
 		eventBus.on("register_pos_profile", (data) => {
-			pos_profile.value = data.pos_profile;
-			stock_settings.value = data.stock_settings;
-
-			salesPersonsRequestId++;
-			printFormatsRequestId++;
-			customerCreditRequestId++;
-			addressesRequestId++;
-			queuedCreditRequest = null;
-
-			salesPersonsLoaded.value = false;
-			printFormatsLoaded.value = false;
-			customerCreditLoaded.value = false;
-			addressesLoaded.value = false;
-
-			if (!capabilities.showCreditSale.value) {
-				is_credit_sale.value = false;
-				credit_due_days.value = 0;
-				new_credit_due_date.value = null;
-			}
-
-			if (!capabilities.showWriteOff.value) {
-				is_write_off_change.value = false;
-				handleWriteOffAmountUpdate(0);
-			}
-
-			if (!capabilities.showCustomerCreditRedemption.value && !capabilities.showStoreAsCredit.value) {
-				redeem_customer_credit.value = false;
-				redeemed_customer_credit.value = 0;
-				customer_credit_dict.value = [];
-				if (returnSettlementMode.value === RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT) {
-					returnSettlementMode.value = capabilities.allowCashback.value
-						? RETURN_SETTLEMENT_MODES.CASHBACK
-						: RETURN_SETTLEMENT_MODES.NONE;
-				}
-			}
-
-			if (!capabilities.showCashback.value && returnSettlementMode.value === RETURN_SETTLEMENT_MODES.CASHBACK) {
-				returnSettlementMode.value = capabilities.allowStoreAsCredit.value
-					? RETURN_SETTLEMENT_MODES.CUSTOMER_CREDIT
-					: RETURN_SETTLEMENT_MODES.NONE;
-			}
-
-			if (!capabilities.showGiftCards.value) {
-				giftCardDialogOpen.value = false;
-				resetGiftCardState({ clearPayment: true });
-			}
-
-			if (!capabilities.showLoyaltyRedemption.value) {
-				loyalty_amount.value = 0;
-			}
-
-			// Trigger data loads for newly-enabled capabilities
-			if (shouldLoadSalesPersons()) void loadSalesPersons();
-			if (shouldLoadPrintFormats()) void loadPrintFormats();
-			if (invoice_doc.value?.customer) {
-				if (shouldLoadAddresses()) void loadAddresses();
-				if (shouldLoadCustomerCredit()) void loadCustomerCredit("preview");
-			}
+			void handlePosProfileSwitch(data?.pos_profile, data?.stock_settings);
 		});
 		eventBus.on("add_the_new_address", (data) => {
 			const normalized = normalizeAddress(data);

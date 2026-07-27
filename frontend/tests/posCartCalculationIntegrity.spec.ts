@@ -1,24 +1,43 @@
 import { describe, expect, it } from "vitest";
+import {
+	rebalancePreferredPaymentLine,
+	resolveReturnDefaultAmount,
+} from "../src/posapp/utils/paymentInitialization";
 
-describe("Cart Calculation Integrity Invariants", () => {
-	it("maintains net total, tax, grand total, paid, and remaining invariants", () => {
-		const qty = 2;
-		const rate = 100;
-		const discountPercentage = 10; // 10%
-		const taxRate = 14; // 14% VAT
+describe("Cart & Payment Calculation Integrity Invariants", () => {
+	it("rebalances cash payment coverage accurately when secondary amounts are freed", () => {
+		const doc = {
+			grand_total: 1000,
+			rounded_total: 1000,
+			payments: [
+				{ mode_of_payment: "Cash", amount: 700, default: 1 },
+				{ mode_of_payment: "M-Pesa", amount: 0, default: 0 },
+			],
+		};
 
-		const gross = qty * rate; // 200
-		const discountAmount = gross * (discountPercentage / 100); // 20
-		const netAmount = gross - discountAmount; // 180
-		const taxAmount = netAmount * (taxRate / 100); // 25.20
-		const grandTotal = netAmount + taxAmount; // 205.20
+		// Secondary amounts freed (Customer Credit = 0, Loyalty = 0, Gift Card = 0)
+		rebalancePreferredPaymentLine(
+			doc,
+			{
+				loyaltyAmount: 0,
+				redeemedCustomerCredit: 0,
+				giftCardAmount: 0,
+			},
+			(p) => p.default === 1 || p.mode_of_payment === "Cash",
+		);
 
-		const paidAmount = 205.20;
-		const remaining = grandTotal - paidAmount;
+		const cashRow = doc.payments.find((p) => p.mode_of_payment === "Cash");
+		expect(cashRow?.amount).toBe(1000);
+	});
 
-		expect(netAmount).toBe(180);
-		expect(taxAmount).toBeCloseTo(25.20, 2);
-		expect(grandTotal).toBeCloseTo(205.20, 2);
-		expect(remaining).toBeCloseTo(0, 2);
+	it("computes negative return default amounts accurately for return invoices", () => {
+		const doc = {
+			is_return: 1,
+			grand_total: -500,
+			rounded_total: -500,
+		};
+
+		const defaultRefund = resolveReturnDefaultAmount(doc);
+		expect(defaultRefund).toBe(-500);
 	});
 });
