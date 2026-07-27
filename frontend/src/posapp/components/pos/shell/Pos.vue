@@ -141,15 +141,6 @@
 				</button>
 				<button
 					type="button"
-					class="mobile-pos-dock__item"
-					:class="{ 'mobile-pos-dock__item--active': activeView === 'offers' }"
-					@click="setSelectorView('offers')"
-				>
-					<v-icon icon="mdi-tag-outline" size="20" />
-					<span>{{ __("Offers") }}</span>
-				</button>
-				<button
-					type="button"
 					class="mobile-pos-dock__item mobile-pos-dock__item--cart"
 					:class="{ 'mobile-pos-dock__item--active': compactPanel === 'invoice' }"
 					@click="showInvoicePanel"
@@ -158,28 +149,9 @@
 					<v-icon icon="mdi-cart-outline" size="22" />
 					<span>{{ __("Cart") }}</span>
 				</button>
-				<button
-					type="button"
-					class="mobile-pos-dock__item"
-					:class="{ 'mobile-pos-dock__item--active': activeView === 'coupons' }"
-					@click="setSelectorView('coupons')"
-				>
-					<v-icon icon="mdi-ticket-percent-outline" size="20" />
-					<span>{{ __("Coupons") }}</span>
-				</button>
-				<button
-					type="button"
-					class="mobile-pos-dock__item mobile-pos-dock__item--pay"
-					:class="{ 'mobile-pos-dock__item--active': activeView === 'payment' }"
-					@click="triggerInvoicePay"
-				>
-					<v-icon icon="mdi-credit-card-outline" size="20" />
-					<span>{{ __("Pay") }}</span>
-				</button>
 			</div>
 		</div>
-	</div>
-</template>
+	</div></template>
 
 <script>
 import ItemsSelector from "../items/ItemsSelector.vue";
@@ -453,29 +425,41 @@ export default {
 				"--bottom-safe-space": `${effectiveBottomSpace}px`,
 			};
 		});
+		const canEditAdditionalDiscount = computed(() => {
+			return allowAdditionalDiscount.value && !discountPercentageOfferName.value;
+		});
+
 		const handleAdditionalDiscountUpdate = (value) => {
+			if (!canEditAdditionalDiscount.value) return;
 			invoiceStore.setAdditionalDiscount(normalizeAdditionalDiscountInput(value));
 		};
 		const handleAdditionalDiscountFocus = () => {
+			if (!canEditAdditionalDiscount.value) return;
 			isEditingAdditionalDiscount.value = true;
 		};
 		const handleAdditionalDiscountBlur = () => {
+			if (!canEditAdditionalDiscount.value) return;
 			isEditingAdditionalDiscount.value = false;
 		};
 		const handleAdditionalDiscountPercentageUpdate = (value) => {
+			if (!canEditAdditionalDiscount.value) return;
 			invoiceStore.setAdditionalDiscountPercentage(value);
 		};
 		const handleAdditionalDiscountPercentageFocus = () => {
+			if (!canEditAdditionalDiscount.value) return;
 			isEditingAdditionalDiscountPercentage.value = true;
 		};
 		const commitAdditionalDiscountPercentage = () => {
+			if (!canEditAdditionalDiscount.value) return;
 			invoicePanel.value?.update_discount_umount?.();
 		};
 		const handleAdditionalDiscountPercentageBlur = () => {
+			if (!canEditAdditionalDiscount.value) return;
 			isEditingAdditionalDiscountPercentage.value = false;
 			commitAdditionalDiscountPercentage();
 		};
 		const focusAdditionalDiscountField = () => {
+			if (!canEditAdditionalDiscount.value) return;
 			const field = additionalDiscountField.value;
 			field?.focus?.();
 			field?.$el?.querySelector?.("input")?.focus?.();

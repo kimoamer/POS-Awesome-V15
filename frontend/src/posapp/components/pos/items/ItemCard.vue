@@ -1,12 +1,12 @@
 <template>
-	<div
+	<article
 		:class="['card-item-card', { 'item-highlighted': isItemHighlighted }]"
 		data-pos-keyboard-target="item-card"
 		tabindex="0"
-		role="button"
 		:aria-label="`${item.item_name || item.item_code}`"
 		@click="onClick"
-		@keydown="onKeyboardSelect"
+		@keydown.enter="onClick"
+		@keydown.space.prevent="onClick"
 		:draggable="true"
 		@dragstart="onDragStart"
 		@dragend="onDragEnd"
@@ -95,7 +95,7 @@
 				</div>
 			</div>
 		</div>
-	</div>
+	</article>
 </template>
 
 <script setup>
@@ -311,13 +311,7 @@ const onDragEnd = (event) => {
 	block-size: 100%;
 	overflow: hidden;
 	border-radius: var(--pos-radius-sm, 10px);
-	background:
-		radial-gradient(
-			circle at center,
-			color-mix(in srgb, var(--pos-primary-container) 34%, transparent),
-			transparent 54%
-		),
-		color-mix(in srgb, var(--pos-surface-muted) 62%, var(--pos-surface-raised));
+	background: color-mix(in srgb, var(--pos-surface-muted) 85%, var(--pos-surface-raised));
 }
 
 .card-item-image {
@@ -432,11 +426,11 @@ const onDragEnd = (event) => {
 }
 
 .item-card-add {
-	flex: 0 0 44px;
-	inline-size: 44px !important;
-	min-inline-size: 44px !important;
-	block-size: 44px !important;
-	padding: 4px !important;
+	flex: 0 0 40px;
+	inline-size: 40px !important;
+	min-inline-size: 40px !important;
+	block-size: 40px !important;
+	padding: 2px !important;
 	border: 0 !important;
 	border-radius: var(--pos-radius-sm, 10px) !important;
 	background: transparent !important;
@@ -444,9 +438,27 @@ const onDragEnd = (event) => {
 	box-shadow: none !important;
 }
 
+@media (min-width: 600px) and (max-width: 1199px) {
+	.item-card-add {
+		flex: 0 0 42px;
+		inline-size: 42px !important;
+		min-inline-size: 42px !important;
+		block-size: 42px !important;
+	}
+}
+
+@media (max-width: 599px) {
+	.item-card-add {
+		flex: 0 0 44px;
+		inline-size: 44px !important;
+		min-inline-size: 44px !important;
+		block-size: 44px !important;
+	}
+}
+
 .item-card-add :deep(.v-btn__content) {
-	inline-size: 34px;
-	block-size: 34px;
+	inline-size: 100%;
+	block-size: 100%;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
