@@ -83,14 +83,14 @@
 				<Invoice ref="invoicePanel"></Invoice>
 			</section>
 		</div>
-		<div v-if="showBottomDock" ref="mobileDock" class="mobile-pos-stack">
+		<div v-if="showBottomDock" ref="mobileDock" class="mobile-pos-stack" role="contentinfo">
 			<div class="mobile-sale-dock">
 				<div class="mobile-sale-dock__copy">
 					<span class="mobile-sale-dock__eyebrow">{{ __("Active sale") }}</span>
-					<strong class="mobile-sale-dock__amount">{{ formattedCartTotal }}</strong>
+					<strong class="mobile-sale-dock__amount"><bdi>{{ formattedCartTotal }}</bdi></strong>
 					<div class="mobile-sale-dock__meta">
 						<span>{{ cartMetaLabel }}</span>
-						<span>{{ formattedDiscountTotal }}</span>
+						<span v-if="formattedDiscountTotal"><bdi>{{ formattedDiscountTotal }}</bdi></span>
 					</div>
 				</div>
 				<div class="mobile-sale-dock__field">
@@ -135,54 +135,64 @@
 					/>
 				</div>
 			</div>
-			<div class="mobile-pos-dock">
+			<nav class="mobile-pos-dock" aria-label="POS actions">
 				<button
 					type="button"
 					class="mobile-pos-dock__item"
 					:class="{ 'mobile-pos-dock__item--active': isSelectorViewActive('items') }"
+					:aria-current="isSelectorViewActive('items') ? 'page' : undefined"
+					:aria-label="__('Browse')"
 					@click="setSelectorView('items')"
 				>
 					<v-icon icon="mdi-magnify" size="20" />
-					<span>{{ __("Browse") }}</span>
+					<span class="mobile-pos-dock__label">{{ __("Browse") }}</span>
 				</button>
 				<button
 					type="button"
 					class="mobile-pos-dock__item"
 					:class="{ 'mobile-pos-dock__item--active': activeView === 'offers' }"
+					:aria-current="activeView === 'offers' ? 'page' : undefined"
+					:aria-label="__('Offers')"
 					@click="setSelectorView('offers')"
 				>
 					<v-icon icon="mdi-tag-outline" size="20" />
-					<span>{{ __("Offers") }}</span>
+					<span class="mobile-pos-dock__label">{{ __("Offers") }}</span>
 				</button>
 				<button
 					type="button"
 					class="mobile-pos-dock__item mobile-pos-dock__item--cart"
 					:class="{ 'mobile-pos-dock__item--active': compactPanel === 'invoice' }"
+					:aria-current="compactPanel === 'invoice' ? 'page' : undefined"
+					:aria-label="`Cart, ${itemsCount} items`"
 					@click="showInvoicePanel"
 				>
-					<span class="mobile-pos-dock__pill">{{ itemsCount }}</span>
+					<span class="mobile-pos-dock__pill" aria-hidden="true">{{ itemsCount > 99 ? '99+' : itemsCount }}</span>
 					<v-icon icon="mdi-cart-outline" size="22" />
-					<span>{{ __("Cart") }}</span>
+					<span class="mobile-pos-dock__label">{{ __("Cart") }}</span>
 				</button>
 				<button
 					type="button"
 					class="mobile-pos-dock__item"
 					:class="{ 'mobile-pos-dock__item--active': activeView === 'coupons' }"
+					:aria-current="activeView === 'coupons' ? 'page' : undefined"
+					:aria-label="__('Coupons')"
 					@click="setSelectorView('coupons')"
 				>
 					<v-icon icon="mdi-ticket-percent-outline" size="20" />
-					<span>{{ __("Coupons") }}</span>
+					<span class="mobile-pos-dock__label">{{ __("Coupons") }}</span>
 				</button>
 				<button
 					type="button"
 					class="mobile-pos-dock__item mobile-pos-dock__item--pay"
 					:class="{ 'mobile-pos-dock__item--active': activeView === 'payment' }"
+					:aria-current="activeView === 'payment' ? 'page' : undefined"
+					:aria-label="__('Pay')"
 					@click="triggerInvoicePay"
 				>
 					<v-icon icon="mdi-credit-card-outline" size="20" />
-					<span>{{ __("Pay") }}</span>
+					<span class="mobile-pos-dock__label">{{ __("Pay") }}</span>
 				</button>
-			</div>
+			</nav>
 		</div>
 	</div>
 </template>
@@ -938,96 +948,96 @@ export default {
 
 .mobile-pos-stack {
 	position: fixed;
-	left: max(10px, env(safe-area-inset-left));
-	right: max(10px, env(safe-area-inset-right));
-	bottom: max(10px, env(safe-area-inset-bottom));
+	left: max(8px, env(safe-area-inset-left));
+	right: max(8px, env(safe-area-inset-right));
+	bottom: max(8px, env(safe-area-inset-bottom));
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: 4px;
+	padding: 6px 8px;
+	border-radius: 16px;
+	background: color-mix(in srgb, var(--pos-card-bg, #ffffff) 96%, transparent);
+	backdrop-filter: blur(12px);
+	border: 1px solid var(--pos-border-light, #e2e8f0);
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 	z-index: 20;
-}
-
-.mobile-sale-dock,
-.mobile-pos-dock {
-	padding: 10px;
-	border-radius: 24px;
-	background: color-mix(in srgb, var(--pos-card-bg) 88%, transparent);
-	backdrop-filter: blur(18px);
-	box-shadow: 0 18px 38px var(--pos-shadow);
-	border: 1px solid var(--pos-border);
 }
 
 .mobile-sale-dock {
 	display: grid;
-	grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr);
-	gap: 12px;
+	grid-template-columns: minmax(0, 1fr) minmax(132px, 42%);
+	gap: 8px;
 	align-items: center;
+	padding: 4px 6px;
 }
 
 .mobile-sale-dock__copy {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 2px;
 	min-width: 0;
 }
 
 .mobile-sale-dock__eyebrow {
-	font-size: 0.72rem;
-	font-weight: 700;
-	letter-spacing: 0.08em;
-	text-transform: uppercase;
+	font-size: 0.68rem;
+	font-weight: 600;
 	color: var(--pos-text-secondary);
 }
 
 .mobile-sale-dock__amount {
-	font-size: clamp(1.05rem, 2vw, 1.5rem);
-	line-height: 1.1;
+	font-size: clamp(1rem, 2vw, 1.25rem);
+	line-height: 1.15;
 	color: var(--pos-text-primary);
 }
 
 .mobile-sale-dock__meta {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 6px 12px;
-	font-size: 0.82rem;
+	gap: 4px 8px;
+	font-size: 0.72rem;
 	color: var(--pos-text-secondary);
 }
 
 .mobile-sale-dock__field :deep(.v-field) {
 	background: rgba(var(--v-theme-surface), 0.92);
+	border-radius: 10px;
+}
+
+.mobile-sale-dock__field :deep(.v-field--disabled) {
+	opacity: 0.75;
+	background: var(--pos-surface-muted, #f8fafc) !important;
 }
 
 .mobile-pos-dock {
 	display: grid;
 	grid-template-columns: repeat(5, minmax(0, 1fr));
-	gap: 8px;
+	gap: 4px;
+	align-items: center;
 }
 
 .mobile-pos-dock__item {
 	position: relative;
 	border: 0;
-	border-radius: 18px;
+	border-radius: 10px;
 	background: transparent;
 	min-width: 0;
-	min-height: 58px;
-	padding: 8px 4px;
+	min-height: 44px;
+	height: 48px;
+	padding: 4px 2px;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: 4px;
+	gap: 2px;
 	font: inherit;
-	font-size: 0.72rem;
-	font-weight: 700;
+	font-size: 0.68rem;
+	font-weight: 600;
 	color: var(--pos-text-secondary);
 	cursor: pointer;
-	transition:
-		background-color 0.18s ease,
-		color 0.18s ease,
-		transform 0.18s ease;
+	transition: background-color 0.16s ease, color 0.16s ease;
 }
 
-.mobile-pos-dock__item span {
+.mobile-pos-dock__label {
 	display: block;
 	width: 100%;
 	min-width: 0;
@@ -1038,55 +1048,42 @@ export default {
 }
 
 .mobile-pos-dock__item--active {
-	background: rgba(var(--v-theme-primary), 0.12);
-	color: rgb(var(--v-theme-primary));
+	background: color-mix(in srgb, var(--pos-primary, #2563eb) 12%, transparent);
+	color: var(--pos-primary, #2563eb);
 }
 
 .mobile-pos-dock__item--pay.mobile-pos-dock__item--active {
-	background: rgba(var(--v-theme-success), 0.16);
-	color: rgb(var(--v-theme-success));
+	background: color-mix(in srgb, var(--pos-success, #16a34a) 16%, transparent);
+	color: var(--pos-success, #16a34a);
 }
 
-:deep(.v-theme--dark) .mobile-sale-dock,
-:deep(.v-theme--dark) .mobile-pos-dock,
-:deep([data-theme="dark"]) .mobile-sale-dock,
-:deep([data-theme="dark"]) .mobile-pos-dock,
-:deep([data-theme-mode="dark"]) .mobile-sale-dock,
-:deep([data-theme-mode="dark"]) .mobile-pos-dock {
-	background: color-mix(in srgb, var(--pos-card-bg) 94%, transparent);
-	box-shadow: 0 18px 40px rgba(0, 0, 0, 0.42);
+:deep(.v-theme--dark) .mobile-pos-stack,
+:deep([data-theme="dark"]) .mobile-pos-stack,
+:deep([data-theme-mode="dark"]) .mobile-pos-stack {
+	background: color-mix(in srgb, var(--pos-card-bg, #1e293b) 96%, transparent);
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
 	border-color: rgba(255, 255, 255, 0.08);
-}
-
-:deep(.v-theme--dark) .mobile-pos-dock__item--active,
-:deep([data-theme="dark"]) .mobile-pos-dock__item--active,
-:deep([data-theme-mode="dark"]) .mobile-pos-dock__item--active {
-	background: rgba(var(--v-theme-primary), 0.2);
-}
-
-:deep(.v-theme--dark) .mobile-pos-dock__item--pay.mobile-pos-dock__item--active,
-:deep([data-theme="dark"]) .mobile-pos-dock__item--pay.mobile-pos-dock__item--active,
-:deep([data-theme-mode="dark"]) .mobile-pos-dock__item--pay.mobile-pos-dock__item--active {
-	background: rgba(var(--v-theme-success), 0.22);
-}
-
-.mobile-pos-dock__item:active {
-	transform: scale(0.98);
 }
 
 .mobile-pos-dock__pill {
 	position: absolute;
-	top: 4px;
-	right: 10px;
+	top: 3px;
+	inset-inline-end: 8px;
+	width: auto;
 	min-width: 18px;
+	max-width: 32px;
 	height: 18px;
 	padding: 0 5px;
 	border-radius: 999px;
-	background: rgb(var(--v-theme-primary));
-	color: #fff;
-	font-size: 0.68rem;
+	background: var(--pos-primary, #2563eb);
+	color: #ffffff;
+	font-size: 0.65rem;
+	font-weight: 700;
 	line-height: 18px;
 	text-align: center;
+	white-space: nowrap;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+	z-index: 2;
 }
 
 @media (max-width: 1199px) {
@@ -1123,22 +1120,49 @@ export default {
 	}
 }
 
-@media (max-width: 560px) {
+/* Tablet Landscape (900px to 1199px) — Single Horizontal Row */
+@media (min-width: 900px) and (max-width: 1199px) {
+	.mobile-pos-stack {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		height: 68px;
+		padding: 6px 14px;
+		gap: 16px;
+	}
+
 	.mobile-sale-dock {
-		grid-template-columns: 1fr;
-	}
-
-	.mobile-sale-dock,
-	.mobile-pos-dock {
-		padding: 8px;
+		grid-template-columns: minmax(200px, 1fr) minmax(180px, 240px);
+		gap: 12px;
+		flex: 1 1 auto;
+		padding: 0;
 	}
 
 	.mobile-pos-dock {
+		flex: 0 0 auto;
+		width: 440px;
 		gap: 6px;
 	}
 
 	.mobile-pos-dock__item {
-		min-height: 52px;
+		height: 44px;
+	}
+}
+
+/* Phone Layout (< 600px) */
+@media (max-width: 599px) {
+	.mobile-pos-stack {
+		padding: 6px;
+		gap: 4px;
+	}
+
+	.mobile-sale-dock {
+		grid-template-columns: minmax(0, 1fr) minmax(130px, 42%);
+		gap: 6px;
+	}
+
+	.mobile-pos-dock__item {
+		height: 46px;
 		font-size: 0.65rem;
 	}
 }
