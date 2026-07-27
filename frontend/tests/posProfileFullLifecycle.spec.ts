@@ -29,7 +29,7 @@ describe("POS Profile Full Lifecycle Runtime", () => {
 		const invoiceDoc = ref({ customer: "CUST-001", is_return: false });
 		const caps = usePosRuntimeCapabilities({ posProfile: fullProfile, invoiceDoc });
 
-		expect(caps.products.allowSearch.value).toBe(true);
+		expect(caps.products.allowItemGroups.value).toBe(true);
 		expect(caps.products.allowRateChange.value).toBe(true);
 		expect(caps.cart.allowOrderDiscount.value).toBe(true);
 		expect(caps.cart.allowCoupon.value).toBe(true);

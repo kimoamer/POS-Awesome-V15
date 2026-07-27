@@ -2041,6 +2041,7 @@ const submit = async (_event, payment_received = false, print = false) => {
 };
 
 const assertPaymentFeatureInvariants = () => {
+	let requiresRebalance = false;
 	if (!capabilities.showCreditSale.value) {
 		is_credit_sale.value = false;
 	}
@@ -2050,13 +2051,10 @@ const assertPaymentFeatureInvariants = () => {
 	}
 	if (!capabilities.showCustomerCreditRedemption.value) {
 		if (redeem_customer_credit.value || redeemed_customer_credit.value > 0) {
-			const freedCredit = redeemed_customer_credit.value;
 			redeem_customer_credit.value = false;
 			redeemed_customer_credit.value = 0;
 			customer_credit_dict.value = [];
-			if (freedCredit > 0) {
-				rebalancePreferredPaymentCoverage(freedCredit);
-			}
+			requiresRebalance = true;
 		}
 	}
 	if (!capabilities.showStoreAsCredit.value) {
@@ -2068,25 +2066,22 @@ const assertPaymentFeatureInvariants = () => {
 	}
 	if (!capabilities.showGiftCards.value) {
 		if (giftCardRedemptions.value.length > 0) {
-			const freedGift = giftCardAppliedAmount.value;
 			resetGiftCardState({ clearPayment: true });
-			if (freedGift > 0) {
-				rebalancePreferredPaymentCoverage(freedGift);
-			}
+			requiresRebalance = true;
 		}
 	}
 	if (!capabilities.showLoyaltyRedemption.value) {
 		if (loyalty_amount.value > 0) {
-			const freedLoyalty = loyalty_amount.value;
 			loyalty_amount.value = 0;
 			if (invoice_doc.value) {
 				invoice_doc.value.loyalty_amount = 0;
 				invoice_doc.value.redeem_loyalty_points = 0;
 			}
-			if (freedLoyalty > 0) {
-				rebalancePreferredPaymentCoverage(freedLoyalty);
-			}
+			requiresRebalance = true;
 		}
+	}
+	if (requiresRebalance) {
+		rebalancePreferredPaymentCoverage();
 	}
 	if (invoice_doc.value?.is_return && returnSettlementConfigurationError.value) {
 		throw new Error(returnSettlementConfigurationError.value);
@@ -2111,10 +2106,12 @@ const reconcilePaymentRowsForProfile = (doc, newProfile) => {
 
 	// If removed payment rows controlled an open dialog, close it
 	if (removedPayments.some((p) => p.is_mpesa_c2b || String(p.mode_of_payment || "").toLowerCase().includes("mpesa"))) {
-		if (mpesa_c2b_dialog) mpesa_c2b_dialog.value = false;
+		if (eventBus && typeof eventBus.emit === "function") {
+			eventBus.emit("close_mpesa_payments");
+		}
 	}
 	if (removedPayments.some((p) => p.request_for_payment || String(p.mode_of_payment || "").toLowerCase().includes("phone"))) {
-		if (phone_dialog) phone_dialog.value = false;
+		phone_dialog.value = false;
 	}
 	if (removedPayments.some((p) => isGiftCardConfiguredRow(p))) {
 		resetGiftCardState({ clearPayment: true });

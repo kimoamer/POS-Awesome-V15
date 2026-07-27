@@ -16,7 +16,7 @@
 			<v-list density="compact" class="payment-more-menu-list">
 				<v-list-item
 					link
-					:disabled="loading || validatePayment"
+					:disabled="loading || validatePayment || !!configurationError"
 					@click="$emit('submit-and-print')"
 				>
 					<template v-slot:prepend>

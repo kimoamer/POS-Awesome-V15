@@ -255,10 +255,12 @@ onMounted(() => {
 		isLoading.value = false;
 		isSubmitting.value = false;
 	});
+	eventBus?.on("close_mpesa_payments", close_dialog);
 });
 
 onBeforeUnmount(() => {
 	eventBus?.off("open_mpesa_payments");
+	eventBus?.off("close_mpesa_payments");
 });
 </script>
 

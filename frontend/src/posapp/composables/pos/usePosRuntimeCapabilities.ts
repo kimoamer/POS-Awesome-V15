@@ -28,17 +28,14 @@ export function usePosRuntimeCapabilities(params: PosRuntimeCapabilitiesParams) 
 
 	const isReturn = computed(() => Boolean(invoiceDoc.value?.is_return));
 
-	// ── Products & Browsing ──
+	// ── Products & Browsing (Verified POS Profile fields) ──
 	const products = {
-		allowSearch: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_product_search ?? true)),
-		allowBarcode: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_barcode_search ?? true)),
-		allowStockDisplay: computed(() => parseBooleanSetting(posProfile.value?.posa_display_items_in_stock ?? true)),
+		allowItemGroups: computed(() => parseBooleanSetting(posProfile.value?.posa_use_item_groups)),
+		allowStockDisplay: computed(() => parseBooleanSetting(posProfile.value?.posa_display_items_in_stock)),
 		allowWarehouseSelection: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_user_to_edit_warehouse)),
 		allowRateChange: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_user_to_edit_rate) && !isReturn.value),
 		allowDiscount: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_user_to_edit_discount) && !isReturn.value),
-		allowBatch: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_batch ?? true)),
-		allowSerial: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_serial ?? true)),
-		allowAlternateUom: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_change_uom ?? true)),
+		allowAlternateUom: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_change_uom)),
 	};
 
 	// ── Cart & Discounts ──
@@ -49,14 +46,11 @@ export function usePosRuntimeCapabilities(params: PosRuntimeCapabilitiesParams) 
 		allowOrderDiscount: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_discount_on_grand_total) && !isReturn.value),
 		allowCoupon: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_coupon_code) && !isReturn.value),
 		allowClearCart: computed(() => true),
-		allowHold: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_hold_invoice ?? true)),
 	};
 
 	// ── Customer & Credit ──
 	const customer = {
 		allowSelection: computed(() => true),
-		allowCreate: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_customer_creation ?? true)),
-		allowEdit: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_customer_edit ?? true)),
 		allowCredit: computed(() => {
 			const enabled = parseBooleanSetting(
 				posProfile.value?.use_customer_credit ?? posProfile.value?.posa_use_customer_credit,
@@ -155,9 +149,6 @@ export function usePosRuntimeCapabilities(params: PosRuntimeCapabilitiesParams) 
 	const actions = {
 		allowSubmit: computed(() => Boolean(invoiceDoc.value)),
 		allowSubmitAndPrint: computed(() => Boolean(invoiceDoc.value)),
-		allowReturn: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_return_invoice ?? true)),
-		allowHold: cart.allowHold,
-		allowDelete: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_delete_invoice ?? true)),
 		isSupervisor: computed(() => parseBooleanSetting(currentCashier?.value?.is_supervisor)),
 	};
 

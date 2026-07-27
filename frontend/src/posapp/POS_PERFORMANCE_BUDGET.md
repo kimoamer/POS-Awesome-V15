@@ -8,14 +8,14 @@ Authoritative performance baseline, latency limits, memory targets, and optimiza
 
 | Operation | Budget Limit (Target) | Measured Baseline | Optimization Technique | Verification Metric |
 | --- | --- | --- | --- | --- |
-| **Initial POS App Render** | `< 450 ms` | `320 ms` | Lazy component loading, pre-compiled templates | First Contentful Paint |
-| **Product Search Response** | `< 120 ms` | `45 ms` | 300ms debounced input, local IndexedDB index | Debounce & IndexedDB query |
-| **Barcode-to-Cart Addition** | `< 50 ms` | `18 ms` | Synchronous barcode hash lookup, batch reactivity | Event-to-DOM update |
-| **Cart Recalculation** | `< 25 ms` | `8 ms` | Pure numeric recalculations, single-pass totals | `watchEffect` execution time |
-| **Payment Screen Open** | `< 100 ms` | `35 ms` | Pre-computed capability matrix, memoized DOM | Dialog mount duration |
-| **Profile Switch Transaction** | `< 150 ms` | `60 ms` | Batch ref updates, request cancellation abort | `applyPosProfileChange` duration |
-| **Dialog Open Latency** | `< 60 ms` | `22 ms` | CSS transition hardware acceleration | Dialog animation frame |
-| **Offline Cache Lookup** | `< 15 ms` | `4 ms` | IndexedDB key-value index, in-memory LRU cache | Query promise resolution |
+| **Initial POS App Render** | `< 450 ms` | Not measured | Lazy component loading, pre-compiled templates | First Contentful Paint |
+| **Product Search Response** | `< 120 ms` | Not measured | 300ms debounced input, local IndexedDB index | Debounce & IndexedDB query |
+| **Barcode-to-Cart Addition** | `< 50 ms` | Not measured | Synchronous barcode hash lookup, batch reactivity | Event-to-DOM update |
+| **Cart Recalculation** | `< 25 ms` | Not measured | Pure numeric recalculations, single-pass totals | `watchEffect` execution time |
+| **Payment Screen Open** | `< 100 ms` | Not measured | Pre-computed capability matrix, memoized DOM | Dialog mount duration |
+| **Profile Switch Transaction** | `< 150 ms` | Not measured | Batch ref updates, request cancellation abort | `applyPosProfileChange` duration |
+| **Dialog Open Latency** | `< 60 ms` | Not measured | CSS transition hardware acceleration | Dialog animation frame |
+| **Offline Cache Lookup** | `< 15 ms` | Not measured | IndexedDB key-value index, in-memory LRU cache | Query promise resolution |
 
 ---
 
