@@ -70,13 +70,13 @@ describe("PosOffers Component Integration", () => {
 		const applyBtn = wrapper.find(".pos-offer-action-btn");
 		expect(applyBtn.exists()).toBe(true);
 		await applyBtn.trigger("click");
-		expect(wrapper.vm.pos_offers[0].offer_applied).toBe(true);
+		expect(wrapper.vm.pos_offers[0]?.offer_applied).toBe(true);
 
 		// 2. Remove offer changes component state
 		const removeBtn = wrapper.find(".pos-offer-action-btn");
 		expect(removeBtn.text()).toContain("Remove");
 		await removeBtn.trigger("click");
-		expect(wrapper.vm.pos_offers[0].offer_applied).toBe(false);
+		expect(wrapper.vm.pos_offers[0]?.offer_applied).toBe(false);
 
 		// 3. Give Item selector renders
 		expect(wrapper.find(".pos-offer-give-item").exists()).toBe(true);
