@@ -139,57 +139,65 @@
 				<button
 					type="button"
 					class="mobile-pos-dock__item"
-					:class="{ 'mobile-pos-dock__item--active': isSelectorViewActive('items') }"
-					:aria-current="isSelectorViewActive('items') ? 'page' : undefined"
+					:class="{ 'mobile-pos-dock__item--active': activeDockAction === 'browse' }"
+					:aria-current="activeDockAction === 'browse' ? 'page' : undefined"
 					:aria-label="__('Browse')"
 					@click="setSelectorView('items')"
 				>
-					<v-icon icon="mdi-magnify" size="20" />
+					<div class="mobile-pos-dock__icon-wrap">
+						<v-icon icon="mdi-magnify" size="20" />
+					</div>
 					<span class="mobile-pos-dock__label">{{ __("Browse") }}</span>
 				</button>
 				<button
 					type="button"
 					class="mobile-pos-dock__item"
-					:class="{ 'mobile-pos-dock__item--active': activeView === 'offers' }"
-					:aria-current="activeView === 'offers' ? 'page' : undefined"
+					:class="{ 'mobile-pos-dock__item--active': activeDockAction === 'offers' }"
+					:aria-current="activeDockAction === 'offers' ? 'page' : undefined"
 					:aria-label="__('Offers')"
 					@click="setSelectorView('offers')"
 				>
-					<v-icon icon="mdi-tag-outline" size="20" />
+					<div class="mobile-pos-dock__icon-wrap">
+						<v-icon icon="mdi-tag-outline" size="20" />
+					</div>
 					<span class="mobile-pos-dock__label">{{ __("Offers") }}</span>
 				</button>
 				<button
 					type="button"
 					class="mobile-pos-dock__item mobile-pos-dock__item--cart"
-					:class="{ 'mobile-pos-dock__item--active': compactPanel === 'invoice' }"
-					:aria-current="compactPanel === 'invoice' ? 'page' : undefined"
+					:class="{ 'mobile-pos-dock__item--active': activeDockAction === 'cart' }"
+					:aria-current="activeDockAction === 'cart' ? 'page' : undefined"
 					:aria-label="`Cart, ${itemsCount} items`"
 					@click="showInvoicePanel"
 				>
-					<span class="mobile-pos-dock__pill" aria-hidden="true">{{ itemsCount > 99 ? '99+' : itemsCount }}</span>
-					<v-icon icon="mdi-cart-outline" size="22" />
+					<div class="mobile-pos-dock__icon-wrap mobile-pos-dock__icon-wrap--cart">
+						<span class="mobile-pos-dock__pill" aria-hidden="true">{{ itemsCount > 99 ? '99+' : itemsCount }}</span>
+						<v-icon icon="mdi-cart-outline" size="22" />
+					</div>
 					<span class="mobile-pos-dock__label">{{ __("Cart") }}</span>
 				</button>
 				<button
 					type="button"
 					class="mobile-pos-dock__item"
-					:class="{ 'mobile-pos-dock__item--active': activeView === 'coupons' }"
-					:aria-current="activeView === 'coupons' ? 'page' : undefined"
+					:class="{ 'mobile-pos-dock__item--active': activeDockAction === 'coupons' }"
+					:aria-current="activeDockAction === 'coupons' ? 'page' : undefined"
 					:aria-label="__('Coupons')"
 					@click="setSelectorView('coupons')"
 				>
-					<v-icon icon="mdi-ticket-percent-outline" size="20" />
+					<div class="mobile-pos-dock__icon-wrap">
+						<v-icon icon="mdi-ticket-percent-outline" size="20" />
+					</div>
 					<span class="mobile-pos-dock__label">{{ __("Coupons") }}</span>
 				</button>
 				<button
 					type="button"
-					class="mobile-pos-dock__item mobile-pos-dock__item--pay"
-					:class="{ 'mobile-pos-dock__item--active': activeView === 'payment' }"
-					:aria-current="activeView === 'payment' ? 'page' : undefined"
+					class="mobile-pos-dock__item mobile-pos-dock__item--pay mobile-pos-dock__item--cta"
 					:aria-label="__('Pay')"
 					@click="triggerInvoicePay"
 				>
-					<v-icon icon="mdi-credit-card-outline" size="20" />
+					<div class="mobile-pos-dock__icon-wrap mobile-pos-dock__icon-wrap--cta">
+						<v-icon icon="mdi-credit-card-outline" size="20" />
+					</div>
 					<span class="mobile-pos-dock__label">{{ __("Pay") }}</span>
 				</button>
 			</nav>
@@ -259,6 +267,18 @@ export default {
 		});
 		const useCompactPosSwitcher = computed(() => responsive.windowWidth.value < 1200);
 		const compactPanel = ref("selector");
+		const activeDockAction = computed(() => {
+			if (compactPanel.value === "invoice") {
+				return "cart";
+			}
+			if (
+				compactPanel.value === "selector" &&
+				["items", "offers", "coupons"].includes(activeView.value)
+			) {
+				return activeView.value === "items" ? "browse" : activeView.value;
+			}
+			return null;
+		});
 		const isPhone = computed(() => responsive.isPhone.value);
 		const showBottomDock = computed(
 			() => !dialog.value && responsive.windowWidth.value < 1200 && activeView.value !== "payment",
@@ -614,6 +634,7 @@ export default {
 			showBottomDock,
 			layoutStyleOverrides,
 			compactPanel,
+			activeDockAction,
 			mobileDock,
 			setCompactPanel,
 			setSelectorView,
@@ -1013,6 +1034,7 @@ export default {
 	grid-template-columns: repeat(5, minmax(0, 1fr));
 	gap: 4px;
 	align-items: center;
+	width: 100%;
 }
 
 .mobile-pos-dock__item {
@@ -1022,8 +1044,8 @@ export default {
 	background: transparent;
 	min-width: 0;
 	min-height: 44px;
-	height: 48px;
-	padding: 4px 2px;
+	height: 52px;
+	padding: 2px;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -1037,6 +1059,40 @@ export default {
 	transition: background-color 0.16s ease, color 0.16s ease;
 }
 
+.mobile-pos-dock__icon-wrap {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 28px;
+	border-radius: 8px;
+	transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.mobile-pos-dock__icon-wrap--cart {
+	position: relative;
+	width: 36px;
+	height: 30px;
+}
+
+.mobile-pos-dock__item--active {
+	color: var(--pos-primary, #2563eb);
+}
+
+.mobile-pos-dock__item--active .mobile-pos-dock__icon-wrap {
+	background: color-mix(in srgb, var(--pos-primary, #2563eb) 14%, transparent);
+	color: var(--pos-primary, #2563eb);
+}
+
+.mobile-pos-dock__item--cta {
+	color: var(--pos-primary, #2563eb);
+}
+
+.mobile-pos-dock__item--cta .mobile-pos-dock__icon-wrap {
+	background: color-mix(in srgb, var(--pos-primary, #2563eb) 88%, #000);
+	color: #ffffff;
+}
+
 .mobile-pos-dock__label {
 	display: block;
 	width: 100%;
@@ -1045,16 +1101,6 @@ export default {
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	text-align: center;
-}
-
-.mobile-pos-dock__item--active {
-	background: color-mix(in srgb, var(--pos-primary, #2563eb) 12%, transparent);
-	color: var(--pos-primary, #2563eb);
-}
-
-.mobile-pos-dock__item--pay.mobile-pos-dock__item--active {
-	background: color-mix(in srgb, var(--pos-success, #16a34a) 16%, transparent);
-	color: var(--pos-success, #16a34a);
 }
 
 :deep(.v-theme--dark) .mobile-pos-stack,
@@ -1067,13 +1113,13 @@ export default {
 
 .mobile-pos-dock__pill {
 	position: absolute;
-	top: 3px;
-	inset-inline-end: 8px;
+	top: -3px;
+	inset-inline-end: -4px;
 	width: auto;
 	min-width: 18px;
 	max-width: 32px;
 	height: 18px;
-	padding: 0 5px;
+	padding: 0 4px;
 	border-radius: 999px;
 	background: var(--pos-primary, #2563eb);
 	color: #ffffff;
@@ -1120,8 +1166,8 @@ export default {
 	}
 }
 
-/* Tablet Landscape (900px to 1199px) — Single Horizontal Row */
-@media (min-width: 900px) and (max-width: 1199px) {
+/* Wide Tablet Landscape (1100px to 1199px) — Single Horizontal Row */
+@media (min-width: 1100px) and (max-width: 1199px) {
 	.mobile-pos-stack {
 		flex-direction: row;
 		align-items: center;
@@ -1145,7 +1191,25 @@ export default {
 	}
 
 	.mobile-pos-dock__item {
-		height: 44px;
+		height: 48px;
+	}
+}
+
+/* Compact Tablet Landscape (900px to 1099px) — Two Compact Rows */
+@media (min-width: 900px) and (max-width: 1099px) {
+	.mobile-pos-stack {
+		flex-direction: column;
+		padding: 8px 12px;
+		gap: 6px;
+	}
+
+	.mobile-sale-dock {
+		grid-template-columns: minmax(0, 1fr) minmax(180px, 260px);
+		gap: 12px;
+	}
+
+	.mobile-pos-dock {
+		width: 100%;
 	}
 }
 
@@ -1162,7 +1226,7 @@ export default {
 	}
 
 	.mobile-pos-dock__item {
-		height: 46px;
+		height: 48px;
 		font-size: 0.65rem;
 	}
 }
