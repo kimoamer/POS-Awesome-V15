@@ -1,10 +1,12 @@
-export function parseBooleanSetting(val: any): boolean {
-	if (val === undefined || val === null) return false;
+export function parseBooleanSetting(val: any, defaultValue: boolean = true): boolean {
+	if (val === undefined || val === null) return defaultValue;
 	if (typeof val === "boolean") return val;
 	if (typeof val === "number") return val !== 0;
 	if (typeof val === "string") {
 		const clean = val.trim().toLowerCase();
-		return clean !== "0" && clean !== "false" && clean !== "";
+		if (clean === "0" || clean === "false" || clean === "off" || clean === "no" || clean === "") return false;
+		if (clean === "1" || clean === "true" || clean === "on" || clean === "yes") return true;
+		return defaultValue;
 	}
 	return Boolean(val);
 }

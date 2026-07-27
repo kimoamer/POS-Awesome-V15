@@ -18,57 +18,25 @@
 			</v-alert>
 
 			<!-- Compact Mode Layout for Mobile/Tablet (< 1200px) -->
-			<div v-if="useCompactSaleDock" class="compact-checkout">
-				<div class="compact-checkout__row d-flex align-center gap-2 mb-1">
-					<div class="compact-checkout__totals d-flex align-center gap-1 min-width-0">
-						<span class="text-caption text-medium-emphasis">{{ __("Total") }}:</span>
-						<strong class="text-subtitle-1 font-weight-bold text-high-emphasis">
-							<bdi>{{ formatMoney(subtotal, formatCurrency || ((v) => String(v)), currencySymbol || (() => ""), displayCurrency) }}</bdi>
-						</strong>
-						<span class="text-caption text-secondary">
-							· {{ formatFloat ? formatFloat(total_qty, hide_qty_decimals ? 0 : undefined) : total_qty }} {{ __("qty") }}
-						</span>
-					</div>
-					<div class="compact-checkout__discount ms-auto">
-						<v-text-field
-							v-if="!usePercentageDiscount"
-							ref="additionalDiscountField"
-							v-model="additionalDiscountDisplay"
-							@update:model-value="handleAdditionalDiscountUpdate"
-							@focus="handleAdditionalDiscountFocus"
-							@blur="handleAdditionalDiscountBlur"
-							:label="frappe._('Discount')"
-							prepend-inner-icon="mdi-cash-minus"
-							variant="outlined"
-							density="compact"
-							color="primary"
-							:disabled="!canEditAdditionalDiscount"
-							class="compact-discount-field"
-							hide-details
-						/>
-						<v-text-field
-							v-else
-							ref="additionalDiscountField"
-							v-model="additionalDiscountPercentageDisplay"
-							@update:model-value="handleAdditionalDiscountPercentageUpdate"
-							@change="$emit('update_discount_umount')"
-							@focus="handleAdditionalDiscountPercentageFocus"
-							@blur="handleAdditionalDiscountPercentageBlur"
-							:rules="isNumber ? [isNumber] : []"
-							:label="frappe._('Discount %')"
-							suffix="%"
-							prepend-inner-icon="mdi-percent"
-							variant="outlined"
-							density="compact"
-							color="primary"
-							:disabled="!canEditAdditionalDiscount"
-							class="compact-discount-field"
-							hide-details
-						/>
-					</div>
+			<div v-if="useCompactSaleDock" class="mobile-cart-command-bar">
+				<div class="mobile-cart-command-bar__summary">
+					<span class="mobile-cart-command-bar__label">{{ __("Total") }}</span>
+					<strong class="mobile-cart-command-bar__total"><bdi>{{ formatMoney(subtotal, formatCurrency || ((v) => String(v)), currencySymbol || (() => ""), displayCurrency) }}</bdi></strong>
+					<span class="mobile-cart-command-bar__qty">· {{ formatFloat ? formatFloat(total_qty, hide_qty_decimals ? 0 : undefined) : total_qty }} {{ __("qty") }}</span>
 				</div>
 
-				<div class="compact-checkout__actions">
+				<div class="mobile-cart-command-bar__actions">
+					<v-btn
+						variant="tonal"
+						color="secondary"
+						class="mobile-cart-action-btn"
+						:disabled="!canEditAdditionalDiscount"
+						@click="showDiscountDialog = true"
+					>
+						<v-icon size="small" start>mdi-cash-minus</v-icon>
+						<span>{{ __("Discount") }}</span>
+					</v-btn>
+
 					<InvoiceActionButtons
 						:compact-external-pay="compactExternalPay"
 						:pos_profile="pos_profile"
@@ -97,6 +65,43 @@
 						@open-customer-display="handleOpenCustomerDisplay"
 					/>
 				</div>
+
+				<v-dialog v-model="showDiscountDialog" max-width="360">
+					<v-card class="pa-4 pos-themed-card">
+						<div class="text-subtitle-1 font-weight-bold mb-3">{{ __("Additional Discount") }}</div>
+						<v-text-field
+							v-if="!usePercentageDiscount"
+							ref="additionalDiscountField"
+							v-model="additionalDiscountDisplay"
+							@update:model-value="handleAdditionalDiscountUpdate"
+							:label="frappe._('Discount Amount')"
+							prepend-inner-icon="mdi-cash-minus"
+							variant="outlined"
+							density="compact"
+							color="primary"
+							hide-details
+							class="mb-3"
+						/>
+						<v-text-field
+							v-else
+							ref="additionalDiscountField"
+							v-model="additionalDiscountPercentageDisplay"
+							@update:model-value="handleAdditionalDiscountPercentageUpdate"
+							@change="$emit('update_discount_umount')"
+							:label="frappe._('Discount %')"
+							suffix="%"
+							prepend-inner-icon="mdi-percent"
+							variant="outlined"
+							density="compact"
+							color="primary"
+							hide-details
+							class="mb-3"
+						/>
+						<div class="d-flex justify-end gap-2">
+							<v-btn variant="text" size="small" @click="showDiscountDialog = false">{{ __("Done") }}</v-btn>
+						</div>
+					</v-card>
+				</v-dialog>
 			</div>
 
 			<!-- Desktop Standard Layout (>= 1200px) -->
@@ -276,6 +281,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
+const showDiscountDialog = ref(false);
 import { storeToRefs } from "pinia";
 import { loadItemSelectorSettings } from "../../../utils/itemSelectorSettings";
 import { useResponsive } from "../../../composables/core/useResponsive";
@@ -695,10 +701,58 @@ defineExpose({
 	max-width: 190px !important;
 }
 
-.compact-discount-field :deep(.v-field) {
-	min-height: 38px !important;
-	height: 38px !important;
-	font-size: 0.82rem !important;
+.mobile-cart-command-bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+	height: 58px;
+	min-height: 58px;
+	padding: 4px 8px;
+	width: 100%;
+}
+
+.mobile-cart-command-bar__summary {
+	display: flex;
+	flex-direction: column;
+	min-width: 104px;
+	flex: 1 1 auto;
+}
+
+.mobile-cart-command-bar__label {
+	font-size: 0.7rem;
+	text-transform: uppercase;
+	font-weight: 700;
+	color: var(--pos-text-secondary, #64748b);
+	line-height: 1;
+}
+
+.mobile-cart-command-bar__total {
+	font-size: 1.05rem;
+	font-weight: 800;
+	line-height: 1.2;
+	color: var(--pos-text-primary, #0f172a);
+}
+
+.mobile-cart-command-bar__qty {
+	font-size: 0.72rem;
+	color: var(--pos-text-secondary, #64748b);
+	line-height: 1;
+}
+
+.mobile-cart-command-bar__actions {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	flex: 0 0 auto;
+}
+
+.mobile-cart-action-btn {
+	height: 42px !important;
+	min-width: 44px !important;
+	padding-inline: 8px !important;
+	font-size: 0.78rem !important;
+	border-radius: 8px !important;
 }
 
 .summary-hero {

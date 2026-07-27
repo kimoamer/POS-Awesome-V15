@@ -461,40 +461,53 @@ function handleMinusClick() {
 
 .invoice-item-card--phone {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
+	grid-template-columns: 48px minmax(0, 1fr) auto;
 	grid-template-areas:
-		"identity amount"
-		"qty actions"
-		"rate rate";
-	gap: 8px;
+		"image identity total"
+		"image meta total"
+		"qty qty actions"
+		"details details details";
+	column-gap: 8px;
+	row-gap: 4px;
 	padding: 10px;
-	min-height: 112px;
+	min-height: 124px;
+}
+
+.invoice-item-card--phone .invoice-item-card__thumb {
+	grid-area: image;
+	width: 48px;
+	height: 48px;
 }
 
 .invoice-item-card--phone .invoice-item-card__identity {
 	grid-area: identity;
+	align-self: center;
+}
+
+.invoice-item-card--phone .invoice-item-card__meta {
+	grid-area: meta;
+}
+
+.invoice-item-card--phone .invoice-item-card__amount {
+	grid-area: total;
+	justify-self: end;
+	align-self: center;
 }
 
 .invoice-item-card--phone .invoice-item-card__qty {
 	grid-area: qty;
-	justify-content: flex-start;
-}
-
-.invoice-item-card--phone .invoice-item-card__rate {
-	grid-area: rate;
-	display: flex;
-	align-items: center;
-}
-
-.invoice-item-card--phone .invoice-item-card__amount {
-	grid-area: amount;
-	justify-content: flex-end;
-	align-self: flex-start;
+	justify-self: start;
 }
 
 .invoice-item-card--phone .invoice-item-card__actions {
 	grid-area: actions;
-	justify-content: flex-end;
+	justify-self: end;
+}
+
+.invoice-item-card--phone .invoice-item-card__details {
+	grid-area: details;
+	font-size: 0.78rem;
+	color: var(--pos-text-secondary, #64748b);
 }
 
 .invoice-item-card__identity {
