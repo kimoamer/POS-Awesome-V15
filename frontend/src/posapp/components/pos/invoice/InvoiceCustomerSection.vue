@@ -1,12 +1,12 @@
 <template>
 	<div
 		class="invoice-customer-section"
-		:class="{ 'invoice-customer-section--with-type': pos_profile.posa_allow_sales_order }"
+		:class="{ 'invoice-customer-section--with-type': allowSalesOrder }"
 	>
 		<div class="invoice-customer-section__selector">
 			<Customer ref="customerComponent" />
 		</div>
-		<div v-if="pos_profile.posa_allow_sales_order" class="invoice-customer-section__type">
+		<div v-if="allowSalesOrder" class="invoice-customer-section__type">
 			<v-select
 				density="compact"
 				hide-details
@@ -24,10 +24,11 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import Customer from "../customer/Customer.vue";
+import { parseBooleanSetting } from "../../../utils/stock";
 
-defineProps({
+const props = defineProps({
 	pos_profile: {
 		type: Object,
 		required: true,
@@ -45,6 +46,7 @@ defineProps({
 
 defineEmits(["update:modelValue"]);
 const customerComponent = ref(null);
+const allowSalesOrder = computed(() => parseBooleanSetting(props.pos_profile?.posa_allow_sales_order));
 
 // Expose focus method for parent
 const focusCustomerSearch = () => {

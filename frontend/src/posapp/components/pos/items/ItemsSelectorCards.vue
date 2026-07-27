@@ -73,6 +73,8 @@
 					:format-number="formatNumber"
 					:rate-precision="ratePrecision"
 					:is-negative="isNegative"
+					:allow-stock-display="allowStockDisplay"
+					:allow-multi-currency="allowMultiCurrency"
 					:style="{
 						width: cardColumnWidth + 'px',
 						height: cardRowHeight + 'px',
@@ -124,6 +126,8 @@ const props = defineProps({
 	noItemsTitle: { type: String, default: "" },
 	noItemsSubtitle: { type: String, default: "" },
 	clearSearchLabel: { type: String, default: "" },
+	allowStockDisplay: { type: Boolean, default: undefined },
+	allowMultiCurrency: { type: Boolean, default: undefined },
 });
 
 const emit = defineEmits(["select-item", "dragstart", "dragend", "virtual-range-update", "clear-search"]);

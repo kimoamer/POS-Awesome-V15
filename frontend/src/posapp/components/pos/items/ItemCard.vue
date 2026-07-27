@@ -1,6 +1,6 @@
 <template>
 	<article
-		:class="['card-item-card', { 'item-highlighted': isItemHighlighted }]"
+		:class="['card-item-card', { 'item-highlighted': isItemHighlighted, 'card-item-card--no-stock': !allowStockDisplay }]"
 		data-pos-keyboard-target="item-card"
 		tabindex="0"
 		:aria-label="`${item.item_name || item.item_code}`"
@@ -42,12 +42,9 @@
 			<div class="card-item-footer">
 				<div class="card-item-price">
 					<div class="primary-price">
-						<span class="currency-symbol">
-							{{ currencySymbol(primaryCurrency) }}
-						</span>
-						<span class="price-amount">
-							{{ formatCurrency(primaryRate, primaryCurrency, primaryPrecision) }}
-						</span>
+						<bdi class="price-amount">
+							{{ formattedPrimaryPrice }}
+						</bdi>
 						<ItemRateInfoMenu
 							v-if="showRateInfo"
 							:rate-info="rateInfo"
@@ -57,12 +54,9 @@
 						/>
 					</div>
 					<div v-if="showSecondaryPrice" class="secondary-price">
-						<span class="currency-symbol">
-							{{ currencySymbol(secondaryCurrency) }}
-						</span>
-						<span class="price-amount">
-							{{ formatCurrency(secondaryRate, secondaryCurrency, secondaryPrecision) }}
-						</span>
+						<bdi class="price-amount">
+							{{ formattedSecondaryPrice }}
+						</bdi>
 					</div>
 				</div>
 				<v-btn
@@ -198,6 +192,20 @@ import { parseBooleanSetting } from "../../../utils/stock";
 const allowStockDisplay = computed(() => parseBooleanSetting(props.posProfile?.posa_display_items_in_stock));
 const allowMultiCurrency = computed(() => parseBooleanSetting(props.posProfile?.posa_allow_multi_currency));
 
+const formattedPrimaryPrice = computed(() => {
+	const symbol = props.currencySymbol(primaryCurrency.value) || "";
+	const formattedVal = props.formatCurrency(primaryRate.value, primaryCurrency.value, primaryPrecision.value);
+	if (String(formattedVal).includes(symbol)) return formattedVal;
+	return `${symbol} ${formattedVal}`.trim();
+});
+
+const formattedSecondaryPrice = computed(() => {
+	const symbol = props.currencySymbol(secondaryCurrency.value) || "";
+	const formattedVal = props.formatCurrency(secondaryRate.value, secondaryCurrency.value, secondaryPrecision.value);
+	if (String(formattedVal).includes(symbol)) return formattedVal;
+	return `${symbol} ${formattedVal}`.trim();
+});
+
 const showSecondaryPrice = computed(() => {
 	return (
 		props.context !== "purchase" &&
@@ -275,34 +283,29 @@ const onDragEnd = (event) => {
 	margin: 0;
 	padding-block: var(--item-card-padding-block);
 	padding-inline: var(--item-card-padding-inline);
-	width: 100%;
-	box-shadow: 0 8px 22px rgba(15, 23, 42, 0.045);
-	will-change: transform;
-	backface-visibility: hidden;
-	transform: translate3d(0, 0, 0);
-	position: relative;
+}
+
+.card-item-card.card-item-card--no-stock {
+	grid-template-rows:
+		minmax(0, 1fr)
+		var(--item-card-name-height)
+		var(--item-card-price-height);
 }
 
 .card-item-card:hover {
-	transform: translate3d(0, -2px, 0);
-	box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
-	border-color: color-mix(in srgb, var(--pos-primary) 28%, var(--pos-border-light));
+	border-color: var(--pos-primary);
 }
 
 .card-item-card:focus-visible {
 	outline: none;
-	border-color: color-mix(in srgb, var(--pos-primary) 54%, var(--pos-border-light));
-	box-shadow:
-		0 0 0 3px color-mix(in srgb, var(--pos-primary) 12%, transparent),
-		0 12px 26px rgba(15, 23, 42, 0.08);
+	border-color: var(--pos-primary);
+	box-shadow: 0 0 0 3px rgba(var(--v-theme-primary, 25, 118, 210), 0.2);
 }
 
 .card-item-card.item-highlighted {
 	border-color: var(--pos-primary);
-	box-shadow:
-		0 0 0 3px color-mix(in srgb, var(--pos-primary) 18%, transparent),
-		0 12px 28px color-mix(in srgb, var(--pos-primary) 12%, transparent);
-	background: color-mix(in srgb, var(--pos-primary-container) 24%, var(--pos-surface-raised));
+	box-shadow: 0 0 0 3px rgba(var(--v-theme-primary, 25, 118, 210), 0.2);
+	background: var(--pos-surface-muted);
 }
 
 .card-item-image-container {
@@ -311,7 +314,7 @@ const onDragEnd = (event) => {
 	block-size: 100%;
 	overflow: hidden;
 	border-radius: var(--pos-radius-sm, 10px);
-	background: color-mix(in srgb, var(--pos-surface-muted) 85%, var(--pos-surface-raised));
+	background: var(--pos-surface-muted);
 }
 
 .card-item-image {
@@ -333,7 +336,7 @@ const onDragEnd = (event) => {
 	width: 100%;
 	height: 100%;
 	color: var(--pos-text-muted);
-	background: color-mix(in srgb, var(--pos-surface-muted) 78%, var(--pos-surface-raised));
+	background: var(--pos-surface-muted);
 }
 
 .card-item-content {
@@ -462,9 +465,9 @@ const onDragEnd = (event) => {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	border: 1px solid color-mix(in srgb, var(--pos-primary) 42%, var(--pos-border-light));
+	border: 1px solid var(--pos-border-light);
 	border-radius: 10px;
-	background: color-mix(in srgb, var(--pos-primary-container) 54%, var(--pos-surface-raised));
+	background: var(--pos-surface-raised);
 	transition:
 		background-color 0.16s ease,
 		border-color 0.16s ease,
@@ -474,7 +477,7 @@ const onDragEnd = (event) => {
 .item-card-add:hover :deep(.v-btn__content),
 .item-card-add:focus-visible :deep(.v-btn__content) {
 	border-color: var(--pos-primary);
-	background: color-mix(in srgb, var(--pos-primary-container) 78%, var(--pos-surface-raised));
+	background: var(--pos-surface-muted);
 	transform: translateY(-1px);
 }
 
@@ -495,9 +498,9 @@ const onDragEnd = (event) => {
 	gap: 4px;
 	padding-block: 4px;
 	padding-inline: 7px;
-	border: 1px solid color-mix(in srgb, var(--pos-text-muted) 14%, var(--pos-border-light));
+	border: 1px solid var(--pos-border-light);
 	border-radius: 999px;
-	background: color-mix(in srgb, var(--pos-surface-muted) 62%, transparent);
+	background: var(--pos-surface-muted);
 	color: var(--pos-text-muted);
 	font-size: 11px;
 	font-weight: 620;

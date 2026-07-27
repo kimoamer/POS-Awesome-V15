@@ -108,6 +108,8 @@
 									:format-number="memoizedFormatNumber"
 									:rate-precision="ratePrecision"
 									:is-negative="isNegative"
+									:allow-stock-display="capabilities.allowStockDisplay.value"
+									:allow-multi-currency="capabilities.allowMultiCurrency.value"
 									:no-items-title="__('No items found')"
 									:no-items-subtitle="__('Try adjusting your search or filters')"
 									:clear-search-label="__('Clear Search')"
@@ -301,6 +303,7 @@ import ScanErrorDialog from "./ScanErrorDialog.vue";
 import PosOffers from "../offers/PosOffers.vue";
 import PosCoupons from "../offers/PosCoupons.vue";
 
+import { usePosRuntimeCapabilities } from "../../../composables/pos/usePosRuntimeCapabilities";
 import { useResponsive } from "../../../composables/core/useResponsive";
 import { useRtl } from "../../../composables/core/useRtl";
 import { useFlyAnimation } from "../../../composables/core/useFlyAnimation";
@@ -377,6 +380,11 @@ const {
 	triggerTopItemSelection,
 	activeView,
 } = storeToRefs(uiStore);
+
+const capabilities = usePosRuntimeCapabilities({
+	posProfile: uiPosProfile,
+	invoiceDoc: computed(() => invoiceStore.invoiceDoc || {}),
+});
 const { currentCashier } = storeToRefs(employeeStore);
 const { deferStockValidationToPayment: invoiceTypeDefersStockValidation } = storeToRefs(invoiceStore);
 
