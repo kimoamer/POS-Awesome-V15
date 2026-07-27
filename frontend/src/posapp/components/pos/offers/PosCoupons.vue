@@ -1,75 +1,113 @@
 <template>
-	<div>
-		<v-card class="selection mx-auto mt-3 pos-themed-card" style="max-height: 80vh; height: 80vh">
-			<v-card-title>
-				<span class="text-h6 text-primary">{{ __("Coupons") }}</span>
-			</v-card-title>
-
-			<!-- Input and Button Row - Same Level -->
-			<v-row class="px-4 pb-2" no-gutters>
-				<v-col cols="8" class="pr-2">
-					<v-text-field
-						density="compact"
-						variant="outlined"
-						color="primary"
-						:label="frappe._('Coupon')"
-						class="pos-themed-input coupon-input"
-						hide-details
-						v-model="new_coupon"
-						@keydown.enter="add_coupon(new_coupon)"
-					>
-					</v-text-field>
-				</v-col>
-				<v-col cols="4">
-					<v-btn
-						class="add-coupon-btn"
-						color="success"
-						theme="dark"
-						block
-						@click="add_coupon(new_coupon)"
-					>
-						{{ __("add") }}
-					</v-btn>
-				</v-col>
-			</v-row>
-
-			<div
-				class="my-0 py-0 overflow-y-auto"
-				style="max-height: 75vh"
-				@mouseover="style = 'cursor: pointer'"
-			>
-				<v-data-table
-					:headers="items_headers"
-					:items="posa_coupons"
-					:single-expand="singleExpand"
-					v-model:expanded="expanded"
-					item-key="coupon"
-					class="elevation-1"
-					:items-per-page="itemsPerPage"
-					hide-default-footer
-				>
-					<template v-slot:item.applied="{ item }">
-						<v-checkbox-btn v-model="item.applied" disabled></v-checkbox-btn>
-					</template>
-				</v-data-table>
+	<div class="pos-coupons-container">
+		<!-- Header & Badges -->
+		<div class="pos-coupons-header px-3 py-2 border-b">
+			<div class="pos-coupons-header__info">
+				<div class="pos-coupons-title d-flex align-center gap-2">
+					<v-icon size="20" color="primary">mdi-ticket-percent-outline</v-icon>
+					<span class="text-subtitle-1 font-weight-bold">{{ __("Coupons") }}</span>
+				</div>
+				<div class="pos-coupons-badges d-flex align-center gap-2 mt-1">
+					<v-chip size="small" variant="tonal" color="primary">
+						{{ __("Total") }}: {{ couponsCount }}
+					</v-chip>
+					<v-chip size="small" variant="tonal" color="success">
+						{{ __("Applied") }}: {{ appliedCouponsCount }}
+					</v-chip>
+				</div>
 			</div>
-		</v-card>
+			<v-btn
+				variant="tonal"
+				density="compact"
+				color="warning"
+				class="pos-coupons-back-btn"
+				@click="back_to_invoice"
+			>
+				<v-icon size="18" class="mr-1">mdi-arrow-left</v-icon>
+				{{ __("Back") }}
+			</v-btn>
+		</div>
 
-		<v-card flat style="max-height: 11vh; height: 11vh" class="cards mb-0 mt-3 py-0">
-			<v-row align="start" no-gutters>
-				<v-col cols="12">
-					<v-btn
-						block
-						class="pa-1"
-						size="large"
-						color="warning"
-						theme="dark"
-						@click="back_to_invoice"
-						>{{ __("Back") }}</v-btn
-					>
-				</v-col>
-			</v-row>
-		</v-card>
+		<!-- Customer Context Banner -->
+		<div class="pos-coupons-customer-bar px-3 py-2 border-b">
+			<div v-if="customer" class="d-flex align-center gap-2 text-body-2 text-medium-emphasis">
+				<v-icon size="18" color="primary">mdi-account-check-outline</v-icon>
+				<span>{{ __("Customer") }}: <strong class="text-high-emphasis">{{ customer }}</strong></span>
+			</div>
+			<div v-else class="d-flex align-center gap-2 text-caption text-warning">
+				<v-icon size="18" color="warning">mdi-account-alert-outline</v-icon>
+				<span>{{ __("Select a customer to use coupons") }}</span>
+			</div>
+		</div>
+
+		<!-- Input & Add Bar -->
+		<div class="pos-coupons-input-bar pa-3 border-b">
+			<div class="d-flex align-center gap-2">
+				<v-text-field
+					density="compact"
+					variant="outlined"
+					color="primary"
+					:label="frappe._('Coupon Code')"
+					class="pos-themed-input coupon-input flex-grow-1"
+					hide-details
+					v-model="new_coupon"
+					:placeholder="__('Enter coupon code')"
+					@keydown.enter="add_coupon(new_coupon)"
+				>
+					<template #prepend-inner>
+						<v-icon size="18" color="medium-emphasis">mdi-ticket-outline</v-icon>
+					</template>
+				</v-text-field>
+
+				<v-btn
+					class="add-coupon-btn px-4"
+					color="success"
+					theme="dark"
+					:disabled="!customer || !new_coupon"
+					@click="add_coupon(new_coupon)"
+				>
+					<v-icon size="18" class="mr-1">mdi-plus</v-icon>
+					{{ __("Add") }}
+				</v-btn>
+			</div>
+		</div>
+
+		<!-- Coupons List -->
+		<div class="pos-coupons-body pa-3 overflow-y-auto">
+			<div v-if="(posa_coupons || []).length === 0" class="pos-coupons-empty pa-6 text-center text-muted">
+				<v-icon size="40" class="mb-2">mdi-ticket-outline</v-icon>
+				<div class="text-body-2">{{ __("No coupons added") }}</div>
+			</div>
+
+			<div v-else class="pos-coupons-list">
+				<v-card
+					v-for="item in posa_coupons"
+					:key="item.coupon || item.coupon_code"
+					variant="outlined"
+					class="pos-coupon-card mb-3 pa-3"
+					:class="{ 'pos-coupon-card--applied': item.applied }"
+				>
+					<div class="d-flex align-center justify-space-between gap-3">
+						<div class="pos-coupon-card__info">
+							<div class="d-flex align-center gap-2">
+								<bdi class="pos-coupon-card__code font-weight-bold text-body-1">{{ item.coupon_code }}</bdi>
+								<v-chip
+									size="x-small"
+									:color="item.applied ? 'success' : 'grey'"
+									variant="tonal"
+								>
+									{{ item.applied ? __("Applied") : __("Available") }}
+								</v-chip>
+							</div>
+							<div class="pos-coupon-card__meta d-flex align-center gap-2 mt-1 text-caption text-medium-emphasis">
+								<span v-if="item.type">{{ __("Type") }}: {{ item.type }}</span>
+								<span v-if="item.pos_offer">• {{ __("Offer") }}: {{ item.pos_offer }}</span>
+							</div>
+						</div>
+					</div>
+				</v-card>
+			</div>
+		</div>
 	</div>
 </template>
 
@@ -316,18 +354,55 @@ export default {
 </script>
 
 <style scoped>
-.coupon-input {
-	height: 40px;
+.pos-coupons-container {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	background: var(--pos-surface-raised, #ffffff);
+	border-radius: var(--pos-radius-md, 12px);
 }
 
-.add-coupon-btn {
-	height: 40px;
-	font-weight: 600 !important;
-	transition: all 0.3s ease !important;
+.pos-coupons-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	background: var(--pos-surface-muted, #f8fafc);
+	border-bottom: 1px solid var(--pos-border-light, #e2e8f0);
 }
 
-.add-coupon-btn:hover {
-	transform: translateY(-2px);
-	box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+.pos-coupons-body {
+	flex: 1;
+	min-height: 0;
+}
+
+.pos-coupon-card {
+	border-color: var(--pos-border-light, #e2e8f0) !important;
+	border-radius: var(--pos-radius-sm, 10px) !important;
+	transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.pos-coupon-card--applied {
+	border-color: var(--pos-primary, #2563eb) !important;
+	background: color-mix(in srgb, var(--pos-primary, #2563eb) 4%, var(--pos-surface-raised, #ffffff)) !important;
+}
+
+.add-coupon-btn,
+.pos-coupons-back-btn {
+	min-height: 40px;
+}
+
+@media (min-width: 600px) and (max-width: 1199px) {
+	.add-coupon-btn,
+	.pos-coupons-back-btn {
+		min-height: 42px;
+	}
+}
+
+@media (max-width: 599px) {
+	.add-coupon-btn,
+	.pos-coupons-back-btn {
+		min-height: 44px;
+	}
 }
 </style>

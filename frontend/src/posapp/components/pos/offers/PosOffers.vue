@@ -1,93 +1,119 @@
 <template>
-	<div>
-		<v-card class="selection mx-auto mt-3 pos-themed-card" style="max-height: 80vh; height: 80vh">
-			<v-card-title>
-				<span class="text-h6 text-primary">{{ __("Offers") }}</span>
-			</v-card-title>
-			<div
-				class="my-0 py-0 overflow-y-auto"
-				style="max-height: 75vh"
-				@mouseover="style = 'cursor: pointer'"
-			>
-				<v-data-table
-					:headers="items_headers"
-					:items="pos_offers"
-					:single-expand="singleExpand"
-					v-model:expanded="expanded"
-					show-expand
-					item-value="row_id"
-					class="elevation-1"
-					:items-per-page="itemsPerPage"
-					hide-default-footer
-				>
-					<template v-slot:item.offer_applied="{ item }">
-						<v-btn
-							v-if="!item.offer_applied"
-							color="green"
-							@click="applyOffer(item)"
-							:disabled="
-								(item.offer == 'Give Product' &&
-									!item.give_item &&
-									!item.replace_cheapest_item &&
-									!item.replace_item) ||
-								(item.offer == 'Grand Total' &&
-									discount_percentage_offer_name &&
-									discount_percentage_offer_name != item.name)
-							"
-						>
-							{{ __("Apply") }}
-						</v-btn>
-						<v-btn v-else color="red" @click="removeOffer(item)">
-							{{ __("Remove") }}
-						</v-btn>
-					</template>
-					<template v-slot:expanded-row="{ item }">
-						<td :colspan="items_headers.length">
-							<v-row class="mt-2">
-								<v-col v-if="item.description">
-									<div class="text-primary posa-offer-description">
-										{{ item.description }}
-									</div>
-								</v-col>
-								<v-col v-if="item.offer == 'Give Product'">
-									<v-autocomplete
-										v-model="item.give_item"
-										:items="get_give_items(item)"
-										item-title="item_name"
-										item-value="item_code"
-										variant="outlined"
-										density="compact"
-										color="primary"
-										:label="frappe._('Give Item')"
-										:disabled="
-											item.apply_type != 'Item Group' ||
-											item.replace_item ||
-											item.replace_cheapest_item
-										"
-									></v-autocomplete>
-								</v-col>
-							</v-row>
-						</td>
-					</template>
-				</v-data-table>
+	<div class="pos-offers-container">
+		<!-- Summary & Header -->
+		<div class="pos-offers-header px-3 py-2 border-b">
+			<div class="pos-offers-header__info">
+				<div class="pos-offers-title d-flex align-center gap-2">
+					<v-icon size="20" color="primary">mdi-tag-outline</v-icon>
+					<span class="text-subtitle-1 font-weight-bold">{{ __("Offers") }}</span>
+				</div>
+				<div class="pos-offers-badges d-flex align-center gap-2 mt-1">
+					<v-chip size="small" variant="tonal" color="primary">
+						{{ __("Available") }}: {{ offersCount }}
+					</v-chip>
+					<v-chip size="small" variant="tonal" color="success">
+						{{ __("Applied") }}: {{ appliedOffersCount }}
+					</v-chip>
+				</div>
 			</div>
-		</v-card>
+			<v-btn
+				variant="tonal"
+				density="compact"
+				color="warning"
+				class="pos-offers-back-btn"
+				@click="back_to_invoice"
+			>
+				<v-icon size="18" class="mr-1">mdi-arrow-left</v-icon>
+				{{ __("Back") }}
+			</v-btn>
+		</div>
 
-		<v-card flat style="max-height: 11vh; height: 11vh" class="cards mb-0 mt-3 py-0">
-			<v-row align="start" no-gutters>
-				<v-col cols="12">
-					<v-btn
-						block
-						class="pa-1"
-						size="large"
-						color="warning"
-						theme="dark"
-						@click="back_to_invoice"
-						>{{ __("Back") }}</v-btn
-					>
-				</v-col>
-			</v-row>
-		</v-card>
+		<!-- Offers List -->
+		<div class="pos-offers-body pa-3 overflow-y-auto">
+			<div v-if="pos_offers.length === 0" class="pos-offers-empty pa-6 text-center text-muted">
+				<v-icon size="40" class="mb-2">mdi-tag-off-outline</v-icon>
+				<div class="text-body-2">{{ __("No offers available") }}</div>
+			</div>
+
+			<div v-else class="pos-offers-list">
+				<v-card
+					v-for="item in pos_offers"
+					:key="getOfferId(item)"
+					variant="outlined"
+					class="pos-offer-card mb-3 pa-3"
+					:class="{ 'pos-offer-card--applied': item.offer_applied }"
+				>
+					<div class="pos-offer-card__header d-flex align-center justify-space-between gap-3">
+						<div class="pos-offer-card__title-area">
+							<span class="pos-offer-card__name font-weight-bold text-body-2">{{ item.name }}</span>
+							<div class="pos-offer-card__meta d-flex align-center gap-1 mt-1">
+								<v-chip size="x-small" variant="flat" color="blue-lighten-5" class="text-blue-darken-3">
+									{{ item.apply_on || __("Item") }}
+								</v-chip>
+								<v-chip size="x-small" variant="flat" color="purple-lighten-5" class="text-purple-darken-3">
+									{{ item.offer || __("Discount") }}
+								</v-chip>
+							</div>
+						</div>
+
+						<div class="pos-offer-card__action">
+							<v-btn
+								v-if="!item.offer_applied"
+								color="success"
+								size="small"
+								class="pos-offer-action-btn"
+								@click="applyOffer(item)"
+								:disabled="
+									(item.offer == 'Give Product' &&
+										!item.give_item &&
+										!item.replace_cheapest_item &&
+										!item.replace_item) ||
+									(item.offer == 'Grand Total' &&
+										discount_percentage_offer_name &&
+										discount_percentage_offer_name != item.name)
+								"
+							>
+								{{ __("Apply") }}
+							</v-btn>
+							<v-btn
+								v-else
+								color="error"
+								size="small"
+								class="pos-offer-action-btn"
+								@click="removeOffer(item)"
+							>
+								{{ __("Remove") }}
+							</v-btn>
+						</div>
+					</div>
+
+					<!-- Description / Give Item Details -->
+					<div v-if="item.description || item.offer == 'Give Product'" class="pos-offer-card__details mt-2 pt-2 border-t">
+						<div v-if="item.description" class="posa-offer-description text-caption text-medium-emphasis mb-2">
+							{{ item.description }}
+						</div>
+						<div v-if="item.offer == 'Give Product'" class="pos-offer-give-item">
+							<v-autocomplete
+								v-model="item.give_item"
+								:items="get_give_items(item)"
+								item-title="item_name"
+								item-value="item_code"
+								variant="outlined"
+								density="compact"
+								color="primary"
+								hide-details
+								:label="frappe._('Give Item')"
+								:disabled="
+									item.apply_type != 'Item Group' ||
+									item.replace_item ||
+									item.replace_cheapest_item
+								"
+							></v-autocomplete>
+						</div>
+					</div>
+				</v-card>
+			</div>
+		</div>
 	</div>
 </template>
 
@@ -383,6 +409,58 @@ export default {
 </script>
 
 <style scoped>
+.pos-offers-container {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	background: var(--pos-surface-raised, #ffffff);
+	border-radius: var(--pos-radius-md, 12px);
+}
+
+.pos-offers-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	background: var(--pos-surface-muted, #f8fafc);
+	border-bottom: 1px solid var(--pos-border-light, #e2e8f0);
+}
+
+.pos-offers-body {
+	flex: 1;
+	min-height: 0;
+}
+
+.pos-offer-card {
+	border-color: var(--pos-border-light, #e2e8f0) !important;
+	border-radius: var(--pos-radius-sm, 10px) !important;
+	transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.pos-offer-card--applied {
+	border-color: var(--pos-primary, #2563eb) !important;
+	background: color-mix(in srgb, var(--pos-primary, #2563eb) 4%, var(--pos-surface-raised, #ffffff)) !important;
+}
+
+.pos-offer-action-btn,
+.pos-offers-back-btn {
+	min-height: 40px;
+}
+
+@media (min-width: 600px) and (max-width: 1199px) {
+	.pos-offer-action-btn,
+	.pos-offers-back-btn {
+		min-height: 42px;
+	}
+}
+
+@media (max-width: 599px) {
+	.pos-offer-action-btn,
+	.pos-offers-back-btn {
+		min-height: 44px;
+	}
+}
+
 .posa-offer-description {
 	white-space: pre-line;
 }
