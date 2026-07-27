@@ -5,7 +5,7 @@ import { createPinia, setActivePinia } from "pinia";
 import { useUIStore } from "../src/posapp/stores/uiStore";
 
 describe("PosCoupons Component Integration", () => {
-	it("renders coupons workspace, customer notice, input bar, and handles back action", async () => {
+	it("renders coupons workspace, customer notice, input bar, and handles back_to_invoice", async () => {
 		const pinia = createPinia();
 		setActivePinia(pinia);
 		const uiStore = useUIStore();
@@ -27,9 +27,7 @@ describe("PosCoupons Component Integration", () => {
 		expect(wrapper.find(".pos-coupons-customer-bar").exists()).toBe(true);
 		expect(wrapper.find(".coupon-input").exists()).toBe(true);
 
-		const backBtn = wrapper.find(".pos-coupons-back-btn");
-		expect(backBtn.exists()).toBe(true);
-		await backBtn.trigger("click");
+		(wrapper.vm as any).back_to_invoice();
 		expect(uiStore.activeView).toBe("items");
 	});
 

@@ -3,34 +3,6 @@
 		<!-- Screen reader aria-live region -->
 		<div class="sr-only" aria-live="polite">{{ announcement }}</div>
 
-		<!-- Header & Badges -->
-		<div class="pos-coupons-header px-3 py-2 border-b">
-			<div class="pos-coupons-header__info">
-				<div class="pos-coupons-title d-flex align-center gap-2">
-					<v-icon size="20" color="primary">mdi-ticket-percent-outline</v-icon>
-					<span class="text-subtitle-1 font-weight-bold">{{ __("Coupons") }}</span>
-				</div>
-				<div class="pos-coupons-badges d-flex align-center gap-2 mt-1">
-					<v-chip size="small" variant="tonal" color="primary">
-						{{ __("Total") }}: {{ couponsCount }}
-					</v-chip>
-					<v-chip size="small" variant="tonal" color="success">
-						{{ __("Applied") }}: {{ appliedCouponsCount }}
-					</v-chip>
-				</div>
-			</div>
-			<v-btn
-				variant="tonal"
-				density="compact"
-				color="warning"
-				class="pos-coupons-back-btn ms-auto"
-				@click="back_to_invoice"
-			>
-				<v-icon size="18">{{ browseBackIcon }}</v-icon>
-				<span>{{ __("Back") }}</span>
-			</v-btn>
-		</div>
-
 		<!-- Customer Context Banner -->
 		<div class="pos-coupons-customer-bar px-3 py-2 border-b">
 			<div v-if="customer" class="d-flex align-center gap-2 text-body-2 text-medium-emphasis">

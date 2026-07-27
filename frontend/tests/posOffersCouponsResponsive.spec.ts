@@ -18,7 +18,7 @@ describe("Offers & Coupons Responsive Workspace Sizing", () => {
 			global: { plugins: [pinia], provide: { eventBus } },
 		});
 
-		expect(offersWrapper.find(".pos-offers-back-btn").exists()).toBe(true);
+		expect(offersWrapper.find(".pos-offers-container").exists()).toBe(true);
 		expect(couponsWrapper.find(".add-coupon-btn").exists()).toBe(true);
 		expect(couponsWrapper.find(".coupon-input-group").exists()).toBe(true);
 	});

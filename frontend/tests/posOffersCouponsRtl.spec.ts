@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
-import PosOffers from "../src/posapp/components/pos/offers/PosOffers.vue";
-import PosCoupons from "../src/posapp/components/pos/offers/PosCoupons.vue";
+import ItemsSelector from "../src/posapp/components/pos/items/ItemsSelector.vue";
 import { createPinia, setActivePinia } from "pinia";
 
 describe("Offers & Coupons RTL & Directionality Contract", () => {
@@ -17,15 +16,11 @@ describe("Offers & Coupons RTL & Directionality Contract", () => {
 		setActivePinia(pinia);
 		const eventBus = { on: () => {}, off: () => {}, emit: () => {} };
 
-		const offersWrapper = mount(PosOffers, {
-			global: { plugins: [pinia], provide: { eventBus } },
-		});
-		const couponsWrapper = mount(PosCoupons, {
+		const wrapper = mount(ItemsSelector, {
 			global: { plugins: [pinia], provide: { eventBus } },
 		});
 
 		// Default LTR back icon
-		expect((offersWrapper.vm as any).browseBackIcon).toBe("mdi-arrow-left");
-		expect((couponsWrapper.vm as any).browseBackIcon).toBe("mdi-arrow-left");
+		expect((wrapper.vm as any).browseBackIcon).toBe("mdi-chevron-left");
 	});
 });

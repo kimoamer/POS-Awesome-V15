@@ -3,34 +3,6 @@
 		<!-- Screen reader aria-live region -->
 		<div class="sr-only" aria-live="polite">{{ announcement }}</div>
 
-		<!-- Summary & Header -->
-		<div class="pos-offers-header px-3 py-2 border-b">
-			<div class="pos-offers-header__info">
-				<div class="pos-offers-title d-flex align-center gap-2">
-					<v-icon size="20" color="primary">mdi-tag-outline</v-icon>
-					<span class="text-subtitle-1 font-weight-bold">{{ __("Offers") }}</span>
-				</div>
-				<div class="pos-offers-badges d-flex align-center gap-2 mt-1">
-					<v-chip size="small" variant="tonal" color="primary">
-						{{ __("Available") }}: {{ offersCount }}
-					</v-chip>
-					<v-chip size="small" variant="tonal" color="success">
-						{{ __("Applied") }}: {{ appliedOffersCount }}
-					</v-chip>
-				</div>
-			</div>
-			<v-btn
-				variant="tonal"
-				density="compact"
-				color="warning"
-				class="pos-offers-back-btn ms-auto"
-				@click="back_to_invoice"
-			>
-				<v-icon size="18">{{ browseBackIcon }}</v-icon>
-				<span>{{ __("Back") }}</span>
-			</v-btn>
-		</div>
-
 		<!-- Offers List -->
 		<div class="pos-offers-body pa-3 overflow-y-auto">
 			<div v-if="loading" class="pos-offers-loading pa-6 text-center text-muted">

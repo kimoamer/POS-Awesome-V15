@@ -4,8 +4,8 @@ import { createPinia, setActivePinia } from "pinia";
 import { useUIStore } from "../src/posapp/stores/uiStore";
 import ItemsSelector from "../src/posapp/components/pos/items/ItemsSelector.vue";
 
-describe("Products, Offers & Coupons Segmented Tabs", () => {
-	it("renders segmented navigation tabs with role=tablist and role=tab", () => {
+describe("Offers & Coupons Navigation Architecture", () => {
+	it("does not render top segmented tabs bar in ItemsSelector", () => {
 		const pinia = createPinia();
 		setActivePinia(pinia);
 		const eventBus = { on: () => {}, off: () => {}, emit: () => {} };
@@ -17,23 +17,11 @@ describe("Products, Offers & Coupons Segmented Tabs", () => {
 			},
 		});
 
-		const tablist = wrapper.find('[role="tablist"]');
-		expect(tablist.exists()).toBe(true);
-
-		const itemsTab = wrapper.find("#tab-items");
-		const offersTab = wrapper.find("#tab-offers");
-		const couponsTab = wrapper.find("#tab-coupons");
-
-		expect(itemsTab.exists()).toBe(true);
-		expect(offersTab.exists()).toBe(true);
-		expect(couponsTab.exists()).toBe(true);
-
-		expect(itemsTab.attributes("aria-selected")).toBe("true");
-		expect(offersTab.attributes("aria-selected")).toBe("false");
-		expect(couponsTab.attributes("aria-selected")).toBe("false");
+		expect(wrapper.find(".pos-segmented-tabs").exists()).toBe(false);
+		expect(wrapper.find("#tab-items").exists()).toBe(false);
 	});
 
-	it("Products, Offers, and Coupons tabs change activeView and tabpanel visibility", async () => {
+	it("uses consolidated single subview header for Offers and Coupons with back action", async () => {
 		const pinia = createPinia();
 		setActivePinia(pinia);
 		const uiStore = useUIStore();
@@ -46,22 +34,30 @@ describe("Products, Offers & Coupons Segmented Tabs", () => {
 			},
 		});
 
-		// 1. Offers tab changes activeView to offers
-		const offersTab = wrapper.find("#tab-offers");
-		await offersTab.trigger("click");
-		expect(uiStore.activeView).toBe("offers");
-		expect(offersTab.attributes("aria-selected")).toBe("true");
+		// 1. Open Offers subview
+		uiStore.setActiveView("offers");
+		await wrapper.vm.$nextTick();
 
-		// 2. Coupons tab changes activeView to coupons
-		const couponsTab = wrapper.find("#tab-coupons");
-		await couponsTab.trigger("click");
-		expect(uiStore.activeView).toBe("coupons");
-		expect(couponsTab.attributes("aria-selected")).toBe("true");
+		const offersHeader = wrapper.find('.browse-subview-panel[aria-hidden="false"] .browse-subview-header');
+		expect(offersHeader.exists()).toBe(true);
+		expect(offersHeader.text()).toContain("Offers");
 
-		// 3. Products tab changes activeView to items
-		const itemsTab = wrapper.find("#tab-items");
-		await itemsTab.trigger("click");
+		// Click single consolidated back button
+		const offersBackBtn = offersHeader.find(".browse-subview-back");
+		await offersBackBtn.trigger("click");
 		expect(uiStore.activeView).toBe("items");
-		expect(itemsTab.attributes("aria-selected")).toBe("true");
+
+		// 2. Open Coupons subview
+		uiStore.setActiveView("coupons");
+		await wrapper.vm.$nextTick();
+
+		const couponsHeader = wrapper.find('.browse-subview-panel[aria-hidden="false"] .browse-subview-header');
+		expect(couponsHeader.exists()).toBe(true);
+		expect(couponsHeader.text()).toContain("Coupons");
+
+		// Click single consolidated back button
+		const couponsBackBtn = couponsHeader.find(".browse-subview-back");
+		await couponsBackBtn.trigger("click");
+		expect(uiStore.activeView).toBe("items");
 	});
 });

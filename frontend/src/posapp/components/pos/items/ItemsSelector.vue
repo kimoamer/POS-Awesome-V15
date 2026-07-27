@@ -17,58 +17,8 @@
 			></v-progress-linear>
 
 			<div class="browse-panel dynamic-padding">
-				<nav
-					class="pos-segmented-tabs mb-2"
-					role="tablist"
-					aria-label="POS Navigation"
-				>
-					<button
-						id="tab-items"
-						role="tab"
-						type="button"
-						:aria-selected="activeBrowsePanel === 'items'"
-						aria-controls="panel-items"
-						class="pos-tab-btn"
-						:class="{ 'pos-tab-btn--active': activeBrowsePanel === 'items' }"
-						@click="setBrowsePanel('items')"
-					>
-						<v-icon size="18" class="pos-tab-icon">mdi-cube-outline</v-icon>
-						<span class="pos-tab-label">{{ __("Products") }}</span>
-					</button>
-					<button
-						id="tab-offers"
-						role="tab"
-						type="button"
-						:aria-selected="activeBrowsePanel === 'offers'"
-						aria-controls="panel-offers"
-						class="pos-tab-btn"
-						:class="{ 'pos-tab-btn--active': activeBrowsePanel === 'offers' }"
-						@click="setBrowsePanel('offers')"
-					>
-						<v-icon size="18" class="pos-tab-icon">mdi-tag-outline</v-icon>
-						<span class="pos-tab-label">{{ __("Offers") }}</span>
-						<span v-if="offersCount > 0" class="pos-tab-badge" aria-hidden="true">{{ offersCount > 99 ? '99+' : offersCount }}</span>
-					</button>
-					<button
-						id="tab-coupons"
-						role="tab"
-						type="button"
-						:aria-selected="activeBrowsePanel === 'coupons'"
-						aria-controls="panel-coupons"
-						class="pos-tab-btn"
-						:class="{ 'pos-tab-btn--active': activeBrowsePanel === 'coupons' }"
-						@click="setBrowsePanel('coupons')"
-					>
-						<v-icon size="18" class="pos-tab-icon">mdi-ticket-percent-outline</v-icon>
-						<span class="pos-tab-label">{{ __("Coupons") }}</span>
-						<span v-if="couponsCount > 0" class="pos-tab-badge" aria-hidden="true">{{ couponsCount > 99 ? '99+' : couponsCount }}</span>
-					</button>
-				</nav>
 				<div class="browse-view-stack">
 					<section
-						id="panel-items"
-						role="tabpanel"
-						aria-labelledby="tab-items"
 						class="browse-view browse-view--items"
 						:class="{ 'browse-view--active': activeBrowsePanel === 'items' }"
 						:aria-hidden="activeBrowsePanel !== 'items'"
@@ -217,30 +167,32 @@
 					</section>
 
 					<section
-						id="panel-offers"
-						role="tabpanel"
-						aria-labelledby="tab-offers"
 						class="browse-view browse-subview-panel selector-section-card pos-themed-card"
 						:class="{ 'browse-view--active': activeBrowsePanel === 'offers' }"
 						:aria-hidden="activeBrowsePanel !== 'offers'"
 					>
-						<header class="browse-subview-header">
+						<header class="browse-subview-header px-3 py-2 border-b d-flex align-center gap-3">
 							<v-btn
 								icon
 								variant="text"
-								color="primary"
 								class="browse-subview-back"
 								:aria-label="__('Back to Items')"
 								@click="returnToItems"
 							>
-								<v-icon size="22">{{ browseBackIcon }}</v-icon>
-								<v-tooltip activator="parent" location="bottom">{{
-									__("Back to Items")
-								}}</v-tooltip>
+								<v-icon size="20">{{ browseBackIcon }}</v-icon>
+								<v-tooltip activator="parent" location="bottom">{{ __("Back to Items") }}</v-tooltip>
 							</v-btn>
-							<div class="browse-subview-title">
-								<v-icon size="18">mdi-tag-outline</v-icon>
-								<span>{{ __("Offers") }}</span>
+							<div class="browse-subview-title d-flex align-center gap-2">
+								<v-icon size="20" color="primary">mdi-tag-outline</v-icon>
+								<span class="text-subtitle-1 font-weight-bold">{{ __("Offers") }}</span>
+							</div>
+							<div class="browse-subview-badges d-flex align-center gap-2 ms-auto">
+								<v-chip size="small" variant="tonal" color="primary">
+									{{ __("Available") }}: {{ offersCount }}
+								</v-chip>
+								<v-chip size="small" variant="tonal" color="success">
+									{{ __("Applied") }}: {{ uiStore.appliedOffersCount || 0 }}
+								</v-chip>
 							</div>
 						</header>
 						<div class="browse-subview-body">
@@ -249,30 +201,32 @@
 					</section>
 
 					<section
-						id="panel-coupons"
-						role="tabpanel"
-						aria-labelledby="tab-coupons"
 						class="browse-view browse-subview-panel selector-section-card pos-themed-card"
 						:class="{ 'browse-view--active': activeBrowsePanel === 'coupons' }"
 						:aria-hidden="activeBrowsePanel !== 'coupons'"
 					>
-						<header class="browse-subview-header">
+						<header class="browse-subview-header px-3 py-2 border-b d-flex align-center gap-3">
 							<v-btn
 								icon
 								variant="text"
-								color="primary"
 								class="browse-subview-back"
 								:aria-label="__('Back to Items')"
 								@click="returnToItems"
 							>
-								<v-icon size="22">{{ browseBackIcon }}</v-icon>
-								<v-tooltip activator="parent" location="bottom">{{
-									__("Back to Items")
-								}}</v-tooltip>
+								<v-icon size="20">{{ browseBackIcon }}</v-icon>
+								<v-tooltip activator="parent" location="bottom">{{ __("Back to Items") }}</v-tooltip>
 							</v-btn>
-							<div class="browse-subview-title">
-								<v-icon size="18">mdi-ticket-percent-outline</v-icon>
-								<span>{{ __("Coupons") }}</span>
+							<div class="browse-subview-title d-flex align-center gap-2">
+								<v-icon size="20" color="primary">mdi-ticket-percent-outline</v-icon>
+								<span class="text-subtitle-1 font-weight-bold">{{ __("Coupons") }}</span>
+							</div>
+							<div class="browse-subview-badges d-flex align-center gap-2 ms-auto">
+								<v-chip size="small" variant="tonal" color="primary">
+									{{ __("Total") }}: {{ couponsCount }}
+								</v-chip>
+								<v-chip size="small" variant="tonal" color="success">
+									{{ __("Applied") }}: {{ uiStore.appliedCouponsCount || 0 }}
+								</v-chip>
 							</div>
 						</header>
 						<div class="browse-subview-body">
@@ -2094,6 +2048,29 @@ defineExpose({
 	position: sticky;
 	bottom: 0;
 	z-index: 9;
+}
+
+.browse-subview-back {
+	width: 36px !important;
+	min-width: 36px !important;
+	height: 36px !important;
+	min-height: 36px !important;
+	padding: 0 !important;
+	border-radius: var(--pos-radius-sm, 10px) !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
+	border: 1px solid var(--pos-border-light, #e2e8f0) !important;
+	color: var(--pos-text-primary, #1e293b) !important;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+	transition: all 0.16s ease !important;
+}
+
+.browse-subview-back:hover,
+.browse-subview-back:focus-visible {
+	border-color: color-mix(in srgb, var(--pos-primary, #2563eb) 32%, var(--pos-border-light, #e2e8f0)) !important;
+	background: color-mix(in srgb, var(--pos-primary-container, #eff6ff) 68%, var(--pos-surface-raised, #ffffff)) !important;
+	color: var(--pos-primary, #2563eb) !important;
+	transform: translateY(-1px);
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
 }
 
 /* Segmented Tabs Navigation Bar */
