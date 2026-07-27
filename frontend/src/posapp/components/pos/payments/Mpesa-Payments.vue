@@ -357,6 +357,8 @@ onBeforeUnmount(() => {
 
 .dialog-action-btn {
 	min-height: 40px;
+}
+
 .mpesa-search-btn {
 	min-height: 40px;
 }
