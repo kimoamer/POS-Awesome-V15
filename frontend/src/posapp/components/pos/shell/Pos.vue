@@ -95,7 +95,7 @@
 				</div>
 				<div class="mobile-sale-dock__field">
 					<v-text-field
-						v-if="!posProfile?.posa_use_percentage_discount"
+						v-if="!usePercentageDiscount"
 						ref="additionalDiscountField"
 						v-model="additionalDiscountDisplay"
 						@update:model-value="handleAdditionalDiscountUpdate"
@@ -107,10 +107,7 @@
 						density="compact"
 						color="warning"
 						:prefix="getCurrencySymbol(posProfile?.currency)"
-						:disabled="
-							!posProfile?.posa_allow_user_to_edit_additional_discount ||
-							!!discountPercentageOfferName
-						"
+						:disabled="!allowAdditionalDiscount || !!discountPercentageOfferName"
 						hide-details
 					/>
 					<v-text-field
@@ -127,10 +124,7 @@
 						variant="solo"
 						density="compact"
 						color="warning"
-						:disabled="
-							!posProfile?.posa_allow_user_to_edit_additional_discount ||
-							!!discountPercentageOfferName
-						"
+						:disabled="!allowAdditionalDiscount || !!discountPercentageOfferName"
 						hide-details
 					/>
 				</div>
@@ -212,6 +206,8 @@ import { useItemsStore } from "../../../stores/itemsStore.js";
 import { storeToRefs } from "pinia";
 import { useCustomerDisplayPublisher } from "../../../composables/pos/shared/useCustomerDisplayPublisher";
 
+import { parseBooleanSetting } from "../../../utils/stock";
+
 export default {
 	setup() {
 		const eventBus = inject("eventBus");
@@ -229,6 +225,13 @@ export default {
 		const invoiceStore = useInvoiceStore();
 		const itemsStore = useItemsStore();
 		const __ = window.__;
+
+		const usePercentageDiscount = computed(() =>
+			parseBooleanSetting(uiStore.posProfile?.posa_use_percentage_discount),
+		);
+		const allowAdditionalDiscount = computed(() =>
+			parseBooleanSetting(uiStore.posProfile?.posa_allow_user_to_edit_additional_discount),
+		);
 		const { activeView, posProfile, paymentDialogOpen } = storeToRefs(uiStore);
 		const {
 			invoiceDoc,
@@ -577,6 +580,8 @@ export default {
 		);
 
 		return {
+			usePercentageDiscount,
+			allowAdditionalDiscount,
 			...responsive,
 			...rtl,
 			...shift,

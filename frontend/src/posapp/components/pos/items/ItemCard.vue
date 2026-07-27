@@ -79,7 +79,7 @@
 					<v-tooltip activator="parent" location="top">{{ addItemLabel }}</v-tooltip>
 				</v-btn>
 			</div>
-			<div class="card-item-details">
+			<div v-if="allowStockDisplay" class="card-item-details">
 				<div class="card-item-stock" :title="stockTitle">
 					<v-icon size="14" class="stock-icon">mdi-package-variant-closed</v-icon>
 					<span class="stock-label">{{ __("Stock") }}</span>
@@ -193,10 +193,15 @@ const rateInfo = computed(() => props.getItemRateInfo(props.item));
 
 const secondaryCurrency = computed(() => props.selectedCurrency);
 
+import { parseBooleanSetting } from "../../../utils/stock";
+
+const allowStockDisplay = computed(() => parseBooleanSetting(props.posProfile?.posa_display_items_in_stock));
+const allowMultiCurrency = computed(() => parseBooleanSetting(props.posProfile?.posa_allow_multi_currency));
+
 const showSecondaryPrice = computed(() => {
 	return (
 		props.context !== "purchase" &&
-		props.posProfile.posa_allow_multi_currency &&
+		allowMultiCurrency.value &&
 		Boolean(props.selectedCurrency) &&
 		props.selectedCurrency !== primaryCurrency.value
 	);

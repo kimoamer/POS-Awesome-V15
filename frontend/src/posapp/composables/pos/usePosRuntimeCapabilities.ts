@@ -162,6 +162,12 @@ export function usePosRuntimeCapabilities(params: PosRuntimeCapabilitiesParams) 
 		actions,
 
 		// Top-level aliases for direct component binding compatibility
+		allowStockDisplay: products.allowStockDisplay,
+		allowMultiCurrency: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_multi_currency)),
+		allowAdditionalDiscount: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_user_to_edit_additional_discount)),
+		usePercentageDiscount: computed(() => parseBooleanSetting(posProfile.value?.posa_use_percentage_discount)),
+		allowDeliveryCharges: computed(() => parseBooleanSetting(posProfile.value?.posa_use_delivery_charges)),
+		allowPostingDateChange: computed(() => parseBooleanSetting(posProfile.value?.posa_allow_change_posting_date)),
 		showPaymentMethods,
 		showImmediateSettlement: showPaymentMethods,
 		allowCreditSale,
