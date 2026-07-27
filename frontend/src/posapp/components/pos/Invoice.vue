@@ -8,20 +8,20 @@
 		<v-card
 			ref="invoiceCard"
 			:style="{
-				height: invoiceHeight || 'var(--container-height)',
-				maxHeight: invoiceHeight || 'var(--container-height)',
+				height: useCompactPosSwitcher ? '100%' : (invoiceHeight || 'var(--container-height)'),
+				maxHeight: useCompactPosSwitcher ? '100%' : (invoiceHeight || 'var(--container-height)'),
 				resize: canResizeInvoicePanel() ? 'vertical' : 'none',
 				overflow: 'hidden',
 			}"
 			:class="[
-				'cards my-0 py-0 mt-3 resizable invoice-main-card',
+				'cards my-0 py-0 resizable invoice-main-card',
 				'pos-themed-card',
-				{ 'return-mode': isReturnInvoice },
+				{ 'return-mode': isReturnInvoice, 'invoice-main-card--compact': useCompactPosSwitcher },
 			]"
 			@mouseup="saveInvoiceHeight($refs.invoiceCard)"
 			@touchend="saveInvoiceHeight($refs.invoiceCard)"
 		>
-			<div class="invoice-workspace dynamic-padding">
+			<div class="invoice-workspace dynamic-padding" :class="{ 'invoice-workspace--compact': useCompactPosSwitcher }">
 				<section class="invoice-customer-region invoice-region">
 					<div
 						class="invoice-top-grid"
@@ -1422,6 +1422,48 @@ export default {
 	min-height: 0;
 	min-width: 0;
 	overflow: hidden;
+}
+
+.invoice-main-card--compact {
+	height: 100% !important;
+	max-height: 100% !important;
+	margin-top: 0 !important;
+	border-radius: 0 !important;
+	border: 0 !important;
+}
+
+.invoice-workspace--compact {
+	display: grid !important;
+	grid-template-rows: auto auto minmax(220px, 1fr) auto !important;
+	height: 100% !important;
+	min-height: 0 !important;
+}
+
+.invoice-workspace--compact .invoice-customer-region {
+	min-height: 48px !important;
+	padding: 2px 8px !important;
+}
+
+.invoice-workspace--compact .invoice-command-region {
+	min-height: 0 !important;
+	padding: 2px 8px 4px !important;
+}
+
+.invoice-workspace--compact .invoice-cart-items-region {
+	display: flex !important;
+	flex-direction: column !important;
+	flex: 1 1 auto !important;
+	min-height: 220px !important;
+	height: 100% !important;
+	min-width: 0 !important;
+	overflow-y: auto !important;
+	overflow-x: hidden !important;
+}
+
+.invoice-workspace--compact .invoice-footer-region {
+	flex: 0 0 auto !important;
+	border-block-start: 1px solid var(--pos-border-light);
+	padding-block-start: 2px !important;
 }
 
 .invoice-region {

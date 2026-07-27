@@ -1,5 +1,5 @@
 <template>
-	<div class="invoice-action-bar">
+	<div class="invoice-action-bar" :class="{ 'invoice-action-bar--compact': compactExternalPay }">
 		<!-- Secondary Direct Actions -->
 		<div class="invoice-action-bar__secondary">
 			<v-btn
@@ -253,6 +253,25 @@ async function handlePayClick() {
 	align-items: center;
 	gap: 10px;
 	width: 100%;
+}
+
+.invoice-action-bar--compact {
+	width: 100%;
+}
+
+.invoice-action-bar--compact .invoice-action-bar__secondary {
+	display: grid !important;
+	grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+	width: 100% !important;
+	gap: 4px !important;
+}
+
+.invoice-action-bar--compact .invoice-action-btn {
+	width: 100% !important;
+	min-width: 0 !important;
+	height: 42px !important;
+	padding-inline: 4px !important;
+	font-size: 0.78rem !important;
 }
 
 .invoice-action-bar__secondary {

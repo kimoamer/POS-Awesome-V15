@@ -17,119 +17,182 @@
 				{{ __("Applied") }}: {{ formatCurrency ? formatCurrency(return_discount_meta.prorated_discount) : return_discount_meta.prorated_discount }}
 			</v-alert>
 
-			<!-- Summary Breakdown Region (Desktop Always Visible, Mobile/Tablet Expandable) -->
-			<div class="summary-hero mb-2">
-				<div class="summary-hero__copy">
-					<div class="summary-hero__eyebrow-row">
-						<span class="summary-hero__eyebrow">{{ __("Active sale") }}</span>
-						<v-btn
-							v-if="useCompactSaleDock"
-							size="x-small"
-							variant="text"
-							class="summary-hero__expand-btn"
-							@click="expandedBreakdown = !expandedBreakdown"
-							:aria-expanded="expandedBreakdown"
-							aria-controls="invoice-summary-breakdown"
-							:aria-label="expandedBreakdown ? __('Collapse details') : __('Expand details')"
-						>
-							<v-icon size="small">
-								{{ expandedBreakdown ? "mdi-chevron-up" : "mdi-chevron-down" }}
-							</v-icon>
-						</v-btn>
+			<!-- Compact Mode Layout for Mobile/Tablet (< 1200px) -->
+			<div v-if="useCompactSaleDock" class="compact-checkout">
+				<div class="compact-checkout__row d-flex align-center gap-2 mb-1">
+					<div class="compact-checkout__totals d-flex align-center gap-1 min-width-0">
+						<span class="text-caption text-medium-emphasis">{{ __("Total") }}:</span>
+						<strong class="text-subtitle-1 font-weight-bold text-high-emphasis">
+							<bdi>{{ formatMoney(subtotal, formatCurrency || ((v) => String(v)), currencySymbol || (() => ""), displayCurrency) }}</bdi>
+						</strong>
+						<span class="text-caption text-secondary">
+							· {{ formatFloat ? formatFloat(total_qty, hide_qty_decimals ? 0 : undefined) : total_qty }} {{ __("qty") }}
+						</span>
 					</div>
-
-					<strong class="summary-hero__amount">
-						{{ formatMoney(subtotal, formatCurrency || ((v) => String(v)), currencySymbol || (() => ""), displayCurrency) }}
-					</strong>
-
-					<div
-						id="invoice-summary-breakdown"
-						class="summary-hero__meta"
-						v-if="!useCompactSaleDock || expandedBreakdown"
-					>
-						<span>
-							{{ formatFloat ? formatFloat(total_qty, hide_qty_decimals ? 0 : undefined) : total_qty }} {{ __("qty") }}
-						</span>
-						<span v-if="total_items_discount_amount">
-							· {{ formatMoney(total_items_discount_amount, formatCurrency || ((v) => String(v)), currencySymbol || (() => ""), displayCurrency) }}
-							{{ __("discount") }}
-						</span>
+					<div class="compact-checkout__discount ms-auto">
+						<v-text-field
+							v-if="!usePercentageDiscount"
+							ref="additionalDiscountField"
+							v-model="additionalDiscountDisplay"
+							@update:model-value="handleAdditionalDiscountUpdate"
+							@focus="handleAdditionalDiscountFocus"
+							@blur="handleAdditionalDiscountBlur"
+							:label="frappe._('Discount')"
+							prepend-inner-icon="mdi-cash-minus"
+							variant="outlined"
+							density="compact"
+							color="primary"
+							:disabled="!canEditAdditionalDiscount"
+							class="compact-discount-field"
+							hide-details
+						/>
+						<v-text-field
+							v-else
+							ref="additionalDiscountField"
+							v-model="additionalDiscountPercentageDisplay"
+							@update:model-value="handleAdditionalDiscountPercentageUpdate"
+							@change="$emit('update_discount_umount')"
+							@focus="handleAdditionalDiscountPercentageFocus"
+							@blur="handleAdditionalDiscountPercentageBlur"
+							:rules="isNumber ? [isNumber] : []"
+							:label="frappe._('Discount %')"
+							suffix="%"
+							prepend-inner-icon="mdi-percent"
+							variant="outlined"
+							density="compact"
+							color="primary"
+							:disabled="!canEditAdditionalDiscount"
+							class="compact-discount-field"
+							hide-details
+						/>
 					</div>
 				</div>
 
-				<div
-					class="summary-hero__field-wrap"
-					v-if="!useCompactSaleDock || expandedBreakdown"
-				>
-					<v-text-field
-						v-if="!usePercentageDiscount"
-						ref="additionalDiscountField"
-						v-model="additionalDiscountDisplay"
-						@update:model-value="handleAdditionalDiscountUpdate"
-						@focus="handleAdditionalDiscountFocus"
-						@blur="handleAdditionalDiscountBlur"
-						:label="frappe._('Additional Discount')"
-						prepend-inner-icon="mdi-cash-minus"
-						variant="outlined"
-						density="compact"
-						color="primary"
-						:disabled="!canEditAdditionalDiscount"
-						class="summary-field"
-						hide-details
-					/>
-
-					<v-text-field
-						v-else
-						ref="additionalDiscountField"
-						v-model="additionalDiscountPercentageDisplay"
-						@update:model-value="handleAdditionalDiscountPercentageUpdate"
-						@change="$emit('update_discount_umount')"
-						@focus="handleAdditionalDiscountPercentageFocus"
-						@blur="handleAdditionalDiscountPercentageBlur"
-						:rules="isNumber ? [isNumber] : []"
-						:label="frappe._('Additional Discount %')"
-						suffix="%"
-						prepend-inner-icon="mdi-percent"
-						variant="outlined"
-						density="compact"
-						color="primary"
-						:disabled="!canEditAdditionalDiscount"
-						class="summary-field"
-						hide-details
+				<div class="compact-checkout__actions">
+					<InvoiceActionButtons
+						:compact-external-pay="compactExternalPay"
+						:pos_profile="pos_profile"
+						:has-items="Math.abs(Number(total_qty || 0)) > 0"
+						:saveLoading="saveLoading"
+						:loadDraftsLoading="loadDraftsLoading"
+						:selectOrderLoading="selectOrderLoading"
+						:cancelLoading="cancelLoading"
+						:invoiceManagementLoading="invoiceManagementLoading"
+						:returnsLoading="returnsLoading"
+						:printLoading="printLoading"
+						:paymentLoading="paymentLoading"
+						:customerDisplayLoading="customerDisplayLoading"
+						:subtotal="subtotal"
+						:displayCurrency="displayCurrency"
+						:formatCurrency="formatCurrency"
+						:currencySymbol="currencySymbol"
+						@save-and-clear="handleSaveAndClear"
+						@load-drafts="handleLoadDrafts"
+						@select-order="handleSelectOrder"
+						@cancel-sale="handleCancelSale"
+						@open-invoice-management="handleOpenInvoiceManagement"
+						@open-returns="handleOpenReturns"
+						@print-draft="handlePrintDraft"
+						@show-payment="handleShowPayment"
+						@open-customer-display="handleOpenCustomerDisplay"
 					/>
 				</div>
 			</div>
 
-			<!-- Actions Region -->
-			<div class="invoice-summary-actions">
-				<InvoiceActionButtons
-					:compact-external-pay="compactExternalPay"
-					:pos_profile="pos_profile"
-					:has-items="Math.abs(Number(total_qty || 0)) > 0"
-					:saveLoading="saveLoading"
-					:loadDraftsLoading="loadDraftsLoading"
-					:selectOrderLoading="selectOrderLoading"
-					:cancelLoading="cancelLoading"
-					:invoiceManagementLoading="invoiceManagementLoading"
-					:returnsLoading="returnsLoading"
-					:printLoading="printLoading"
-					:paymentLoading="paymentLoading"
-					:customerDisplayLoading="customerDisplayLoading"
-					:subtotal="subtotal"
-					:displayCurrency="displayCurrency"
-					:formatCurrency="formatCurrency"
-					:currencySymbol="currencySymbol"
-					@save-and-clear="handleSaveAndClear"
-					@load-drafts="handleLoadDrafts"
-					@select-order="handleSelectOrder"
-					@cancel-sale="handleCancelSale"
-					@open-invoice-management="handleOpenInvoiceManagement"
-					@open-returns="handleOpenReturns"
-					@print-draft="handlePrintDraft"
-					@show-payment="handleShowPayment"
-					@open-customer-display="handleOpenCustomerDisplay"
-				/>
-			</div>
+			<!-- Desktop Standard Layout (>= 1200px) -->
+			<template v-else>
+				<div class="summary-hero mb-2">
+					<div class="summary-hero__copy">
+						<div class="summary-hero__eyebrow-row">
+							<span class="summary-hero__eyebrow">{{ __("Active sale") }}</span>
+						</div>
+
+						<strong class="summary-hero__amount">
+							{{ formatMoney(subtotal, formatCurrency || ((v) => String(v)), currencySymbol || (() => ""), displayCurrency) }}
+						</strong>
+
+						<div id="invoice-summary-breakdown" class="summary-hero__meta">
+							<span>
+								{{ formatFloat ? formatFloat(total_qty, hide_qty_decimals ? 0 : undefined) : total_qty }} {{ __("qty") }}
+							</span>
+							<span v-if="total_items_discount_amount">
+								· {{ formatMoney(total_items_discount_amount, formatCurrency || ((v) => String(v)), currencySymbol || (() => ""), displayCurrency) }}
+								{{ __("discount") }}
+							</span>
+						</div>
+					</div>
+
+					<div class="summary-hero__field-wrap">
+						<v-text-field
+							v-if="!usePercentageDiscount"
+							ref="additionalDiscountField"
+							v-model="additionalDiscountDisplay"
+							@update:model-value="handleAdditionalDiscountUpdate"
+							@focus="handleAdditionalDiscountFocus"
+							@blur="handleAdditionalDiscountBlur"
+							:label="frappe._('Additional Discount')"
+							prepend-inner-icon="mdi-cash-minus"
+							variant="outlined"
+							density="compact"
+							color="primary"
+							:disabled="!canEditAdditionalDiscount"
+							class="summary-field"
+							hide-details
+						/>
+
+						<v-text-field
+							v-else
+							ref="additionalDiscountField"
+							v-model="additionalDiscountPercentageDisplay"
+							@update:model-value="handleAdditionalDiscountPercentageUpdate"
+							@change="$emit('update_discount_umount')"
+							@focus="handleAdditionalDiscountPercentageFocus"
+							@blur="handleAdditionalDiscountPercentageBlur"
+							:rules="isNumber ? [isNumber] : []"
+							:label="frappe._('Additional Discount %')"
+							suffix="%"
+							prepend-inner-icon="mdi-percent"
+							variant="outlined"
+							density="compact"
+							color="primary"
+							:disabled="!canEditAdditionalDiscount"
+							class="summary-field"
+							hide-details
+						/>
+					</div>
+				</div>
+
+				<!-- Actions Region -->
+				<div class="invoice-summary-actions">
+					<InvoiceActionButtons
+						:compact-external-pay="compactExternalPay"
+						:pos_profile="pos_profile"
+						:has-items="Math.abs(Number(total_qty || 0)) > 0"
+						:saveLoading="saveLoading"
+						:loadDraftsLoading="loadDraftsLoading"
+						:selectOrderLoading="selectOrderLoading"
+						:cancelLoading="cancelLoading"
+						:invoiceManagementLoading="invoiceManagementLoading"
+						:returnsLoading="returnsLoading"
+						:printLoading="printLoading"
+						:paymentLoading="paymentLoading"
+						:customerDisplayLoading="customerDisplayLoading"
+						:subtotal="subtotal"
+						:displayCurrency="displayCurrency"
+						:formatCurrency="formatCurrency"
+						:currencySymbol="currencySymbol"
+						@save-and-clear="handleSaveAndClear"
+						@load-drafts="handleLoadDrafts"
+						@select-order="handleSelectOrder"
+						@cancel-sale="handleCancelSale"
+						@open-invoice-management="handleOpenInvoiceManagement"
+						@open-returns="handleOpenReturns"
+						@print-draft="handlePrintDraft"
+						@show-payment="handleShowPayment"
+						@open-customer-display="handleOpenCustomerDisplay"
+					/>
+				</div>
+			</template>
 		</div>
 	</v-card>
 
@@ -611,6 +674,31 @@ defineExpose({
 	background: var(--pos-surface-raised, #ffffff) !important;
 	border: 1px solid var(--pos-border-light, #e2e8f0) !important;
 	box-shadow: var(--pos-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.05)) !important;
+}
+
+.invoice-summary-card--compact {
+	padding: 4px 8px !important;
+	border-radius: 8px !important;
+	box-shadow: none !important;
+	background: transparent !important;
+	border: 0 !important;
+}
+
+.compact-checkout {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 2px 2px;
+}
+
+.compact-discount-field {
+	max-width: 190px !important;
+}
+
+.compact-discount-field :deep(.v-field) {
+	min-height: 38px !important;
+	height: 38px !important;
+	font-size: 0.82rem !important;
 }
 
 .summary-hero {

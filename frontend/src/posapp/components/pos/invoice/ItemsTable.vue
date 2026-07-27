@@ -631,9 +631,11 @@ defineExpose({
 /* Scoped styles for ItemsTable component specific logic */
 .posa-items-table-container {
 	position: relative;
+	width: 100%;
+	height: 100%;
 	min-width: 0;
-	min-height: 0;
-	overflow: hidden;
+	min-height: 220px;
+	overflow-y: auto;
 	transition:
 		width 0.2s ease,
 		height 0.2s ease;
