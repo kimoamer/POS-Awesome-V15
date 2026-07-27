@@ -229,6 +229,7 @@
 				<section class="invoice-footer-region invoice-region">
 					<InvoiceSummary
 						ref="invoiceSummary"
+						:compact-external-pay="useCompactPosSwitcher"
 						:pos_profile="pos_profile"
 						:total_qty="total_qty"
 						:additional_discount="additional_discount"
@@ -307,7 +308,7 @@ import { useToastStore } from "../../stores/toastStore.js";
 import { useUIStore } from "../../stores/uiStore.js";
 import { storeToRefs } from "pinia";
 import stockCoordinator from "../../utils/stockCoordinator";
-import { getCurrentInstance, ref } from "vue";
+import { computed, getCurrentInstance, ref } from "vue";
 import { save_and_clear_invoice as saveAndClearInvoiceAction } from "./invoice_utils/actions";
 import { fetchDraftInvoices } from "../../utils/draftInvoices";
 import { getQuickCashTenderSuggestions } from "../../utils/cashTender";
@@ -321,6 +322,7 @@ import { useInvoiceUI } from "../../composables/pos/invoice/useInvoiceUI";
 import { useInvoicePrinting } from "../../composables/pos/invoice/useInvoicePrinting";
 import { useInvoiceStock } from "../../composables/pos/invoice/useInvoiceStock";
 import { usePaymentPrinting } from "../../composables/pos/payments/usePaymentPrinting";
+import { useResponsive } from "../../composables/core/useResponsive";
 import {
 	buildInvoicePdfUrl,
 	resolveInvoiceDoctype,
@@ -342,6 +344,8 @@ export default {
 		const customersStore = useCustomersStore();
 		const toastStore = useToastStore();
 		const { isOnline } = useOnlineStatus();
+		const responsive = useResponsive();
+		const useCompactPosSwitcher = computed(() => responsive.windowWidth.value < 1200);
 
 		const { activeView, posProfile: livePosProfile } = storeToRefs(uiStore);
 		const { selectedCustomer, refreshToken: customerRefreshToken } = storeToRefs(customersStore);
@@ -381,6 +385,7 @@ export default {
 
 		return {
 			uiStore,
+			useCompactPosSwitcher,
 			activeView,
 			isOnline,
 			toastStore,
@@ -1451,8 +1456,8 @@ export default {
 	grid-template-rows: auto;
 	align-content: start;
 	gap: var(--pos-control-gap, 6px);
-	min-height: 96px;
-	padding: 8px 10px;
+	min-height: 48px;
+	padding: 4px 10px;
 	border-block-end: 1px solid var(--pos-border-light);
 	background: var(--pos-surface);
 }
@@ -1460,16 +1465,17 @@ export default {
 .invoice-cart-items-region {
 	display: flex;
 	flex-direction: column;
-	min-height: 0;
+	flex: 1 1 auto;
+	min-height: 180px;
 	min-width: 0;
-	overflow: hidden;
+	overflow-y: auto;
 	overflow-x: hidden;
 }
 
 .invoice-footer-region {
 	flex: 0 0 auto;
 	border-block-start: 1px solid var(--pos-border-light);
-	padding-block-start: var(--pos-section-gap, 8px);
+	padding-block-start: var(--pos-section-gap, 6px);
 }
 
 .invoice-status-alert {

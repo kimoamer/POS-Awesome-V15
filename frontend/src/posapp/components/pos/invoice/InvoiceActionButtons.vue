@@ -93,7 +93,7 @@
 		</div>
 
 		<!-- Primary Pay Button -->
-		<div class="invoice-action-bar__primary">
+		<div v-if="!compactExternalPay" class="invoice-action-bar__primary">
 			<v-btn
 				color="primary"
 				size="large"
@@ -120,6 +120,7 @@ import { useInvoiceFooterActions } from "../../../composables/pos/invoice/useInv
 import { formatMoney } from "../../../composables/pos/shared/useMoneyFormatter";
 
 interface Props {
+	compactExternalPay?: boolean;
 	pos_profile?: any;
 	hasItems?: boolean;
 	saveLoading?: boolean;

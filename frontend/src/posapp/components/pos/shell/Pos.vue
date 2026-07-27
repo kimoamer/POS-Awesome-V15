@@ -84,7 +84,7 @@
 			</section>
 		</div>
 		<div v-if="showBottomDock" ref="mobileDock" class="mobile-pos-stack" role="contentinfo">
-			<div class="mobile-sale-dock">
+			<div v-if="compactPanel !== 'invoice'" class="mobile-sale-dock">
 				<div class="mobile-sale-dock__copy">
 					<span class="mobile-sale-dock__eyebrow">{{ __("Active sale") }}</span>
 					<strong class="mobile-sale-dock__amount"><bdi>{{ formattedCartTotal }}</bdi></strong>

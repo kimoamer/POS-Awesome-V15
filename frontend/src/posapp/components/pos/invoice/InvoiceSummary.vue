@@ -103,6 +103,7 @@
 			<!-- Actions Region -->
 			<div class="invoice-summary-actions">
 				<InvoiceActionButtons
+					:compact-external-pay="compactExternalPay"
 					:pos_profile="pos_profile"
 					:has-items="Math.abs(Number(total_qty || 0)) > 0"
 					:saveLoading="saveLoading"
@@ -233,6 +234,7 @@ defineOptions({
 });
 
 interface Props {
+	compactExternalPay?: boolean;
 	pos_profile?: any;
 	total_qty?: number | string;
 	additional_discount?: number;
@@ -249,6 +251,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+	compactExternalPay: false,
 	pos_profile: () => ({}),
 });
 
