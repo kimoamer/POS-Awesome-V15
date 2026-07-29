@@ -707,28 +707,29 @@ export default {
 }
 
 .customer-field-shell {
-	display: flex;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 44px 44px;
+	gap: 6px;
 	align-items: center;
-	gap: 4px;
 	width: 100%;
 }
 
-.customer-autocomplete {
-	flex: 1 1 auto;
-	min-width: 0;
+.customer-autocomplete,
+.customer-action-btn {
+	height: 44px;
+	min-height: 44px;
 }
 
 .customer-autocomplete :deep(.v-field) {
-	min-height: 40px !important;
-	height: 40px !important;
+	min-height: 44px !important;
+	height: 44px !important;
 	border-radius: 8px !important;
 }
 
 .customer-action-btn {
 	flex: 0 0 auto;
-	width: 40px !important;
-	height: 40px !important;
-	min-width: 40px !important;
+	width: 44px !important;
+	min-width: 44px !important;
 	border-radius: 8px !important;
 	margin: 0 !important;
 }

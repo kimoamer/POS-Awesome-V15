@@ -1443,12 +1443,22 @@ export default {
 	flex: 1 1 auto !important;
 }
 
+.invoice-shell,
+.invoice-main-card--compact,
 .invoice-workspace--compact {
-	display: grid !important;
-	grid-template-rows: auto auto minmax(0, 1fr) auto !important;
 	height: 100% !important;
 	min-height: 0 !important;
-	flex: 1 1 auto !important;
+}
+
+.invoice-workspace--compact {
+	display: flex !important;
+	flex-direction: column !important;
+}
+
+.invoice-workspace--compact .invoice-customer-region,
+.invoice-workspace--compact .invoice-command-region,
+.invoice-workspace--compact .invoice-footer-region {
+	flex: 0 0 auto !important;
 }
 
 .invoice-workspace--compact .invoice-customer-region {
@@ -1469,6 +1479,16 @@ export default {
 	height: 100% !important;
 	min-width: 0 !important;
 	overflow: hidden !important;
+}
+
+.invoice-workspace--compact .items-table-wrapper,
+.invoice-workspace--compact .posa-items-table-container {
+	height: 100% !important;
+	min-height: 0 !important;
+}
+
+.invoice-workspace--compact .posa-items-table-container {
+	overflow-y: auto !important;
 }
 
 .invoice-workspace--compact .invoice-footer-region {
