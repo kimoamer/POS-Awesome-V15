@@ -209,11 +209,33 @@ export function useItemSelection() {
 		return anchor;
 	}
 
+	function isElementVisible(el: HTMLElement | null): boolean {
+		if (!el) return false;
+		const rect = el.getBoundingClientRect();
+		if (rect.width === 0 || rect.height === 0) return false;
+		if (rect.top >= window.innerHeight || rect.bottom <= 0) return false;
+		if (rect.left >= window.innerWidth || rect.right <= 0) return false;
+		const style = window.getComputedStyle(el);
+		return style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
+	}
+
 	function resolveFlyTarget() {
+		const mobileCartTab = document.querySelector(
+			".mobile-pos-dock__item--cart",
+		) as HTMLElement | null;
+
+		if (mobileCartTab && isElementVisible(mobileCartTab)) {
+			return {
+				target: mobileCartTab,
+				cleanup: null as (() => void) | null,
+			};
+		}
+
 		const cartContainer = document.querySelector(
 			".posa-items-table-container",
 		) as HTMLElement | null;
-		if (cartContainer) {
+
+		if (cartContainer && isElementVisible(cartContainer)) {
 			const anchor = createCartTopAnchor(cartContainer);
 			return {
 				target: anchor,

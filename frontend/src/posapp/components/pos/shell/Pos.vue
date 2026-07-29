@@ -1140,6 +1140,20 @@ export default {
 	.dynamic-container {
 		padding-bottom: calc(var(--bottom-safe-space, 0px) + var(--pos-page-gap));
 	}
+
+	.pos-cart-pane--dedicated {
+		gap: 2px;
+	}
+
+	.pos-cart-pane--dedicated > .compact-cart-header {
+		margin-block-end: 0;
+	}
+}
+
+@media (max-width: 599px) {
+	.pos-cart-pane--dedicated {
+		gap: 0;
+	}
 }
 
 @media (min-width: 1200px) {

@@ -8,8 +8,8 @@
 		<v-card
 			ref="invoiceCard"
 			:style="{
-				height: useCompactPosSwitcher ? '100%' : (invoiceHeight || 'var(--container-height)'),
-				maxHeight: useCompactPosSwitcher ? '100%' : (invoiceHeight || 'var(--container-height)'),
+				height: useCompactPosSwitcher ? '100%' : invoiceHeight || 'var(--container-height)',
+				maxHeight: useCompactPosSwitcher ? '100%' : invoiceHeight || 'var(--container-height)',
 				resize: canResizeInvoicePanel() ? 'vertical' : 'none',
 				overflow: 'hidden',
 			}"
@@ -21,7 +21,10 @@
 			@mouseup="saveInvoiceHeight($refs.invoiceCard)"
 			@touchend="saveInvoiceHeight($refs.invoiceCard)"
 		>
-			<div class="invoice-workspace dynamic-padding" :class="{ 'invoice-workspace--compact': useCompactPosSwitcher }">
+			<div
+				class="invoice-workspace dynamic-padding"
+				:class="{ 'invoice-workspace--compact': useCompactPosSwitcher }"
+			>
 				<section class="invoice-customer-region invoice-region">
 					<div
 						class="invoice-top-grid"
@@ -1453,6 +1456,7 @@ export default {
 .invoice-workspace--compact {
 	display: flex !important;
 	flex-direction: column !important;
+	gap: 4px !important;
 }
 
 .invoice-workspace--compact .invoice-customer-region,
@@ -1461,14 +1465,24 @@ export default {
 	flex: 0 0 auto !important;
 }
 
-.invoice-workspace--compact .invoice-customer-region {
-	min-height: 48px !important;
-	padding: 2px 8px !important;
+@media (max-width: 1199px) {
+	.invoice-workspace--compact .invoice-customer-region {
+		align-items: center;
+		min-height: 48px !important;
+		padding: 4px 8px 4px !important;
+	}
+}
+
+@media (max-width: 599px) {
+	.invoice-workspace--compact .invoice-customer-region {
+		padding: 4px 8px 4px !important;
+	}
 }
 
 .invoice-workspace--compact .invoice-command-region {
 	min-height: 0 !important;
-	padding: 2px 8px 4px !important;
+	padding: 4px 8px 6px !important;
+	gap: 6px;
 }
 
 .invoice-workspace--compact .invoice-cart-items-region {

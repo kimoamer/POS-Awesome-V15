@@ -1,5 +1,9 @@
 <template>
-	<div ref="toolbarRoot" class="invoice-items-toolbar">
+	<div
+		ref="toolbarRoot"
+		class="invoice-items-toolbar"
+		:class="{ 'invoice-items-toolbar--mobile': isMobileToolbar }"
+	>
 		<v-text-field
 			ref="itemSearchField"
 			:model-value="itemSearch"
@@ -8,7 +12,7 @@
 			variant="outlined"
 			color="primary"
 			class="item-search-field pos-themed-input"
-			:placeholder="__('Search items in cart or scan barcode...')"
+			:placeholder="searchPlaceholder"
 			:aria-label="__('Search items in cart or scan barcode')"
 			prepend-inner-icon="mdi-magnify"
 			hide-details
@@ -16,9 +20,9 @@
 			autocomplete="off"
 		></v-text-field>
 		<div class="invoice-items-toolbar__actions">
-			<!-- Segmented List / Table Toggle (Desktop >= 1200px) -->
+			<!-- Segmented List / Table Toggle -->
 			<v-btn-toggle
-				v-if="showViewToggle"
+				v-if="showDirectViewToggle"
 				:model-value="currentView"
 				@update:model-value="$emit('update:currentView', $event)"
 				mandatory
@@ -71,9 +75,9 @@
 							@click="runMenuAction(action)"
 						>
 							<template #prepend>
-								<v-icon size="18" v-if="action === 'columns'">mdi-view-column-outline</v-icon>
+								<v-icon size="18">{{ actionIcon(action) }}</v-icon>
 							</template>
-							<v-list-item-title v-if="action === 'columns'">{{ __("Columns") }}</v-list-item-title>
+							<v-list-item-title>{{ actionLabel(action) }}</v-list-item-title>
 						</v-list-item>
 					</v-list>
 				</v-card>
@@ -133,7 +137,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
-type ToolbarActionKey = "columns";
+type ToolbarActionKey = "columns" | "view-list" | "view-table";
 
 const props = defineProps({
 	itemSearch: {
@@ -170,10 +174,17 @@ const isMobileToolbar = ref(false);
 let resizeObserver: ResizeObserver | null = null;
 
 const canManageColumns = computed(() => props.currentView === "table");
+const showDirectViewToggle = computed(() => props.showViewToggle && !isMobileToolbar.value);
 const showDirectColumns = computed(() => canManageColumns.value && !isMobileToolbar.value);
+const searchPlaceholder = computed(() =>
+	isMobileToolbar.value ? __("Search or scan barcode...") : __("Search items in cart or scan barcode..."),
+);
 
 const menuActions = computed<ToolbarActionKey[]>(() => {
 	const actions: ToolbarActionKey[] = [];
+	if (props.showViewToggle && isMobileToolbar.value) {
+		actions.push("view-list", "view-table");
+	}
 	if (canManageColumns.value && isMobileToolbar.value) {
 		actions.push("columns");
 	}
@@ -186,7 +197,22 @@ const runMenuAction = (action: ToolbarActionKey) => {
 	moreOpen.value = false;
 	if (action === "columns") {
 		toggleColumnSelection();
+		return;
 	}
+
+	emit("update:currentView", action === "view-table" ? "table" : "list");
+};
+
+const actionIcon = (action: ToolbarActionKey): string => {
+	if (action === "view-list") return "mdi-view-headline";
+	if (action === "view-table") return "mdi-table";
+	return "mdi-view-column-outline";
+};
+
+const actionLabel = (action: ToolbarActionKey): string => {
+	if (action === "view-list") return __("List");
+	if (action === "view-table") return __("Table");
+	return __("Columns");
 };
 
 const toggleColumnSelection = () => {
@@ -216,7 +242,7 @@ const updateToolbarMode = () => {
 	const width =
 		toolbarRoot.value?.getBoundingClientRect?.().width ||
 		(typeof window !== "undefined" ? window.innerWidth : 0);
-	isMobileToolbar.value = width > 0 && width < 520;
+	isMobileToolbar.value = width > 0 && width < 680;
 };
 
 const normalizeColumns = (columns: any): string[] =>
@@ -271,11 +297,19 @@ defineExpose({
 	background: transparent;
 }
 
+.invoice-items-toolbar--mobile {
+	gap: 8px;
+}
+
 .invoice-items-toolbar__actions {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--pos-control-gap, 6px);
 	min-width: 0;
+}
+
+.invoice-items-toolbar__actions:empty {
+	display: none;
 }
 
 .item-search-field {
@@ -319,6 +353,7 @@ defineExpose({
 	font-size: var(--pos-font-control, 13px);
 	font-weight: 600;
 	line-height: 1.2;
+	text-overflow: ellipsis;
 }
 
 .item-search-field :deep(.v-label) {
@@ -426,13 +461,35 @@ defineExpose({
 }
 
 @media (max-width: 520px) {
-	.invoice-items-toolbar {
-		grid-template-columns: minmax(0, 1fr) auto;
+	.invoice-items-toolbar--mobile {
+		grid-template-columns: 1fr;
 		padding: 0;
+	}
+
+	.invoice-items-toolbar--mobile .invoice-items-toolbar__actions {
+		justify-content: flex-end;
+		width: 100%;
+	}
+
+	.invoice-items-toolbar--mobile .item-search-field :deep(.v-field),
+	.invoice-items-toolbar--mobile .item-search-field :deep(.v-field__input),
+	.invoice-items-toolbar--mobile .item-search-field :deep(.v-field__prepend-inner),
+	.invoice-items-toolbar--mobile .item-search-field :deep(.v-field__clearable) {
+		min-height: 48px !important;
+	}
+
+	.invoice-items-toolbar--mobile .item-search-field :deep(input) {
+		font-size: 14px;
 	}
 
 	.invoice-command-btn--columns {
 		display: none !important;
+	}
+}
+
+@media (max-width: 380px) {
+	.invoice-items-toolbar--mobile .item-search-field :deep(input) {
+		font-size: 13px;
 	}
 }
 </style>

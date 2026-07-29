@@ -1,6 +1,9 @@
 <template>
 	<!-- ? Disable dropdown if either readonly or loadingCustomers is true -->
-	<div class="customer-input-wrapper">
+	<div
+		class="customer-input-wrapper"
+		:class="{ 'customer-input-wrapper--loading': showCustomerLoadProgress }"
+	>
 		<div class="customer-field-shell">
 			<v-autocomplete
 				ref="customerDropdown"
@@ -708,29 +711,101 @@ export default {
 
 .customer-field-shell {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) 44px 44px;
-	gap: 6px;
-	align-items: center;
+	--customer-control-height: var(--pos-control-height, 44px);
+	--customer-action-size: var(--customer-control-height);
+	--customer-toolbar-gap: var(--pos-control-gap, 6px);
+	grid-template-columns: minmax(0, 1fr) var(--customer-action-size) var(--customer-action-size);
+	gap: var(--customer-toolbar-gap);
+	align-items: start;
 	width: 100%;
+	min-height: 70px;
+	height: auto;
 }
 
-.customer-autocomplete,
-.customer-action-btn {
-	height: 44px;
-	min-height: 44px;
+.customer-autocomplete {
+	flex: 1 1 auto;
+	min-width: 0;
+	margin: 0 !important;
+	padding: 0 !important;
+	height: var(--customer-control-height) !important;
+	min-height: var(--customer-control-height) !important;
+}
+
+.customer-autocomplete :deep(.v-input__control) {
+	height: var(--customer-control-height) !important;
+	min-height: var(--customer-control-height) !important;
 }
 
 .customer-autocomplete :deep(.v-field) {
-	min-height: 44px !important;
-	height: 44px !important;
-	border-radius: 8px !important;
+	min-height: var(--customer-control-height) !important;
+	height: var(--customer-control-height) !important;
+	max-height: var(--customer-control-height) !important;
+	border-radius: var(--pos-radius-control, 8px) !important;
+	align-items: center !important;
+}
+
+.customer-autocomplete :deep(.v-field__field) {
+	height: var(--customer-control-height) !important;
+	align-items: center !important;
+}
+
+.customer-autocomplete :deep(.v-field__input) {
+	min-height: var(--customer-control-height) !important;
+	height: var(--customer-control-height) !important;
+	padding-top: 0 !important;
+	padding-bottom: 0 !important;
+	align-items: center !important;
+}
+
+.customer-input-wrapper--loading .customer-field-shell {
+	row-gap: 4px;
+}
+
+.customer-input-wrapper--loading .customer-load-bar {
+	margin-top: 2px;
+}
+
+.customer-input-wrapper--loading .customer-load-status {
+	margin-top: 0;
 }
 
 .customer-action-btn {
 	flex: 0 0 auto;
-	width: 44px !important;
-	min-width: 44px !important;
-	border-radius: 8px !important;
+	width: var(--customer-action-size) !important;
+	height: var(--customer-control-height) !important;
+	min-width: var(--customer-action-size) !important;
+	min-height: var(--customer-control-height) !important;
+	border-radius: var(--pos-radius-control, 8px) !important;
 	margin: 0 !important;
+	padding: 0 !important;
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	border: 1px solid var(--pos-border-light) !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
+}
+
+@media (max-width: 768px) {
+	.customer-field-shell {
+		--customer-control-height: 48px;
+		--customer-action-size: 48px;
+		--customer-toolbar-gap: 8px;
+	}
+
+	.customer-autocomplete :deep(input) {
+		font-size: 14px;
+	}
+}
+
+@media (max-width: 380px) {
+	.customer-field-shell {
+		--customer-control-height: 46px;
+		--customer-action-size: 44px;
+		--customer-toolbar-gap: 6px;
+	}
+
+	.customer-autocomplete :deep(input) {
+		font-size: 13px;
+	}
 }
 </style>

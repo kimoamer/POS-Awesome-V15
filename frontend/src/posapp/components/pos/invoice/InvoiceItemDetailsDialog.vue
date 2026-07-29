@@ -599,11 +599,52 @@ const getBatchOptions = (item: any) => getDisplayableBatchOptions(item?.batch_no
 
 .posa-form-row {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 12px;
+	width: 100%;
+}
+
+.posa-form-field {
+	width: 100%;
+	min-width: 0 !important;
+	max-width: 100% !important;
+}
+
+.posa-form-field :deep(.v-input),
+.posa-form-field :deep(.v-field) {
+	width: 100% !important;
+	min-width: 0 !important;
+}
+
+.change-price-btn,
+.offer-action-btn {
+	width: 100% !important;
+	height: 40px !important;
 }
 
 .line-height-1-2 {
 	line-height: 1.2;
+}
+
+:deep(.v-overlay__content) {
+	max-width: 720px !important;
+	width: calc(100% - 24px) !important;
+	margin: 12px auto !important;
+}
+
+@media (max-width: 600px) {
+	.posa-form-row {
+		grid-template-columns: 1fr;
+		gap: 10px;
+	}
+
+	:deep(.v-overlay__content) {
+		width: calc(100% - 16px) !important;
+		margin: 8px auto !important;
+	}
+
+	.details-dialog__body {
+		padding: 12px !important;
+	}
 }
 </style>

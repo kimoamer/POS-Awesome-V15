@@ -16,19 +16,47 @@
 				<div class="cart-item-title-row">
 					<span class="cart-item-title" :title="itemTitle">{{ itemTitle }}</span>
 					<div class="cart-item-badges" v-if="hasBadges">
-						<v-chip v-if="item.is_bundle" color="secondary" size="x-small" class="cart-item-badge">
+						<v-chip
+							v-if="item.is_bundle"
+							color="secondary"
+							size="x-small"
+							class="cart-item-badge"
+						>
 							{{ __("Bundle") }}
 						</v-chip>
-						<v-chip v-if="item.name_overridden" color="primary" size="x-small" class="cart-item-badge">
+						<v-chip
+							v-if="item.name_overridden"
+							color="primary"
+							size="x-small"
+							class="cart-item-badge"
+						>
 							{{ __("Edited") }}
 						</v-chip>
-						<v-chip v-if="item.batch_no_is_expired" color="error" size="x-small" variant="flat" class="cart-item-badge">
+						<v-chip
+							v-if="item.batch_no_is_expired"
+							color="error"
+							size="x-small"
+							variant="flat"
+							class="cart-item-badge"
+						>
 							{{ __("Expired") }}
 						</v-chip>
-						<v-chip v-if="item.has_batch_no && item.batch_no" color="info" size="x-small" variant="tonal" class="cart-item-badge">
+						<v-chip
+							v-if="item.has_batch_no && item.batch_no"
+							color="info"
+							size="x-small"
+							variant="tonal"
+							class="cart-item-badge"
+						>
 							{{ __("Batch") }}: {{ item.batch_no }}
 						</v-chip>
-						<v-chip v-if="item.posa_is_offer || item.is_free_item" color="success" size="x-small" variant="flat" class="cart-item-badge">
+						<v-chip
+							v-if="item.posa_is_offer || item.is_free_item"
+							color="success"
+							size="x-small"
+							variant="flat"
+							class="cart-item-badge"
+						>
 							{{ __("Offer") }}
 						</v-chip>
 					</div>
@@ -402,15 +430,25 @@ function handleMinusClick() {
 
 <style scoped>
 .invoice-item-card {
-	border-bottom: 1px solid var(--pos-border-light, #e2e8f0);
+	border: 1px solid var(--pos-border-light, #e2e8f0);
 	background: var(--pos-surface-raised, #ffffff);
-	transition: background-color 0.2s ease;
+	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+	transition:
+		background-color 0.2s ease,
+		border-color 0.2s ease,
+		box-shadow 0.2s ease;
 	border-radius: 8px;
-	margin-bottom: 4px;
+	margin-bottom: 8px;
 }
 
 .invoice-item-card:hover {
-	background: color-mix(in srgb, var(--pos-primary-container, #eff6ff) 14%, var(--pos-surface-raised, #ffffff));
+	background: color-mix(
+		in srgb,
+		var(--pos-primary-container, #eff6ff) 14%,
+		var(--pos-surface-raised, #ffffff)
+	);
+	border-color: color-mix(in srgb, var(--pos-primary, #2563eb) 18%, var(--pos-border-light, #e2e8f0));
+	box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
 }
 
 .invoice-item-card--row {
@@ -466,8 +504,8 @@ function handleMinusClick() {
 		"identity amount"
 		"qty actions"
 		"rate rate";
-	gap: 8px;
-	padding: 10px;
+	gap: 10px 12px;
+	padding: 12px;
 	min-height: 112px;
 }
 
@@ -498,6 +536,8 @@ function handleMinusClick() {
 	align-items: center;
 	justify-content: space-between;
 	width: 100%;
+	padding-top: 8px;
+	border-top: 1px solid var(--pos-border-light, #e2e8f0);
 }
 
 .invoice-item-card__identity {
@@ -513,7 +553,11 @@ function handleMinusClick() {
 	height: 40px;
 	border-radius: 8px;
 	border: 1px solid var(--pos-border-light, #e2e8f0);
-	background: color-mix(in srgb, var(--pos-primary-container, #eff6ff) 20%, var(--pos-surface-muted, #f8fafc));
+	background: color-mix(
+		in srgb,
+		var(--pos-primary-container, #eff6ff) 20%,
+		var(--pos-surface-muted, #f8fafc)
+	);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -656,7 +700,8 @@ function handleMinusClick() {
 
 .invoice-item-card--phone .invoice-item-card__rate-display {
 	justify-content: space-between;
-	min-height: 44px;
+	min-height: 34px;
+	padding-inline: 0;
 }
 
 .invoice-item-card--phone .invoice-item-card__rate-input :deep(.v-field) {
