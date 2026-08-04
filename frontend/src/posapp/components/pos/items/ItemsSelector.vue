@@ -545,10 +545,20 @@ const forceCustomerPriceList = computed(() =>
 	parseBooleanSetting(pos_profile.value?.posa_force_price_from_customer_price_list),
 );
 
-const resolveProfileDefaultItemsView = (profile: any) =>
-	parseBooleanSetting(profile?.posa_default_card_view) ? "card" : "list";
+const isMobileOrTabletView = computed(() => responsive.windowWidth.value < 1024);
+
+const resolveProfileDefaultItemsView = (profile: any) => {
+	if (isMobileOrTabletView.value) {
+		return "card";
+	}
+	return parseBooleanSetting(profile?.posa_default_card_view) ? "card" : "list";
+};
 
 const applyProfileDefaultItemsView = (profile: any) => {
+	if (isMobileOrTabletView.value) {
+		items_view.value = "card";
+		return;
+	}
 	const profileKey = typeof profile?.name === "string" ? profile.name.trim() : "";
 	if (!profileKey || lastDefaultViewProfileKey.value === profileKey) {
 		return;
@@ -563,11 +573,21 @@ const applyProfileDefaultItemsView = (profile: any) => {
 	lastDefaultViewProfileKey.value = profileKey;
 };
 
+watch(
+	() => isMobileOrTabletView.value,
+	(isMobile) => {
+		if (isMobile) {
+			items_view.value = "card";
+		}
+	},
+	{ immediate: true },
+);
+
 const handleItemsViewUpdate = (view: string) => {
 	if (view !== "card" && view !== "list") {
 		return;
 	}
-	items_view.value = view;
+	items_view.value = isMobileOrTabletView.value ? "card" : view;
 };
 
 const waitForAnimationFrame = () =>

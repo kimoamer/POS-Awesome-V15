@@ -6,148 +6,157 @@
 			class="offline-status-panel pos-themed-card"
 			elevation="16"
 		>
-			<div class="offline-status-panel__header">
-				<div class="offline-status-panel__copy">
-					<div class="offline-status-panel__title">
-						{{ __("Offline Status") }}
+			<!-- Pinned Header -->
+			<div class="offline-status-panel__header-section">
+				<div class="offline-status-panel__header">
+					<div class="offline-status-panel__copy">
+						<div class="offline-status-panel__title">
+							{{ __("Offline Status") }}
+						</div>
+						<div class="offline-status-panel__subtitle">
+							{{ summaryMessage }}
+						</div>
 					</div>
-					<div class="offline-status-panel__subtitle">
-						{{ summaryMessage }}
+					<v-chip size="small" variant="tonal" :color="chipColor" class="offline-status-panel__chip">
+						{{ connectivityLabel }}
+					</v-chip>
+				</div>
+
+				<div class="offline-status-panel__meta">
+					<div class="offline-status-panel__meta-item">
+						<span class="offline-status-panel__meta-label">{{ __("Pending Sales") }}</span>
+						<strong>{{ summary.pendingInvoices }}</strong>
+					</div>
+					<div class="offline-status-panel__meta-item">
+						<span class="offline-status-panel__meta-label">{{ __("Cache Usage") }}</span>
+						<strong>{{ cacheUsageLabel }}</strong>
 					</div>
 				</div>
-				<v-chip size="small" variant="tonal" :color="chipColor" class="offline-status-panel__chip">
-					{{ connectivityLabel }}
-				</v-chip>
 			</div>
 
-			<div class="offline-status-panel__meta">
-				<div class="offline-status-panel__meta-item">
-					<span class="offline-status-panel__meta-label">{{ __("Pending Sales") }}</span>
-					<strong>{{ summary.pendingInvoices }}</strong>
-				</div>
-				<div class="offline-status-panel__meta-item">
-					<span class="offline-status-panel__meta-label">{{ __("Cache Usage") }}</span>
-					<strong>{{ cacheUsageLabel }}</strong>
-				</div>
-			</div>
-
-			<div
-				v-if="bootstrapWarning.active"
-				class="offline-status-panel__warning"
-				data-test="offline-status-warning"
-			>
-				<div class="offline-status-panel__warning-title">
-					{{ bootstrapWarning.title }}
-				</div>
+			<!-- Scrollable Body -->
+			<div class="offline-status-panel__body-section">
 				<div
-					v-for="message in bootstrapWarning.messages"
-					:key="message"
-					class="offline-status-panel__warning-line"
+					v-if="bootstrapWarning.active"
+					class="offline-status-panel__warning"
+					data-test="offline-status-warning"
 				>
-					{{ message }}
-				</div>
-			</div>
-
-			<div class="offline-status-panel__section">
-				<div class="offline-status-panel__section-title">
-					{{ __("Offline Capabilities") }}
-				</div>
-				<div v-if="capabilitySummaries.length" class="offline-status-panel__resources">
+					<div class="offline-status-panel__warning-title">
+						{{ bootstrapWarning.title }}
+					</div>
 					<div
-						v-for="capability in capabilitySummaries"
-						:key="capability.id"
-						class="offline-status-panel__resource"
-						:data-test="`offline-capability-${capability.id}`"
+						v-for="message in bootstrapWarning.messages"
+						:key="message"
+						class="offline-status-panel__warning-line"
 					>
-						<div class="offline-status-panel__resource-head">
-							<div class="offline-status-panel__resource-title">
-								{{ capability.label }}
-							</div>
-							<div class="offline-status-panel__resource-status">
-								{{ capability.status }}
-							</div>
-						</div>
-						<div class="offline-status-panel__resource-detail">
-							{{ capability.message }}
-						</div>
-						<div v-if="capability.action" class="offline-status-panel__resource-id">
-							{{ capability.action }}
-						</div>
+						{{ message }}
 					</div>
 				</div>
-				<div v-else class="offline-status-panel__empty">
-					{{ __("No capability warnings recorded yet.") }}
-				</div>
-			</div>
 
-			<div class="offline-status-panel__section">
-				<div class="offline-status-panel__section-title">
-					{{ __("Resource Health") }}
-				</div>
-				<div v-if="sortedResources.length" class="offline-status-panel__resources">
-					<div
-						v-for="resource in sortedResources"
-						:key="resource.resourceId"
-						class="offline-status-panel__resource"
-						:data-test="`offline-status-resource-${resource.resourceId}`"
-					>
-						<div class="offline-status-panel__resource-head">
-							<div class="offline-status-panel__resource-title">
-								{{ resource.label }}
+				<div class="offline-status-panel__section">
+					<div class="offline-status-panel__section-title">
+						{{ __("Offline Capabilities") }}
+					</div>
+					<div v-if="capabilitySummaries.length" class="offline-status-panel__resources">
+						<div
+							v-for="capability in capabilitySummaries"
+							:key="capability.id"
+							class="offline-status-panel__resource"
+							:data-test="`offline-capability-${capability.id}`"
+						>
+							<div class="offline-status-panel__resource-head">
+								<div class="offline-status-panel__resource-title">
+									{{ capability.label }}
+								</div>
+								<div class="offline-status-panel__resource-status">
+									{{ capability.status }}
+								</div>
 							</div>
-							<div class="offline-status-panel__resource-status">
-								{{ resource.status }}
+							<div class="offline-status-panel__resource-detail">
+								{{ capability.message }}
 							</div>
-						</div>
-						<div class="offline-status-panel__resource-id">
-							{{ resource.resourceId }}
-						</div>
-						<div v-if="resource.lastError" class="offline-status-panel__resource-detail">
-							{{ resource.lastError }}
+							<div v-if="capability.action" class="offline-status-panel__resource-id">
+								{{ capability.action }}
+							</div>
 						</div>
 					</div>
+					<div v-else class="offline-status-panel__empty">
+						{{ __("No capability warnings recorded yet.") }}
+					</div>
 				</div>
-				<div v-else class="offline-status-panel__empty">
-					{{ __("No offline sync issues recorded yet.") }}
+
+				<div class="offline-status-panel__section">
+					<div class="offline-status-panel__section-title">
+						{{ __("Resource Health") }}
+					</div>
+					<div v-if="sortedResources.length" class="offline-status-panel__resources">
+						<div
+							v-for="resource in sortedResources"
+							:key="resource.resourceId"
+							class="offline-status-panel__resource"
+							:data-test="`offline-status-resource-${resource.resourceId}`"
+						>
+							<div class="offline-status-panel__resource-head">
+								<div class="offline-status-panel__resource-title">
+									{{ resource.label }}
+								</div>
+								<div class="offline-status-panel__resource-status">
+									{{ resource.status }}
+								</div>
+							</div>
+							<div class="offline-status-panel__resource-id">
+								{{ resource.resourceId }}
+							</div>
+							<div v-if="resource.lastError" class="offline-status-panel__resource-detail">
+								{{ resource.lastError }}
+							</div>
+						</div>
+					</div>
+					<div v-else class="offline-status-panel__empty">
+						{{ __("No offline sync issues recorded yet.") }}
+					</div>
 				</div>
 			</div>
 
-			<div class="offline-status-panel__actions">
-				<button
-					type="button"
-					data-test="offline-status-action-connectivity"
-					@click="$emit('toggle-offline')"
-				>
-					{{ connectivityActionLabel }}
-				</button>
-				<button
-					type="button"
-					data-test="offline-status-action-refresh"
-					@click="$emit('refresh-offline-data')"
-				>
-					{{ __("Refresh Offline Data") }}
-				</button>
-				<button
-					type="button"
-					data-test="offline-status-action-rebuild"
-					@click="$emit('rebuild-offline-data')"
-				>
-					{{ __("Rebuild Offline Data") }}
-				</button>
-				<button
-					type="button"
-					data-test="offline-status-action-clear-cache"
-					@click="$emit('clear-cache')"
-				>
-					{{ __("Clear Cache") }}
-				</button>
-				<button
-					type="button"
-					data-test="offline-status-action-diagnostics"
-					@click="$emit('open-diagnostics')"
-				>
-					{{ __("View Data Diagnostics") }}
-				</button>
+			<!-- Pinned Footer Actions -->
+			<div class="offline-status-panel__footer-section">
+				<div class="offline-status-panel__actions">
+					<button
+						type="button"
+						data-test="offline-status-action-connectivity"
+						@click="$emit('toggle-offline')"
+					>
+						{{ connectivityActionLabel }}
+					</button>
+					<button
+						type="button"
+						data-test="offline-status-action-refresh"
+						@click="$emit('refresh-offline-data')"
+					>
+						{{ __("Refresh Offline Data") }}
+					</button>
+					<button
+						type="button"
+						data-test="offline-status-action-rebuild"
+						@click="$emit('rebuild-offline-data')"
+					>
+						{{ __("Rebuild Offline Data") }}
+					</button>
+					<button
+						type="button"
+						data-test="offline-status-action-clear-cache"
+						@click="$emit('clear-cache')"
+					>
+						{{ __("Clear Cache") }}
+					</button>
+					<button
+						type="button"
+						data-test="offline-status-action-diagnostics"
+						@click="$emit('open-diagnostics')"
+					>
+						{{ __("View Data Diagnostics") }}
+					</button>
+				</div>
 			</div>
 		</v-card>
 	</transition>
@@ -211,16 +220,41 @@ const cacheUsageLabel = computed(() => `${summary.value.cacheUsage || 0}%`);
 <style scoped>
 .offline-status-panel {
 	position: absolute;
-	top: calc(100% + 10px);
+	top: calc(100% + 8px);
 	right: 0;
 	width: min(380px, calc(100vw - 24px));
-	padding: 16px;
+	max-height: min(540px, calc(85vh - 60px));
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	z-index: 50;
+	border: 1px solid var(--pos-border-light, #e2e8f0);
+	border-radius: 16px;
+	box-shadow: var(--pos-shadow-lg, 0 20px 48px rgba(15, 23, 42, 0.16));
+	background: var(--pos-surface-raised, #ffffff);
+	overflow: hidden;
+}
+
+.offline-status-panel__header-section {
+	padding: 14px 16px;
+	background: var(--pos-surface-muted, #f8fafc);
+	border-bottom: 1px solid var(--pos-border-light, #e2e8f0);
+	display: grid;
+	gap: 10px;
+}
+
+.offline-status-panel__body-section {
+	flex: 1;
+	overflow-y: auto;
+	padding: 14px 16px;
 	display: grid;
 	gap: 14px;
-	z-index: 50;
-	border: 1px solid var(--pos-border-light);
-	border-radius: 16px;
-	box-shadow: 0 22px 48px rgba(15, 23, 42, 0.16);
+}
+
+.offline-status-panel__footer-section {
+	padding: 12px 16px;
+	background: var(--pos-surface-muted, #f8fafc);
+	border-top: 1px solid var(--pos-border-light, #e2e8f0);
 }
 
 .offline-status-panel__header,
@@ -286,9 +320,8 @@ const cacheUsageLabel = computed(() => `${summary.value.cacheUsage || 0}%`);
 }
 
 .offline-status-panel__resources {
-	max-height: 220px;
-	overflow-y: auto;
-	padding-right: 4px;
+	display: grid;
+	gap: 6px;
 }
 
 .offline-status-panel__resource {
@@ -308,16 +341,17 @@ const cacheUsageLabel = computed(() => `${summary.value.cacheUsage || 0}%`);
 .offline-status-panel__actions {
 	flex-wrap: wrap;
 	justify-content: flex-start;
+	gap: 8px;
 }
 
 .offline-status-panel__actions button {
-	border: 1px solid var(--pos-border);
-	background: var(--pos-hover-bg);
+	border: 1px solid var(--pos-border-light);
+	background: var(--pos-surface-raised);
 	color: var(--pos-text-primary);
-	border-radius: 10px;
-	padding: 8px 12px;
-	font-size: 12px;
-	font-weight: 700;
+	border-radius: 8px;
+	padding: 6px 10px;
+	font-size: 11px;
+	font-weight: 600;
 	letter-spacing: 0;
 	transition:
 		background 0.18s ease,

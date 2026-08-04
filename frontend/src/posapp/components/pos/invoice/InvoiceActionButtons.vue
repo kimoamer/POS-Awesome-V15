@@ -92,10 +92,12 @@
 					:loading="action.loading"
 					:disabled="action.loading"
 					data-pos-keyboard-target="invoice-action"
+					:title="action.label"
+					:aria-label="action.label"
 					@click="handleAction(action.key)"
 				>
-					<v-icon start size="small">{{ action.icon }}</v-icon>
-					<span>{{ action.label }}</span>
+					<v-icon size="small" class="action-btn-icon">{{ action.icon }}</v-icon>
+					<span class="action-btn-text ml-1">{{ action.label }}</span>
 				</v-btn>
 
 				<!-- More Actions Menu -->
@@ -114,11 +116,12 @@
 							color="secondary"
 							class="invoice-action-btn invoice-action-btn--more"
 							data-pos-keyboard-target="invoice-action"
+							:title="__('More invoice actions')"
 							:aria-label="__('More invoice actions')"
 						>
-							<v-icon start size="small">mdi-dots-horizontal</v-icon>
-							<span>{{ __("More") }}</span>
-							<v-icon end size="x-small">mdi-chevron-down</v-icon>
+							<v-icon size="small" class="action-btn-icon">mdi-dots-horizontal</v-icon>
+							<span class="action-btn-text ml-1">{{ __("More") }}</span>
+							<v-icon size="x-small" class="action-btn-chevron ml-1">mdi-chevron-down</v-icon>
 						</v-btn>
 					</template>
 
@@ -333,39 +336,58 @@ async function handlePayClick() {
 .invoice-action-bar {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: 8px;
 	width: 100%;
-}
-
-.invoice-action-bar--compact {
-	width: 100%;
-}
-
-.invoice-action-bar--compact .invoice-action-bar__secondary {
-	display: grid !important;
-	grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-	width: 100% !important;
-	gap: 4px !important;
-}
-
-.invoice-action-bar--compact .invoice-action-btn {
-	width: 100% !important;
-	min-width: 0 !important;
-	height: 42px !important;
-	padding-inline: 4px !important;
-	font-size: 0.78rem !important;
 }
 
 .invoice-action-bar__secondary {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 6px;
 	flex-wrap: nowrap;
 }
 
 .invoice-action-bar__primary {
 	flex: 1 1 auto;
 	min-width: 0;
+}
+
+@container (max-width: 480px) {
+	.invoice-action-bar {
+		flex-direction: row !important;
+		flex-wrap: nowrap !important;
+		gap: 6px !important;
+		width: 100% !important;
+	}
+
+	.invoice-action-bar__secondary {
+		flex: 0 0 auto !important;
+		width: auto !important;
+		gap: 4px !important;
+		flex-wrap: nowrap !important;
+	}
+
+	.invoice-action-bar__secondary .invoice-action-btn {
+		width: 40px !important;
+		min-width: 40px !important;
+		height: 44px !important;
+		padding: 0 !important;
+		justify-content: center !important;
+	}
+
+	.invoice-action-bar__secondary .action-btn-text,
+	.invoice-action-bar__secondary .action-btn-chevron {
+		display: none !important;
+	}
+
+	.invoice-action-bar__secondary .action-btn-icon {
+		margin: 0 !important;
+	}
+
+	.invoice-action-bar__primary {
+		flex: 1 1 auto !important;
+		min-width: 0 !important;
+	}
 }
 
 .invoice-action-btn {

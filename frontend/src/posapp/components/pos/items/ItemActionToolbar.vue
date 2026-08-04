@@ -60,6 +60,21 @@
 		</div>
 
 		<div class="filter-actions">
+			<div class="category-select-wrapper">
+				<v-select
+					:model-value="normalizedModelValue"
+					:items="allCategories"
+					item-title="label"
+					item-value="value"
+					variant="outlined"
+					density="compact"
+					hide-details
+					class="category-select-input pos-themed-input"
+					:aria-label="__('Item Group')"
+					@update:model-value="selectCategory"
+				/>
+			</div>
+
 			<v-tooltip
 				v-if="posProfile.posa_enable_price_list_dropdown !== false"
 				location="bottom"
@@ -356,18 +371,20 @@ onBeforeUnmount(() => {
 .item-filter-strip {
 	min-width: 0;
 	width: 100%;
-	min-height: var(--pos-control-height, 44px);
-	max-height: var(--pos-control-height, 44px);
+	min-height: calc(var(--pos-control-height, 44px) + 6px);
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto;
 	align-items: center;
 	gap: var(--pos-control-gap, 6px);
-	padding: 0;
+	padding-top: 6px;
+	padding-bottom: 0;
+	padding-left: 0;
+	padding-right: 0;
 	border: 0;
 	border-radius: 0;
 	background: transparent;
 	box-shadow: none;
-	overflow: hidden;
+	overflow: visible !important;
 }
 
 .item-filter-strip--dock-reserved {
@@ -594,6 +611,11 @@ onBeforeUnmount(() => {
 	border-radius: var(--pos-radius-control, 8px) !important;
 	background: var(--pos-surface-raised) !important;
 	box-shadow: none !important;
+	overflow: visible !important;
+}
+
+.filter-action-btn :deep(.v-btn__content) {
+	overflow: visible !important;
 }
 
 .filter-action-btn--offers {
@@ -621,20 +643,55 @@ onBeforeUnmount(() => {
 .filter-action-btn__badge {
 	position: absolute;
 	inset-block-start: -5px;
-	inset-inline-end: -4px;
-	min-inline-size: 16px;
-	block-size: 16px;
+	inset-inline-end: -5px;
+	min-inline-size: 18px;
+	block-size: 18px;
 	padding-inline: 4px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	border-radius: 999px;
-	background: currentColor;
-	color: var(--pos-on-primary);
-	border: 2px solid var(--pos-surface-raised);
-	font-size: 10px;
+	background: #0284c7;
+	color: #ffffff !important;
+	border: 2px solid var(--pos-surface-raised, #ffffff);
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+	font-size: 11px;
 	font-weight: 800;
 	line-height: 1;
+	z-index: 10;
+}
+
+.filter-action-btn--offers .filter-action-btn__badge {
+	background: #0284c7 !important;
+	color: #ffffff !important;
+}
+
+.filter-action-btn--coupons .filter-action-btn__badge {
+	background: #ea580c !important;
+	color: #ffffff !important;
+}
+
+.category-select-wrapper {
+	min-width: 150px;
+	max-width: 220px;
+	flex-shrink: 1;
+}
+
+:deep(.category-select-input .v-field) {
+	border-radius: var(--pos-radius-control, 8px) !important;
+	height: 40px !important;
+	min-height: 40px !important;
+	background: var(--pos-surface-raised) !important;
+	border: 1px solid var(--pos-border-light) !important;
+}
+
+:deep(.category-select-input .v-field__input) {
+	min-height: 40px !important;
+	padding-top: 0 !important;
+	padding-bottom: 0 !important;
+	font-size: var(--pos-font-control, 12px) !important;
+	font-weight: 680 !important;
+	color: var(--pos-text-primary) !important;
 }
 
 @media (max-width: 1279px) {
@@ -669,35 +726,40 @@ onBeforeUnmount(() => {
 	}
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1024px) {
+	.view-toggle-btn {
+		display: none !important;
+	}
+}
+
+@media (max-width: 960px) {
+	.category-strip-shell {
+		display: none !important;
+	}
+
 	.item-filter-strip {
-		max-height: calc((var(--pos-control-height, 44px) * 2) + var(--pos-control-gap, 6px));
-		grid-template-columns: 1fr;
-		grid-template-rows: 44px 44px;
+		max-height: 44px !important;
+		grid-template-columns: 1fr !important;
+		grid-template-rows: 44px !important;
 		align-items: center;
 		gap: var(--pos-control-gap, 6px);
 		padding: 0;
 	}
 
 	.filter-actions {
-		justify-content: flex-start;
+		width: 100% !important;
+		justify-content: flex-start !important;
 		overflow-x: auto;
 		overflow-y: hidden;
 		overscroll-behavior-inline: contain;
 		scrollbar-width: none;
+		gap: 6px !important;
 	}
 
-	.category-chip {
-		max-inline-size: 132px;
-	}
-
-	.price-list-display {
-		inline-size: 136px;
-		min-inline-size: 136px;
-	}
-
-	.filter-action-btn {
-		flex: 0 0 44px;
+	.category-select-wrapper {
+		display: block !important;
+		flex: 1 1 auto;
+		min-width: 130px;
 	}
 }
 </style>

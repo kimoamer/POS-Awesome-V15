@@ -34,7 +34,9 @@
 		</v-dialog>
 		<div
 			v-show="!dialog"
+			ref="workspaceRoot"
 			class="pos-workspace dynamic-main-row"
+			:style="workspaceCustomStyles"
 			:class="{
 				'pos-workspace--compact': useCompactPosSwitcher,
 				'pos-workspace--phone': isPhone,
@@ -59,6 +61,17 @@
 			>
 				<Payments :viewport-mode="paymentViewportMode"></Payments>
 			</section>
+
+			<div
+				v-if="!useCompactPosSwitcher && ['items', 'offers', 'coupons'].includes(activeView)"
+				class="pos-workspace-splitter"
+				:class="{ 'pos-workspace-splitter--active': isResizingWorkspace }"
+				@mousedown="startWorkspaceResize"
+				@dblclick="resetWorkspaceSplit"
+				:title="__('Drag to resize panels (Double-click to reset)')"
+			>
+				<div class="pos-workspace-splitter__handle"></div>
+			</div>
 
 			<section
 				v-show="(!useCompactPosSwitcher || compactPanel === 'invoice') && activeView !== 'payment'"
@@ -237,6 +250,91 @@ export default {
 		const invoicePanel = ref(null);
 		const additionalDiscountField = ref(null);
 		const mobileDock = ref(null);
+		const workspaceRoot = ref(null);
+		const isResizingWorkspace = ref(false);
+		const storedCartWidthKey = "posa_desktop_cart_width";
+
+		const getStoredCartWidth = () => {
+			try {
+				const stored = localStorage.getItem(storedCartWidthKey);
+				if (stored) {
+					const parsed = parseFloat(stored);
+					if (Number.isFinite(parsed) && parsed >= 320 && parsed <= 900) {
+						return parsed;
+					}
+				}
+			} catch (e) {}
+			return 420;
+		};
+
+		const desktopCartWidth = ref(getStoredCartWidth());
+
+		const workspaceCustomStyles = computed(() => {
+			if (useCompactPosSwitcher.value) return {};
+			return {
+				"--pos-cart-width": `${desktopCartWidth.value}px`,
+			};
+		});
+
+		let animationFrameId = null;
+
+		const startWorkspaceResize = (event) => {
+			if (event.button !== 0) return;
+			event.preventDefault();
+			isResizingWorkspace.value = true;
+			document.body.style.cursor = "col-resize";
+			document.body.style.userSelect = "none";
+
+			const onMouseMove = (moveEvent) => {
+				if (!workspaceRoot.value) return;
+				const rect = workspaceRoot.value.getBoundingClientRect();
+				const totalWidth = rect.width;
+				if (totalWidth <= 0) return;
+
+				let newCartWidth;
+				if (rtl.isRtl?.value) {
+					newCartWidth = moveEvent.clientX - rect.left;
+				} else {
+					newCartWidth = rect.right - moveEvent.clientX;
+				}
+
+				const minWidth = 360;
+				const maxWidth = Math.floor(totalWidth * 0.65);
+				const clampedWidth = Math.max(minWidth, Math.min(maxWidth, Math.round(newCartWidth)));
+
+				if (animationFrameId) cancelAnimationFrame(animationFrameId);
+				animationFrameId = requestAnimationFrame(() => {
+					desktopCartWidth.value = clampedWidth;
+				});
+			};
+
+			const onMouseUp = () => {
+				isResizingWorkspace.value = false;
+				document.body.style.cursor = "";
+				document.body.style.userSelect = "";
+				window.removeEventListener("mousemove", onMouseMove);
+				window.removeEventListener("mouseup", onMouseUp);
+
+				try {
+					localStorage.setItem(storedCartWidthKey, desktopCartWidth.value.toString());
+				} catch (e) {}
+			};
+
+			window.addEventListener("mousemove", onMouseMove);
+			window.addEventListener("mouseup", onMouseUp);
+		};
+
+		const resetWorkspaceSplit = () => {
+			if (!workspaceRoot.value) {
+				desktopCartWidth.value = 420;
+				return;
+			}
+			const totalWidth = workspaceRoot.value.getBoundingClientRect().width;
+			desktopCartWidth.value = Math.max(340, Math.round(totalWidth * 0.4));
+			try {
+				localStorage.setItem(storedCartWidthKey, desktopCartWidth.value.toString());
+			} catch (e) {}
+		};
 		const responsive = useResponsive();
 		const rtl = useRtl();
 		const shift = usePosShift(() => {
@@ -657,6 +755,11 @@ export default {
 			invoicePanel,
 			eventBus,
 			dialog,
+			workspaceRoot,
+			workspaceCustomStyles,
+			isResizingWorkspace,
+			startWorkspaceResize,
+			resetWorkspaceSplit,
 		};
 	},
 	data: function () {
@@ -765,9 +868,8 @@ export default {
 }
 
 .pos-workspace {
-	display: grid;
-	grid-template-areas: "products cart";
-	grid-template-columns: minmax(0, 1fr) clamp(400px, 40%, 620px);
+	display: flex;
+	flex-direction: row;
 	gap: 0;
 	padding: 0;
 	overflow: hidden;
@@ -780,8 +882,53 @@ export default {
 }
 
 .pos-workspace--rtl:not(.pos-workspace--compact) {
-	grid-template-areas: "cart products";
-	grid-template-columns: clamp(400px, 40%, 620px) minmax(0, 1fr);
+	flex-direction: row-reverse;
+}
+
+.pos-workspace:not(.pos-workspace--compact) .pos-products-pane {
+	flex: 1 1 0;
+	min-width: 320px;
+	width: auto;
+}
+
+.pos-workspace:not(.pos-workspace--compact) .pos-cart-pane {
+	flex: 0 0 var(--pos-cart-width, 420px);
+	width: var(--pos-cart-width, 420px);
+	min-width: 320px;
+	max-width: 65%;
+	border-inline-start: 0;
+}
+
+.pos-workspace-splitter {
+	position: relative;
+	width: 6px;
+	flex: 0 0 6px;
+	height: 100%;
+	cursor: col-resize;
+	background: var(--pos-border-light, #e2e8f0);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 10;
+	transition: background-color 0.15s ease;
+	user-select: none;
+}
+
+.pos-workspace-splitter:hover,
+.pos-workspace-splitter--active {
+	background: var(--pos-primary, #2563eb) !important;
+}
+
+.pos-workspace-splitter__handle {
+	width: 2px;
+	height: 28px;
+	border-radius: 2px;
+	background: rgba(255, 255, 255, 0.7);
+}
+
+.pos-workspace-splitter:hover .pos-workspace-splitter__handle,
+.pos-workspace-splitter--active .pos-workspace-splitter__handle {
+	background: #ffffff;
 }
 
 .pos-workspace--compact {

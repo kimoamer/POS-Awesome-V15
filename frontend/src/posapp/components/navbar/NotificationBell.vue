@@ -24,10 +24,10 @@
 			</template>
 
 			<v-card class="pos-themed-card notification-card" elevation="12">
-				<div class="notification-card__header">
+				<div class="notification-card__header px-4 py-3 d-flex align-center justify-space-between">
 					<div class="header-text">
-						<div class="notification-heading">{{ __("Notifications") }}</div>
-						<div class="subtitle">
+						<div class="notification-heading text-subtitle-1 font-weight-bold mb-0">{{ __("Notifications") }}</div>
+						<div class="subtitle text-caption text-secondary">
 							{{
 								notifications.length
 									? __("Recent updates about your invoices")
@@ -37,42 +37,48 @@
 					</div>
 					<v-btn
 						v-if="notifications.length"
-						variant="text"
+						variant="tonal"
+						color="secondary"
 						size="small"
-						class="clear-btn"
+						rounded="lg"
+						class="clear-btn text-none px-3"
 						@click="clearAll"
 					>
-						<v-icon start size="16">mdi-broom</v-icon>
+						<v-icon start size="14">mdi-broom</v-icon>
 						{{ __("Clear All") }}
 					</v-btn>
 				</div>
 
-				<v-divider></v-divider>
+				<v-divider class="border-opacity-10" />
 
 				<div class="notification-list">
-					<div v-if="!notifications.length" class="empty-state">
-						<v-icon size="36" class="empty-icon">mdi-bell-off-outline</v-icon>
-						<div class="empty-title">{{ __("No notifications yet") }}</div>
-						<div class="empty-subtitle">
+					<div v-if="!notifications.length" class="empty-state py-6 px-4 text-center">
+						<v-icon size="36" class="empty-icon text-secondary mb-2">mdi-bell-off-outline</v-icon>
+						<div class="empty-title text-subtitle-2 font-weight-bold">{{ __("No notifications yet") }}</div>
+						<div class="empty-subtitle text-caption text-secondary">
 							{{ __("We'll let you know if an invoice fails to submit") }}
 						</div>
 					</div>
-					<v-list v-else density="compact" class="notification-items">
-						<v-list-item v-for="item in notifications" :key="item.id" class="notification-item">
-							<template #prepend>
-								<div class="notification-icon" :class="item.color || 'error'">
-									<v-icon size="18">mdi-bell-alert-outline</v-icon>
-								</div>
-							</template>
-							<div class="notification-content">
-								<div class="notification-title">{{ item.title }}</div>
-								<div v-if="item.detail" class="notification-detail">
+					<div v-else class="notification-items">
+						<div
+							v-for="item in notifications"
+							:key="item.id"
+							class="notification-item px-4 py-3 d-flex align-start gap-3"
+						>
+							<div class="notification-icon flex-shrink-0" :class="item.color || 'error'">
+								<v-icon size="18">
+									{{ item.color === 'success' ? 'mdi-check-circle-outline' : (item.color === 'info' ? 'mdi-information-outline' : 'mdi-bell-alert-outline') }}
+								</v-icon>
+							</div>
+							<div class="notification-content min-w-0 flex-grow-1">
+								<div class="notification-title text-subtitle-2 font-weight-bold mb-0">{{ item.title }}</div>
+								<div v-if="item.detail" class="notification-detail text-body-2 text-secondary my-1">
 									{{ item.detail }}
 								</div>
-								<div class="notification-time">{{ formatTimestamp(item.timestamp) }}</div>
+								<div class="notification-time text-caption text-secondary">{{ formatTimestamp(item.timestamp) }}</div>
 							</div>
-						</v-list-item>
-					</v-list>
+						</div>
+					</div>
 				</div>
 			</v-card>
 		</v-menu>
@@ -162,43 +168,35 @@ function formatTimestamp(ts: string | number | Date) {
 }
 
 .notification-card {
-	min-width: 320px;
-	max-width: 400px;
+	width: min(380px, 92vw);
+	border-radius: var(--pos-radius-lg, 16px) !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
+	border: 1px solid var(--pos-border-light, #e2e8f0) !important;
+	box-shadow: var(--pos-shadow-lg, 0 12px 32px rgba(15, 23, 42, 0.15)) !important;
+	overflow: hidden;
 }
 
 .notification-card__header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 12px 16px;
-}
-
-.header-text .notification-heading {
-	font-weight: 700;
-	font-size: 1rem;
-}
-
-.header-text .subtitle {
-	font-size: 0.85rem;
-	color: var(--pos-text-secondary);
-}
-
-.clear-btn {
-	text-transform: none;
-	font-weight: 600;
+	background: var(--pos-surface-muted, #f8fafc);
 }
 
 .notification-list {
-	max-height: 360px;
+	max-height: min(380px, 60vh);
 	overflow-y: auto;
 }
 
 .notification-items {
-	padding: 0;
+	display: flex;
+	flex-direction: column;
 }
 
 .notification-item {
-	border-bottom: 1px solid var(--pos-border);
+	border-bottom: 1px solid var(--pos-border-light, #f1f5f9);
+	transition: background-color 0.2s ease;
+}
+
+.notification-item:hover {
+	background-color: color-mix(in srgb, var(--pos-primary, #2563eb) 4%, transparent);
 }
 
 .notification-item:last-child {
@@ -208,62 +206,52 @@ function formatTimestamp(ts: string | number | Date) {
 .notification-icon {
 	width: 36px;
 	height: 36px;
-	border-radius: 12px;
+	border-radius: 10px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	color: white;
+	margin-top: 2px;
 }
 
 .notification-icon.error {
-	background: linear-gradient(135deg, #e53935, #e57373);
+	background: linear-gradient(135deg, #ef4444, #f87171);
+}
+
+.notification-icon.success {
+	background: linear-gradient(135deg, #10b981, #34d399);
+}
+
+.notification-icon.info {
+	background: linear-gradient(135deg, #3b82f6, #60a5fa);
 }
 
 .notification-content {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
 }
 
 .notification-title {
-	font-weight: 700;
-	color: var(--pos-text-primary);
+	color: var(--pos-text-primary, #0f172a);
+	line-height: 1.25;
 }
 
 .notification-detail {
-	font-size: 0.9rem;
-	color: var(--pos-text-secondary);
-	white-space: pre-wrap;
+	line-height: 1.35;
+	word-break: break-word;
 }
 
 .notification-time {
-	font-size: 0.75rem;
-	color: var(--pos-text-secondary);
+	font-size: 0.72rem !important;
+	color: var(--pos-text-secondary, #64748b);
 }
 
-.empty-state {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	padding: 24px 12px;
-	text-align: center;
-	color: var(--pos-text-secondary);
+.gap-3 {
+	gap: 12px;
 }
 
-.empty-icon {
-	color: var(--pos-text-secondary);
-	margin-bottom: 8px;
-}
-
-.empty-title {
-	font-weight: 700;
-	color: var(--pos-text-primary);
-	margin-bottom: 4px;
-}
-
-.empty-subtitle {
-	font-size: 0.9rem;
+.min-w-0 {
+	min-width: 0;
 }
 
 @media (max-width: 1279px) {

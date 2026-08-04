@@ -5,20 +5,22 @@
 		scrollable
 		@update:model-value="handleSwitchDialog"
 	>
-		<v-card class="pos-themed-card employee-switch-dialog">
+		<v-card class="pos-themed-card employee-switch-dialog" variant="flat">
 			<v-card-title class="employee-switch-dialog__title">
 				<div>
 					<div class="employee-switch-dialog__eyebrow">{{ __("Shared terminal") }}</div>
-					<div class="text-h6">{{ __("Switch Cashier") }}</div>
+					<div class="text-h6 font-weight-bold text-primary">{{ __("Switch Cashier") }}</div>
 				</div>
 				<v-btn
 					icon="mdi-close"
 					variant="text"
+					density="compact"
 					:aria-label="__('Close cashier switcher')"
 					@click="employeeStore.closeEmployeeSwitch()"
 				/>
 			</v-card-title>
-			<v-card-text>
+
+			<v-card-text class="employee-switch-dialog__body">
 				<div class="employee-switch-dialog__copy">
 					{{ __("Choose the cashier currently operating this terminal.") }}
 				</div>
@@ -36,12 +38,13 @@
 						@click="selectEmployee(employee.user)"
 					>
 						<div>
-							<strong>{{ employee.full_name }}</strong>
+							<strong class="employee-switch-dialog__name">{{ employee.full_name }}</strong>
 							<div class="employee-switch-dialog__meta">{{ employee.user }}</div>
 						</div>
 						<v-icon
 							icon="mdi-check-circle"
 							color="primary"
+							size="22"
 							v-if="selectedUser === employee.user"
 						/>
 					</button>
@@ -66,6 +69,8 @@
 					variant="outlined"
 					density="comfortable"
 					hide-details="auto"
+					color="primary"
+					class="pos-themed-input mt-3"
 					:label="__('Cashier PIN')"
 					:data-test="'cashier-pin-input'"
 					@click:append-inner="showPin = !showPin"
@@ -76,18 +81,21 @@
 					variant="tonal"
 					type="error"
 					density="comfortable"
-					class="employee-switch-dialog__error"
+					class="employee-switch-dialog__error mt-3"
 					data-test="cashier-pin-error"
 				>
 					{{ pinError }}
 				</v-alert>
 			</v-card-text>
+
 			<v-card-actions class="employee-switch-dialog__actions">
-				<v-btn variant="text" @click="employeeStore.closeEmployeeSwitch()">
+				<v-btn variant="text" color="secondary" @click="employeeStore.closeEmployeeSwitch()">
 					{{ __("Cancel") }}
 				</v-btn>
 				<v-btn
 					color="primary"
+					variant="text"
+					class="font-weight-bold"
 					:disabled="!canSubmit"
 					:loading="isSubmitting"
 					data-test="cashier-pin-submit"
@@ -100,14 +108,15 @@
 	</v-dialog>
 
 	<v-dialog :model-value="lockDialogOpen" max-width="480" persistent>
-		<v-card class="pos-themed-card employee-lock-dialog">
+		<v-card class="pos-themed-card employee-switch-dialog" variant="flat">
 			<v-card-title class="employee-switch-dialog__title">
 				<div>
 					<div class="employee-switch-dialog__eyebrow">{{ __("Terminal locked") }}</div>
-					<div class="text-h6">{{ __("Unlock POS") }}</div>
+					<div class="text-h6 font-weight-bold text-primary">{{ __("Unlock POS") }}</div>
 				</div>
 			</v-card-title>
-			<v-card-text>
+
+			<v-card-text class="employee-switch-dialog__body">
 				<div class="employee-switch-dialog__copy">
 					{{ __("Select the cashier who is taking over this terminal.") }}
 				</div>
@@ -121,10 +130,10 @@
 						@click="selectEmployee(employee.user)"
 					>
 						<div>
-							<strong>{{ employee.full_name }}</strong>
+							<strong class="employee-switch-dialog__name">{{ employee.full_name }}</strong>
 							<div class="employee-switch-dialog__meta">{{ employee.user }}</div>
 						</div>
-						<v-icon icon="mdi-lock-open-outline" color="primary" />
+						<v-icon icon="mdi-lock-open-outline" color="primary" size="22" />
 					</button>
 				</div>
 				<v-alert
@@ -146,6 +155,8 @@
 					variant="outlined"
 					density="comfortable"
 					hide-details="auto"
+					color="primary"
+					class="pos-themed-input mt-3"
 					:label="__('Cashier PIN')"
 					@click:append-inner="showPin = !showPin"
 					@keyup.enter="submitUnlock"
@@ -155,13 +166,21 @@
 					variant="tonal"
 					type="error"
 					density="comfortable"
-					class="employee-switch-dialog__error"
+					class="employee-switch-dialog__error mt-3"
 				>
 					{{ pinError }}
 				</v-alert>
 			</v-card-text>
+
 			<v-card-actions class="employee-switch-dialog__actions">
-				<v-btn color="primary" :disabled="!canSubmit" :loading="isSubmitting" @click="submitUnlock">
+				<v-btn
+					color="primary"
+					variant="text"
+					class="font-weight-bold"
+					:disabled="!canSubmit"
+					:loading="isSubmitting"
+					@click="submitUnlock"
+				>
 					{{ __("Unlock POS") }}
 				</v-btn>
 			</v-card-actions>
@@ -258,9 +277,7 @@ const verifySelection = async () => {
 
 const submitSwitch = async () => {
 	const verifiedCashier = await verifySelection();
-	if (!verifiedCashier) {
-		return;
-	}
+	if (!verifiedCashier) return;
 	employeeStore.setCurrentCashier(verifiedCashier);
 	employeeStore.closeEmployeeSwitch();
 	cashierPin.value = "";
@@ -268,9 +285,7 @@ const submitSwitch = async () => {
 
 const submitUnlock = async () => {
 	const verifiedCashier = await verifySelection();
-	if (!verifiedCashier) {
-		return;
-	}
+	if (!verifiedCashier) return;
 	employeeStore.unlockTerminal(verifiedCashier);
 	cashierPin.value = "";
 };
@@ -279,7 +294,16 @@ const __ = window.__;
 </script>
 
 <style scoped>
+.employee-switch-dialog {
+	border-radius: var(--pos-radius-lg, 20px) !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
+	border: 1px solid var(--pos-border-light, #e2e8f0) !important;
+	box-shadow: var(--pos-shadow-lg, 0 16px 40px rgba(15, 23, 42, 0.14)) !important;
+	overflow: hidden;
+}
+
 .employee-switch-dialog__title {
+	padding: 20px 24px 12px;
 	display: flex;
 	align-items: flex-start;
 	justify-content: space-between;
@@ -291,19 +315,24 @@ const __ = window.__;
 	font-weight: 700;
 	text-transform: uppercase;
 	letter-spacing: 0.08em;
-	color: var(--pos-text-secondary);
+	color: var(--pos-text-secondary, #64748b);
+}
+
+.employee-switch-dialog__body {
+	padding: 0 24px 16px;
 }
 
 .employee-switch-dialog__copy {
-	margin-bottom: 12px;
-	color: var(--pos-text-secondary);
+	font-size: 0.88rem;
+	color: var(--pos-text-secondary, #64748b);
+	margin-bottom: 14px;
 }
 
 .employee-switch-dialog__empty {
 	padding: 16px;
-	border: 1px dashed var(--pos-border);
+	border: 1px dashed var(--pos-border-light, #cbd5e1);
 	border-radius: 14px;
-	color: var(--pos-text-secondary);
+	color: var(--pos-text-secondary, #64748b);
 }
 
 .employee-switch-dialog__list {
@@ -318,33 +347,45 @@ const __ = window.__;
 	align-items: center;
 	justify-content: space-between;
 	gap: 12px;
-	padding: 14px 16px;
+	padding: 14px 18px;
 	border-radius: 16px;
-	border: 1px solid rgba(var(--v-theme-primary), 0.12);
-	background: var(--pos-surface-muted);
-	color: var(--pos-text-primary);
+	border: 1.5px solid var(--pos-border-light, #e2e8f0);
+	background: var(--pos-surface-raised, #ffffff);
+	color: var(--pos-text-primary, #0f172a);
 	text-align: left;
-	transition:
-		transform 0.18s ease,
-		box-shadow 0.18s ease,
-		border-color 0.18s ease;
+	cursor: pointer;
+	transition: all 0.18s ease;
 }
 
-.employee-switch-dialog__option:hover,
-.employee-switch-dialog__option--active {
-	border-color: rgba(var(--v-theme-primary), 0.34);
-	box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+.employee-switch-dialog__option:hover {
 	transform: translateY(-1px);
+	border-color: var(--pos-primary, #2563eb);
+	box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+.employee-switch-dialog__option--active {
+	border-color: var(--pos-primary, #2563eb) !important;
+	background: color-mix(in srgb, var(--pos-primary, #2563eb) 6%, transparent) !important;
+	box-shadow: 0 4px 14px color-mix(in srgb, var(--pos-primary, #2563eb) 12%, transparent);
+}
+
+.employee-switch-dialog__name {
+	font-size: 0.95rem;
+	font-weight: 700;
+	color: var(--pos-text-primary, #0f172a);
 }
 
 .employee-switch-dialog__meta {
-	margin-top: 4px;
+	margin-top: 2px;
 	font-size: 0.82rem;
-	color: var(--pos-text-secondary);
+	color: var(--pos-text-secondary, #64748b);
 }
 
-.employee-switch-dialog__actions {
-	justify-content: flex-end;
+.employee-switch-dialog__help {
+	margin: 16px 0 12px;
+	border-radius: 14px;
+	font-size: 0.82rem;
+	line-height: 1.45;
 }
 
 .employee-switch-dialog__error {
@@ -352,8 +393,10 @@ const __ = window.__;
 	border-radius: 14px;
 }
 
-.employee-switch-dialog__help {
-	margin: 14px 0 12px;
-	border-radius: 14px;
+.employee-switch-dialog__actions {
+	padding: 12px 24px 20px;
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
 }
 </style>

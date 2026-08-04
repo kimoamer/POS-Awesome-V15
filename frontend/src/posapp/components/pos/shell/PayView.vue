@@ -1,25 +1,51 @@
 <template>
-	<div fluid :class="rtlClasses">
+	<div fluid :class="[rtlClasses, 'pay-view-shell']">
 		<AppLoadingOverlay :visible="isPaymentRouteLocked" :message="paymentsLoadingMessage" />
-		<v-row v-show="!dialog">
-			<v-col md="8" cols="12" class="pb-2 pr-0">
-				<v-card
-					class="main mx-auto mt-3 p-3 pb-16 overflow-y-auto pos-themed-card"
-					style="max-height: calc(100dvh - 32px); height: calc(100dvh - 32px)"
-				>
-					<div class="pay-mode-controls">
+		
+		<!-- Mobile Pane Switcher (< 1024px) -->
+		<div class="pay-mobile-tabs mb-3">
+			<v-btn-toggle v-model="activeMobilePane" mandatory class="mobile-pane-toggle" block>
+				<v-btn value="invoices" class="mobile-pane-btn">
+					<v-icon start size="18">mdi-file-document-outline</v-icon>
+					{{ __("1. Invoices & Party") }}
+				</v-btn>
+				<v-btn value="payment" class="mobile-pane-btn">
+					<v-icon start size="18">mdi-credit-card-outline</v-icon>
+					{{ __("2. Payment & Submit") }}
+				</v-btn>
+			</v-btn-toggle>
+		</div>
+
+		<v-row v-show="!dialog" class="pay-split-row" dense>
+			<!-- Left Pane (Master: Invoices & Party) -->
+			<v-col
+				md="7"
+				cols="12"
+				class="pb-2 pr-md-2"
+				:class="{ 'pay-pane--hidden': activeMobilePane !== 'invoices' }"
+			>
+				<v-card class="main mx-auto p-3 overflow-y-auto pos-themed-card pay-master-card">
+					<div class="pay-mode-controls mb-3">
 						<div class="pay-mode-controls__group">
 							<div class="pay-mode-controls__label">{{ __("Payment Entry Type") }}</div>
 							<v-btn-toggle
 								v-model="paymentEntryType"
 								mandatory
-								density="comfortable"
+								density="compact"
 								class="pay-mode-toggle pay-mode-toggle--entry"
 							>
-								<v-btn value="Receive" class="pay-mode-btn pay-mode-btn--receive">
+								<v-btn
+									value="Receive"
+									prepend-icon="mdi-arrow-down-circle-outline"
+									class="pay-mode-btn pay-mode-btn--receive"
+								>
 									{{ __("Receive") }}
 								</v-btn>
-								<v-btn value="Pay" class="pay-mode-btn pay-mode-btn--pay">
+								<v-btn
+									value="Pay"
+									prepend-icon="mdi-arrow-up-circle-outline"
+									class="pay-mode-btn pay-mode-btn--pay"
+								>
 									{{ __("Pay") }}
 								</v-btn>
 							</v-btn-toggle>
@@ -30,13 +56,20 @@
 							<v-btn-toggle
 								v-model="partyType"
 								mandatory
-								density="comfortable"
+								density="compact"
 								class="pay-mode-toggle pay-mode-toggle--party"
 							>
 								<v-btn
 									v-for="option in allowedPartyTypes"
 									:key="option"
 									:value="option"
+									:prepend-icon="
+										option === 'Customer'
+											? 'mdi-account-star-outline'
+											: option === 'Supplier'
+												? 'mdi-domain'
+												: 'mdi-badge-account-horizontal-outline'
+									"
 									:class="[
 										'pay-mode-btn',
 										option === 'Customer'
@@ -52,7 +85,7 @@
 						</div>
 					</div>
 
-					<v-row class="pay-customer-row" dense>
+					<v-row class="pay-customer-row mb-3" dense>
 						<v-col
 							cols="12"
 							:md="pos_profile?.posa_allow_change_posting_date ? 9 : 12"
@@ -85,7 +118,7 @@
 							/>
 						</v-col>
 					</v-row>
-					<v-divider></v-divider>
+					<v-divider class="mb-3"></v-divider>
 
 					<PayInvoicesTable
 						v-if="showReconciliationSections"
@@ -148,55 +181,64 @@
 				</v-card>
 			</v-col>
 
-			<v-col md="4" cols="12" class="pb-3">
-				<v-card
-					class="invoices mx-auto mt-3 p-3 pos-themed-card"
-					style="max-height: calc(100dvh - 32px); height: calc(100dvh - 32px)"
-				>
-					<PayTotalsSidebar
-						ref="payTotalsSidebarRef"
-						v-model:exchange-rate="exchangeRate"
-						v-model:auto-allocate-payment-amount="autoAllocatePaymentAmount"
-						v-model:reference-no="referenceNo"
-						v-model:reference-date="referenceDate"
-						:pos-profile="pos_profile"
-						:total-selected-invoices="total_selected_invoices"
-						:selected-invoices-count="selected_invoices.length"
-						:total-selected-payments="total_selected_payments"
-						:total-selected-mpesa="total_selected_mpesa_payments"
-						:payment-methods="payment_methods"
-						:filtered-payment-methods="filtered_payment_methods"
-						:selected-payments-detail="selected_payments_detail"
-						:new-payments-detail="new_payments_detail"
-						:invoice-total-currency="invoiceTotalCurrency"
-						:payment-total-currency="paymentTotalCurrency"
-						:mpesa-total-currency="mpesaTotalCurrency"
-						:company-currency="companyCurrency"
-						:exchange-rate-loading="exchangeRateLoading"
-						:exchange-rate-error="exchangeRateError"
-						:requires-exchange-rate="requiresExchangeRate"
-						:total-of-diff="total_of_diff"
-						:currency-symbol="currencySymbol"
-						:format-currency="formatCurrency"
-						:get-payment-method-currency="getPaymentMethodCurrency"
-						:party-account="partyAccount"
-						:payment-method-accounts="payment_method_accounts"
-						:available-bank-accounts="available_bank_accounts"
-						:payment-type="paymentEntryType"
-						:invoice-conversion-rate="invoiceConversionRate"
-						@validate-exchange-rate="validateExchangeRate"
-						@fetch-exchange-rate="fetchExchangeRate"
-						@update:bank-account="handleBankAccountChange"
-					/>
+			<!-- Right Pane (Detail: Totals, Methods, Actions) -->
+			<v-col
+				md="5"
+				cols="12"
+				class="pb-2 pl-md-2"
+				:class="{ 'pay-pane--hidden': activeMobilePane !== 'payment' }"
+			>
+				<v-card class="invoices mx-auto p-3 pos-themed-card pay-detail-card">
+					<div class="pay-detail-card__body">
+						<PayTotalsSidebar
+							ref="payTotalsSidebarRef"
+							v-model:exchange-rate="exchangeRate"
+							v-model:auto-allocate-payment-amount="autoAllocatePaymentAmount"
+							v-model:reference-no="referenceNo"
+							v-model:reference-date="referenceDate"
+							:pos-profile="pos_profile"
+							:total-selected-invoices="total_selected_invoices"
+							:selected-invoices-count="selected_invoices.length"
+							:total-selected-payments="total_selected_payments"
+							:total-selected-mpesa="total_selected_mpesa_payments"
+							:payment-methods="payment_methods"
+							:filtered-payment-methods="filtered_payment_methods"
+							:selected-payments-detail="selected_payments_detail"
+							:new-payments-detail="new_payments_detail"
+							:invoice-total-currency="invoiceTotalCurrency"
+							:payment-total-currency="paymentTotalCurrency"
+							:mpesa-total-currency="mpesaTotalCurrency"
+							:company-currency="companyCurrency"
+							:exchange-rate-loading="exchangeRateLoading"
+							:exchange-rate-error="exchangeRateError"
+							:requires-exchange-rate="requiresExchangeRate"
+							:total-of-diff="total_of_diff"
+							:currency-symbol="currencySymbol"
+							:format-currency="formatCurrency"
+							:get-payment-method-currency="getPaymentMethodCurrency"
+							:party-account="partyAccount"
+							:payment-method-accounts="payment_method_accounts"
+							:available-bank-accounts="available_bank_accounts"
+							:payment-type="paymentEntryType"
+							:invoice-conversion-rate="invoiceConversionRate"
+							@validate-exchange-rate="validateExchangeRate"
+							@fetch-exchange-rate="fetchExchangeRate"
+							@update:bank-account="handleBankAccountChange"
+						/>
+					</div>
 
-					<PayActionButtons
-						:loading="isSubmitting"
-						:share-loading="isSharingPayment"
-						:disabled="false"
-						@submit="submit"
-						@submit-and-print="submit_and_print"
-						@share-last-payment="share_last_payment"
-					/>
+					<div class="pay-detail-card__footer">
+						<PayActionButtons
+							:loading="isSubmitting"
+							:share-loading="isSharingPayment"
+							:disabled="false"
+							:auto-allocate-payment-amount="autoAllocatePaymentAmount"
+							@submit="submit"
+							@submit-and-print="submit_and_print"
+							@share-last-payment="share_last_payment"
+							@update:auto-allocate-payment-amount="autoAllocatePaymentAmount = $event"
+						/>
+					</div>
 				</v-card>
 			</v-col>
 		</v-row>
@@ -304,6 +346,7 @@ export default {
 		const { paymentRouteTarget } = storeToRefs(uiStore);
 
 		// Core Data & State
+		const activeMobilePane = ref("invoices");
 		const dialog = ref(false);
 		const pos_profile = ref({});
 		const pos_opening_shift = ref("");
@@ -913,7 +956,7 @@ export default {
 		};
 
 		const paymentRowClass = (item) => (item?.is_credit_note ? "credit-note-row" : "");
-		const isSelected = (item) => (isInvoiceSelected(item) ? "selected-row bg-primary bg-lighten-4" : "");
+		const isSelected = (item) => (isInvoiceSelected(item) ? "selected-row" : "");
 		const searchSuppliers = async (searchText = "") => {
 			partySearchLoading.value = true;
 			try {
@@ -1288,6 +1331,7 @@ export default {
 			rtlClasses,
 			customersStore,
 			paymentRouteTarget,
+			activeMobilePane,
 		};
 	},
 };
@@ -1295,11 +1339,37 @@ export default {
 
 <style>
 .selected-row {
-	background-color: #e3f2fd !important;
+	background-color: rgba(var(--v-theme-primary), 0.10) !important;
+}
+
+/* Vuetify 3 uses ::before for hover overlays — suppress it on selected rows */
+.selected-row::before {
+	display: none !important;
+}
+
+/* Keep selected highlight on hover */
+.selected-row:hover,
+.selected-row:hover > td,
+.v-data-table__tr.selected-row:hover {
+	background-color: rgba(var(--v-theme-primary), 0.16) !important;
+}
+
+/* Also block the v-data-table internal hover class */
+.v-table__wrapper .selected-row:hover {
+	background-color: rgba(var(--v-theme-primary), 0.16) !important;
 }
 
 .credit-note-row {
 	background-color: rgba(76, 175, 80, 0.08) !important;
+}
+
+.credit-note-row::before {
+	display: none !important;
+}
+
+.credit-note-row:hover,
+.v-data-table__tr.credit-note-row:hover {
+	background-color: rgba(76, 175, 80, 0.14) !important;
 }
 
 .totals-wrapper {
@@ -1309,54 +1379,52 @@ export default {
 .pay-mode-controls {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 12px;
-	margin-bottom: 14px;
+	gap: 8px;
+	margin-bottom: 10px;
 }
 
 .pay-mode-controls__group {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: 4px;
 }
 
 .pay-mode-controls__label {
-	font-size: 0.8rem;
+	font-size: 0.7rem;
 	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
 	color: var(--pos-text-secondary, var(--text-secondary));
 }
 
 .pay-mode-toggle {
 	width: fit-content;
 	max-width: 100%;
-	gap: 8px;
+	gap: 4px;
 	flex-wrap: wrap;
 	background: transparent !important;
 }
 
 .pay-mode-btn {
 	--v-theme-overlay-multiplier: 0 !important;
-	min-height: 44px;
-	border-radius: 999px !important;
-	padding-inline: 18px !important;
-	font-weight: 700;
-	letter-spacing: 0.01em;
-	text-transform: none;
-	border: 1px solid transparent !important;
-	transition:
-		background-color 0.18s ease,
-		color 0.18s ease,
-		border-color 0.18s ease,
-		box-shadow 0.18s ease,
-		transform 0.18s ease,
-		opacity 0.18s ease !important;
-	opacity: 0.88;
+	min-height: 28px !important;
+	border-radius: 6px !important;
+	padding-inline: 12px !important;
+	font-weight: 750 !important;
+	font-size: 11px !important;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	border: none !important;
+	color: #64748b !important;
+	background: transparent !important;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+	opacity: 1;
 }
 
 .pay-mode-btn:hover,
 .pay-mode-btn:focus,
 .pay-mode-btn:focus-visible {
-	transform: translateY(-1px);
-	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12) !important;
+	opacity: 0.9;
 }
 
 .pay-mode-btn:active {
@@ -1367,9 +1435,7 @@ export default {
 .pay-mode-btn.v-btn--selected,
 .pay-mode-btn[aria-pressed="true"] {
 	opacity: 1;
-	box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18) !important;
-	border-width: 2px !important;
-	transform: translateY(-1px);
+	border: none !important;
 }
 
 .pay-mode-btn .v-btn__overlay,
@@ -1378,74 +1444,44 @@ export default {
 	background: transparent !important;
 }
 
-.pay-mode-btn--receive {
-	background: rgba(var(--v-theme-success), 0.14) !important;
-	color: rgb(var(--v-theme-success)) !important;
-	border-color: rgba(var(--v-theme-success), 0.24) !important;
-}
-
 .pay-mode-btn--receive.v-btn--active,
 .pay-mode-btn--receive.v-btn--selected,
 .pay-mode-btn--receive[aria-pressed="true"] {
-	background: rgb(var(--v-theme-success)) !important;
+	background: linear-gradient(135deg, #0d9488 0%, #059669 100%) !important;
 	color: #ffffff !important;
-	border-color: rgba(var(--v-theme-success), 0.92) !important;
-}
-
-.pay-mode-btn--pay {
-	background: rgba(var(--v-theme-warning), 0.16) !important;
-	color: rgb(var(--v-theme-warning)) !important;
-	border-color: rgba(var(--v-theme-warning), 0.28) !important;
+	box-shadow: 0 2px 8px rgba(13, 148, 136, 0.35) !important;
 }
 
 .pay-mode-btn--pay.v-btn--active,
 .pay-mode-btn--pay.v-btn--selected,
 .pay-mode-btn--pay[aria-pressed="true"] {
-	background: rgb(var(--v-theme-warning)) !important;
-	color: #1f1300 !important;
-	border-color: rgba(var(--v-theme-warning), 0.96) !important;
-}
-
-.pay-mode-btn--customer {
-	background: rgba(var(--v-theme-primary), 0.14) !important;
-	color: rgb(var(--v-theme-primary)) !important;
-	border-color: rgba(var(--v-theme-primary), 0.24) !important;
+	background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important;
+	color: #ffffff !important;
+	box-shadow: 0 2px 8px rgba(249, 115, 22, 0.35) !important;
 }
 
 .pay-mode-btn--customer.v-btn--active,
 .pay-mode-btn--customer.v-btn--selected,
 .pay-mode-btn--customer[aria-pressed="true"] {
-	background: rgb(var(--v-theme-primary)) !important;
+	background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
 	color: #ffffff !important;
-	border-color: rgba(var(--v-theme-primary), 0.92) !important;
-}
-
-.pay-mode-btn--supplier {
-	background: rgba(var(--v-theme-secondary), 0.14) !important;
-	color: rgb(var(--v-theme-secondary)) !important;
-	border-color: rgba(var(--v-theme-secondary), 0.24) !important;
+	box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35) !important;
 }
 
 .pay-mode-btn--supplier.v-btn--active,
 .pay-mode-btn--supplier.v-btn--selected,
 .pay-mode-btn--supplier[aria-pressed="true"] {
-	background: rgb(var(--v-theme-secondary)) !important;
+	background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%) !important;
 	color: #ffffff !important;
-	border-color: rgba(var(--v-theme-secondary), 0.92) !important;
-}
-
-.pay-mode-btn--employee {
-	background: rgba(var(--v-theme-info), 0.14) !important;
-	color: rgb(var(--v-theme-info)) !important;
-	border-color: rgba(var(--v-theme-info), 0.24) !important;
+	box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35) !important;
 }
 
 .pay-mode-btn--employee.v-btn--active,
 .pay-mode-btn--employee.v-btn--selected,
 .pay-mode-btn--employee[aria-pressed="true"] {
-	background: rgb(var(--v-theme-info)) !important;
+	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%) !important;
 	color: #ffffff !important;
-	border-color: rgba(var(--v-theme-info), 0.92) !important;
+	box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35) !important;
 }
 
 [data-theme="dark"] .pay-mode-btn--pay.v-btn--active,
@@ -1500,9 +1536,197 @@ export default {
 	padding-right: calc(30px + var(--dp-input-icon-padding));
 }
 
+.pay-view-shell {
+	background: var(--pos-surface-muted, #f8fafc);
+	min-height: calc(100vh - 56px);
+	padding: 8px;
+}
+
+.pay-master-card {
+	border: 1px solid var(--pos-border-light, #e2e8f0) !important;
+	border-radius: var(--pos-radius-section, 10px) !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+	max-height: calc(100vh - 72px) !important;
+	height: calc(100vh - 72px) !important;
+	overflow-y: auto;
+	padding: 10px !important;
+}
+
+.pay-detail-card {
+	display: flex !important;
+	flex-direction: column !important;
+	justify-content: space-between !important;
+	border: 1px solid var(--pos-border-light, #e2e8f0) !important;
+	border-radius: var(--pos-radius-section, 14px) !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02) !important;
+	max-height: calc(100vh - 84px) !important;
+	height: calc(100vh - 84px) !important;
+	overflow: hidden !important;
+	padding: 12px !important;
+}
+
+.pay-detail-card__body {
+	flex: 1 1 auto;
+	overflow-y: auto;
+	padding-right: 4px;
+}
+
+.pay-detail-card__footer {
+	flex: 0 0 auto;
+	padding-top: 8px;
+	border-top: 1px solid var(--pos-border-light, #e2e8f0);
+	background: var(--pos-surface-raised, #ffffff);
+}
+
+.pay-mode-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	padding: 2px;
+	border: 1px solid var(--pos-border-light, #e2e8f0);
+	border-radius: 8px;
+	background: var(--pos-surface-muted, #f8fafc) !important;
+	height: 32px !important;
+}
+
+.pay-mode-btn {
+	height: 28px !important;
+	min-height: 28px !important;
+	border-radius: 6px !important;
+	padding-inline: 12px !important;
+	font-size: 11px !important;
+	font-weight: 750 !important;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+	border: none !important;
+	color: #64748b !important;
+	background: transparent !important;
+}
+
+:deep(.pay-mode-btn.v-btn--active.pay-mode-btn--receive) {
+	background: linear-gradient(135deg, #0d9488 0%, #059669 100%) !important;
+	color: #ffffff !important;
+	box-shadow: 0 2px 8px rgba(13, 148, 136, 0.35) !important;
+}
+
+:deep(.pay-mode-btn.v-btn--active.pay-mode-btn--pay) {
+	background: linear-gradient(135deg, #f97316 0%, #ea580c 100%) !important;
+	color: #ffffff !important;
+	box-shadow: 0 2px 8px rgba(249, 115, 22, 0.35) !important;
+}
+
+:deep(.pay-mode-btn.v-btn--active.pay-mode-btn--customer) {
+	background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+	color: #ffffff !important;
+	box-shadow: 0 2px 8px rgba(15, 23, 42, 0.35) !important;
+}
+
+:deep(.pay-mode-btn.v-btn--active.pay-mode-btn--supplier) {
+	background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%) !important;
+	color: #ffffff !important;
+	box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35) !important;
+}
+
+:deep(.pay-mode-btn.v-btn--active.pay-mode-btn--employee) {
+	background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%) !important;
+	color: #ffffff !important;
+	box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35) !important;
+}
+
+.pay-mobile-tabs {
+	display: block;
+	position: sticky;
+	top: -4px;
+	z-index: 50;
+	background: var(--pos-surface-muted, #f8fafc);
+	padding-top: 4px;
+	padding-bottom: 8px;
+}
+
+.mobile-pane-toggle {
+	width: 100%;
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 6px;
+	padding: 4px;
+	border: 1px solid var(--pos-border-light, #e2e8f0);
+	border-radius: var(--pos-radius-section, 12px);
+	background: var(--pos-surface-raised, #ffffff);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.mobile-pane-btn {
+	height: 38px !important;
+	border-radius: var(--pos-radius-control, 8px) !important;
+	font-weight: 750 !important;
+	font-size: 13px !important;
+	text-transform: none !important;
+}
+
+@media (min-width: 960px) {
+	.pay-mobile-tabs {
+		display: none !important;
+	}
+
+	.pay-pane--hidden {
+		display: block !important;
+	}
+}
+
+@media (max-width: 959px) {
+	.pay-pane--hidden {
+		display: none !important;
+	}
+
+	.pay-view-shell {
+		max-height: calc(100dvh - 52px) !important;
+		height: calc(100dvh - 52px) !important;
+		overflow-y: auto !important;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	.pay-master-card,
+	.pay-detail-card {
+		max-height: none !important;
+		height: auto !important;
+		overflow: visible !important;
+	}
+
+	.pay-detail-card__body {
+		overflow-y: visible !important;
+	}
+}
+
 @media (max-width: 768px) {
+	.pay-view-shell {
+		padding: 4px;
+	}
+
+	.pay-master-card,
+	.pay-detail-card {
+		padding: 8px !important;
+		border-radius: 8px !important;
+	}
+
 	.pay-mode-controls {
 		grid-template-columns: 1fr;
+		gap: 6px;
+	}
+
+	.pay-mode-toggle {
+		width: 100%;
+		max-width: 100%;
+		height: auto !important;
+		min-height: 32px;
+		flex-wrap: wrap;
+	}
+
+	.pay-mode-btn {
+		flex: 1 1 auto;
+		justify-content: center;
 	}
 }
 </style>

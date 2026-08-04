@@ -25,6 +25,16 @@ def _assert_customer_write_allowed(pos_profile_doc=None, company=None):
     return assert_pos_profile_write_allowed(pos_profile_doc, company=company)
 
 
+def get_default_non_group_customer_group():
+    non_group = frappe.db.get_value("Customer Group", {"is_group": 0}, "name")
+    return non_group or "Individual"
+
+
+def get_default_non_group_territory():
+    non_group = frappe.db.get_value("Territory", {"is_group": 0}, "name")
+    return non_group or "All Territories"
+
+
 def get_customer_groups(pos_profile):
     customer_groups = []
     if pos_profile.get("customer_groups"):
@@ -315,14 +325,15 @@ def create_customer(
                     "gender": gender,
                 }
             )
-            if customer_group:
+            if customer_group and not frappe.db.get_value("Customer Group", customer_group, "is_group"):
                 customer.customer_group = customer_group
             else:
-                customer.customer_group = "All Customer Groups"
-            if territory:
+                customer.customer_group = get_default_non_group_customer_group()
+
+            if territory and not frappe.db.get_value("Territory", territory, "is_group"):
                 customer.territory = territory
             else:
-                customer.territory = "All Territories"
+                customer.territory = get_default_non_group_territory()
 
             customer.save()
 
@@ -356,6 +367,10 @@ def create_customer(
         customer_doc.posa_birthday = formatted_birthday
         customer_doc.customer_type = customer_type
         customer_doc.gender = gender
+        if customer_group and not frappe.db.get_value("Customer Group", customer_group, "is_group"):
+            customer_doc.customer_group = customer_group
+        if territory and not frappe.db.get_value("Territory", territory, "is_group"):
+            customer_doc.territory = territory
         customer_doc.save()
 
         # ensure contact details are synced correctly

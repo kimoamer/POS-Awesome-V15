@@ -1,112 +1,217 @@
 <template>
-	<v-dialog v-model="dialogModel" max-width="400px">
-		<v-card>
-			<v-card-title class="text-h6 pa-4 d-flex align-center">
-				<span>{{ __("Item Selector Settings") }}</span>
-				<v-spacer></v-spacer>
+	<v-dialog v-model="dialogModel" max-width="460px" scrollable>
+		<v-card class="item-settings-dialog-card pos-themed-card">
+			<!-- Header -->
+			<div class="dialog-header px-5 py-4 d-flex align-center justify-space-between">
+				<div class="d-flex align-center gap-3">
+					<div class="dialog-header-icon-wrap">
+						<v-icon color="primary" size="22">mdi-tune-variant</v-icon>
+					</div>
+					<div>
+						<h3 class="dialog-title text-subtitle-1 font-weight-bold mb-0">
+							{{ __("Item Selector Settings") }}
+						</h3>
+						<p class="dialog-subtitle text-caption text-secondary mb-0">
+							{{ __("Configure display & catalog behavior") }}
+						</p>
+					</div>
+				</div>
 				<v-btn
 					icon="mdi-close"
 					variant="text"
 					density="compact"
+					size="small"
+					class="close-btn"
 					@click="dialogModel = false"
 					:aria-label="__('Close Settings')"
-				>
-				</v-btn>
-			</v-card-title>
-			<v-divider></v-divider>
-			<v-card-text class="pa-4">
-				<v-switch
-					v-if="props.allowNewLineSetting"
-					v-model="form.new_line"
-					:label="__('Add on New Line')"
-					hide-details
-					density="compact"
-					color="primary"
-					class="mb-2"
-				></v-switch>
-				<v-switch
-					v-model="form.hide_qty_decimals"
-					:label="__('Hide quantity decimals')"
-					hide-details
-					density="compact"
-					color="primary"
-					class="mb-2"
-				></v-switch>
-				<v-switch
-					v-model="form.hide_zero_rate_items"
-					:label="__('Hide zero rated items')"
-					hide-details
-					density="compact"
-					color="primary"
-				></v-switch>
-				<v-switch
-					v-model="form.show_last_invoice_rate"
-					:label="__('Show last invoice rate')"
-					hide-details
-					density="compact"
-					color="primary"
-					class="mb-2"
-				></v-switch>
-				<v-switch
-					v-model="form.enable_background_sync"
-					:label="__('Enable background sync')"
-					hide-details
-					density="compact"
-					color="primary"
-					class="mb-2"
-				></v-switch>
-				<v-text-field
-					v-model="form.background_sync_interval"
-					:label="__('Background sync interval (seconds)')"
-					type="number"
-					density="compact"
-					variant="outlined"
-					color="primary"
-					hide-details
-					class="mb-2 pos-themed-input"
-					:min="10"
-					:disabled="!form.enable_background_sync"
-				></v-text-field>
-				<v-switch
-					v-model="form.enable_custom_items_per_page"
-					:label="__('Custom items per page')"
-					hide-details
-					density="compact"
-					color="primary"
-					class="mb-2"
-				>
-				</v-switch>
-				<v-checkbox
-					v-model="form.force_server_items"
-					:label="__('Always fetch items from server (ignore local cache)')"
-					hide-details
-					density="compact"
-					color="primary"
-					class="mb-2"
-				></v-checkbox>
-				<v-text-field
-					v-if="form.enable_custom_items_per_page"
-					v-model="form.items_per_page"
-					type="number"
-					density="compact"
-					variant="outlined"
-					color="primary"
-					hide-details
-					:label="__('Items per page')"
-					class="mb-2 pos-themed-input"
-				>
-				</v-text-field>
+				/>
+			</div>
+
+			<v-divider class="border-opacity-10" />
+
+			<!-- Body -->
+			<v-card-text class="dialog-body px-5 py-3">
+				<div class="settings-group">
+					<!-- Add on New Line -->
+					<div v-if="props.allowNewLineSetting" class="setting-row">
+						<div class="setting-info">
+							<v-icon size="20" class="setting-icon mr-3">mdi-format-line-spacing</v-icon>
+							<div>
+								<div class="setting-label">{{ __("Add on New Line") }}</div>
+								<div class="setting-desc">{{ __("Insert items as separate rows") }}</div>
+							</div>
+						</div>
+						<v-switch
+							v-model="form.new_line"
+							hide-details
+							density="compact"
+							color="primary"
+						/>
+					</div>
+
+					<!-- Hide quantity decimals -->
+					<div class="setting-row">
+						<div class="setting-info">
+							<v-icon size="20" class="setting-icon mr-3">mdi-numeric</v-icon>
+							<div>
+								<div class="setting-label">{{ __("Hide quantity decimals") }}</div>
+								<div class="setting-desc">{{ __("Display whole integers for item quantities") }}</div>
+							</div>
+						</div>
+						<v-switch
+							v-model="form.hide_qty_decimals"
+							hide-details
+							density="compact"
+							color="primary"
+						/>
+					</div>
+
+					<!-- Hide zero rated items -->
+					<div class="setting-row">
+						<div class="setting-info">
+							<v-icon size="20" class="setting-icon mr-3">mdi-eye-off-outline</v-icon>
+							<div>
+								<div class="setting-label">{{ __("Hide zero rated items") }}</div>
+								<div class="setting-desc">{{ __("Hide items with zero price from grid") }}</div>
+							</div>
+						</div>
+						<v-switch
+							v-model="form.hide_zero_rate_items"
+							hide-details
+							density="compact"
+							color="primary"
+						/>
+					</div>
+
+					<!-- Show last invoice rate -->
+					<div class="setting-row">
+						<div class="setting-info">
+							<v-icon size="20" class="setting-icon mr-3">mdi-history</v-icon>
+							<div>
+								<div class="setting-label">{{ __("Show last invoice rate") }}</div>
+								<div class="setting-desc">{{ __("Display recent price paid by customer") }}</div>
+							</div>
+						</div>
+						<v-switch
+							v-model="form.show_last_invoice_rate"
+							hide-details
+							density="compact"
+							color="primary"
+						/>
+					</div>
+
+					<!-- Enable background sync -->
+					<div class="setting-row flex-column align-stretch">
+						<div class="d-flex align-center justify-space-between w-100">
+							<div class="setting-info">
+								<v-icon size="20" class="setting-icon mr-3">mdi-sync</v-icon>
+								<div>
+									<div class="setting-label">{{ __("Enable background sync") }}</div>
+									<div class="setting-desc">{{ __("Periodically update item catalog") }}</div>
+								</div>
+							</div>
+							<v-switch
+								v-model="form.enable_background_sync"
+								hide-details
+								density="compact"
+								color="primary"
+							/>
+						</div>
+						<v-expand-transition>
+							<div v-if="form.enable_background_sync" class="setting-subfield mt-2">
+								<v-text-field
+									v-model.number="form.background_sync_interval"
+									:label="__('Sync Interval (seconds)')"
+									type="number"
+									density="compact"
+									variant="outlined"
+									color="primary"
+									hide-details
+									prepend-inner-icon="mdi-timer-outline"
+									class="pos-themed-input"
+									:min="10"
+								/>
+							</div>
+						</v-expand-transition>
+					</div>
+
+					<!-- Custom items per page -->
+					<div class="setting-row flex-column align-stretch">
+						<div class="d-flex align-center justify-space-between w-100">
+							<div class="setting-info">
+								<v-icon size="20" class="setting-icon mr-3">mdi-grid</v-icon>
+								<div>
+									<div class="setting-label">{{ __("Custom items per page") }}</div>
+									<div class="setting-desc">{{ __("Control items per grid page") }}</div>
+								</div>
+							</div>
+							<v-switch
+								v-model="form.enable_custom_items_per_page"
+								hide-details
+								density="compact"
+								color="primary"
+							/>
+						</div>
+						<v-expand-transition>
+							<div v-if="form.enable_custom_items_per_page" class="setting-subfield mt-2">
+								<v-text-field
+									v-model.number="form.items_per_page"
+									type="number"
+									density="compact"
+									variant="outlined"
+									color="primary"
+									hide-details
+									prepend-inner-icon="mdi-format-list-numbered"
+									:label="__('Items per page')"
+									class="pos-themed-input"
+								/>
+							</div>
+						</v-expand-transition>
+					</div>
+
+					<!-- Always fetch items from server -->
+					<div class="setting-row">
+						<div class="setting-info">
+							<v-icon size="20" class="setting-icon mr-3">mdi-cloud-download-outline</v-icon>
+							<div>
+								<div class="setting-label">{{ __("Always fetch items from server") }}</div>
+								<div class="setting-desc">{{ __("Bypass local cache when searching items") }}</div>
+							</div>
+						</div>
+						<v-checkbox
+							v-model="form.force_server_items"
+							hide-details
+							density="compact"
+							color="primary"
+						/>
+					</div>
+				</div>
 			</v-card-text>
-			<v-divider></v-divider>
-			<v-card-actions class="pa-4">
-				<v-spacer></v-spacer>
-				<v-btn variant="text" @click="dialogModel = false">
+
+			<v-divider class="border-opacity-10" />
+
+			<!-- Footer -->
+			<div class="dialog-footer px-5 py-3 d-flex align-center justify-end gap-2">
+				<v-btn
+					variant="tonal"
+					color="secondary"
+					class="action-btn px-4"
+					rounded="lg"
+					@click="dialogModel = false"
+				>
 					{{ __("Cancel") }}
 				</v-btn>
-				<v-btn color="primary" variant="elevated" @click="onSave">
+				<v-btn
+					color="primary"
+					variant="flat"
+					class="action-btn px-5"
+					rounded="lg"
+					prepend-icon="mdi-check"
+					@click="onSave"
+				>
 					{{ __("Save Settings") }}
 				</v-btn>
-			</v-card-actions>
+			</div>
 		</v-card>
 	</v-dialog>
 </template>
@@ -143,7 +248,6 @@ watch(
 	() => props.modelValue,
 	(val) => {
 		if (val) {
-			// Initialize form with current settings when dialog opens
 			Object.assign(form, props.initialSettings);
 		}
 	},
@@ -154,3 +258,98 @@ const onSave = () => {
 	dialogModel.value = false;
 };
 </script>
+
+<style scoped>
+.item-settings-dialog-card {
+	border-radius: var(--pos-radius-lg, 16px) !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
+	border: 1px solid var(--pos-border-light, #e2e8f0) !important;
+	box-shadow: var(--pos-shadow-lg, 0 10px 30px rgba(0, 0, 0, 0.12)) !important;
+	overflow: hidden;
+}
+
+.dialog-header-icon-wrap {
+	width: 36px;
+	height: 36px;
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--pos-primary, #2563eb) 10%, transparent);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.dialog-title {
+	color: var(--pos-text-primary, #0f172a);
+}
+
+.dialog-subtitle {
+	color: var(--pos-text-secondary, #64748b);
+}
+
+.settings-group {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.setting-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 12px;
+	border-radius: 12px;
+	border: 1px solid var(--pos-border-light, #e2e8f0);
+	background: var(--pos-surface-muted, #f8fafc);
+	transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.setting-row:hover {
+	background: color-mix(in srgb, var(--pos-primary, #2563eb) 4%, var(--pos-surface-muted, #f8fafc));
+	border-color: color-mix(in srgb, var(--pos-primary, #2563eb) 20%, var(--pos-border-light, #e2e8f0));
+}
+
+.setting-info {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	flex: 1;
+}
+
+.setting-icon {
+	color: var(--pos-primary, #2563eb) !important;
+	flex-shrink: 0;
+}
+
+.setting-label {
+	font-size: 0.88rem;
+	font-weight: 650;
+	color: var(--pos-text-primary, #0f172a);
+	line-height: 1.2;
+}
+
+.setting-desc {
+	font-size: 0.74rem;
+	color: var(--pos-text-secondary, #64748b);
+	line-height: 1.25;
+	margin-top: 2px;
+}
+
+.setting-subfield {
+	padding-inline-start: 32px;
+	width: 100%;
+}
+
+.action-btn {
+	font-weight: 600 !important;
+	text-transform: none !important;
+	letter-spacing: normal !important;
+}
+
+.gap-2 {
+	gap: 8px;
+}
+
+.gap-3 {
+	gap: 12px;
+}
+</style>

@@ -104,6 +104,21 @@
 						<v-icon size="20">mdi-tune-variant</v-icon>
 						<v-tooltip activator="parent" location="bottom">{{ __("Settings") }}</v-tooltip>
 					</v-btn>
+					<div
+						v-if="statusVisible"
+						class="command-status-inline d-inline-flex align-center gap-1 me-1 px-2 py-1 rounded-lg"
+						data-test="item-search-sync-shell"
+					>
+						<v-icon size="16" :color="showSyncProgress ? 'primary' : 'success'">
+							{{ showSyncProgress ? "mdi-sync" : "mdi-check-circle-outline" }}
+						</v-icon>
+						<span class="status-inline-label text-caption font-weight-medium text-secondary">
+							{{ syncStatusLabel }}
+						</span>
+						<span v-if="lastSyncTimeLabel" class="status-inline-time text-caption text-secondary">
+							· {{ lastSyncTimeLabel }}
+						</span>
+					</div>
 					<v-btn
 						icon
 						class="command-icon-btn"
@@ -128,9 +143,9 @@
 							:aria-label="toolsOpen ? __('Hide search tools') : __('Show search tools')"
 							:title="__('Tools')"
 						>
-							<v-icon size="21">mdi-dots-horizontal</v-icon>
-							<span class="command-tools-trigger__label">{{ __("Tools") }}</span>
-							<v-icon size="16">mdi-chevron-down</v-icon>
+							<v-icon size="20">mdi-dots-vertical</v-icon>
+							<span class="command-tools-trigger__label ms-1">{{ __("Tools") }}</span>
+							<v-icon size="16" class="ms-1">mdi-chevron-down</v-icon>
 							<v-tooltip activator="parent" location="bottom">{{ __("Tools") }}</v-tooltip>
 						</v-btn>
 					</template>
@@ -150,41 +165,6 @@
 						</v-list>
 					</v-card>
 				</v-menu>
-			</div>
-		</div>
-
-		<div
-			v-if="statusVisible"
-			class="item-command-bar__status"
-			data-test="item-search-sync-shell"
-			aria-live="polite"
-		>
-			<div class="sync-status-chip">
-				<v-icon size="16" :color="showSyncProgress ? 'primary' : 'success'">
-					{{ showSyncProgress ? "mdi-sync" : "mdi-check-circle-outline" }}
-				</v-icon>
-				<span class="sync-status-chip__label">{{ syncStatusLabel }}</span>
-			</div>
-			<v-progress-linear
-				v-if="showSyncProgress"
-				:model-value="clampedSyncProgress"
-				height="4"
-				rounded
-				color="primary"
-				bg-color="rgba(15, 23, 42, 0.08)"
-				class="search-sync-progress__bar"
-				data-test="item-search-sync-bar"
-			/>
-			<div class="search-sync-progress__meta">
-				<span v-if="showSyncProgress" class="search-sync-progress__value">
-					{{ clampedSyncProgress }}%
-				</span>
-				<span v-if="normalizedSyncItemsCount > 0" class="search-sync-progress__count">
-					{{ syncItemsCountLabel }}
-				</span>
-				<span v-if="lastSyncTimeLabel" class="last-sync-label">
-					{{ lastSyncTimeLabel }}
-				</span>
 			</div>
 		</div>
 	</div>
@@ -396,17 +376,22 @@ defineExpose({
 	display: none !important;
 }
 
-.item-command-bar__status {
-	min-width: 0;
-	block-size: 28px;
-	min-block-size: 28px;
-	display: grid;
-	grid-template-columns: auto minmax(120px, 220px) auto;
-	align-items: center;
-	gap: var(--pos-control-gap, 6px);
-	padding: 0 4px;
-	color: var(--pos-text-muted);
-	animation: sync-progress-fade-in 160ms ease-out;
+.command-status-inline {
+	background: var(--pos-surface-muted, #f8fafc);
+	border: 1px solid var(--pos-border-light, #e2e8f0);
+	border-radius: var(--item-command-radius, 8px) !important;
+	height: var(--item-command-icon-size, 44px);
+	padding: 0 10px !important;
+	white-space: nowrap;
+}
+
+.status-inline-label {
+	color: var(--pos-text-primary, #0f172a);
+	font-weight: 600;
+}
+
+.status-inline-time {
+	color: var(--pos-text-secondary, #64748b);
 }
 
 .sync-status-chip {
@@ -640,33 +625,21 @@ defineExpose({
 		--item-command-icon-size: 44px;
 	}
 
-	.item-command-bar__primary {
-		grid-template-columns: minmax(220px, 1fr) minmax(82px, 94px) auto auto;
-		gap: var(--pos-control-gap, 6px);
-	}
-
-	.item-command-bar__primary--no-qty {
-		grid-template-columns: minmax(220px, 1fr) auto auto;
-	}
-
-	.item-command-bar__primary--no-scan {
-		grid-template-columns: minmax(220px, 1fr) minmax(82px, 94px) auto;
-	}
-
-	.item-command-bar__primary--no-qty.item-command-bar__primary--no-scan {
-		grid-template-columns: minmax(220px, 1fr) auto;
-	}
-
 	.command-actions__desktop {
 		display: none;
 	}
 
 	.command-tools-trigger {
 		display: inline-flex !important;
+		min-width: 44px !important;
+		width: 44px !important;
+		padding: 0 !important;
+		justify-content: center;
 	}
 
-	.search-sync-progress__meta {
-		font-size: var(--pos-font-label, 12px);
+	.command-tools-trigger__label,
+	.command-tools-trigger .v-icon:last-child {
+		display: none !important;
 	}
 }
 
@@ -674,85 +647,33 @@ defineExpose({
 	.item-command-bar {
 		--item-command-height: var(--pos-control-height, 44px);
 		--item-command-icon-size: 44px;
-		gap: var(--pos-section-gap, 8px);
+		gap: var(--pos-section-gap, 6px);
 	}
 
 	.item-command-bar__primary {
-		grid-template-columns: minmax(0, 1fr) auto;
-		grid-template-areas:
-			"search scan"
-			"qty actions";
+		display: flex;
 		align-items: center;
 		gap: var(--pos-control-gap, 6px);
 	}
 
 	.search-field-shell {
-		grid-area: search;
+		flex: 1;
+		min-width: 0;
 	}
 
 	.qty-field-shell {
-		grid-area: qty;
-		width: min(150px, 100%);
+		width: min(84px, 22vw);
+		flex-shrink: 0;
 	}
 
 	.command-actions {
-		grid-area: actions;
-		justify-content: flex-end;
+		display: flex;
+		align-items: center;
+		flex-shrink: 0;
 	}
 
 	.command-icon-btn--scan {
-		grid-area: scan;
-	}
-
-	.item-command-bar__primary--no-scan {
-		grid-template-areas:
-			"search search"
-			"qty actions";
-	}
-
-	.item-command-bar__primary--no-qty {
-		grid-template-areas:
-			"search scan"
-			"actions actions";
-	}
-
-	.item-command-bar__primary--no-qty.item-command-bar__primary--no-scan {
-		grid-template-areas:
-			"search search"
-			"actions actions";
-	}
-
-	.item-command-bar__status {
-		grid-template-columns: auto minmax(72px, 1fr) auto;
-		gap: 7px;
-		block-size: 28px;
-		min-block-size: 28px;
-		padding-inline: 2px;
-	}
-
-	.sync-status-chip {
-		font-size: var(--pos-font-label, 12px);
-	}
-
-	.sync-status-chip__label {
-		max-width: 42px;
-	}
-
-	.search-sync-progress__bar {
-		min-width: 72px;
-	}
-
-	.search-sync-progress__meta {
-		gap: 6px;
-		font-size: var(--pos-font-label, 12px);
-	}
-
-	.search-sync-progress__count {
-		display: none;
-	}
-
-	.last-sync-label::before {
-		content: none;
+		flex-shrink: 0;
 	}
 }
 

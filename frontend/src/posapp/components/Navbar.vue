@@ -581,7 +581,7 @@ export default {
 			}
 			if (this.currentCashier?.is_supervisor) {
 				items.splice(1, 0, {
-					text: this.__("Awesome Dashboard"),
+					text: this.__("Dashboard"),
 					icon: "mdi-view-grid-plus-outline",
 					to: "/dashboard",
 				});

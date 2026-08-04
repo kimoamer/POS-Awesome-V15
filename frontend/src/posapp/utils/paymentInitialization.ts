@@ -130,11 +130,17 @@ export const initializePaymentLinesForDialog = (
 
 	const total = toNumber(doc.rounded_total || doc.grand_total);
 	const normalizedTotal = resolveReturnDefaultAmount(doc, total);
-	const existingAmounts = payments.some((payment) =>
+	const activePayments = payments.filter((payment) =>
 		hasMeaningfulAmount(payment, precision),
 	);
 
-	if (existingAmounts) {
+	const isDuplicateFullAllocation =
+		activePayments.length > 1 &&
+		activePayments.every(
+			(p) => Math.abs(toNumber(p.amount) - Math.abs(normalizedTotal)) < 0.01,
+		);
+
+	if (activePayments.length && !isDuplicateFullAllocation) {
 		if (doc.is_return) {
 			payments.forEach((payment) => {
 				const amount = toNumber(payment.amount);

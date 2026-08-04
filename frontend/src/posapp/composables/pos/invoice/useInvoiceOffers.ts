@@ -96,9 +96,21 @@ export function useInvoiceOffers() {
 
 	const hasOfferWork = () =>
 		(posOffers.value?.length || 0) > 0 ||
+		(uiStore.offers?.length || 0) > 0 ||
 		(posa_coupons.value?.length || 0) > 0 ||
 		(posa_offers.value?.length || 0) > 0 ||
 		!!discount_percentage_offer_name.value;
+
+	watch(
+		() => uiStore.offers,
+		(newOffers) => {
+			if (Array.isArray(newOffers) && newOffers.length) {
+				posOffers.value = newOffers.map((offer: any) => ensureOfferIdentity(offer));
+				scheduleOfferRefresh();
+			}
+		},
+		{ immediate: true, deep: true },
+	);
 
 	// Watch for changes that should trigger offer evaluation.
 	// Cart mutations already bump metadata.changeVersion, so avoid deep-watching
@@ -345,9 +357,13 @@ export function useInvoiceOffers() {
 			changedRowIds,
 		});
 		try {
-			const sourceOffers = (
-				Array.isArray(posOffers.value) ? posOffers.value : []
-			).map((offer: any) => ensureOfferIdentity(offer));
+			const rawOffers =
+				Array.isArray(posOffers.value) && posOffers.value.length
+					? posOffers.value
+					: Array.isArray(uiStore.offers)
+						? uiStore.offers
+						: [];
+			const sourceOffers = rawOffers.map((offer: any) => ensureOfferIdentity(offer));
 			if (!sourceOffers.length) {
 				offerDebugLog("[useInvoiceOffers] No source offers available");
 				emitBus("update_pos_offers", []);

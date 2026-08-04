@@ -454,16 +454,16 @@ const profileFilterItems = computed(() =>
 const canRenderDashboard = computed(() => isPosSupervisor.value && isDashboardEnabledOnServer.value);
 const disabledReasonText = computed(() => {
 	if (!isPosSupervisor.value) {
-		return __("Awesome Dashboard is visible only to POS supervisors.");
+		return __("Dashboard is visible only to POS supervisors.");
 	}
 	const reason = dashboardData.value.disabled_reason;
 	if (reason === "profile_disabled") {
-		return __("Awesome Dashboard is disabled for the selected POS Profile.");
+		return __("Dashboard is disabled for the selected POS Profile.");
 	}
 	if (reason === "no_profiles_in_scope") {
 		return __("No profiles found for selected scope. Falling back to current profile failed.");
 	}
-	return __("Awesome Dashboard is unavailable for the selected scope.");
+	return __("Dashboard is unavailable for the selected scope.");
 });
 const selectedProfilesCount = computed(() => Number(dashboardData.value.selected_profiles?.length || 0));
 const scopeDisplayLabel = computed(() => {
@@ -1624,11 +1624,8 @@ onMounted(() => {
 <style scoped>
 .awesome-dashboard-view {
 	--dashboard-bg-base: var(--pos-surface-muted, var(--pos-surface, #f4f6f8));
-	--dashboard-glow-primary: rgba(25, 118, 210, 0.08);
-	--dashboard-glow-secondary: rgba(76, 175, 80, 0.08);
-	--dashboard-tabs-bg: var(--pos-surface-raised, var(--pos-card-bg, #ffffff));
-	--dashboard-tab-active-bg: var(--pos-card-bg, #ffffff);
-	--dashboard-tab-hover-bg: var(--pos-surface-container, rgba(0, 0, 0, 0.04));
+	--dashboard-glow-primary: rgba(2, 132, 199, 0.06);
+	--dashboard-glow-secondary: rgba(16, 185, 129, 0.05);
 	height: 100%;
 	overflow: auto;
 	background:
@@ -1639,15 +1636,98 @@ onMounted(() => {
 
 :deep(.v-theme--dark) .awesome-dashboard-view {
 	--dashboard-bg-base: var(--pos-surface-muted, #1a2028);
-	--dashboard-glow-primary: rgba(66, 165, 245, 0.18);
-	--dashboard-glow-secondary: rgba(102, 187, 106, 0.14);
-	--dashboard-tabs-bg: rgba(255, 255, 255, 0.04);
-	--dashboard-tab-active-bg: rgba(255, 255, 255, 0.08);
-	--dashboard-tab-hover-bg: rgba(255, 255, 255, 0.06);
+	--dashboard-glow-primary: rgba(56, 189, 248, 0.12);
+	--dashboard-glow-secondary: rgba(52, 211, 153, 0.10);
 }
 
 .dashboard-shell {
 	min-height: 100%;
 }
 
+:deep(.dashboard-card) {
+	padding: 16px 20px;
+	border: 1px solid var(--pos-border-light, #e2e8f0) !important;
+	border-radius: var(--pos-radius-section, 14px) !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02) !important;
+}
+
+:deep(.dashboard-card__header) {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 14px;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+
+:deep(.dashboard-chip-row) {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+:deep(.summary-grid) {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	gap: 12px;
+	padding-block: 8px;
+}
+
+:deep(.summary-metric) {
+	padding: 10px 14px;
+	border: 1px solid var(--pos-border-light, #e2e8f0);
+	border-radius: var(--pos-radius-control, 8px);
+	background: var(--pos-surface-muted, #f8fafc);
+}
+
+:deep(.summary-metric__label) {
+	font-size: 11px;
+	font-weight: 750;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: var(--pos-text-muted, #64748b);
+	margin-bottom: 4px;
+}
+
+:deep(.summary-metric__value) {
+	font-size: 16px;
+	font-weight: 800;
+	color: var(--pos-text-primary, #0f172a);
+}
+
+:deep(.payment-breakdown) {
+	margin-top: 14px;
+	padding-top: 12px;
+	border-top: 1px solid var(--pos-border-light, #e2e8f0);
+}
+
+:deep(.payment-chip-list) {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 6px;
+}
+
+@media (max-width: 768px) {
+	.dashboard-shell {
+		padding: 10px !important;
+	}
+
+	:deep(.dashboard-card) {
+		padding: 12px 14px !important;
+	}
+
+	:deep(.summary-grid) {
+		grid-template-columns: repeat(2, 1fr);
+		gap: 8px;
+	}
+}
+
+@media (max-width: 480px) {
+	:deep(.summary-grid) {
+		grid-template-columns: 1fr;
+	}
+}
 </style>

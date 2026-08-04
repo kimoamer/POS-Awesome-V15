@@ -1,23 +1,37 @@
-<!-- eslint-disable vue/multi-word-component-names -->
 <template>
 	<div class="pay-sidebar" :dir="isRtl ? 'rtl' : 'ltr'">
-		<!-- 1. Summary Cards -->
-		<v-card variant="outlined" class="mb-2 section-card">
-			<v-card-text class="py-2">
-				<div class="d-flex justify-space-between align-center">
-					<span class="text-body-1 font-weight-medium text-medium-emphasis">
-						{{ __("Total Invoices") }}
-					</span>
-					<div class="text-end">
-						<div class="text-subtitle-1 font-weight-bold text-primary">
-							{{ currencySymbol(invoiceTotalCurrency) }}{{ formatCurrency(totalSelectedInvoices) }}
-						</div>
-						<div v-if="selectedInvoicesCount" class="text-caption text-medium-emphasis">
-							{{ selectedInvoicesCount }} invoice(s)
-						</div>
-					</div>
+		<!-- 1. Payment Summary (4-Column Horizontal Grid) -->
+		<v-card flat class="mb-2 summary-header-card pos-themed-card">
+			<div class="d-flex align-center justify-space-between mb-1">
+				<h3 class="text-body-2 font-weight-bold mb-0 text-primary d-flex align-center gap-1">
+					<v-icon size="15" color="primary">mdi-text-box-search-outline</v-icon>
+					{{ __("Payment Summary") }}
+				</h3>
+				<span class="text-caption text-medium-emphasis">
+					{{ __("Amounts in") }} {{ invoiceTotalCurrency || companyCurrency }}
+				</span>
+			</div>
+			
+			<div class="summary-4cols-grid">
+				<div class="summary-col">
+					<span class="summary-col__label">{{ __("Total Invoices") }}</span>
+					<div class="summary-col__count">{{ selectedInvoicesCount || 0 }}</div>
+					<div class="summary-col__amount">{{ formatCurrency(totalSelectedInvoices) }}</div>
 				</div>
-			</v-card-text>
+				<div class="summary-col">
+					<span class="summary-col__label">{{ __("Selected Invoices") }}</span>
+					<div class="summary-col__count">{{ selectedInvoicesCount || 0 }}</div>
+					<div class="summary-col__amount">{{ formatCurrency(totalSelectedInvoices) }}</div>
+				</div>
+				<div class="summary-col">
+					<span class="summary-col__label">{{ __("Total Outstanding") }}</span>
+					<div class="summary-col__amount summary-col__amount--bold">{{ formatCurrency(totalSelectedInvoices || 0) }}</div>
+				</div>
+				<div class="summary-col summary-col--highlight">
+					<span class="summary-col__label text-teal">{{ paymentType === "Pay" ? __("Amount to Pay") : __("Amount to Receive") }}</span>
+					<div class="summary-col__amount summary-col__amount--teal">{{ formatCurrency(totalSelectedInvoices || totalSelectedPayments || 0) }}</div>
+				</div>
+			</div>
 		</v-card>
 
 		<!-- 2. Selected Payments -->
@@ -55,138 +69,75 @@
 								</span>
 							</div>
 							<div class="payment-detail-row">
-								<span class="text-medium-emphasis">{{ __("Source Rate:") }}</span>
-								<span class="font-weight-medium">{{ formatCurrency(pay.exchange_rate) }}</span>
-							</div>
-							<div class="payment-detail-row">
 								<span class="text-medium-emphasis">{{ __("Unallocated:") }}</span>
 								<span class="font-weight-medium">
 									{{ currencySymbol(pay.currency) }}{{ formatCurrency(pay.unallocated_amount) }}
 								</span>
 							</div>
-							<div class="payment-detail-row">
-								<span class="text-medium-emphasis">{{ __("Received:") }}</span>
-								<span class="font-weight-medium">
-									{{ currencySymbol(companyCurrency) }}{{ formatCurrency(pay.received_amount) }}
-								</span>
-							</div>
-							<div class="payment-detail-row">
-								<span class="text-medium-emphasis">{{ __("Target Rate:") }}</span>
-								<span class="font-weight-medium">{{ formatCurrency(pay.exchange_rate) }}</span>
-							</div>
 						</v-list-item-subtitle>
 
 						<v-divider v-if="idx < selectedPaymentsDetail.length - 1" class="mt-1" />
 					</v-list-item>
-			</v-list>
-
-			<v-divider class="my-1" />
-			<div class="d-flex justify-space-between align-center font-weight-bold text-body-2">
-				<span>{{ __("Total") }}</span>
-				<span>
-					{{ currencySymbol(paymentTotalCurrency) }}{{ formatCurrency(totalSelectedPayments) }}
-				</span>
-			</div>
+				</v-list>
 			</v-card-text>
 		</v-card>
 
-		<v-card
-			v-else-if="totalSelectedPayments"
-			variant="outlined"
-			class="mb-2 section-card"
-		>
-			<v-card-text class="py-2 d-flex justify-space-between align-center">
-				<span class="text-body-1 font-weight-medium text-medium-emphasis">
-					{{ __("Total Payments") }}
-				</span>
-				<span class="text-h6 font-weight-bold text-primary">
-					{{ currencySymbol(paymentTotalCurrency) }}{{ formatCurrency(totalSelectedPayments) }}
-				</span>
-			</v-card-text>
-		</v-card>
-
-		<!-- Total Mpesa -->
-		<v-card
-			v-if="totalSelectedMpesa"
-			variant="outlined"
-			class="mb-2 section-card"
-		>
-			<v-card-text class="py-2 d-flex justify-space-between align-center">
-				<span class="text-body-1 font-weight-medium text-medium-emphasis">
-					{{ __("Total Mpesa") }}
-				</span>
-				<span class="text-subtitle-1 font-weight-bold text-primary">
-					{{ currencySymbol(mpesaTotalCurrency) }}{{ formatCurrency(totalSelectedMpesa) }}
-				</span>
-			</v-card-text>
-		</v-card>
-
-		<!-- 3. Make New Payment -->
+		<!-- 3. Payment Details Section -->
 		<v-card
 			v-if="posProfile.posa_allow_make_new_payments && paymentMethods.length"
 			variant="outlined"
 			class="mb-2 section-card"
 		>
-			<v-card-text class="py-2">
-				<h4 class="text-primary text-body-1 font-weight-bold mb-2">
-					{{ __("Make New Payment") }}
+			<v-card-text class="py-2 px-3">
+				<h4 class="text-body-2 font-weight-bold mb-2 text-slate-700" style="font-size: 12px; letter-spacing: 0.03em; text-transform: uppercase;">
+					{{ __("Payment Details") }}
 				</h4>
 
 				<div v-if="filteredPaymentMethods.length">
-			<v-select
-				v-model="selectedMopName"
-				:items="mopOptions"
-				:label="__('Mode of Payment')"
-				density="compact"
-				variant="outlined"
-				hide-details
-				class="mb-2"
-				clearable
-			/>
+					<v-select
+						v-model="selectedMopName"
+						:items="mopOptions"
+						:label="__('Mode of Payment')"
+						density="compact"
+						variant="outlined"
+						hide-details
+						class="mb-2"
+						clearable
+					/>
 
 					<div v-if="selectedMop">
-						<div class="new-payment-card pa-2 mb-2">
-							<div class="d-flex align-center mb-2">
-								<span class="text-body-2 font-weight-medium">{{ __(selectedMop.mode_of_payment) }}</span>
-								<v-chip
-									v-if="getPaymentMethodAccount(selectedMop.mode_of_payment)?.account_type"
-									size="x-small"
-									color="primary"
-									variant="outlined"
-									class="ml-2"
-								>
-									{{ getPaymentMethodAccount(selectedMop.mode_of_payment).account_type }}
-								</v-chip>
-							</div>
-
+						<div class="new-payment-amount-box d-flex align-center justify-space-between px-3 py-2 mb-2">
+							<span class="text-body-2 font-weight-bold text-slate-700">
+								{{ paymentType === "Pay" ? __("Amount to Pay") : __("Amount to Receive") }}
+							</span>
 							<div class="d-flex align-center">
-								<span class="text-caption text-medium-emphasis mr-2">
-									{{ paymentType === "Pay" ? __("Paid:") : __("Recv:") }}
-								</span>
+								<div class="currency-badge-pill px-2 py-1 mr-2">
+									<span class="text-caption font-weight-bold text-slate-600">
+										{{ getPaymentMethodCurrency(selectedMop.mode_of_payment) || companyCurrency }}
+									</span>
+								</div>
 								<v-text-field
 									:model-value="selectedMop.amount"
 									@update:model-value="onPaidAmountInput"
 									type="number"
-									variant="outlined"
+									variant="plain"
 									density="compact"
 									hide-details
-									class="payment-amount-input"
-									flat
-									:prefix="currencySymbol(getPaymentMethodCurrency(selectedMop.mode_of_payment))"
+									class="amount-receive-input text-end font-weight-extrabold"
 									placeholder="0.00"
 									@wheel.prevent
 								/>
 							</div>
+						</div>
 
-							<div
-								v-if="flt(selectedMop.amount) > 0"
-								class="text-caption text-medium-emphasis mt-2"
-							>
-								{{ __("Base:") }} {{ currencySymbol(companyCurrency) }}{{ formatCurrency(flt(selectedMop.amount) * flt(selectedMopRate)) }}
-								<span v-if="flt(selectedMopRate) !== 1">
-									&nbsp;@ {{ formatCurrency(selectedMopRate) }}
-								</span>
-							</div>
+						<div
+							v-if="flt(selectedMop.amount) > 0"
+							class="text-caption text-medium-emphasis mt-2 mb-2"
+						>
+							{{ __("Base:") }} {{ currencySymbol(companyCurrency) }}{{ formatCurrency(flt(selectedMop.amount) * flt(selectedMopRate)) }}
+							<span v-if="flt(selectedMopRate) !== 1">
+								&nbsp;@ {{ formatCurrency(selectedMopRate) }}
+							</span>
 						</div>
 
 						<!-- Accounts -->
@@ -275,41 +226,41 @@
 										<span class="font-weight-medium">{{ formatCurrency(newPaymentFields[selectedMop.row_id].targetRate) }}</span>
 									</div>
 								</v-col>
-							<v-col cols="6" class="py-0">
-								<div class="d-flex justify-space-between align-center pr-1">
-									<span class="text-medium-emphasis text-caption">
-										{{ __("Base Paid:") }}
-										<v-chip
-											v-if="isManualOverrideActive(selectedMop)"
-											size="x-small"
-											color="warning"
-											variant="tonal"
-											class="ml-1"
-										>
-											{{ __("manual") }}
-										</v-chip>
-									</span>
-									<div class="d-flex align-center">
-										<v-text-field
-											:model-value="effectiveBasePaid(selectedMop)"
-											@update:model-value="onBasePaidInput"
-											density="compact"
-											variant="plain"
-											hide-details
-											type="number"
-											@wheel.prevent
-											:prefix="currencySymbol(companyCurrency)"
-											class="base-paid-input"
-										/>
+								<v-col cols="6" class="py-0">
+									<div class="d-flex justify-space-between align-center pr-1">
+										<span class="text-medium-emphasis text-caption">
+											{{ __("Base Paid:") }}
+											<v-chip
+												v-if="isManualOverrideActive(selectedMop)"
+												size="x-small"
+												color="warning"
+												variant="tonal"
+												class="ml-1"
+											>
+												{{ __("manual") }}
+											</v-chip>
+										</span>
+										<div class="d-flex align-center">
+											<v-text-field
+												:model-value="effectiveBasePaid(selectedMop)"
+												@update:model-value="onBasePaidInput"
+												density="compact"
+												variant="plain"
+												hide-details
+												type="number"
+												@wheel.prevent
+												:prefix="currencySymbol(companyCurrency)"
+												class="base-paid-input"
+											/>
+										</div>
 									</div>
-								</div>
-								<div
-									v-if="getBasePaidVariance(selectedMop)"
-									class="text-caption text-warning mt-1"
-								>
-									{{ getBasePaidVariance(selectedMop)?.warning }}
-								</div>
-							</v-col>
+									<div
+										v-if="getBasePaidVariance(selectedMop)"
+										class="text-caption text-warning mt-1"
+									>
+										{{ getBasePaidVariance(selectedMop)?.warning }}
+									</div>
+								</v-col>
 								<v-col cols="6" class="py-0">
 									<div class="d-flex justify-space-between pl-1">
 										<span class="text-medium-emphasis">{{ __("Base Recv:") }}</span>
@@ -323,35 +274,35 @@
 					</div>
 				</div>
 
-			<!-- Entered Payments List -->
-			<div v-if="enteredPayments.length" class="mt-1">
-				<v-divider class="mb-1" />
-				<div class="text-caption">
-					<div
-						v-for="entry in enteredPayments"
-						:key="entry.row_id"
-						class="d-flex justify-space-between align-center py-0"
-					>
-						<span class="font-weight-medium" style="min-width: 40%">{{ __(entry.mode_of_payment) }}</span>
+				<!-- Entered Payments List -->
+				<div v-if="enteredPayments.length" class="mt-1">
+					<v-divider class="mb-1" />
+					<div class="text-caption">
+						<div
+							v-for="entry in enteredPayments"
+							:key="entry.row_id"
+							class="d-flex justify-space-between align-center py-0"
+						>
+							<span class="font-weight-medium" style="min-width: 40%">{{ __(entry.mode_of_payment) }}</span>
+							<span class="text-end" style="min-width: 30%">
+								{{ currencySymbol(getPaymentMethodCurrency(entry.mode_of_payment)) }}{{ formatCurrency(entry.amount) }}
+							</span>
+							<span class="text-medium-emphasis text-end" style="min-width: 30%">
+								({{ currencySymbol(companyCurrency) }}{{ formatCurrency(entry.baseAmount) }})
+							</span>
+						</div>
+					</div>
+					<v-divider class="my-1" />
+					<div class="d-flex justify-space-between align-center font-weight-bold text-caption">
+						<span style="min-width: 40%">{{ __("Total") }}</span>
 						<span class="text-end" style="min-width: 30%">
-							{{ currencySymbol(getPaymentMethodCurrency(entry.mode_of_payment)) }}{{ formatCurrency(entry.amount) }}
+							{{ currencySymbol(invoiceTotalCurrency) }}{{ formatCurrency(totalNewPayments) }}
 						</span>
-						<span class="text-medium-emphasis text-end" style="min-width: 30%">
-							({{ currencySymbol(companyCurrency) }}{{ formatCurrency(entry.baseAmount) }})
+						<span class="text-end" style="min-width: 30%">
+							({{ currencySymbol(companyCurrency) }}{{ formatCurrency(totalNewPaymentsBase) }})
 						</span>
 					</div>
 				</div>
-				<v-divider class="my-1" />
-				<div class="d-flex justify-space-between align-center font-weight-bold text-caption">
-					<span style="min-width: 40%">{{ __("Total") }}</span>
-					<span class="text-end" style="min-width: 30%">
-						{{ currencySymbol(invoiceTotalCurrency) }}{{ formatCurrency(totalNewPayments) }}
-					</span>
-					<span class="text-end" style="min-width: 30%">
-						({{ currencySymbol(companyCurrency) }}{{ formatCurrency(totalNewPaymentsBase) }})
-					</span>
-				</div>
-			</div>
 			</v-card-text>
 		</v-card>
 
@@ -397,26 +348,21 @@
 			</v-card-text>
 		</v-card>
 
-		<!-- 5. Difference (Prominent Status) -->
-		<v-card
-			:color="totalOfDiff === 0 ? 'success' : totalOfDiff > 0 ? 'warning' : 'error'"
-			variant="tonal"
-			class="mb-2 difference-card"
-		>
-			<v-card-text class="d-flex justify-space-between align-center py-2">
-				<span class="font-weight-bold">{{ __("Difference") }}</span>
-				<span class="text-subtitle-1 font-weight-bold">
-					{{ currencySymbol(invoiceTotalCurrency) }}{{ formatCurrency(totalOfDiff) }}
-				</span>
-			</v-card-text>
-		</v-card>
+		<!-- 5. Difference (Status Bar matching Mockup) -->
+		<div class="difference-bar-mockup d-flex justify-space-between align-center px-3 py-2 mb-2">
+			<span class="font-weight-bold text-success">{{ __("Difference") }}</span>
+			<span class="font-weight-extrabold text-success">
+				{{ invoiceTotalCurrency || companyCurrency }} {{ formatCurrency(totalOfDiff) }}
+			</span>
+		</div>
 
-		<!-- 6. Transaction ID -->
-		<v-card variant="outlined" class="mb-2 section-card">
-			<v-card-text class="py-2">
-				<h4 class="text-primary text-subtitle-1 font-weight-bold mb-2">
-					{{ __("Transaction ID") }}
-				</h4>
+		<!-- 6. Transaction ID (Optional) -->
+		<v-card variant="outlined" class="mb-2 transaction-id-card pos-themed-card">
+			<div class="d-flex align-center justify-space-between py-2 px-3">
+				<span class="text-subtitle-2 font-weight-bold text-slate-800">{{ __("Transaction ID (Optional)") }}</span>
+				<v-icon size="18" color="medium-emphasis">mdi-chevron-up</v-icon>
+			</div>
+			<v-card-text class="py-2 px-3">
 				<v-row dense>
 					<v-col md="6" cols="12">
 						<v-text-field
@@ -424,7 +370,9 @@
 							density="compact"
 							variant="outlined"
 							hide-details
-							:label="__('Cheque/Reference No')"
+							class="pos-themed-input"
+							:label="__('Cheque / Reference No')"
+							:placeholder="__('Enter cheque or reference no')"
 						/>
 					</v-col>
 					<v-col md="6" cols="12">
@@ -437,7 +385,7 @@
 							text-input
 							:enable-time-picker="false"
 							class="sleek-field pay-reference-date"
-							:placeholder="__('Cheque/Reference Date')"
+							:placeholder="__('Select date')"
 							data-test="reference-date-input"
 							@update:model-value="updateReferenceDate"
 						/>
@@ -446,23 +394,6 @@
 			</v-card-text>
 		</v-card>
 
-		<!-- 7. Auto Allocate -->
-		<v-card variant="outlined" class="section-card">
-			<v-card-text class="py-3">
-				<v-switch
-					:model-value="internalAutoAllocatePaymentAmount"
-					color="primary"
-					hide-details
-					inset
-					:label="__('Auto Allocate Payment Amount')"
-					data-test="auto-allocate-payment-toggle"
-					@update:model-value="emit('update:autoAllocatePaymentAmount', Boolean($event))"
-				/>
-				<div class="text-caption text-medium-emphasis mt-1">
-					{{ __("Unselected payments stay unallocated first, then auto reconcile after submit.") }}
-				</div>
-			</v-card-text>
-		</v-card>
 
 		<!-- Account Dialog -->
 		<v-dialog v-model="accountDialogOpen" max-width="500" :scrim="true" class="account-dialog">
@@ -649,7 +580,7 @@ const internalExchangeRate = computed({
 	set: (val) => emit("update:exchangeRate", val),
 });
 
-const internalAutoAllocatePaymentAmount = computed(() => props.autoAllocatePaymentAmount ?? true);
+
 
 const getPaymentMethodAccount = (mode) => {
 	if (!mode || !props.paymentMethodAccounts) return null;
@@ -1084,12 +1015,21 @@ defineExpose({
 
 .pay-reference-date :deep(.dp__input) {
 	width: 100%;
-	min-height: 40px;
-	border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-	border-radius: 4px;
-	background-color: rgb(var(--v-theme-surface));
+	min-height: 38px;
+	height: 38px;
+	border: 1px solid var(--pos-border-light, #e2e8f0);
+	border-radius: var(--pos-radius-control, 8px);
+	background-color: var(--pos-surface-raised, #ffffff);
 	color: inherit;
-	padding: 0 12px;
+	font-size: 12.5px;
+	padding-left: 34px !important;
+	padding-right: 12px !important;
+}
+
+.pay-reference-date :deep(.dp__input_icon) {
+	left: 10px !important;
+	right: auto !important;
+	color: #94a3b8;
 }
 
 /* RTL: datepicker component root — cascades to input + icon siblings */
@@ -1101,18 +1041,16 @@ defineExpose({
 .pay-sidebar[dir="rtl"] .pay-reference-date :deep(.dp__input) {
 	direction: rtl;
 	text-align: right;
+	padding-right: 34px !important;
+	padding-left: 12px !important;
 }
 .pay-sidebar[dir="rtl"] .pay-reference-date :deep(.dp__input_icon) {
-	left: 8px;
-	right: auto;
-}
-.pay-sidebar[dir="rtl"] .pay-reference-date :deep(.dp__input_icon_pad) {
-	padding-left: 30px;
-	padding-right: 12px;
+	right: 10px !important;
+	left: auto !important;
 }
 .pay-sidebar[dir="rtl"] .pay-reference-date :deep(.dp__clear_icon) {
-	left: 30px;
-	right: auto;
+	left: 10px !important;
+	right: auto !important;
 }
 
 /* RTL: text field input alignment */
@@ -1215,7 +1153,107 @@ defineExpose({
 	border-radius: 3px;
 }
 
-@media (max-width: 600px) {
+.summary-4cols-grid {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 4px;
+	padding: 8px 4px;
+	background: var(--pos-surface-muted, #f8fafc);
+	border: 1px solid var(--pos-border-light, #e2e8f0);
+	border-radius: var(--pos-radius-section, 10px);
+}
+
+.summary-col {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 4px;
+	text-align: center;
+	border-right: 1px solid var(--pos-border-light, #e2e8f0);
+}
+
+.summary-col:last-child {
+	border-right: none;
+}
+
+.summary-col__label {
+	font-size: 10.5px;
+	font-weight: 700;
+	color: var(--pos-text-muted, #64748b);
+	margin-bottom: 2px;
+	white-space: nowrap;
+}
+
+.summary-col__count {
+	font-size: 14px;
+	font-weight: 800;
+	color: var(--pos-text-main, #0f172a);
+}
+
+.summary-col__amount {
+	font-size: 12px;
+	font-weight: 650;
+	color: var(--pos-text-main, #334155);
+}
+
+.summary-col__amount--bold {
+	font-size: 13.5px;
+	font-weight: 800;
+	color: #0f172a;
+}
+
+.summary-col__amount--teal {
+	font-size: 14px;
+	font-weight: 850;
+	color: #008080;
+}
+
+.new-payment-amount-box {
+	border: 1px solid var(--pos-border-light, #e2e8f0);
+	border-radius: 8px;
+	background: #ffffff;
+}
+
+.currency-badge-pill {
+	background: #f1f5f9;
+	border: 1px solid #cbd5e1;
+	border-radius: 6px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.amount-receive-input :deep(input) {
+	font-size: 16px !important;
+	font-weight: 850 !important;
+	color: #0f172a !important;
+	text-align: right !important;
+}
+
+.difference-bar-mockup {
+	background: #f0fdf4 !important;
+	border: 1px solid #bbf7d0 !important;
+	border-radius: 8px !important;
+}
+
+.transaction-id-card {
+	border: 1px solid var(--pos-border-light, #e2e8f0) !important;
+	border-radius: 8px !important;
+	background: #ffffff !important;
+}
+
+@media (max-width: 768px) {
+	.summary-4cols-grid {
+		grid-template-columns: repeat(2, 1fr);
+		gap: 4px;
+	}
+	
+	.new-payment-amount-box {
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+
 	.account-row {
 		flex-direction: column;
 		align-items: flex-start;

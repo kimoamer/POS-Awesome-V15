@@ -2,9 +2,10 @@
 	<div
 		ref="toolbarRoot"
 		class="invoice-items-toolbar"
-		:class="{ 'invoice-items-toolbar--mobile': isMobileToolbar }"
+		:class="{ 'invoice-items-toolbar--mobile': isMobileToolbar, 'invoice-items-toolbar--actions-only': !isSearchVisible }"
 	>
 		<v-text-field
+			v-show="isSearchVisible"
 			ref="itemSearchField"
 			:model-value="itemSearch"
 			@update:model-value="$emit('update:itemSearch', $event)"
@@ -160,6 +161,10 @@ const props = defineProps({
 		type: Boolean,
 		default: true,
 	},
+	searchVisible: {
+		type: Boolean,
+		default: true,
+	},
 });
 
 const emit = defineEmits(["update:itemSearch", "update:selectedColumns", "update:currentView"]);
@@ -179,6 +184,7 @@ const showDirectColumns = computed(() => canManageColumns.value && !isMobileTool
 const searchPlaceholder = computed(() =>
 	isMobileToolbar.value ? __("Search or scan barcode...") : __("Search items in cart or scan barcode..."),
 );
+const isSearchVisible = computed(() => !isMobileToolbar.value || props.searchVisible);
 
 const menuActions = computed<ToolbarActionKey[]>(() => {
 	const actions: ToolbarActionKey[] = [];
@@ -288,13 +294,18 @@ defineExpose({
 
 <style scoped>
 .invoice-items-toolbar {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
+	display: flex;
 	align-items: center;
+	justify-content: space-between;
 	gap: var(--pos-control-gap, 6px);
 	min-width: 0;
+	width: 100%;
 	padding: 0;
 	background: transparent;
+}
+
+.invoice-items-toolbar--actions-only {
+	justify-content: flex-end;
 }
 
 .invoice-items-toolbar--mobile {
@@ -305,6 +316,7 @@ defineExpose({
 	display: inline-flex;
 	align-items: center;
 	gap: var(--pos-control-gap, 6px);
+	margin-inline-start: auto;
 	min-width: 0;
 }
 
@@ -393,10 +405,10 @@ defineExpose({
 }
 
 .invoice-command-btn {
-	width: 44px !important;
-	height: 44px !important;
-	min-width: 44px !important;
-	min-height: 44px !important;
+	width: 32px !important;
+	height: 32px !important;
+	min-width: 32px !important;
+	min-height: 32px !important;
 	border: 1px solid var(--pos-border-light) !important;
 	border-radius: var(--pos-radius-control, 8px) !important;
 	background: var(--pos-surface-raised, #ffffff) !important;

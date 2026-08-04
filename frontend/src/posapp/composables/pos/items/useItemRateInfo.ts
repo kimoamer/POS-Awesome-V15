@@ -93,54 +93,94 @@ export function useItemRateInfo(context: UseItemRateInfoContext = {}) {
 
 	const buildSaleEntry = (item: any): ItemRateInfoEntry => {
 		const row = getLastInvoiceRate(item);
-		if (!row || row.rate == null) {
+		if (row && row.rate != null) {
 			return buildEntry({
 				key: "sale",
 				rowLabel: "Last Invoice Rate",
+				available: true,
+				rate: Number(row.rate),
+				currency: row.currency || resolveProfileCurrency(),
+				uom: row.uom || item?.stock_uom || null,
+				source: row.invoice || null,
+				sourceKey: "last_invoice_rate",
+				date: row.posting_date || null,
+				meta: null,
 			});
 		}
+
+		// Fallback: Check general item sale rates (item.last_sale_rate, item.last_invoice_rate, item.rate, item.standard_rate)
+		const fallbackSale = parseFiniteNumber(
+			item?.last_sale_rate ?? item?.last_invoice_rate ?? item?.rate ?? item?.standard_rate
+		);
+		if (fallbackSale !== null && fallbackSale > 0) {
+			return buildEntry({
+				key: "sale",
+				rowLabel: "Last Invoice Rate",
+				available: true,
+				rate: fallbackSale,
+				currency: item?.currency || item?.price_list_currency || resolveProfileCurrency(),
+				uom: item?.stock_uom || null,
+				source: "Standard Rate",
+				sourceKey: "standard_rate",
+				date: null,
+				meta: null,
+			});
+		}
+
 		return buildEntry({
 			key: "sale",
 			rowLabel: "Last Invoice Rate",
-			available: true,
-			rate: Number(row.rate),
-			currency: row.currency || resolveProfileCurrency(),
-			uom: row.uom || item?.stock_uom || null,
-			source: row.invoice || null,
-			sourceKey: "last_invoice_rate",
-			date: row.posting_date || null,
-			meta: null,
 		});
 	};
 
 	const buildPurchaseEntry = (item: any): ItemRateInfoEntry => {
 		const row = getLastBuyingRate(item);
-		if (!row || row.rate == null) {
+		if (row && row.rate != null) {
+			const source =
+				row.invoice ||
+				(row.source === "price_list" ? "Supplier Price List" : null) ||
+				row.source ||
+				null;
+
 			return buildEntry({
 				key: "purchase",
 				rowLabel: "Last Purchase Rate",
 				visible: isSupervisor(),
+				available: true,
+				rate: Number(row.rate),
+				currency: row.currency || resolveProfileCurrency(),
+				uom: row.uom || item?.purchase_uom || item?.stock_uom || null,
+				source,
+				sourceKey: row.source || "last_buying_rate",
+				date: row.posting_date || null,
+				meta: row.supplier || null,
 			});
 		}
 
-		const source =
-			row.invoice ||
-			(row.source === "price_list" ? "Supplier Price List" : null) ||
-			row.source ||
-			null;
+		// Fallback: Check general item purchase rate / valuation rate / standard rate
+		const fallbackPurchase = parseFiniteNumber(
+			item?.last_purchase_rate ?? item?.last_buying_rate ?? item?.buying_rate ?? item?.valuation_rate
+		);
+		if (fallbackPurchase !== null && fallbackPurchase > 0) {
+			return buildEntry({
+				key: "purchase",
+				rowLabel: "Last Purchase Rate",
+				visible: isSupervisor(),
+				available: true,
+				rate: fallbackPurchase,
+				currency: resolveProfileCurrency(),
+				uom: item?.purchase_uom || item?.stock_uom || null,
+				source: "Item Master Rate",
+				sourceKey: "item_master",
+				date: null,
+				meta: null,
+			});
+		}
 
 		return buildEntry({
 			key: "purchase",
 			rowLabel: "Last Purchase Rate",
 			visible: isSupervisor(),
-			available: true,
-			rate: Number(row.rate),
-			currency: row.currency || resolveProfileCurrency(),
-			uom: row.uom || item?.purchase_uom || item?.stock_uom || null,
-			source,
-			sourceKey: row.source || "last_buying_rate",
-			date: row.posting_date || null,
-			meta: row.supplier || null,
 		});
 	};
 
@@ -163,8 +203,25 @@ export function useItemRateInfo(context: UseItemRateInfoContext = {}) {
 			});
 		}
 
+		const valuationRate = parseFiniteNumber(item?.valuation_rate);
+		if (valuationRate !== null && valuationRate > 0) {
+			return buildEntry({
+				key: "cost",
+				rowLabel: "Cost",
+				visible: isSupervisor(),
+				available: true,
+				rate: valuationRate,
+				currency: profileCurrency,
+				uom: item?.stock_uom || null,
+				source: "Valuation Rate",
+				sourceKey: "valuation_rate",
+				date: null,
+				meta: null,
+			});
+		}
+
 		const standardRate = parseFiniteNumber(item?.standard_rate);
-		if (standardRate !== null) {
+		if (standardRate !== null && standardRate > 0) {
 			return buildEntry({
 				key: "cost",
 				rowLabel: "Cost",
@@ -180,18 +237,18 @@ export function useItemRateInfo(context: UseItemRateInfoContext = {}) {
 			});
 		}
 
-		const valuationRate = parseFiniteNumber(item?.valuation_rate);
-		if (valuationRate !== null) {
+		const lastPurchaseRate = parseFiniteNumber(item?.last_purchase_rate);
+		if (lastPurchaseRate !== null && lastPurchaseRate > 0) {
 			return buildEntry({
 				key: "cost",
 				rowLabel: "Cost",
 				visible: isSupervisor(),
 				available: true,
-				rate: valuationRate,
+				rate: lastPurchaseRate,
 				currency: profileCurrency,
-				uom: item?.stock_uom || null,
-				source: "Valuation Rate",
-				sourceKey: "valuation_rate",
+				uom: item?.purchase_uom || item?.stock_uom || null,
+				source: "Last Purchase",
+				sourceKey: "last_purchase_rate",
 				date: null,
 				meta: null,
 			});

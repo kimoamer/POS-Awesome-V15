@@ -716,55 +716,52 @@ export function get_payments(context: any) {
 		}
 	}
 
-	if (!context.invoice_doc || !Array.isArray(context.invoice_doc.payments)) {
-		const profilePayments = Array.isArray(context.pos_profile?.payments)
-			? context.pos_profile.payments
-			: [];
+	const profilePayments = Array.isArray(context.pos_profile?.payments)
+		? context.pos_profile.payments
+		: [];
+	const docPayments = Array.isArray(context.invoice_doc?.payments)
+		? context.invoice_doc.payments
+		: [];
 
-		if (!profilePayments.length) {
-			return [];
-		}
+	if (profilePayments.length) {
+		const mergedMap = new Map();
 
-		return profilePayments
-			.filter((payment) => payment?.mode_of_payment)
-			.map((payment, index) => ({
-				mode_of_payment: payment.mode_of_payment,
-				amount: 0,
-				account: payment.account,
-				type: payment.type,
-				default:
-					payment.default === 1 ||
-					payment.default === true ||
-					index === 0
-						? 1
-						: 0,
-				base_amount: 0,
-			}));
+		profilePayments
+			.filter((payment: any) => payment?.mode_of_payment)
+			.forEach((payment: any, index: number) => {
+				const key = String(payment.mode_of_payment).trim().toLowerCase();
+				mergedMap.set(key, {
+					mode_of_payment: payment.mode_of_payment,
+					amount: 0,
+					account: payment.account,
+					type: payment.type,
+					default:
+						payment.default === 1 ||
+						payment.default === true ||
+						index === 0
+							? 1
+							: 0,
+					base_amount: 0,
+				});
+			});
+
+		docPayments.forEach((dp: any) => {
+			if (dp?.mode_of_payment) {
+				const key = String(dp.mode_of_payment).trim().toLowerCase();
+				const existing = mergedMap.get(key);
+				if (existing) {
+					existing.amount = dp.amount || 0;
+					existing.base_amount = dp.base_amount || 0;
+					if (dp.name) existing.name = dp.name;
+					if (dp.account) existing.account = dp.account;
+				} else {
+					mergedMap.set(key, dp);
+				}
+			}
+		});
+
+		return Array.from(mergedMap.values());
 	}
 
-	if (!context.invoice_doc.payments.length) {
-		const profilePayments = Array.isArray(context.pos_profile?.payments)
-			? context.pos_profile.payments
-			: [];
-		if (!profilePayments.length) {
-			return [];
-		}
-		return profilePayments
-			.filter((payment) => payment?.mode_of_payment)
-			.map((payment, index) => ({
-				mode_of_payment: payment.mode_of_payment,
-				amount: 0,
-				account: payment.account,
-				type: payment.type,
-				default:
-					payment.default === 1 ||
-					payment.default === true ||
-					index === 0
-						? 1
-						: 0,
-				base_amount: 0,
-			}));
-	}
-
-	return context.invoice_doc.payments;
+	return docPayments;
 }

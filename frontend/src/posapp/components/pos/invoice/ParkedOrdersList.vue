@@ -23,6 +23,15 @@
 				>
 					{{ __("Manage all") }}
 				</v-btn>
+				<v-btn
+					icon="mdi-close"
+					variant="text"
+					density="compact"
+					size="small"
+					class="drafts-list__close-btn ml-1"
+					:aria-label="__('Close saved drafts')"
+					@click="$emit('close')"
+				/>
 			</div>
 		</div>
 

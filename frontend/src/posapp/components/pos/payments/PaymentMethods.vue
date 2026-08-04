@@ -13,11 +13,18 @@
 		<div v-if="payments && payments.length" class="payment-methods-list">
 			<article
 				v-for="payment in payments"
-				:key="payment.name"
+				:key="payment.name || payment.mode_of_payment"
 				class="payment-method-card"
-				:class="getPaymentMethodClasses(payment)"
+				:class="[
+					getPaymentMethodClasses(payment),
+					{ 'payment-method-card--collapsed': !isCardExpanded(payment) }
+				]"
 			>
-				<header class="payment-method-card__header">
+				<header
+					class="payment-method-card__header"
+					:class="{ 'payment-method-card__header--clickable': payments.length > 1 }"
+					@click="toggleExpandCard(payment)"
+				>
 					<div class="payment-method-card__identity">
 						<span class="payment-method-card__icon-box">
 							<v-icon size="16">{{ getPaymentMethodIcon(payment) }}</v-icon>
@@ -32,128 +39,146 @@
 							{{ __("Refund") }}
 						</span>
 					</div>
+
+					<div v-if="payments.length > 1" class="payment-method-card__header-meta">
+						<span
+							class="payment-method-card__amount-badge"
+							:class="{ 'payment-method-card__amount-badge--active': Math.abs(Number(payment.amount || 0)) > 0 }"
+						>
+							{{ renderMoney(payment.amount || 0) }}
+						</span>
+						<v-icon size="18" class="payment-method-card__chevron">
+							{{ isCardExpanded(payment) ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
+						</v-icon>
+					</div>
 				</header>
 
-				<!-- Main Input and Primary Action Row -->
-				<div class="payment-method-card__main" v-if="!isMpesaC2bPayment(payment)">
-					<div class="payment-method-card__amount">
-						<v-text-field
-							data-pos-keyboard-target="payment-amount"
-							density="compact"
-							variant="outlined"
-							:color="isReturn ? 'error' : 'primary'"
-							:placeholder="__('Amount')"
-							:class="['sleek-field pos-themed-input', isReturn ? 'pos-themed-input--refund' : '']"
-							hide-details
-							:model-value="payment.amount"
-							type="number"
-							inputmode="decimal"
-							:disabled="loading"
-							:readonly="isGiftCardPayment(payment)"
-							:prefix="currencySymbol(currency)"
-							@change="$emit('update-amount', payment, $event)"
-							:rules="[isNumber]"
-							@focus="$emit('set-rest-amount', payment, isReturn)"
-							@keydown.enter="blurTarget"
-							@keydown.esc="blurTarget"
-						>
-							<template v-slot:append-inner v-if="payment.amount > 0 && !isGiftCardPayment(payment) && !loading">
+				<v-expand-transition>
+					<div v-show="isCardExpanded(payment)" class="payment-method-card__body" @click.stop>
+						<!-- Main Input and Primary Action Row -->
+						<div class="payment-method-card__main" v-if="!isMpesaC2bPayment(payment)">
+							<div class="payment-method-card__amount">
+								<v-text-field
+									data-pos-keyboard-target="payment-amount"
+									density="compact"
+									variant="outlined"
+									:color="isReturn ? 'error' : 'primary'"
+									:placeholder="__('Amount')"
+									:class="['sleek-field pos-themed-input', isReturn ? 'pos-themed-input--refund' : '']"
+									hide-details
+									:model-value="payment.amount"
+									type="number"
+									inputmode="decimal"
+									:disabled="loading"
+									:readonly="isGiftCardPayment(payment)"
+									:prefix="currencySymbol(currency)"
+									@update:model-value="$emit('update-amount', payment, $event)"
+									@input="$emit('update-amount', payment, $event.target ? $event.target.value : $event)"
+									@change="$emit('update-amount', payment, $event)"
+									:rules="[isNumber]"
+									@focus="$emit('set-rest-amount', payment, isReturn)"
+									@keydown.enter="blurTarget"
+									@keydown.esc="blurTarget"
+								>
+									<template v-slot:append-inner v-if="payment.amount > 0 && !isGiftCardPayment(payment) && !loading">
+										<v-btn
+											icon
+											variant="text"
+											size="x-small"
+											class="payment-clear-btn"
+											:title="__('Clear Amount')"
+											@click.stop="clearPaymentAmount(payment)"
+										>
+											<v-icon size="14">mdi-backspace-outline</v-icon>
+										</v-btn>
+									</template>
+								</v-text-field>
+							</div>
+
+							<div class="payment-method-card__primary-action">
+								<!-- Unified Icon Action on All Viewports -->
 								<v-btn
 									icon
-									variant="text"
-									size="x-small"
-									class="payment-clear-btn"
-									:title="__('Clear Amount')"
-									@click.stop="clearPaymentAmount(payment)"
+									color="primary"
+									variant="tonal"
+									class="payment-use-remaining-btn"
+									data-pos-keyboard-target="payment-action"
+									:data-test="`payment-method-action-${payment.mode_of_payment}`"
+									:aria-label="isGiftCardPayment(payment) ? __('Redeem / Scan') : __('Set Remaining')"
+									:title="isGiftCardPayment(payment) ? __('Redeem / Scan') : __('Set Remaining')"
+									:disabled="loading"
+									@click.stop="handlePrimaryAction(payment)"
 								>
-									<v-icon size="14">mdi-backspace-outline</v-icon>
+									<v-icon size="18">
+										{{ isGiftCardPayment(payment) ? "mdi-qrcode-scan" : "mdi-calculator-variant-outline" }}
+									</v-icon>
 								</v-btn>
-							</template>
-						</v-text-field>
-					</div>
+							</div>
+						</div>
 
-					<div class="payment-method-card__primary-action">
-						<!-- Unified Icon Action on All Viewports -->
-						<v-btn
-							icon
-							color="primary"
-							variant="tonal"
-							class="payment-use-remaining-btn"
-							data-pos-keyboard-target="payment-action"
-							:data-test="`payment-method-action-${payment.mode_of_payment}`"
-							:aria-label="isGiftCardPayment(payment) ? __('Redeem / Scan') : __('Set Remaining')"
-							:title="isGiftCardPayment(payment) ? __('Redeem / Scan') : __('Set Remaining')"
-							:disabled="loading"
-							@click="handlePrimaryAction(payment)"
+						<!-- Quick Denomination Quick Buttons -->
+						<div
+							v-if="
+								payment.default === 1 &&
+								isCashLikePayment(payment) &&
+								getVisibleDenominations(payment).length
+							"
+							class="payment-denominations"
 						>
-							<v-icon size="18">
-								{{ isGiftCardPayment(payment) ? "mdi-qrcode-scan" : "mdi-calculator-variant-outline" }}
-							</v-icon>
-						</v-btn>
-					</div>
-				</div>
+							<span class="payment-denominations__label">{{ __("Quick Add") }}:</span>
+							<div class="payment-denominations__group">
+								<v-btn
+									v-for="d in getVisibleDenominations(payment)"
+									:key="d"
+									size="small"
+									color="secondary"
+									variant="tonal"
+									class="payment-denominations__btn"
+									data-pos-keyboard-target="payment-denomination"
+									:disabled="loading"
+									@click="$emit('set-denomination', payment, d)"
+								>
+									{{ d }}
+								</v-btn>
+							</div>
+						</div>
 
-				<!-- Quick Denomination Quick Buttons -->
-				<div
-					v-if="
-						payment.default === 1 &&
-						isCashLikePayment(payment) &&
-						getVisibleDenominations(payment).length
-					"
-					class="payment-denominations"
-				>
-					<span class="payment-denominations__label">{{ __("Quick Add") }}:</span>
-					<div class="payment-denominations__group">
-						<v-btn
-							v-for="d in getVisibleDenominations(payment)"
-							:key="d"
-							size="small"
-							color="secondary"
-							variant="tonal"
-							class="payment-denominations__btn"
-							data-pos-keyboard-target="payment-denomination"
-							:disabled="loading"
-							@click="$emit('set-denomination', payment, d)"
+						<!-- M-Pesa Mobile C2B Action -->
+						<div v-if="isMpesaC2bPayment(payment)" class="payment-method-card__extra-action">
+							<v-btn
+								block
+								color="success"
+								variant="tonal"
+								class="payment-method-action-btn"
+								data-pos-keyboard-target="payment-action"
+								:disabled="loading"
+								@click="$emit('mpesa-dialog', payment)"
+							>
+								<v-icon start size="16">mdi-download-circle-outline</v-icon>
+								{{ __("Get Payments") }}
+							</v-btn>
+						</div>
+
+						<!-- Phone Request Payment Action -->
+						<div
+							v-if="payment.type === 'Phone' && payment.amount > 0 && requestPaymentField"
+							class="payment-method-card__extra-action"
 						>
-							{{ d }}
-						</v-btn>
+							<v-btn
+								block
+								color="success"
+								variant="tonal"
+								class="payment-method-action-btn"
+								data-pos-keyboard-target="payment-action"
+								:disabled="loading"
+								@click="$emit('request-payment', payment)"
+							>
+								<v-icon start size="16">mdi-cellphone-arrow-down</v-icon>
+								{{ __("Request Payment") }}
+							</v-btn>
+						</div>
 					</div>
-				</div>
-
-				<!-- M-Pesa Mobile C2B Action -->
-				<div v-if="isMpesaC2bPayment(payment)" class="payment-method-card__extra-action">
-					<v-btn
-						block
-						color="success"
-						variant="tonal"
-						class="payment-method-action-btn"
-						data-pos-keyboard-target="payment-action"
-						:disabled="loading"
-						@click="$emit('mpesa-dialog', payment)"
-					>
-						<v-icon start size="16">mdi-download-circle-outline</v-icon>
-						{{ __("Get Payments") }}
-					</v-btn>
-				</div>
-
-				<!-- Phone Request Payment Action -->
-				<div
-					v-if="payment.type === 'Phone' && payment.amount > 0 && requestPaymentField"
-					class="payment-method-card__extra-action"
-				>
-					<v-btn
-						block
-						color="success"
-						variant="tonal"
-						class="payment-method-action-btn"
-						data-pos-keyboard-target="payment-action"
-						:disabled="loading"
-						@click="$emit('request-payment', payment)"
-					>
-						<v-icon start size="16">mdi-cellphone-arrow-down</v-icon>
-						{{ __("Request Payment") }}
-					</v-btn>
-				</div>
+				</v-expand-transition>
 			</article>
 		</div>
 
@@ -173,7 +198,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 
 const __ = (s) =>
 	typeof window !== "undefined" && (window.__ || window.frappe?._)
@@ -261,6 +286,43 @@ const emit = defineEmits([
 	"open-gift-card",
 ]);
 
+const activeExpandedMode = ref(null);
+
+watch(
+	() => props.payments,
+	(newPayments) => {
+		if (!newPayments || !newPayments.length) return;
+		if (activeExpandedMode.value) {
+			const exists = newPayments.some((p) => p.mode_of_payment === activeExpandedMode.value);
+			if (exists) return;
+		}
+		const defaultPay = newPayments.find((p) => p.default === 1 || p.default === true);
+		if (defaultPay) {
+			activeExpandedMode.value = defaultPay.mode_of_payment;
+		} else {
+			activeExpandedMode.value = newPayments[0]?.mode_of_payment;
+		}
+	},
+	{ immediate: true, deep: true },
+);
+
+function isCardExpanded(payment) {
+	if (!props.payments || props.payments.length <= 1) return true;
+	if (Math.abs(Number(payment.amount || 0)) > 0) return true;
+	return activeExpandedMode.value === payment.mode_of_payment;
+}
+
+function toggleExpandCard(payment) {
+	if (!props.payments || props.payments.length <= 1) return;
+	if (activeExpandedMode.value === payment.mode_of_payment) {
+		if (Math.abs(Number(payment.amount || 0)) === 0) {
+			activeExpandedMode.value = null;
+		}
+	} else {
+		activeExpandedMode.value = payment.mode_of_payment;
+	}
+}
+
 const showSplitAllocationContext = computed(() => props.payments && props.payments.length > 1);
 
 function getPaymentMethodIcon(payment) {
@@ -315,7 +377,7 @@ const handlePrimaryAction = (payment) => {
 		emit("open-gift-card", payment);
 		return;
 	}
-	emit("set-full-amount", payment, props.isReturn);
+	emit("set-rest-amount", payment, props.isReturn);
 };
 
 const clearPaymentAmount = (payment) => {
@@ -364,19 +426,21 @@ const clearPaymentAmount = (payment) => {
 }
 
 .payment-method-card {
-	display: flex;
-	flex-direction: column;
-	gap: var(--payment-space-2, 8px);
-	padding: 6px 0;
-	background: transparent;
-	border: none;
-	box-shadow: none;
+	padding: 8px 12px;
+	background: var(--pos-surface-raised, #ffffff);
+	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
+	border-radius: var(--payment-radius-md, 10px);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+	transition: all 0.2s ease;
 }
 
 .payment-method-card + .payment-method-card {
-	border-top: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
-	padding-top: var(--payment-space-3, 12px);
 	margin-top: var(--payment-space-2, 8px);
+}
+
+.payment-method-card--collapsed {
+	background: var(--pos-surface-muted, rgba(0, 0, 0, 0.02));
+	border-color: rgba(0, 0, 0, 0.06);
 }
 
 .payment-method-card__header {
@@ -384,6 +448,43 @@ const clearPaymentAmount = (payment) => {
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--payment-space-2, 8px);
+}
+
+.payment-method-card__header--clickable {
+	cursor: pointer;
+	user-select: none;
+	padding-block: 2px;
+}
+
+.payment-method-card__header--clickable:hover {
+	opacity: 0.9;
+}
+
+.payment-method-card__header-meta {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.payment-method-card__amount-badge {
+	font-size: 12px;
+	font-weight: 700;
+	padding: 2px 8px;
+	border-radius: 6px;
+	background: var(--pos-surface-muted, rgba(0, 0, 0, 0.05));
+	color: var(--pos-text-secondary, #64748b);
+	font-variant-numeric: tabular-nums;
+	transition: all 0.2s ease;
+}
+
+.payment-method-card__amount-badge--active {
+	background: rgba(var(--v-theme-primary, 37, 99, 235), 0.12);
+	color: rgb(var(--v-theme-primary, 37, 99, 235));
+}
+
+.payment-method-card__chevron {
+	color: var(--pos-text-secondary, #64748b);
+	transition: transform 0.2s ease;
 }
 
 .payment-method-card__identity {

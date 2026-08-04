@@ -101,6 +101,7 @@ defineEmits([
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
+	container-type: inline-size;
 }
 
 .invoice-items-list {

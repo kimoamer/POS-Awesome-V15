@@ -842,11 +842,10 @@ const isGiftCardPayment = (payment) => {
 		.includes("gift");
 };
 
-const visiblePaymentMethods = computed(() =>
-	(Array.isArray(invoice_doc.value?.payments) ? invoice_doc.value.payments : []).filter(
-		(payment) => !isGiftCardPayment(payment),
-	),
-);
+const visiblePaymentMethods = computed(() => {
+	const docPayments = Array.isArray(invoice_doc.value?.payments) ? invoice_doc.value.payments : [];
+	return docPayments.filter((payment) => !isGiftCardPayment(payment));
+});
 
 const creditSaleAllowed = computed(() =>
 	parseBooleanSetting(pos_profile.value?.posa_allow_credit_sale),
@@ -1438,7 +1437,7 @@ const rebalancePreferredPaymentCoverage = (giftCardAmount = giftCardAppliedAmoun
 	});
 };
 
-const mergeProfilePaymentsIntoReturn = (doc) => {
+const mergeProfilePaymentsIntoDocument = (doc) => {
 	const profilePayments = buildProfilePaymentLines();
 	if (!profilePayments.length) return;
 
@@ -1446,20 +1445,36 @@ const mergeProfilePaymentsIntoReturn = (doc) => {
 		doc.payments = [];
 	}
 
-	const existingModes = new Set(doc.payments.map((p) => p?.mode_of_payment).filter(Boolean));
-
-	profilePayments.forEach((pp) => {
-		if (!existingModes.has(pp.mode_of_payment)) {
-			doc.payments.push({
-				mode_of_payment: pp.mode_of_payment,
-				amount: 0,
-				base_amount: 0,
-				default: pp.default,
-				account: pp.account,
-				type: pp.type,
-			});
+	const existingMap = new Map();
+	doc.payments.forEach((p) => {
+		if (p?.mode_of_payment) {
+			existingMap.set(String(p.mode_of_payment).trim().toLowerCase(), p);
 		}
 	});
+
+	const mergedList = [];
+	profilePayments.forEach((pp) => {
+		const key = String(pp.mode_of_payment || "").trim().toLowerCase();
+		if (key) {
+			const existing = existingMap.get(key);
+			if (existing) {
+				mergedList.push(existing);
+				existingMap.delete(key);
+			} else {
+				mergedList.push({
+					mode_of_payment: pp.mode_of_payment,
+					amount: 0,
+					base_amount: 0,
+					default: pp.default,
+					account: pp.account,
+					type: pp.type,
+				});
+			}
+		}
+	});
+
+	existingMap.forEach((p) => mergedList.push(p));
+	doc.payments = mergedList;
 };
 
 const ensurePaymentLinesInitialized = (doc = invoice_doc.value) => {
@@ -1467,20 +1482,9 @@ const ensurePaymentLinesInitialized = (doc = invoice_doc.value) => {
 		return null;
 	}
 
-	if (!Array.isArray(doc.payments) || !doc.payments.length) {
-		const fallbackPayments = buildProfilePaymentLines();
-		if (fallbackPayments.length) {
-			doc.payments = fallbackPayments;
-		}
-	}
+	mergeProfilePaymentsIntoDocument(doc);
 
-	// For returns, always show all profile payment methods so user can split refund
-	// NOTE: the is_credit_return default is decided once when the return is loaded
-	// (send_invoice_doc_payment handler), NOT here — so reopening the dialog or a
-	// failed submit never overrides the cashier's manual toggle. Here we only
-	// honour the current toggle state.
 	if (doc.is_return) {
-		mergeProfilePaymentsIntoReturn(doc);
 		if (is_credit_return.value) {
 			// Credit return: keep every payment row at 0 so it is recorded as a
 			// credit note that reduces the customer's balance (no cash refund).
@@ -1670,9 +1674,9 @@ const updateCreditChange = (rawValue) => {
 
 const handlePaymentAmountChange = (payment, event) => {
 	last_payment_change_was_cash.value = isCashLikePayment(payment);
-	setFormatedCurrency(payment, "amount", null, false, event);
+	const val = event && typeof event === "object" && "target" in event ? event.target.value : event;
+	setFormatedCurrency(payment, "amount", null, false, val);
 
-	// For return invoices: user enters a positive number but we store it as negative (refund)
 	if (invoice_doc.value?.is_return && payment.amount > 0) {
 		payment.amount = -payment.amount;
 	}

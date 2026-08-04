@@ -80,8 +80,18 @@
 				</v-btn>
 			</div>
 			<div class="card-item-details">
-				<div class="card-item-stock" :title="stockTitle">
-					<v-icon size="14" class="stock-icon">mdi-package-variant-closed</v-icon>
+				<div
+					class="card-item-stock"
+					:class="[
+						Number(item.actual_qty || 0) > 0
+							? 'card-item-stock--in-stock'
+							: 'card-item-stock--out-of-stock',
+					]"
+					:title="stockTitle"
+				>
+					<v-icon size="14" class="stock-icon">
+						{{ Number(item.actual_qty || 0) > 0 ? 'mdi-package-variant-closed-check' : 'mdi-package-variant-closed-remove' }}
+					</v-icon>
 					<span class="stock-label">{{ __("Stock") }}</span>
 					<span
 						class="stock-amount"
@@ -488,6 +498,33 @@ const onDragEnd = (event) => {
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	transition: all 0.2s ease;
+}
+
+.card-item-stock--in-stock {
+	border-color: rgba(16, 185, 129, 0.35) !important;
+	background: color-mix(in srgb, #10b981 10%, var(--pos-surface-raised, #ffffff)) !important;
+	color: #047857 !important;
+}
+
+.card-item-stock--in-stock .stock-icon,
+.card-item-stock--in-stock .stock-label,
+.card-item-stock--in-stock .stock-amount,
+.card-item-stock--in-stock .stock-uom {
+	color: #047857 !important;
+}
+
+.card-item-stock--out-of-stock {
+	border-color: rgba(239, 68, 68, 0.35) !important;
+	background: color-mix(in srgb, #ef4444 10%, var(--pos-surface-raised, #ffffff)) !important;
+	color: #b91c1c !important;
+}
+
+.card-item-stock--out-of-stock .stock-icon,
+.card-item-stock--out-of-stock .stock-label,
+.card-item-stock--out-of-stock .stock-amount,
+.card-item-stock--out-of-stock .stock-uom {
+	color: #b91c1c !important;
 }
 
 .stock-icon,

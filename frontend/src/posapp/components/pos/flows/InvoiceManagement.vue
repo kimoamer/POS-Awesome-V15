@@ -16,30 +16,44 @@
 				]"
 				variant="flat"
 			>
-				<v-card-title class="invoice-management-header">
-					<div>
-						<div class="text-h5 text-primary">{{ __("Invoice Management") }}</div>
-						<div class="text-subtitle-2 text-medium-emphasis">
-							{{ __("Track recent sales, collect unpaid balances, and reopen saved work") }}
+				<v-card-title class="invoice-management-header px-4 px-sm-6 py-3 py-sm-4 d-flex align-center justify-space-between ga-2">
+					<div class="d-flex align-center ga-2 ga-sm-3">
+						<v-btn
+							icon="mdi-arrow-left"
+							variant="text"
+							size="small"
+							class="d-sm-none mr-1"
+							:aria-label="__('Close invoice management')"
+							@click="uiStore.closeInvoiceManagement()"
+						/>
+						<div class="header-icon-wrap">
+							<v-icon color="primary" size="22">mdi-receipt-text-clock-outline</v-icon>
+						</div>
+						<div>
+							<div class="text-h6 font-weight-bold text-primary mb-0">{{ __("Invoice Management") }}</div>
+							<div class="text-caption text-secondary header-subtitle">
+								{{ __("Track recent sales, collect unpaid balances, and reopen saved work") }}
+							</div>
 						</div>
 					</div>
-					<div class="d-flex align-center ga-2">
+					<div class="d-flex align-center ga-2 flex-wrap justify-end">
 						<v-select
 							v-if="isSupervisorScope()"
 							v-model="selectedSupervisorPosProfile"
-							class="supervisor-profile-select"
+							class="supervisor-profile-select d-none d-sm-flex"
 							variant="outlined"
 							density="compact"
 							hide-details
+							prepend-inner-icon="mdi-store-outline"
 							:items="supervisorPosProfileItems"
 							item-title="title"
 							item-value="value"
 							:label="__('POS Profile')"
 						/>
-						<div class="view-toggle-group">
+						<div class="view-toggle-group d-none d-sm-inline-flex">
 							<v-btn
-								:variant="viewMode === 'card' ? 'flat' : 'text'"
-								:color="viewMode === 'card' ? 'primary' : undefined"
+								:class="['view-toggle-btn', { 'view-toggle-btn--active': viewMode === 'card' }]"
+								variant="flat"
 								size="small"
 								prepend-icon="mdi-view-grid-outline"
 								@click="viewMode = 'card'"
@@ -47,8 +61,8 @@
 								{{ __("Cards") }}
 							</v-btn>
 							<v-btn
-								:variant="viewMode === 'list' ? 'flat' : 'text'"
-								:color="viewMode === 'list' ? 'primary' : undefined"
+								:class="['view-toggle-btn', { 'view-toggle-btn--active': viewMode === 'list' }]"
+								variant="flat"
 								size="small"
 								prepend-icon="mdi-format-list-bulleted"
 								@click="viewMode = 'list'"
@@ -57,8 +71,9 @@
 							</v-btn>
 						</div>
 						<v-btn
-							color="primary"
-							variant="text"
+							class="header-refresh-btn"
+							variant="outlined"
+							size="small"
 							prepend-icon="mdi-refresh"
 							:loading="loading"
 							@click="refreshActiveTab"
@@ -68,53 +83,67 @@
 						<v-btn
 							icon="mdi-close"
 							variant="text"
+							size="small"
+							class="header-close-btn d-none d-sm-inline-flex"
 							:aria-label="__('Close invoice management')"
 							@click="uiStore.closeInvoiceManagement()"
 						/>
 					</div>
 				</v-card-title>
 
+				<div v-if="isSupervisorScope()" class="mobile-pos-profile-wrap px-4 pt-2 d-sm-none">
+					<v-select
+						v-model="selectedSupervisorPosProfile"
+						variant="outlined"
+						density="compact"
+						hide-details
+						prepend-inner-icon="mdi-store-outline"
+						:items="supervisorPosProfileItems"
+						item-title="title"
+						item-value="value"
+						:label="__('POS Profile')"
+					/>
+				</div>
+
 				<div class="invoice-tabs-shell">
-					<v-tabs v-model="activeTab" color="primary" grow class="invoice-tabs">
-						<v-tab value="history">
+					<v-tabs v-model="activeTab" grow class="invoice-tabs">
+						<v-tab value="history" class="invoice-tab-item">
 							<div class="invoice-tab-label">
 								<span>{{ __("History") }}</span>
-								<v-chip size="x-small" variant="flat" color="primary">{{
+								<span class="tab-badge tab-badge--history">{{
 									filteredHistoryInvoices.length
-								}}</v-chip>
+								}}</span>
 							</div>
 						</v-tab>
-						<v-tab value="partial">
+						<v-tab value="partial" class="invoice-tab-item">
 							<div class="invoice-tab-label">
 								<span>{{ __("Unpaid") }}</span>
-								<v-chip size="x-small" variant="flat" color="warning">{{
+								<span class="tab-badge tab-badge--unpaid">{{
 									filteredUnpaidInvoices.length
-								}}</v-chip>
+								}}</span>
 							</div>
 						</v-tab>
-						<v-tab value="drafts">
+						<v-tab value="drafts" class="invoice-tab-item">
 							<div class="invoice-tab-label">
 								<span>{{ __("Drafts") }}</span>
-								<v-chip size="x-small" variant="flat" color="secondary">{{
+								<span class="tab-badge tab-badge--drafts">{{
 									filteredDraftInvoices.length
-								}}</v-chip>
+								}}</span>
 							</div>
 						</v-tab>
-						<v-tab value="returns">
+						<v-tab value="returns" class="invoice-tab-item">
 							<div class="invoice-tab-label">
 								<span>{{ __("Returns") }}</span>
-								<v-chip size="x-small" variant="flat" color="error">{{
+								<span class="tab-badge tab-badge--returns">{{
 									filteredReturnInvoices.length
-								}}</v-chip>
+								}}</span>
 							</div>
 						</v-tab>
 					</v-tabs>
 				</div>
 
-				<v-divider />
-
 				<v-card-text class="invoice-management-card__body">
-					<v-window v-model="activeTab">
+					<v-window v-model="activeTab" :transition="false" :reverse-transition="false">
 						<v-window-item value="history">
 							<div class="filter-grid mb-4">
 								<v-text-field
@@ -176,318 +205,281 @@
 							</div>
 
 							<div class="summary-grid mb-4">
-								<div class="summary-tile summary-tile--history">
-									<div class="summary-tile__label">{{ __("Invoices") }}</div>
-									<div class="summary-tile__value">
-										{{ filteredHistoryInvoices.length }}
+								<div class="summary-tile">
+									<div class="summary-tile__icon-wrap">
+										<v-icon size="18" color="primary">mdi-receipt-text-outline</v-icon>
 									</div>
-									<div class="summary-tile__meta">
-										{{ __("Completed and active sales in this range") }}
-									</div>
-								</div>
-								<div class="summary-tile summary-tile--primary">
-									<div class="summary-tile__label">{{ __("Gross Sales") }}</div>
-									<div class="summary-tile__value">
-										{{ currencySymbol(posProfile?.currency) }}
-										{{ formatCurrency(historyTotals.gross) }}
-									</div>
-									<div class="summary-tile__meta">
-										{{ __("Before any return workflow") }}
-									</div>
-								</div>
-								<div class="summary-tile summary-tile--success">
-									<div class="summary-tile__label">{{ __("Tendered") }}</div>
-									<div class="summary-tile__value">
-										{{ currencySymbol(posProfile?.currency) }}
-										{{ formatCurrency(historyTotals.paid) }}
-									</div>
-									<div class="summary-tile__meta">
-										{{ __("Amount received from customer") }}
-									</div>
-								</div>
-								<div class="summary-tile summary-tile--danger">
-									<div class="summary-tile__label">{{ __("Change Return") }}</div>
-									<div class="summary-tile__value">
-										{{ currencySymbol(posProfile?.currency) }}
-										{{ formatCurrency(historyTotals.change_return) }}
-									</div>
-									<div class="summary-tile__meta">
-										{{ __("Cash returned after payment") }}
-									</div>
-								</div>
-								<div class="summary-tile summary-tile--warning">
-									<div class="summary-tile__label">{{ __("Outstanding") }}</div>
-									<div class="summary-tile__value">
-										{{ currencySymbol(posProfile?.currency) }}
-										{{ formatCurrency(historyTotals.outstanding) }}
-									</div>
-									<div class="summary-tile__meta">{{ __("Balances still pending") }}</div>
-								</div>
-							</div>
-
-							<div v-if="loading && activeTab === 'history'" class="tab-loader">
-								<v-progress-circular indeterminate color="primary" size="28" width="3" />
-								<span>{{ __("Loading invoice history...") }}</span>
-							</div>
-
-							<div v-else-if="!filteredHistoryInvoices.length" class="empty-state">
-								<v-icon size="42" color="medium-emphasis"
-									>mdi-receipt-text-clock-outline</v-icon
-								>
-								<div class="empty-state__title">{{ __("No invoices found") }}</div>
-								<div class="empty-state__subtitle">
-									{{
-										historyShowRepairCandidatesOnly
-											? __("No change-allocation invoices match the current filters.")
-											: __("Try changing the date range or status filter.")
-									}}
-								</div>
-							</div>
-
-							<v-data-table
-								v-else-if="viewMode === 'list'"
-								:headers="historyHeaders"
-								:items="paginatedHistoryInvoices"
-								item-value="name"
-								class="elevation-1"
-								:items-per-page="-1"
-								hide-default-footer
-							>
-								<template #item.posting_date="{ item }">{{
-									formatDateTime(item.posting_date, item.posting_time)
-								}}</template>
-								<template #item.grand_total="{ item }"
-									>{{ currencySymbol(item.currency) }}
-									{{ formatCurrency(item.grand_total) }}</template
-								>
-								<template #item.paid_amount="{ item }"
-									>{{ currencySymbol(item.currency) }}
-									{{ formatCurrency(item.paid_amount || 0) }}</template
-								>
-								<template #item.change_amount="{ item }"
-									>{{ currencySymbol(item.currency) }}
-									{{ formatCurrency(item.change_amount || 0) }}</template
-								>
-								<template #item.outstanding_amount="{ item }"
-									>{{ currencySymbol(item.currency) }}
-									{{ formatCurrency(item.outstanding_amount || 0) }}</template
-								>
-								<template #item.status="{ item }">
-									<div class="d-flex flex-wrap ga-1">
-										<v-chip
-											size="small"
-											:color="statusColor(item.status)"
-											variant="tonal"
-											>{{ __(item.status || "Draft") }}</v-chip
-										>
-										<v-chip
-											v-if="changeAllocationRepairState(item)"
-											size="small"
-											:color="repairStateColor(changeAllocationRepairState(item))"
-											variant="flat"
-										>
-											{{ repairStateLabel(changeAllocationRepairState(item)) }}
-										</v-chip>
-									</div>
-								</template>
-								<template #item.actions="{ item }">
-									<div class="d-flex justify-end ga-1">
-										<v-btn
-											icon="mdi-eye-outline"
-											variant="text"
-											size="small"
-											:title="__('View Details')"
-											:aria-label="__('View invoice details')"
-											@click="viewInvoice(item)"
-										/>
-										<v-btn
-											icon="mdi-printer-outline"
-											variant="text"
-											size="small"
-											:title="__('Print')"
-											:aria-label="__('Print invoice')"
-											@click="printInvoice(item)"
-										/>
-										<v-btn
-											icon="mdi-share-variant-outline"
-											variant="text"
-											size="small"
-											color="info"
-											:title="__('Share')"
-											:aria-label="__('Share invoice')"
-											@click="shareInvoice(item)"
-										/>
-										<v-btn
-											v-if="posProfile?.posa_allow_return == 1"
-											icon="mdi-backup-restore"
-											variant="text"
-											size="small"
-											color="warning"
-											:title="__('Create Return')"
-											:aria-label="__('Create return from invoice')"
-											@click="createReturn(item)"
-										/>
-									</div>
-								</template>
-							</v-data-table>
-
-							<div v-else class="invoice-record-grid invoice-record-grid--history">
-								<v-card
-									v-for="invoice in paginatedHistoryInvoices"
-									:key="invoice.name"
-									:class="[
-										'invoice-record-card',
-										`invoice-record-card--${toneFromStatus(invoice.status)}`,
-									]"
-									variant="flat"
-								>
-									<div class="invoice-record-card__hero">
-										<div>
-											<div class="invoice-record-card__title-row">
-												<div class="invoice-record-card__title">
-													{{ invoice.name }}
-												</div>
-												<v-chip
-													size="small"
-													:color="statusColor(invoice.status)"
-													variant="flat"
-												>
-													{{ __(invoice.status || "Draft") }}
-												</v-chip>
-												<v-chip
-													v-if="changeAllocationRepairState(invoice)"
-													size="small"
-													:color="
-														repairStateColor(changeAllocationRepairState(invoice))
-													"
-													variant="flat"
-												>
-													{{
-														repairStateLabel(changeAllocationRepairState(invoice))
-													}}
-												</v-chip>
-											</div>
-											<div class="invoice-record-card__subtitle">
-												{{
-													invoice.customer_name ||
-													invoice.customer ||
-													__("Walk-in Customer")
-												}}
-											</div>
-										</div>
-										<div class="invoice-record-card__amount-block">
-											<div class="invoice-record-card__amount-label">
-												{{ __("Grand Total") }}
-											</div>
-											<div class="invoice-record-card__amount">
-												{{ currencySymbol(invoice.currency) }}
-												{{ formatCurrency(invoice.grand_total) }}
-											</div>
+									<div class="summary-tile__content">
+										<div class="summary-tile__label">{{ __("Invoices") }}</div>
+										<div class="summary-tile__value">
+											{{ filteredHistoryInvoices.length }}
 										</div>
 									</div>
+								</div>
+								<div class="summary-tile">
+									<div class="summary-tile__icon-wrap">
+										<v-icon size="18" color="primary">mdi-calculator-variant-outline</v-icon>
+									</div>
+									<div class="summary-tile__content">
+										<div class="summary-tile__label">{{ __("Gross Sales") }}</div>
+										<div class="summary-tile__value">
+											{{ currencySymbol(posProfile?.currency) }}{{ formatCurrency(historyTotals.gross) }}
+										</div>
+									</div>
+								</div>
+								<div class="summary-tile">
+									<div class="summary-tile__icon-wrap">
+										<v-icon size="18" color="primary">mdi-cash-check</v-icon>
+									</div>
+									<div class="summary-tile__content">
+										<div class="summary-tile__label">{{ __("Tendered") }}</div>
+										<div class="summary-tile__value">
+											{{ currencySymbol(posProfile?.currency) }}{{ formatCurrency(historyTotals.paid) }}
+										</div>
+									</div>
+								</div>
+								<div class="summary-tile">
+									<div class="summary-tile__icon-wrap">
+										<v-icon size="18" color="warning">mdi-cash-refund</v-icon>
+									</div>
+									<div class="summary-tile__content">
+										<div class="summary-tile__label">{{ __("Change Return") }}</div>
+										<div class="summary-tile__value">
+											{{ currencySymbol(posProfile?.currency) }}{{ formatCurrency(historyTotals.change_return) }}
+										</div>
+									</div>
+								</div>
+								<div class="summary-tile">
+									<div class="summary-tile__icon-wrap">
+										<v-icon size="18" color="secondary">mdi-clock-outline</v-icon>
+									</div>
+									<div class="summary-tile__content">
+										<div class="summary-tile__label">{{ __("Outstanding") }}</div>
+										<div class="summary-tile__value">
+											{{ currencySymbol(posProfile?.currency) }}{{ formatCurrency(historyTotals.outstanding) }}
+										</div>
+									</div>
+								</div>
+							</div>
 
-									<div class="invoice-record-card__content">
-										<div class="meta-pair-grid">
-											<div class="meta-pair">
-												<div class="meta-pair__label">{{ __("Posting") }}</div>
-												<div class="meta-pair__value">
-													{{
-														formatDateTime(
-															invoice.posting_date,
-															invoice.posting_time,
-														)
-													}}
+							<div class="invoices-scroll-area">
+								<div v-if="loading && activeTab === 'history'" class="tab-loader">
+									<v-progress-circular indeterminate color="primary" size="28" width="3" />
+									<span>{{ __("Loading invoice history...") }}</span>
+								</div>
+
+								<div v-else-if="!filteredHistoryInvoices.length" class="empty-state">
+									<v-icon size="42" color="medium-emphasis"
+										>mdi-receipt-text-clock-outline</v-icon
+									>
+									<div class="empty-state__title">{{ __("No invoices found") }}</div>
+									<div class="empty-state__subtitle">
+										{{
+											historyShowRepairCandidatesOnly
+												? __("No change-allocation invoices match the current filters.")
+												: __("Try changing the date range or status filter.")
+										}}
+									</div>
+								</div>
+
+								<v-data-table
+									v-else-if="viewMode === 'list'"
+									:headers="historyHeaders"
+									:items="paginatedHistoryInvoices"
+									item-value="name"
+									density="compact"
+									class="pos-themed-table border rounded-lg"
+									:items-per-page="-1"
+									hide-default-footer
+								>
+									<template #item.posting_date="{ item }">{{
+										formatDateTime(item.posting_date, item.posting_time)
+									}}</template>
+									<template #item.grand_total="{ item }"
+										>{{ currencySymbol(item.currency) }}
+										{{ formatCurrency(item.grand_total) }}</template
+									>
+									<template #item.paid_amount="{ item }"
+										>{{ currencySymbol(item.currency) }}
+										{{ formatCurrency(item.paid_amount || 0) }}</template
+									>
+									<template #item.change_amount="{ item }"
+										>{{ currencySymbol(item.currency) }}
+										{{ formatCurrency(item.change_amount || 0) }}</template
+									>
+									<template #item.outstanding_amount="{ item }"
+										>{{ currencySymbol(item.currency) }}
+										{{ formatCurrency(item.outstanding_amount || 0) }}</template
+									>
+									<template #item.status="{ item }">
+										<div class="d-flex flex-wrap ga-1">
+											<v-chip
+												size="small"
+												:color="statusColor(item.status)"
+												variant="tonal"
+												>{{ __(item.status || "Draft") }}</v-chip
+											>
+											<v-chip
+												v-if="changeAllocationRepairState(item)"
+												size="small"
+												:color="repairStateColor(changeAllocationRepairState(item))"
+												variant="flat"
+											>
+												{{ repairStateLabel(changeAllocationRepairState(item)) }}
+											</v-chip>
+										</div>
+									</template>
+									<template #item.actions="{ item }">
+										<div class="d-flex justify-end ga-1">
+											<v-btn
+												icon="mdi-eye-outline"
+												variant="text"
+												size="small"
+												:title="__('View Details')"
+												:aria-label="__('View invoice details')"
+												@click="viewInvoice(item)"
+											/>
+											<v-btn
+												icon="mdi-printer-outline"
+												variant="text"
+												size="small"
+												:title="__('Print')"
+												:aria-label="__('Print invoice')"
+												@click="printInvoice(item)"
+											/>
+											<v-btn
+												icon="mdi-share-variant-outline"
+												variant="text"
+												size="small"
+												color="info"
+												:title="__('Share')"
+												:aria-label="__('Share invoice')"
+												@click="shareInvoice(item)"
+											/>
+											<v-btn
+												v-if="posProfile?.posa_allow_return == 1"
+												icon="mdi-backup-restore"
+												size="small"
+												variant="text"
+												color="warning"
+												:title="__('Create Return')"
+												@click="createReturn(item)"
+											/>
+										</div>
+									</template>
+								</v-data-table>
+
+								<div v-else class="invoice-record-grid invoice-record-grid--history">
+									<v-card
+										v-for="invoice in paginatedHistoryInvoices"
+										:key="invoice.name"
+										class="invoice-record-card"
+										variant="flat"
+									>
+										<div class="invoice-record-card__hero">
+											<div class="d-flex align-center ga-3">
+												<div class="card-doc-icon-wrap">
+													<v-icon color="#0284c7" size="20">mdi-file-document-outline</v-icon>
+												</div>
+												<div>
+													<div class="invoice-record-card__title-row">
+														<div class="invoice-record-card__title">
+															{{ invoice.name }}
+														</div>
+														<span class="status-pill status-pill--paid">
+															{{ __(invoice.status || "Paid") }}
+														</span>
+													</div>
+													<div class="invoice-record-card__subtitle">
+														{{
+															invoice.customer_name ||
+															invoice.customer ||
+															__("Walk-in Customer")
+														}}
+													</div>
 												</div>
 											</div>
-											<div class="meta-pair">
-												<div class="meta-pair__label">{{ __("Tendered") }}</div>
-												<div class="meta-pair__value meta-pair__value--success">
-													{{ currencySymbol(invoice.currency) }}
-													{{ formatCurrency(invoice.paid_amount || 0) }}
+											<div class="invoice-record-card__amount-block text-right">
+												<div class="invoice-record-card__amount-label">
+													{{ __("Grand Total") }}
 												</div>
-											</div>
-											<div class="meta-pair">
-												<div class="meta-pair__label">{{ __("Change Return") }}</div>
-												<div class="meta-pair__value meta-pair__value--warning">
-													{{ currencySymbol(invoice.currency) }}
-													{{ formatCurrency(invoice.change_amount || 0) }}
-												</div>
-											</div>
-											<div class="meta-pair">
-												<div class="meta-pair__label">{{ __("Outstanding") }}</div>
-												<div
-													class="meta-pair__value"
-													:class="{
-														'meta-pair__value--warning':
-															Number(invoice.outstanding_amount || 0) > 0,
-													}"
-												>
-													{{ currencySymbol(invoice.currency) }}
-													{{ formatCurrency(invoice.outstanding_amount || 0) }}
-												</div>
-											</div>
-											<div class="meta-pair">
-												<div class="meta-pair__label">{{ __("Payment State") }}</div>
-												<div class="meta-pair__value">
-													{{ __(invoice.status || "Draft") }}
+												<div class="invoice-record-card__amount">
+													{{ currencySymbol(invoice.currency) }}{{ formatCurrency(invoice.grand_total) }}
 												</div>
 											</div>
 										</div>
-									</div>
 
-									<div class="invoice-record-card__actions">
-										<v-btn
-											icon="mdi-eye-outline"
-											size="small"
-											variant="text"
-											:title="__('View Details')"
-											:aria-label="__('View invoice details')"
-											@click="viewInvoice(invoice)"
-										/>
-										<v-btn
-											icon="mdi-printer-outline"
-											size="small"
-											variant="text"
-											:title="__('Print')"
-											:aria-label="__('Print invoice')"
-											@click="printInvoice(invoice)"
-										/>
-										<v-btn
-											icon="mdi-share-variant-outline"
-											variant="text"
-											size="small"
-											color="info"
-											:title="__('Share')"
-											:aria-label="__('Share invoice')"
-											@click="shareInvoice(invoice)"
-										/>
-										<v-btn
-											v-if="posProfile?.posa_allow_return == 1"
-											icon="mdi-backup-restore"
-											size="small"
-											variant="text"
-											color="warning"
-											:title="__('Create Return')"
-											@click="createReturn(invoice)"
-										/>
-									</div>
-								</v-card>
-							</div>
+										<div class="invoice-record-card__metrics">
+											<div class="metric-col metric-col--posting">
+												<v-icon size="16" class="metric-icon">mdi-calendar-outline</v-icon>
+												<div>
+													<div class="metric-label">{{ __("Posting") }}</div>
+													<div class="metric-value">{{ formatDateTime(invoice.posting_date, invoice.posting_time) }}</div>
+												</div>
+											</div>
+											<div class="metric-col">
+												<v-icon size="16" class="metric-icon">mdi-credit-card-outline</v-icon>
+												<div>
+													<div class="metric-label">{{ __("Tendered") }}</div>
+													<div class="metric-value">{{ currencySymbol(invoice.currency) }}{{ formatCurrency(invoice.paid_amount || 0) }}</div>
+												</div>
+											</div>
+											<div class="metric-col">
+												<v-icon size="16" class="metric-icon">mdi-clock-outline</v-icon>
+												<div>
+													<div class="metric-label">{{ __("Change Return") }}</div>
+													<div class="metric-value metric-value--orange">{{ currencySymbol(invoice.currency) }}{{ formatCurrency(invoice.change_amount || 0) }}</div>
+												</div>
+											</div>
+											<div class="metric-col">
+												<v-icon size="16" class="metric-icon">mdi-clock-outline</v-icon>
+												<div>
+													<div class="metric-label">{{ __("Outstanding") }}</div>
+													<div class="metric-value">{{ currencySymbol(invoice.currency) }}{{ formatCurrency(invoice.outstanding_amount || 0) }}</div>
+												</div>
+											</div>
+										</div>
 
-							<div
-								v-if="!loading && filteredHistoryInvoices.length && historyPageCount > 1"
-								class="tab-pagination"
-							>
-								<div class="tab-pagination__meta">
-									{{ paginationCaption(filteredHistoryInvoices.length, "history") }}
+										<div class="invoice-record-card__actions">
+											<button class="card-action-btn" @click="viewInvoice(invoice)">
+												<v-icon size="16">mdi-eye-outline</v-icon>
+												<span>{{ __("View") }}</span>
+											</button>
+											<div class="card-action-divider"></div>
+											<button class="card-action-btn" @click="printInvoice(invoice)">
+												<v-icon size="16">mdi-printer-outline</v-icon>
+												<span>{{ __("Print") }}</span>
+											</button>
+											<div class="card-action-divider"></div>
+											<v-menu location="top end">
+												<template #activator="{ props: menuProps }">
+													<button v-bind="menuProps" class="card-action-btn">
+														<v-icon size="16">mdi-dots-horizontal</v-icon>
+														<span>{{ __("More") }}</span>
+													</button>
+												</template>
+												<v-list density="compact" nav class="pa-1">
+													<v-list-item prepend-icon="mdi-share-variant-outline" title="Share" @click="shareInvoice(invoice)" />
+													<v-list-item v-if="posProfile?.posa_allow_return == 1" prepend-icon="mdi-backup-restore" title="Create Return" @click="createReturn(invoice)" />
+												</v-list>
+											</v-menu>
+										</div>
+									</v-card>
 								</div>
-								<v-pagination
-									:model-value="tabPages.history"
-									:length="historyPageCount"
-									:total-visible="7"
-									density="comfortable"
-									@update:model-value="setTabPage('history', $event)"
-								/>
+
+								<div v-if="historyPageCount > 1" class="tab-pagination mt-4">
+									<div class="tab-pagination__meta">
+										{{ __("Showing page") }} {{ tabPages.history }} {{ __("of") }}
+										{{ historyPageCount }}
+									</div>
+									<v-pagination
+										:model-value="tabPages.history"
+										:length="historyPageCount"
+										:total-visible="7"
+										density="comfortable"
+										@update:model-value="setTabPage('history', $event)"
+									/>
+								</div>
 							</div>
 						</v-window-item>
 
@@ -568,36 +560,44 @@
 							</div>
 
 							<div class="summary-grid mb-4">
-								<div class="summary-tile summary-tile--warning">
-									<div class="summary-tile__label">{{ __("Invoices") }}</div>
-									<div class="summary-tile__value">{{ filteredUnpaidSummary.count }}</div>
-									<div class="summary-tile__meta">
-										{{ __("Invoices still carrying balances") }}
+								<div class="summary-tile">
+									<div class="summary-tile__icon-wrap">
+										<v-icon size="18" color="primary">mdi-receipt-text-outline</v-icon>
+									</div>
+									<div class="summary-tile__content">
+										<div class="summary-tile__label">{{ __("Invoices") }}</div>
+										<div class="summary-tile__value">{{ filteredUnpaidSummary.count }}</div>
 									</div>
 								</div>
-								<div class="summary-tile summary-tile--success">
-									<div class="summary-tile__label">{{ __("Paid") }}</div>
-									<div class="summary-tile__value">
-										{{ currencySymbol(posProfile?.currency) }}
-										{{ formatCurrency(filteredUnpaidSummary.total_paid) }}
+								<div class="summary-tile">
+									<div class="summary-tile__icon-wrap">
+										<v-icon size="18" color="success">mdi-cash-register</v-icon>
 									</div>
-									<div class="summary-tile__meta">{{ __("Amount already received") }}</div>
+									<div class="summary-tile__content">
+										<div class="summary-tile__label">{{ __("Paid") }}</div>
+										<div class="summary-tile__value">
+											{{ currencySymbol(posProfile?.currency) }}{{ formatCurrency(filteredUnpaidSummary.total_paid) }}
+										</div>
+									</div>
 								</div>
-								<div class="summary-tile summary-tile--warning-strong">
-									<div class="summary-tile__label">{{ __("Outstanding") }}</div>
-									<div class="summary-tile__value">
-										{{ currencySymbol(posProfile?.currency) }}
-										{{ formatCurrency(filteredUnpaidSummary.total_outstanding) }}
+								<div class="summary-tile">
+									<div class="summary-tile__icon-wrap">
+										<v-icon size="18" color="warning">mdi-clock-alert-outline</v-icon>
 									</div>
-									<div class="summary-tile__meta">{{ __("Open balance to collect") }}</div>
+									<div class="summary-tile__content">
+										<div class="summary-tile__label">{{ __("Outstanding") }}</div>
+										<div class="summary-tile__value">
+											{{ currencySymbol(posProfile?.currency) }}{{ formatCurrency(filteredUnpaidSummary.total_outstanding) }}
+										</div>
+									</div>
 								</div>
-								<div class="summary-tile summary-tile--danger">
-									<div class="summary-tile__label">{{ __("Overdue") }}</div>
-									<div class="summary-tile__value">
-										{{ filteredUnpaidSummary.overdue_count }}
+								<div class="summary-tile">
+									<div class="summary-tile__icon-wrap">
+										<v-icon size="18" color="error">mdi-alert-circle-outline</v-icon>
 									</div>
-									<div class="summary-tile__meta">
-										{{ __("Invoices already past due date") }}
+									<div class="summary-tile__content">
+										<div class="summary-tile__label">{{ __("Overdue") }}</div>
+										<div class="summary-tile__value">{{ filteredUnpaidSummary.overdue_count }}</div>
 									</div>
 								</div>
 							</div>
@@ -616,245 +616,257 @@
 								}}
 							</v-alert>
 
-							<div v-if="loading && activeTab === 'partial'" class="tab-loader">
-								<v-progress-circular indeterminate color="warning" size="28" width="3" />
-								<span>{{ __("Loading unpaid invoices...") }}</span>
-							</div>
-
-							<div v-else-if="!filteredUnpaidInvoices.length" class="empty-state">
-								<v-icon size="42" color="success">mdi-cash-check</v-icon>
-								<div class="empty-state__title">{{ __("No unpaid invoices") }}</div>
-								<div class="empty-state__subtitle">
-									{{ __("All visible invoices are fully settled.") }}
+							<div class="invoices-scroll-area">
+								<div v-if="loading && activeTab === 'partial'" class="tab-loader">
+									<v-progress-circular indeterminate color="warning" size="28" width="3" />
+									<span>{{ __("Loading unpaid invoices...") }}</span>
 								</div>
-							</div>
 
-							<v-data-table
-								v-else-if="viewMode === 'list'"
-								:headers="partialHeaders"
-								:items="paginatedUnpaidInvoices"
-								item-value="name"
-								class="elevation-1"
-								:items-per-page="-1"
-								hide-default-footer
-							>
-								<template #item.posting_date="{ item }">{{
-									formatDateTime(item.posting_date, item.posting_time)
-								}}</template>
-								<template #item.due_date="{ item }">{{
-									formatDateForDisplay(item.due_date) || "-"
-								}}</template>
-								<template #item.grand_total="{ item }"
-									>{{ currencySymbol(item.currency) }}
-									{{ formatCurrency(item.grand_total) }}</template
-								>
-								<template #item.paid_amount="{ item }"
-									>{{ currencySymbol(item.currency) }}
-									{{ formatCurrency(item.paid_amount || 0) }}</template
-								>
-								<template #item.outstanding_amount="{ item }"
-									>{{ currencySymbol(item.currency) }}
-									{{ formatCurrency(item.outstanding_amount || 0) }}</template
-								>
-								<template #item.status="{ item }"
-									><v-chip size="small" :color="statusColor(item.status)" variant="tonal">{{
-										__(item.status || "Unpaid")
-									}}</v-chip></template
-								>
-								<template #item.actions="{ item }">
-									<div class="d-flex justify-end ga-1">
-										<v-btn
-											icon="mdi-cash-plus"
-											variant="text"
-											size="small"
-											color="warning"
-											:disabled="isOffline()"
-											:title="__('Add Payment')"
-											:aria-label="__('Add payment to invoice')"
-											@click="openAddPayment(item)"
-										/>
-										<v-btn
-											icon="mdi-eye-outline"
-											variant="text"
-											size="small"
-											:title="__('View Details')"
-											:aria-label="__('View invoice details')"
-											@click="viewInvoice(item)"
-										/>
-										<v-btn
-											icon="mdi-printer-outline"
-											variant="text"
-											size="small"
-											:title="__('Print')"
-											:aria-label="__('Print invoice')"
-											@click="printInvoice(item)"
-										/>
-										<v-btn
-											icon="mdi-share-variant-outline"
-											variant="text"
-											size="small"
-											color="info"
-											:title="__('Share')"
-											:aria-label="__('Share invoice')"
-											@click="shareInvoice(item)"
-										/>
+								<div v-else-if="!filteredUnpaidInvoices.length" class="empty-state">
+									<v-icon size="42" color="success">mdi-cash-check</v-icon>
+									<div class="empty-state__title">{{ __("No unpaid invoices") }}</div>
+									<div class="empty-state__subtitle">
+										{{ __("All visible invoices are fully settled.") }}
 									</div>
-								</template>
-							</v-data-table>
+								</div>
 
-							<div v-else class="invoice-record-grid invoice-record-grid--unpaid">
-								<v-card
-									v-for="invoice in paginatedUnpaidInvoices"
-									:key="invoice.name"
-									:class="[
-										'invoice-record-card',
-										'invoice-record-card--unpaid',
-										`invoice-record-card--${toneFromStatus(invoice.status)}`,
-									]"
-									variant="flat"
+								<v-data-table
+									v-else-if="viewMode === 'list'"
+									:headers="partialHeaders"
+									:items="paginatedUnpaidInvoices"
+									item-value="name"
+									density="compact"
+									class="pos-themed-table border rounded-lg"
+									:items-per-page="-1"
+									hide-default-footer
 								>
-									<div class="invoice-record-card__hero invoice-record-card__hero--warm">
-										<div>
-											<div class="invoice-record-card__title-row">
-												<div class="invoice-record-card__title">
-													{{ invoice.name }}
-												</div>
-												<v-chip
-													size="small"
-													:color="statusColor(invoice.status)"
-													variant="flat"
-												>
-													{{ __(invoice.status || "Unpaid") }}
-												</v-chip>
-											</div>
-											<div class="invoice-record-card__subtitle">
-												{{
-													invoice.customer_name ||
-													invoice.customer ||
-													__("Walk-in Customer")
-												}}
-											</div>
+									<template #item.posting_date="{ item }">{{
+										formatDateTime(item.posting_date, item.posting_time)
+									}}</template>
+									<template #item.due_date="{ item }">{{
+										formatDateForDisplay(item.due_date) || "-"
+									}}</template>
+									<template #item.grand_total="{ item }"
+										>{{ currencySymbol(item.currency) }}
+										{{ formatCurrency(item.grand_total) }}</template
+									>
+									<template #item.paid_amount="{ item }"
+										>{{ currencySymbol(item.currency) }}
+										{{ formatCurrency(item.paid_amount || 0) }}</template
+									>
+									<template #item.outstanding_amount="{ item }"
+										>{{ currencySymbol(item.currency) }}
+										{{ formatCurrency(item.outstanding_amount || 0) }}</template
+									>
+									<template #item.status="{ item }">
+										<v-chip
+											size="small"
+											:color="unpaidStatusColor(item)"
+											variant="tonal"
+											>{{ __(unpaidStatusLabel(item)) }}</v-chip
+										>
+									</template>
+									<template #item.actions="{ item }">
+										<div class="d-flex justify-end ga-1">
+											<v-btn
+												icon="mdi-eye-outline"
+												variant="text"
+												size="small"
+												:title="__('View Details')"
+												:aria-label="__('View invoice details')"
+												@click="viewInvoice(item)"
+											/>
+											<v-btn
+												v-if="posProfile?.posa_allow_make_payment && Number(item.outstanding_amount || 0) > 0"
+												icon="mdi-cash-plus"
+												variant="text"
+												size="small"
+												color="success"
+												:disabled="isOffline()"
+												:title="isOffline() ? __('Add Payment disabled offline') : __('Add Payment')"
+												:aria-label="__('Add payment to invoice')"
+												@click="openAddPayment(item)"
+											/>
+											<v-btn
+												icon="mdi-printer-outline"
+												variant="text"
+												size="small"
+												:title="__('Print')"
+												:aria-label="__('Print invoice')"
+												@click="printInvoice(item)"
+											/>
+											<v-btn
+												icon="mdi-share-variant-outline"
+												variant="text"
+												size="small"
+												color="info"
+												:title="__('Share')"
+												:aria-label="__('Share invoice')"
+												@click="shareInvoice(item)"
+											/>
 										</div>
-										<div class="d-flex flex-column align-end ga-2">
-											<v-chip size="small" :color="dueTone(invoice)" variant="tonal">
-												{{ dueLabel(invoice) }}
-											</v-chip>
-											<div class="invoice-record-card__amount-block">
+									</template>
+								</v-data-table>
+
+								<div v-else class="invoice-record-grid invoice-record-grid--unpaid">
+									<v-card
+										v-for="invoice in paginatedUnpaidInvoices"
+										:key="invoice.name"
+										:class="[
+											'invoice-record-card',
+											`invoice-record-card--${unpaidTone(invoice)}`,
+										]"
+										variant="flat"
+									>
+										<div
+											class="invoice-record-card__hero"
+											:class="`invoice-record-card__hero--${unpaidHeroTone(invoice)}`"
+										>
+											<div class="d-flex align-center ga-3">
+												<div class="card-doc-icon-wrap">
+													<v-icon color="#f97316" size="20">mdi-clock-alert-outline</v-icon>
+												</div>
+												<div>
+													<div class="invoice-record-card__title-row">
+														<div class="invoice-record-card__title">
+															{{ invoice.name }}
+														</div>
+														<v-chip
+															size="small"
+															:color="unpaidStatusColor(invoice)"
+															variant="flat"
+														>
+															{{ __(unpaidStatusLabel(invoice)) }}
+														</v-chip>
+													</div>
+													<div class="invoice-record-card__subtitle">
+														{{
+															invoice.customer_name ||
+															invoice.customer ||
+															__("Walk-in Customer")
+														}}
+													</div>
+												</div>
+											</div>
+											<div class="invoice-record-card__amount-block text-right">
 												<div class="invoice-record-card__amount-label">
 													{{ __("Outstanding") }}
 												</div>
-												<div class="invoice-record-card__amount">
+												<div class="invoice-record-card__amount text-warning">
 													{{ currencySymbol(invoice.currency) }}
 													{{ formatCurrency(invoice.outstanding_amount || 0) }}
 												</div>
 											</div>
 										</div>
-									</div>
 
-									<div class="invoice-record-card__content">
-										<div class="meta-pair-grid meta-pair-grid--compact">
-											<div class="meta-pair">
-												<div class="meta-pair__label">{{ __("Posting") }}</div>
-												<div class="meta-pair__value">
-													{{
-														formatDateTime(
-															invoice.posting_date,
-															invoice.posting_time,
-														)
-													}}
+										<div class="invoice-record-card__content">
+											<div class="meta-pair-grid meta-pair-grid--compact">
+												<div class="meta-pair">
+													<div class="meta-pair__label">{{ __("Posting") }}</div>
+													<div class="meta-pair__value">
+														{{
+															formatDateTime(
+																invoice.posting_date,
+																invoice.posting_time,
+															)
+														}}
+													</div>
+												</div>
+												<div class="meta-pair">
+													<div class="meta-pair__label">{{ __("Due Date") }}</div>
+													<div class="meta-pair__value">
+														{{ formatDateForDisplay(invoice.due_date) || "-" }}
+													</div>
+												</div>
+												<div class="meta-pair">
+													<div class="meta-pair__label">{{ __("Grand Total") }}</div>
+													<div class="meta-pair__value">
+														{{ currencySymbol(invoice.currency) }}
+														{{ formatCurrency(invoice.grand_total) }}
+													</div>
+												</div>
+												<div class="meta-pair">
+													<div class="meta-pair__label">{{ __("Paid") }}</div>
+													<div class="meta-pair__value meta-pair__value--success">
+														{{ currencySymbol(invoice.currency) }}
+														{{ formatCurrency(invoice.paid_amount || 0) }}
+													</div>
 												</div>
 											</div>
-											<div class="meta-pair">
-												<div class="meta-pair__label">{{ __("Due Date") }}</div>
-												<div class="meta-pair__value">
-													{{ formatDateForDisplay(invoice.due_date) || "-" }}
+
+											<div class="payment-progress-block">
+												<div class="payment-progress-block__labels">
+													<span>{{ __("Payment Progress") }}</span>
+													<span>{{ formatFloat(paymentProgress(invoice)) }}%</span>
 												</div>
-											</div>
-											<div class="meta-pair">
-												<div class="meta-pair__label">{{ __("Grand Total") }}</div>
-												<div class="meta-pair__value">
-													{{ currencySymbol(invoice.currency) }}
-													{{ formatCurrency(invoice.grand_total) }}
-												</div>
-											</div>
-											<div class="meta-pair">
-												<div class="meta-pair__label">{{ __("Paid") }}</div>
-												<div class="meta-pair__value meta-pair__value--success">
-													{{ currencySymbol(invoice.currency) }}
-													{{ formatCurrency(invoice.paid_amount || 0) }}
-												</div>
+												<v-progress-linear
+													:model-value="paymentProgress(invoice)"
+													color="success"
+													bg-color="grey-lighten-2"
+													height="8"
+													rounded
+												/>
 											</div>
 										</div>
 
-										<div class="payment-progress-block">
-											<div class="payment-progress-block__labels">
-												<span>{{ __("Payment Progress") }}</span>
-												<span>{{ formatFloat(paymentProgress(invoice)) }}%</span>
-											</div>
-											<v-progress-linear
-												:model-value="paymentProgress(invoice)"
+										<div class="invoice-record-card__actions">
+											<v-btn
+												icon="mdi-eye-outline"
+												size="small"
+												variant="text"
+												:title="__('View Details')"
+												:aria-label="__('View invoice details')"
+												@click="viewInvoice(invoice)"
+											/>
+											<v-btn
+												v-if="posProfile?.posa_allow_make_payment && Number(invoice.outstanding_amount || 0) > 0"
+												icon="mdi-cash-plus"
+												size="small"
+												variant="flat"
 												color="success"
-												bg-color="grey-lighten-2"
-												height="8"
-												rounded
+												:disabled="isOffline()"
+												:title="isOffline() ? __('Add Payment disabled offline') : __('Add Payment')"
+												:aria-label="__('Add payment to invoice')"
+												@click="openAddPayment(invoice)"
+											>
+												{{ __("Add Payment") }}
+											</v-btn>
+											<v-btn
+												icon="mdi-printer-outline"
+												size="small"
+												variant="text"
+												:title="__('Print')"
+												:aria-label="__('Print invoice')"
+												@click="printInvoice(invoice)"
+											/>
+											<v-btn
+												icon="mdi-share-variant-outline"
+												variant="text"
+												size="small"
+												color="info"
+												:title="__('Share')"
+												:aria-label="__('Share invoice')"
+												@click="shareInvoice(invoice)"
 											/>
 										</div>
-									</div>
-
-									<div class="invoice-record-card__actions">
-										<v-btn
-											prepend-icon="mdi-cash-plus"
-											size="small"
-											variant="flat"
-											color="warning"
-											:disabled="isOffline()"
-											@click="openAddPayment(invoice)"
-										>
-											{{ __("Add Payment") }}
-										</v-btn>
-										<v-btn
-											icon="mdi-eye-outline"
-											size="small"
-											variant="text"
-											:title="__('View Details')"
-											:aria-label="__('View invoice details')"
-											@click="viewInvoice(invoice)"
-										/>
-										<v-btn
-											icon="mdi-printer-outline"
-											size="small"
-											variant="text"
-											:title="__('Print')"
-											:aria-label="__('Print invoice')"
-											@click="printInvoice(invoice)"
-										/>
-										<v-btn
-											icon="mdi-share-variant-outline"
-											variant="text"
-											size="small"
-											color="info"
-											:title="__('Share')"
-											:aria-label="__('Share invoice')"
-											@click="shareInvoice(invoice)"
-										/>
-									</div>
-								</v-card>
-							</div>
-
-							<div
-								v-if="!loading && filteredUnpaidInvoices.length && partialPageCount > 1"
-								class="tab-pagination"
-							>
-								<div class="tab-pagination__meta">
-									{{ paginationCaption(filteredUnpaidInvoices.length, "partial") }}
+									</v-card>
 								</div>
-								<v-pagination
-									:model-value="tabPages.partial"
-									:length="partialPageCount"
-									:total-visible="7"
-									density="comfortable"
-									@update:model-value="setTabPage('partial', $event)"
-								/>
+
+								<div
+									v-if="!loading && filteredUnpaidInvoices.length && partialPageCount > 1"
+									class="tab-pagination"
+								>
+									<div class="tab-pagination__meta">
+										{{ paginationCaption(filteredUnpaidInvoices.length, "partial") }}
+									</div>
+									<v-pagination
+										:model-value="tabPages.partial"
+										:length="partialPageCount"
+										:total-visible="7"
+										density="comfortable"
+										@update:model-value="setTabPage('partial', $event)"
+									/>
+								</div>
 							</div>
 						</v-window-item>
 
@@ -901,170 +913,199 @@
 								/>
 							</div>
 
-							<div v-if="loading && activeTab === 'drafts'" class="tab-loader">
-								<v-progress-circular indeterminate color="secondary" size="28" width="3" />
-								<span>{{ __(currentDraftSourceOption.loadingLabel) }}</span>
+							<div class="summary-grid mb-4">
+								<div class="summary-tile">
+									<div class="summary-tile__icon-wrap">
+										<v-icon size="18" color="info">mdi-file-edit-outline</v-icon>
+									</div>
+									<div class="summary-tile__content">
+										<div class="summary-tile__label">{{ __("Draft Invoices") }}</div>
+										<div class="summary-tile__value">{{ draftTotals.count }}</div>
+									</div>
+								</div>
+								<div class="summary-tile">
+									<div class="summary-tile__icon-wrap">
+										<v-icon size="18" color="primary">mdi-calculator</v-icon>
+									</div>
+									<div class="summary-tile__content">
+										<div class="summary-tile__label">{{ __("Total Draft Value") }}</div>
+										<div class="summary-tile__value">
+											{{ currencySymbol(posProfile?.currency) }}{{ formatCurrency(draftTotals.total) }}
+										</div>
+									</div>
+								</div>
 							</div>
 
-							<div v-else-if="!filteredDraftInvoices.length" class="empty-state">
-								<v-icon size="42" :color="currentDraftSourceOption.color">{{
-									currentDraftSourceOption.icon
-								}}</v-icon>
-								<div class="empty-state__title">
-									{{ __(currentDraftSourceOption.emptyTitle) }}
+							<div class="invoices-scroll-area">
+								<div v-if="loading && activeTab === 'drafts'" class="tab-loader">
+									<v-progress-circular indeterminate color="secondary" size="28" width="3" />
+									<span>{{ __(currentDraftSourceOption.loadingLabel) }}</span>
 								</div>
-								<div class="empty-state__subtitle">
-									{{ __(currentDraftSourceOption.emptySubtitle) }}
-								</div>
-							</div>
 
-							<v-data-table
-								v-else-if="viewMode === 'list'"
-								:headers="draftHeaders"
-								:items="paginatedDraftInvoices"
-								item-value="name"
-								class="elevation-1"
-								:items-per-page="-1"
-								hide-default-footer
-							>
-								<template #item.posting_date="{ item }">{{
-									formatDateTime(item.posting_date, item.posting_time)
-								}}</template>
-								<template #item.grand_total="{ item }"
-									>{{ currencySymbol(item.currency) }}
-									{{ formatCurrency(item.grand_total) }}</template
+								<div v-else-if="!filteredDraftInvoices.length" class="empty-state">
+									<v-icon size="42" :color="currentDraftSourceOption.color">{{
+										currentDraftSourceOption.icon
+									}}</v-icon>
+									<div class="empty-state__title">
+										{{ __(currentDraftSourceOption.emptyTitle) }}
+									</div>
+									<div class="empty-state__subtitle">
+										{{ __(currentDraftSourceOption.emptySubtitle) }}
+									</div>
+								</div>
+
+								<v-data-table
+									v-else-if="viewMode === 'list'"
+									:headers="draftHeaders"
+									:items="paginatedDraftInvoices"
+									item-value="name"
+									density="compact"
+									class="pos-themed-table border rounded-lg"
+									:items-per-page="-1"
+									hide-default-footer
 								>
-								<template #item.actions="{ item }">
-									<div class="d-flex justify-end ga-1">
-										<v-btn
-											v-for="action in draftActions(item)"
-											:key="`${item.name}-${action}`"
-											variant="text"
-											size="small"
-											:color="draftActionColor(action)"
-											:title="draftActionLabel(action)"
-											:aria-label="draftActionLabel(action)"
-											@click="runDraftAction(item, action)"
-										>
-											{{ draftActionLabel(action) }}
-										</v-btn>
-										<v-btn
-											v-if="canDeleteActiveDraftSource"
-											icon="mdi-delete-outline"
-											variant="text"
-											size="small"
-											color="error"
-											:title="__('Delete Draft')"
-											:aria-label="__('Delete draft invoice')"
-											@click="deleteDraft(item)"
-										/>
-									</div>
-								</template>
-							</v-data-table>
-
-							<div v-else class="invoice-record-grid invoice-record-grid--drafts">
-								<v-card
-									v-for="invoice in paginatedDraftInvoices"
-									:key="invoice.name"
-									class="invoice-record-card invoice-record-card--draft"
-									variant="flat"
-								>
-									<div class="invoice-record-card__hero invoice-record-card__hero--draft">
-										<div>
-											<div class="invoice-record-card__title-row">
-												<div class="invoice-record-card__title">
-													{{ invoice.name }}
-												</div>
-												<v-chip
-													size="small"
-													:color="currentDraftSourceOption.color"
-													variant="flat"
-												>
-													{{ draftSourceChipLabel(invoice) }}
-												</v-chip>
-											</div>
-											<div class="invoice-record-card__subtitle">
-												{{
-													invoice.customer_name ||
-													invoice.customer ||
-													__("Walk-in Customer")
-												}}
-											</div>
+									<template #item.posting_date="{ item }">{{
+										formatDateTime(item.posting_date, item.posting_time)
+									}}</template>
+									<template #item.grand_total="{ item }"
+										>{{ currencySymbol(item.currency) }}
+										{{ formatCurrency(item.grand_total) }}</template
+									>
+									<template #item.actions="{ item }">
+										<div class="d-flex justify-end ga-1">
+											<v-btn
+												v-for="action in draftActions(item)"
+												:key="`${item.name}-${action}`"
+												variant="text"
+												size="small"
+												:color="draftActionColor(action)"
+												:title="draftActionLabel(action)"
+												:aria-label="draftActionLabel(action)"
+												@click="runDraftAction(item, action)"
+											>
+												{{ draftActionLabel(action) }}
+											</v-btn>
+											<v-btn
+												v-if="canDeleteActiveDraftSource"
+												icon="mdi-delete-outline"
+												variant="text"
+												size="small"
+												color="error"
+												:title="__('Delete Draft')"
+												:aria-label="__('Delete draft invoice')"
+												@click="deleteDraft(item)"
+											/>
 										</div>
-										<div class="invoice-record-card__amount-block">
-											<div class="invoice-record-card__amount-label">
-												{{ __("Total") }}
-											</div>
-											<div class="invoice-record-card__amount">
-												{{ currencySymbol(invoice.currency) }}
-												{{ formatCurrency(invoice.grand_total) }}
-											</div>
-										</div>
-									</div>
+									</template>
+								</v-data-table>
 
-									<div class="invoice-record-card__content">
-										<div class="meta-pair-grid">
-											<div class="meta-pair">
-												<div class="meta-pair__label">{{ __("Posting") }}</div>
-												<div class="meta-pair__value">
-													{{
-														formatDateTime(
-															invoice.posting_date,
-															invoice.posting_time,
-														)
-													}}
+								<div v-else class="invoice-record-grid invoice-record-grid--drafts">
+									<v-card
+										v-for="invoice in paginatedDraftInvoices"
+										:key="invoice.name"
+										class="invoice-record-card invoice-record-card--draft"
+										variant="flat"
+									>
+										<div class="invoice-record-card__hero invoice-record-card__hero--draft">
+											<div class="d-flex align-center ga-3">
+												<div class="card-doc-icon-wrap">
+													<v-icon color="#0284c7" size="20">mdi-file-edit-outline</v-icon>
+												</div>
+												<div>
+													<div class="invoice-record-card__title-row">
+														<div class="invoice-record-card__title">
+															{{ invoice.name }}
+														</div>
+														<v-chip
+															size="small"
+															:color="currentDraftSourceOption.color"
+															variant="flat"
+														>
+															{{ draftSourceChipLabel(invoice) }}
+														</v-chip>
+													</div>
+													<div class="invoice-record-card__subtitle">
+														{{
+															invoice.customer_name ||
+															invoice.customer ||
+															__("Walk-in Customer")
+														}}
+													</div>
 												</div>
 											</div>
-											<div class="meta-pair">
-												<div class="meta-pair__label">
-													{{ draftSecondaryMetaLabel(invoice).label }}
+											<div class="invoice-record-card__amount-block text-right">
+												<div class="invoice-record-card__amount-label">
+													{{ __("Total") }}
 												</div>
-												<div class="meta-pair__value">
-													{{ draftSecondaryMetaLabel(invoice).value }}
+												<div class="invoice-record-card__amount">
+													{{ currencySymbol(invoice.currency) }}
+													{{ formatCurrency(invoice.grand_total) }}
 												</div>
 											</div>
 										</div>
-									</div>
 
-									<div class="invoice-record-card__actions">
-										<v-btn
-											v-for="action in draftActions(invoice)"
-											:key="`${invoice.name}-${action}`"
-											size="small"
-											:variant="isPrimaryDraftAction(action) ? 'flat' : 'text'"
-											:color="draftActionColor(action)"
-											@click="runDraftAction(invoice, action)"
-										>
-											{{ draftActionLabel(action) }}
-										</v-btn>
-										<v-btn
-											v-if="canDeleteActiveDraftSource"
-											icon="mdi-delete-outline"
-											size="small"
-											variant="text"
-											color="error"
-											:title="__('Delete Draft')"
-											:aria-label="__('Delete draft invoice')"
-											@click="deleteDraft(invoice)"
-										/>
-									</div>
-								</v-card>
-							</div>
+										<div class="invoice-record-card__metrics">
+											<div class="metric-col metric-col--posting">
+												<v-icon size="16" class="metric-icon">mdi-calendar-outline</v-icon>
+												<div>
+													<div class="metric-label">{{ __("Posting") }}</div>
+													<div class="metric-value">{{ formatDateTime(invoice.posting_date, invoice.posting_time) }}</div>
+												</div>
+											</div>
+											<div class="metric-col">
+												<v-icon size="16" class="metric-icon">mdi-package-variant-closed</v-icon>
+												<div>
+													<div class="metric-label">{{ draftSecondaryMetaLabel(invoice).label }}</div>
+													<div class="metric-value">{{ draftSecondaryMetaLabel(invoice).value }}</div>
+												</div>
+											</div>
+											<div class="metric-col">
+												<v-icon size="16" class="metric-icon">mdi-cash</v-icon>
+												<div>
+													<div class="metric-label">{{ __("Grand Total") }}</div>
+													<div class="metric-value">{{ currencySymbol(invoice.currency) }}{{ formatCurrency(invoice.grand_total) }}</div>
+												</div>
+											</div>
+										</div>
 
-							<div
-								v-if="!loading && filteredDraftInvoices.length && draftsPageCount > 1"
-								class="tab-pagination"
-							>
-								<div class="tab-pagination__meta">
-									{{ paginationCaption(filteredDraftInvoices.length, "drafts") }}
+										<div class="invoice-record-card__actions">
+											<button
+												v-for="action in draftActions(invoice)"
+												:key="`${invoice.name}-${action}`"
+												class="card-action-btn"
+												@click="runDraftAction(invoice, action)"
+											>
+												<v-icon size="16">{{ isPrimaryDraftAction(action) ? 'mdi-download-outline' : 'mdi-eye-outline' }}</v-icon>
+												<span>{{ draftActionLabel(action) }}</span>
+											</button>
+											<div v-if="canDeleteActiveDraftSource" class="card-action-divider"></div>
+											<button
+												v-if="canDeleteActiveDraftSource"
+												class="card-action-btn card-action-btn--danger"
+												@click="deleteDraft(invoice)"
+											>
+												<v-icon size="16">mdi-delete-outline</v-icon>
+												<span>{{ __("Delete") }}</span>
+											</button>
+										</div>
+									</v-card>
 								</div>
-								<v-pagination
-									:model-value="tabPages.drafts"
-									:length="draftsPageCount"
-									:total-visible="7"
-									density="comfortable"
-									@update:model-value="setTabPage('drafts', $event)"
-								/>
+
+								<div
+									v-if="!loading && filteredDraftInvoices.length && draftsPageCount > 1"
+									class="tab-pagination"
+								>
+									<div class="tab-pagination__meta">
+										{{ paginationCaption(filteredDraftInvoices.length, "drafts") }}
+									</div>
+									<v-pagination
+										:model-value="tabPages.drafts"
+										:length="draftsPageCount"
+										:total-visible="7"
+										density="comfortable"
+										@update:model-value="setTabPage('drafts', $event)"
+									/>
+								</div>
 							</div>
 						</v-window-item>
 
@@ -1100,177 +1141,214 @@
 								/>
 							</div>
 
-							<div v-if="loading && activeTab === 'returns'" class="tab-loader">
-								<v-progress-circular indeterminate color="error" size="28" width="3" />
-								<span>{{ __("Loading return invoices...") }}</span>
-							</div>
-
-							<div v-else-if="!filteredReturnInvoices.length" class="empty-state">
-								<v-icon size="42" color="error">mdi-backup-restore</v-icon>
-								<div class="empty-state__title">{{ __("No return invoices found") }}</div>
-								<div class="empty-state__subtitle">
-									{{ __("Completed returns will appear here.") }}
+							<div class="summary-grid mb-4">
+								<div class="summary-tile">
+									<div class="summary-tile__icon-wrap">
+										<v-icon size="18" color="error">mdi-backup-restore</v-icon>
+									</div>
+									<div class="summary-tile__content">
+										<div class="summary-tile__label">{{ __("Return Invoices") }}</div>
+										<div class="summary-tile__value">{{ returnTotals.count }}</div>
+									</div>
+								</div>
+								<div class="summary-tile">
+									<div class="summary-tile__icon-wrap">
+										<v-icon size="18" color="warning">mdi-cash-refund</v-icon>
+									</div>
+									<div class="summary-tile__content">
+										<div class="summary-tile__label">{{ __("Return Total Value") }}</div>
+										<div class="summary-tile__value">
+											{{ currencySymbol(posProfile?.currency) }}{{ formatCurrency(returnTotals.total) }}
+										</div>
+									</div>
 								</div>
 							</div>
 
-							<v-data-table
-								v-else-if="viewMode === 'list'"
-								:headers="returnHeaders"
-								:items="paginatedReturnInvoices"
-								item-value="name"
-								class="elevation-1"
-								:items-per-page="-1"
-								hide-default-footer
-							>
-								<template #item.posting_date="{ item }">{{
-									formatDateTime(item.posting_date, item.posting_time)
-								}}</template>
-								<template #item.grand_total="{ item }"
-									>{{ currencySymbol(item.currency) }}
-									{{ formatCurrency(item.grand_total) }}</template
-								>
-								<template #item.return_against="{ item }">{{
-									item.return_against || "-"
-								}}</template>
-								<template #item.actions="{ item }">
-									<div class="d-flex justify-end ga-1">
-										<v-btn
-											icon="mdi-eye-outline"
-											variant="text"
-											size="small"
-											:title="__('View Details')"
-											:aria-label="__('View invoice details')"
-											@click="viewInvoice(item)"
-										/>
-										<v-btn
-											icon="mdi-printer-outline"
-											variant="text"
-											size="small"
-											:title="__('Print')"
-											:aria-label="__('Print invoice')"
-											@click="printInvoice(item)"
-										/>
-										<v-btn
-											icon="mdi-share-variant-outline"
-											variant="text"
-											size="small"
-											color="info"
-											:title="__('Share')"
-											:aria-label="__('Share invoice')"
-											@click="shareInvoice(item)"
-										/>
-									</div>
-								</template>
-							</v-data-table>
-
-							<div v-else class="invoice-record-grid invoice-record-grid--returns">
-								<v-card
-									v-for="invoice in paginatedReturnInvoices"
-									:key="invoice.name"
-									class="invoice-record-card invoice-record-card--error"
-									variant="flat"
-								>
-									<div class="invoice-record-card__hero invoice-record-card__hero--return">
-										<div>
-											<div class="invoice-record-card__title-row">
-												<div class="invoice-record-card__title">
-													{{ invoice.name }}
-												</div>
-												<v-chip size="small" color="error" variant="flat">{{
-													__("Return")
-												}}</v-chip>
-											</div>
-											<div class="invoice-record-card__subtitle">
-												{{
-													invoice.customer_name ||
-													invoice.customer ||
-													__("Walk-in Customer")
-												}}
-											</div>
-										</div>
-										<div class="invoice-record-card__amount-block">
-											<div class="invoice-record-card__amount-label">
-												{{ __("Total") }}
-											</div>
-											<div class="invoice-record-card__amount">
-												{{ currencySymbol(invoice.currency) }}
-												{{ formatCurrency(invoice.grand_total) }}
-											</div>
-										</div>
-									</div>
-
-									<div class="invoice-record-card__content">
-										<div class="meta-pair-grid">
-											<div class="meta-pair">
-												<div class="meta-pair__label">{{ __("Posting") }}</div>
-												<div class="meta-pair__value">
-													{{
-														formatDateTime(
-															invoice.posting_date,
-															invoice.posting_time,
-														)
-													}}
-												</div>
-											</div>
-											<div class="meta-pair">
-												<div class="meta-pair__label">{{ __("Against") }}</div>
-												<div class="meta-pair__value">
-													{{ invoice.return_against || "-" }}
-												</div>
-											</div>
-										</div>
-									</div>
-
-									<div class="invoice-record-card__actions">
-										<v-btn
-											icon="mdi-eye-outline"
-											size="small"
-											variant="text"
-											:title="__('View Details')"
-											:aria-label="__('View invoice details')"
-											@click="viewInvoice(invoice)"
-										/>
-										<v-btn
-											icon="mdi-printer-outline"
-											size="small"
-											variant="text"
-											:title="__('Print')"
-											:aria-label="__('Print invoice')"
-											@click="printInvoice(invoice)"
-										/>
-										<v-btn
-											icon="mdi-share-variant-outline"
-											variant="text"
-											size="small"
-											color="info"
-											:title="__('Share')"
-											:aria-label="__('Share invoice')"
-											@click="shareInvoice(invoice)"
-										/>
-									</div>
-								</v-card>
-							</div>
-
-							<div
-								v-if="!loading && filteredReturnInvoices.length && returnsPageCount > 1"
-								class="tab-pagination"
-							>
-								<div class="tab-pagination__meta">
-									{{ paginationCaption(filteredReturnInvoices.length, "returns") }}
+							<div class="invoices-scroll-area">
+								<div v-if="loading && activeTab === 'returns'" class="tab-loader">
+									<v-progress-circular indeterminate color="error" size="28" width="3" />
+									<span>{{ __("Loading return invoices...") }}</span>
 								</div>
-								<v-pagination
-									:model-value="tabPages.returns"
-									:length="returnsPageCount"
-									:total-visible="7"
-									density="comfortable"
-									@update:model-value="setTabPage('returns', $event)"
-								/>
+
+								<div v-else-if="!filteredReturnInvoices.length" class="empty-state">
+									<v-icon size="42" color="error">mdi-backup-restore</v-icon>
+									<div class="empty-state__title">{{ __("No return invoices found") }}</div>
+									<div class="empty-state__subtitle">
+										{{ __("Completed returns will appear here.") }}
+									</div>
+								</div>
+
+								<v-data-table
+									v-else-if="viewMode === 'list'"
+									:headers="returnHeaders"
+									:items="paginatedReturnInvoices"
+									item-value="name"
+									density="compact"
+									class="pos-themed-table border rounded-lg"
+									:items-per-page="-1"
+									hide-default-footer
+								>
+									<template #item.posting_date="{ item }">{{
+										formatDateTime(item.posting_date, item.posting_time)
+									}}</template>
+									<template #item.grand_total="{ item }"
+										>{{ currencySymbol(item.currency) }}
+										{{ formatCurrency(item.grand_total) }}</template
+									>
+									<template #item.return_against="{ item }">{{
+										item.return_against || "-"
+									}}</template>
+									<template #item.actions="{ item }">
+										<div class="d-flex justify-end ga-1">
+											<v-btn
+												icon="mdi-eye-outline"
+												variant="text"
+												size="small"
+												:title="__('View Details')"
+												:aria-label="__('View invoice details')"
+												@click="viewInvoice(item)"
+											/>
+											<v-btn
+												icon="mdi-printer-outline"
+												variant="text"
+												size="small"
+												:title="__('Print')"
+												:aria-label="__('Print invoice')"
+												@click="printInvoice(item)"
+											/>
+											<v-btn
+												icon="mdi-share-variant-outline"
+												variant="text"
+												size="small"
+												color="info"
+												:title="__('Share')"
+												:aria-label="__('Share invoice')"
+												@click="shareInvoice(item)"
+											/>
+										</div>
+									</template>
+								</v-data-table>
+
+								<div v-else class="invoice-record-grid invoice-record-grid--returns">
+									<v-card
+										v-for="invoice in paginatedReturnInvoices"
+										:key="invoice.name"
+										class="invoice-record-card invoice-record-card--error"
+										variant="flat"
+									>
+										<div class="invoice-record-card__hero invoice-record-card__hero--return">
+											<div class="d-flex align-center ga-3">
+												<div class="card-doc-icon-wrap">
+													<v-icon color="#ef4444" size="20">mdi-backup-restore</v-icon>
+												</div>
+												<div>
+													<div class="invoice-record-card__title-row">
+														<div class="invoice-record-card__title">
+															{{ invoice.name }}
+														</div>
+														<v-chip size="small" color="error" variant="flat">{{
+															__("Return")
+														}}</v-chip>
+													</div>
+													<div class="invoice-record-card__subtitle">
+														{{
+															invoice.customer_name ||
+															invoice.customer ||
+															__("Walk-in Customer")
+														}}
+													</div>
+												</div>
+											</div>
+											<div class="invoice-record-card__amount-block text-right">
+												<div class="invoice-record-card__amount-label">
+													{{ __("Total") }}
+												</div>
+												<div class="invoice-record-card__amount">
+													{{ currencySymbol(invoice.currency) }}
+													{{ formatCurrency(invoice.grand_total) }}
+												</div>
+											</div>
+										</div>
+
+										<div class="invoice-record-card__metrics">
+											<div class="metric-col metric-col--posting">
+												<v-icon size="16" class="metric-icon">mdi-calendar-outline</v-icon>
+												<div>
+													<div class="metric-label">{{ __("Posting") }}</div>
+													<div class="metric-value">{{ formatDateTime(invoice.posting_date, invoice.posting_time) }}</div>
+												</div>
+											</div>
+											<div class="metric-col">
+												<v-icon size="16" class="metric-icon">mdi-link-variant</v-icon>
+												<div>
+													<div class="metric-label">{{ __("Against") }}</div>
+													<div class="metric-value">{{ invoice.return_against || "-" }}</div>
+												</div>
+											</div>
+											<div class="metric-col">
+												<v-icon size="16" class="metric-icon">mdi-cash-refund</v-icon>
+												<div>
+													<div class="metric-label">{{ __("Return Total") }}</div>
+													<div class="metric-value metric-value--orange">{{ currencySymbol(invoice.currency) }}{{ formatCurrency(invoice.grand_total) }}</div>
+												</div>
+											</div>
+										</div>
+
+										<div class="invoice-record-card__actions">
+											<button class="card-action-btn" @click="viewInvoice(invoice)">
+												<v-icon size="16">mdi-eye-outline</v-icon>
+												<span>{{ __("View") }}</span>
+											</button>
+											<div class="card-action-divider"></div>
+											<button class="card-action-btn" @click="printInvoice(invoice)">
+												<v-icon size="16">mdi-printer-outline</v-icon>
+												<span>{{ __("Print") }}</span>
+											</button>
+											<div class="card-action-divider"></div>
+											<button class="card-action-btn" @click="shareInvoice(invoice)">
+												<v-icon size="16">mdi-share-variant-outline</v-icon>
+												<span>{{ __("Share") }}</span>
+											</button>
+										</div>
+									</v-card>
+								</div>
+
+								<div
+									v-if="!loading && filteredReturnInvoices.length && returnsPageCount > 1"
+									class="tab-pagination"
+								>
+									<div class="tab-pagination__meta">
+										{{ paginationCaption(filteredReturnInvoices.length, "returns") }}
+									</div>
+									<v-pagination
+										:model-value="tabPages.returns"
+										:length="returnsPageCount"
+										:total-visible="7"
+										density="comfortable"
+										@update:model-value="setTabPage('returns', $event)"
+									/>
+								</div>
 							</div>
 						</v-window-item>
 					</v-window>
 				</v-card-text>
-				<v-card-actions class="invoice-management-footer">
-					<v-btn color="error" variant="tonal" @click="uiStore.closeInvoiceManagement()">
+				<v-card-actions class="invoice-management-footer px-4 px-sm-6 py-3">
+					<div class="mobile-bottom-navy-bar d-sm-none">
+						<button class="mobile-navy-btn" @click="uiStore.closeInvoiceManagement()">
+							<div class="mobile-navy-btn-icon"><v-icon size="16">mdi-plus</v-icon></div>
+							<span>{{ __("New Invoice") }}</span>
+						</button>
+						<div class="mobile-navy-divider"></div>
+						<button class="mobile-navy-btn" @click="openReports()">
+							<v-icon size="18">mdi-chart-box-outline</v-icon>
+							<span>{{ __("Reports") }}</span>
+						</button>
+					</div>
+					<v-btn
+						class="close-dialog-btn d-none d-sm-inline-flex"
+						variant="outlined"
+						@click="uiStore.closeInvoiceManagement()"
+					>
 						{{ __("Close") }}
 					</v-btn>
 				</v-card-actions>
@@ -1284,22 +1362,19 @@
 				'invoice-detail-card',
 				isDarkTheme ? 'invoice-detail-card--dark' : 'invoice-detail-card--light',
 			]"
+			variant="flat"
 		>
-			<v-card-title class="d-flex align-center justify-space-between flex-wrap ga-3">
+			<v-card-title class="detail-dialog-header px-6 py-4 d-flex align-center justify-space-between flex-wrap ga-3">
 				<div>
-					<div class="text-h6">{{ selectedInvoiceDetail?.name || __("Invoice Details") }}</div>
-					<div class="text-subtitle-2 text-medium-emphasis">
+					<div class="text-h6 font-weight-bold">{{ selectedInvoiceDetail?.name || __("Invoice Details") }}</div>
+					<div class="text-subtitle-2 text-secondary">
 						{{ selectedInvoiceDetail?.customer_name || selectedInvoiceDetail?.customer || "" }}
 					</div>
 				</div>
 				<div class="d-flex align-center ga-2">
-					<v-chip
-						v-if="selectedInvoiceDetail?.status"
-						size="small"
-						:color="statusColor(selectedInvoiceDetail.status)"
-						variant="tonal"
-						>{{ __(selectedInvoiceDetail.status) }}</v-chip
-					>
+					<span v-if="selectedInvoiceDetail?.status" class="status-pill status-pill--paid">
+						{{ __(selectedInvoiceDetail.status) }}
+					</span>
 					<v-chip
 						v-if="selectedInvoiceDetail && changeAllocationRepairState(selectedInvoiceDetail)"
 						size="small"
@@ -1311,53 +1386,75 @@
 					<v-btn
 						icon="mdi-close"
 						variant="text"
+						size="small"
+						class="header-close-btn"
 						:aria-label="__('Close invoice details dialog')"
 						@click="detailDialog = false"
 					/>
 				</div>
 			</v-card-title>
-			<v-divider />
-			<v-card-text v-if="selectedInvoiceDetail">
-				<div class="summary-grid mb-4">
+
+			<v-card-text v-if="selectedInvoiceDetail" class="px-6 py-4">
+				<div class="detail-summary-grid mb-5">
 					<div class="summary-tile">
-						<div class="summary-tile__label">{{ __("Posting") }}</div>
-						<div class="summary-tile__value">
-							{{
-								formatDateTime(
-									selectedInvoiceDetail.posting_date,
-									selectedInvoiceDetail.posting_time,
-								)
-							}}
+						<div class="summary-tile__icon-box">
+							<v-icon size="18" color="#334155">mdi-calendar-outline</v-icon>
+						</div>
+						<div class="summary-tile__content">
+							<div class="summary-tile__label">{{ __("Posting") }}</div>
+							<div class="summary-tile__value">
+								{{
+									formatDateTime(
+										selectedInvoiceDetail.posting_date,
+										selectedInvoiceDetail.posting_time,
+									)
+								}}
+							</div>
 						</div>
 					</div>
 					<div class="summary-tile">
-						<div class="summary-tile__label">{{ __("Grand Total") }}</div>
-						<div class="summary-tile__value">
-							{{ currencySymbol(selectedInvoiceDetail.currency) }}
-							{{ formatCurrency(selectedInvoiceDetail.grand_total) }}
+						<div class="summary-tile__icon-box">
+							<v-icon size="18" color="#334155">mdi-credit-card-outline</v-icon>
+						</div>
+						<div class="summary-tile__content">
+							<div class="summary-tile__label">{{ __("Grand Total") }}</div>
+							<div class="summary-tile__value">
+								{{ currencySymbol(selectedInvoiceDetail.currency) }}{{ formatCurrency(selectedInvoiceDetail.grand_total) }}
+							</div>
 						</div>
 					</div>
 					<div class="summary-tile">
-						<div class="summary-tile__label">{{ __("Outstanding") }}</div>
-						<div class="summary-tile__value">
-							{{ currencySymbol(selectedInvoiceDetail.currency) }}
-							{{ formatCurrency(selectedInvoiceDetail.outstanding_amount || 0) }}
+						<div class="summary-tile__icon-box">
+							<v-icon size="18" color="#334155">mdi-clock-outline</v-icon>
+						</div>
+						<div class="summary-tile__content">
+							<div class="summary-tile__label">{{ __("Outstanding") }}</div>
+							<div class="summary-tile__value">
+								{{ currencySymbol(selectedInvoiceDetail.currency) }}{{ formatCurrency(selectedInvoiceDetail.outstanding_amount || 0) }}
+							</div>
 						</div>
 					</div>
 					<div class="summary-tile">
-						<div class="summary-tile__label">{{ __("Items") }}</div>
-						<div class="summary-tile__value">
-							{{ (selectedInvoiceDetail.items || []).length }}
+						<div class="summary-tile__icon-box">
+							<v-icon size="18" color="#334155">mdi-package-variant-closed</v-icon>
+						</div>
+						<div class="summary-tile__content">
+							<div class="summary-tile__label">{{ __("Items") }}</div>
+							<div class="summary-tile__value">
+								{{ (selectedInvoiceDetail.items || []).length }}
+							</div>
 						</div>
 					</div>
 				</div>
-				<div class="detail-section__title">{{ __("Items") }}</div>
+
+				<div class="detail-section-header mb-2">{{ __("Items") }}</div>
 				<v-data-table
 					:headers="detailHeaders"
 					:items="selectedInvoiceDetail.items || []"
 					item-value="item_code"
 					:items-per-page="10"
-					class="elevation-1"
+					density="compact"
+					class="pos-themed-table border rounded-lg mb-5"
 				>
 					<template #item.qty="{ item }">{{ formatFloat(item.qty || 0) }}</template>
 					<template #item.rate="{ item }"
@@ -1369,13 +1466,15 @@
 						{{ formatCurrency(item.amount) }}</template
 					>
 				</v-data-table>
-				<div class="detail-section__title mt-4">{{ __("Payment History") }}</div>
+
+				<div class="detail-section-header mb-2">{{ __("Payment History") }}</div>
 				<v-data-table
 					:headers="paymentHeaders"
 					:items="selectedInvoiceDetail.payments || []"
 					item-value="mode_of_payment"
 					:items-per-page="5"
-					class="elevation-1"
+					density="compact"
+					class="pos-themed-table border rounded-lg"
 				>
 					<template #item.amount="{ item }"
 						>{{ currencySymbol(selectedInvoiceDetail.currency) }}
@@ -1392,12 +1491,14 @@
 					{{ __("No payment rows available on this invoice.") }}
 				</div>
 			</v-card-text>
-			<v-card-actions>
+
+			<v-card-actions class="invoice-detail-footer px-6 py-3">
 				<v-spacer />
 				<v-btn
 					v-if="selectedInvoiceDetail && isRepairCandidate(selectedInvoiceDetail)"
 					color="secondary"
-					variant="text"
+					variant="outlined"
+					size="small"
 					prepend-icon="mdi-link-wrench"
 					:loading="repairChangeLoading"
 					:disabled="repairChangeLoading || isOffline()"
@@ -1408,19 +1509,31 @@
 				<v-btn
 					v-if="selectedInvoiceDetail && Number(selectedInvoiceDetail.outstanding_amount || 0) > 0"
 					color="warning"
-					variant="text"
+					variant="flat"
+					size="small"
 					prepend-icon="mdi-cash-plus"
 					@click="openAddPayment(selectedInvoiceDetail)"
-					>{{ __("Add Payment") }}</v-btn
 				>
+					{{ __("Add Payment") }}
+				</v-btn>
 				<v-btn
 					v-if="selectedInvoiceDetail"
-					color="primary"
-					variant="text"
+					class="header-refresh-btn"
+					variant="outlined"
+					size="small"
 					prepend-icon="mdi-printer-outline"
 					@click="printInvoice(selectedInvoiceDetail)"
-					>{{ __("Print") }}</v-btn
 				>
+					{{ __("Print") }}
+				</v-btn>
+				<v-btn
+					class="close-dialog-btn"
+					variant="outlined"
+					size="small"
+					@click="detailDialog = false"
+				>
+					{{ __("Close") }}
+				</v-btn>
 			</v-card-actions>
 		</v-card>
 	</v-dialog>
@@ -1486,10 +1599,10 @@ export default {
 		const eventBus = inject("eventBus");
 		const isCompactInvoiceManagement = computed(() => responsive.windowWidth.value < 1100);
 		const invoiceManagementDialogWidth = computed(() =>
-			responsive.windowWidth.value < 600 ? "100vw" : "min(1420px, 97vw)",
+			responsive.windowWidth.value < 600 ? "100vw" : "min(1180px, 94vw)",
 		);
 		const invoiceManagementDialogMaxWidth = computed(() =>
-			responsive.windowWidth.value < 1100 ? "100vw" : "1420px",
+			responsive.windowWidth.value < 1100 ? "100vw" : "1180px",
 		);
 		const { invoiceManagementDialog, invoiceManagementTargetTab, posProfile, posOpeningShift } =
 			storeToRefs(uiStore);
@@ -1738,6 +1851,26 @@ export default {
 					return accumulator;
 				},
 				{ gross: 0, paid: 0, change_return: 0, outstanding: 0 },
+			);
+		},
+		draftTotals() {
+			return this.filteredDraftInvoices.reduce(
+				(accumulator, invoice) => {
+					accumulator.count += 1;
+					accumulator.total += Number(invoice.grand_total || 0);
+					return accumulator;
+				},
+				{ count: 0, total: 0 },
+			);
+		},
+		returnTotals() {
+			return this.filteredReturnInvoices.reduce(
+				(accumulator, invoice) => {
+					accumulator.count += 1;
+					accumulator.total += Number(invoice.grand_total || 0);
+					return accumulator;
+				},
+				{ count: 0, total: 0 },
 			);
 		},
 		unpaidStatusCounts() {
@@ -2758,6 +2891,10 @@ export default {
 				this.isSharingInvoice = false;
 			}
 		},
+		openReports() {
+			this.uiStore.closeInvoiceManagement();
+			this.$router.push({ name: "Reports" });
+		},
 		downloadInvoicePdf(blob, name) {
 			const url = window.URL.createObjectURL(blob);
 			const a = document.createElement("a");
@@ -2775,47 +2912,83 @@ export default {
 <style scoped>
 .invoice-management-dialog-content {
 	background: transparent !important;
+	overflow: hidden !important;
 }
 
 .invoice-management-card {
-	background:
-		radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 28%),
-		radial-gradient(circle at top left, rgba(245, 158, 11, 0.12), transparent 24%),
-		var(--pos-surface-raised) !important;
-	color: var(--pos-text-primary) !important;
-	border: 1px solid rgba(148, 163, 184, 0.18);
+	background: #ffffff !important;
+	color: #0f172a !important;
+	border: 1px solid #e2e8f0;
+	border-radius: 20px !important;
 	display: flex;
 	flex-direction: column;
-	max-height: min(94vh, 1040px);
+	height: min(86vh, 820px) !important;
+	min-height: min(86vh, 820px) !important;
+	max-height: min(86vh, 820px) !important;
+	overflow: hidden !important;
 }
 
 .invoice-management-card--dark {
-	background:
-		radial-gradient(circle at top right, rgba(56, 189, 248, 0.1), transparent 28%),
-		radial-gradient(circle at top left, rgba(251, 191, 36, 0.08), transparent 24%),
-		var(--pos-surface-raised) !important;
+	background: #0f172a !important;
+	color: #f8fafc !important;
+}
+
+.header-icon-wrap {
+	width: 44px;
+	height: 44px;
+	border-radius: 12px;
+	background: #eff6ff;
+	border: 1px solid #dbeafe;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
 }
 
 .invoice-management-header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	flex-wrap: wrap;
-	gap: 12px;
-	padding-bottom: 10px;
-}
-
-.invoice-tabs-shell {
-	padding: 0 8px 8px;
+	background: #ffffff;
+	border-bottom: 1px solid #e2e8f0;
+	flex-shrink: 0;
 }
 
 .view-toggle-group {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
-	padding: 4px;
-	border-radius: 12px;
-	background: rgba(148, 163, 184, 0.08);
+	padding: 3px;
+	border-radius: 8px;
+	border: 1px solid #e2e8f0;
+	background: #f8fafc;
+	gap: 2px;
+}
+
+.view-toggle-btn {
+	height: 32px !important;
+	border-radius: 6px !important;
+	font-size: 13px !important;
+	font-weight: 600 !important;
+	text-transform: none !important;
+	color: #334155 !important;
+	background: transparent !important;
+	box-shadow: none !important;
+}
+
+.view-toggle-btn--active {
+	background: #0f2b5c !important;
+	color: #ffffff !important;
+}
+
+.header-refresh-btn {
+	height: 36px !important;
+	border-radius: 8px !important;
+	border: 1px solid #e2e8f0 !important;
+	background: #ffffff !important;
+	color: #0f172a !important;
+	font-weight: 600 !important;
+	text-transform: none !important;
+}
+
+.header-close-btn {
+	color: #0f172a !important;
 }
 
 .supervisor-profile-select {
@@ -2823,31 +2996,145 @@ export default {
 	max-width: 280px;
 }
 
+/* Tabs Styling matching Reference Image */
+.invoice-tabs-shell {
+	padding: 12px 24px 0;
+	background: #ffffff;
+	flex-shrink: 0;
+}
+
 .invoice-tabs {
-	background: rgba(148, 163, 184, 0.08);
-	border-radius: 16px;
-	padding: 6px;
+	background: #f8fafc !important;
+	border: 1px solid #e2e8f0 !important;
+	border-radius: 8px !important;
+	padding: 0 !important;
+	min-height: 44px !important;
 }
 
-.invoice-management-card--dark .invoice-tabs {
-	background: rgba(15, 23, 42, 0.46);
+.invoice-tabs :deep(.v-tabs-track) {
+	background: transparent !important;
 }
 
-.invoice-management-card--dark .view-toggle-group {
-	background: rgba(15, 23, 42, 0.46);
+.invoice-tab-item {
+	height: 44px !important;
+	min-height: 44px !important;
+	border-radius: 0 !important;
+	border-right: 1px solid #e2e8f0 !important;
+	background: #f8fafc !important;
+	color: #475569 !important;
+	font-weight: 600 !important;
+	text-transform: none !important;
+	transition: all 0.16s ease !important;
+}
+
+.invoice-tab-item:last-child {
+	border-right: none !important;
+}
+
+.invoice-tab-item.v-tab--selected {
+	background: #ffffff !important;
+	color: #0f172a !important;
+	box-shadow: none !important;
+	border-bottom: 3px solid #1e3a8a !important;
+}
+
+.invoice-tabs :deep(.v-tab__slider) {
+	display: none !important;
 }
 
 .invoice-tab-label {
 	display: inline-flex;
 	align-items: center;
 	gap: 8px;
+}
+
+.tab-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 20px;
+	height: 20px;
+	padding: 0 6px;
+	border-radius: 999px;
+	font-size: 11px;
 	font-weight: 700;
+	color: #ffffff;
+}
+
+.tab-badge--history {
+	background: #1e3a8a;
+}
+.tab-badge--unpaid {
+	background: #f97316;
+}
+.tab-badge--drafts {
+	background: #0284c7;
+}
+.tab-badge--returns {
+	background: #ef4444;
 }
 
 .invoice-management-card__body {
-	min-height: 580px;
 	flex: 1;
-	overflow: auto;
+	display: flex;
+	flex-direction: column;
+	min-height: 0 !important;
+	overflow: hidden !important;
+	padding: 12px 24px 0 !important;
+}
+
+.invoice-management-card__body :deep(.v-window),
+.invoice-management-card__body :deep(.v-window__container) {
+	height: 100% !important;
+	flex: 1 !important;
+	display: flex !important;
+	flex-direction: column !important;
+	min-height: 0 !important;
+	transition: none !important;
+	animation: none !important;
+}
+
+.invoice-management-card__body :deep(.v-window-item) {
+	height: 100%;
+	min-height: 0;
+	transition: none !important;
+	animation: none !important;
+}
+
+.invoice-management-card__body :deep(.v-window-item.v-window-item--active) {
+	display: flex !important;
+	flex-direction: column !important;
+	flex: 1 !important;
+	transition: none !important;
+	animation: none !important;
+}
+
+.invoices-scroll-area {
+	flex: 1 !important;
+	min-height: 0 !important;
+	overflow-y: auto !important;
+	padding-bottom: 16px;
+	padding-right: 6px;
+	scrollbar-width: thin;
+	scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.invoices-scroll-area::-webkit-scrollbar {
+	width: 6px;
+}
+
+.invoices-scroll-area::-webkit-scrollbar-track {
+	background: #f1f5f9;
+	border-radius: 4px;
+}
+
+.invoices-scroll-area::-webkit-scrollbar-thumb {
+	background: #cbd5e1;
+	border-radius: 4px;
+}
+
+.invoices-scroll-area::-webkit-scrollbar-thumb:hover {
+	background: #94a3b8;
 }
 
 .invoice-management-footer {
@@ -2856,127 +3143,253 @@ export default {
 	z-index: 2;
 	display: flex;
 	justify-content: flex-end;
-	padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px));
-	background: color-mix(in srgb, var(--pos-surface-raised) 92%, transparent);
-	backdrop-filter: blur(10px);
-	border-top: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+	padding: 14px 24px;
+	background: #ffffff;
+	border-top: 1px solid #e2e8f0;
+	flex-shrink: 0;
 }
 
-.filter-grid,
-.summary-grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+.close-dialog-btn {
+	height: 38px !important;
+	border-radius: 8px !important;
+	border: 1px solid #e2e8f0 !important;
+	background: #ffffff !important;
+	color: #0f172a !important;
+	font-weight: 600 !important;
+	text-transform: none !important;
+	padding: 0 24px !important;
+}
+
+.filter-grid {
+	display: flex;
+	align-items: center;
 	gap: 12px;
+	flex-wrap: wrap;
+	flex-shrink: 0;
+	margin-top: 4px;
 }
 
-.summary-tile {
-	border-radius: 18px;
-	padding: 16px 18px;
-	border: 1px solid rgba(148, 163, 184, 0.2);
-	background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.88));
-	box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
-	color: var(--pos-text-primary);
+.filter-grid > .v-text-field,
+.filter-grid > .v-select {
+	flex: 1 1 180px;
+	min-width: 150px;
 }
 
-.summary-tile--history {
-	background: linear-gradient(145deg, rgba(239, 246, 255, 0.98), rgba(219, 234, 254, 0.88));
+.filter-grid :deep(.v-field) {
+	border-radius: 8px !important;
+	background: #ffffff !important;
 }
-.summary-tile--primary {
-	background: linear-gradient(145deg, rgba(224, 231, 255, 0.98), rgba(199, 210, 254, 0.88));
-}
-.summary-tile--success {
-	background: linear-gradient(145deg, rgba(236, 253, 245, 0.98), rgba(209, 250, 229, 0.88));
-}
-.summary-tile--warning {
-	background: linear-gradient(145deg, rgba(255, 251, 235, 0.98), rgba(254, 243, 199, 0.88));
-}
-.summary-tile--warning-strong {
-	background: linear-gradient(145deg, rgba(255, 247, 237, 0.98), rgba(254, 215, 170, 0.9));
-}
-.summary-tile--danger {
-	background: linear-gradient(145deg, rgba(254, 242, 242, 0.98), rgba(254, 202, 202, 0.88));
+
+.filter-grid :deep(.v-field-label),
+.filter-grid :deep(.v-label) {
+	font-size: 0.82rem !important;
+	font-weight: 600 !important;
+	color: #475569 !important;
+	opacity: 1 !important;
 }
 
 .history-repair-toggle {
-	min-height: 40px;
+	height: 40px !important;
+	min-height: 40px !important;
+	border-radius: 8px !important;
 	justify-content: space-between;
+}
+
+/* Summary Grid Matching Image */
+.summary-grid {
+	display: grid;
+	grid-template-columns: repeat(5, 1fr);
+	gap: 12px;
+	flex-shrink: 0;
+}
+
+@media (max-width: 960px) {
+	.summary-grid {
+		grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+	}
+}
+
+.summary-tile {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	border-radius: 10px;
+	padding: 12px 14px;
+	border: 1px solid #e2e8f0;
+	background: #ffffff;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.summary-tile__icon-box {
+	width: 36px;
+	height: 36px;
+	min-width: 36px;
+	border-radius: 8px;
+	border: 1px solid #e2e8f0;
+	background: #ffffff;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.summary-tile__content {
+	min-width: 0;
+	flex: 1;
 }
 
 .summary-tile__label {
 	font-size: 0.76rem;
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.08em;
-	opacity: 0.72;
+	font-weight: 600;
+	color: #475569;
 }
 
 .summary-tile__value {
-	margin-top: 8px;
-	font-size: 1.08rem;
+	margin-top: 2px;
+	font-size: 1.05rem;
 	font-weight: 800;
-	line-height: 1.25;
+	color: #0f172a;
 }
 
-.summary-tile__meta {
-	margin-top: 6px;
-	font-size: 0.76rem;
-	opacity: 0.72;
-	color: var(--pos-text-secondary);
+/* Invoice Cards matching reference screenshot */
+.invoice-record-grid {
+	display: grid;
+	gap: 16px;
+	grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
 }
 
-.invoice-management-card--dark .summary-tile {
-	border-color: rgba(100, 116, 139, 0.38);
-	background: linear-gradient(145deg, rgba(36, 43, 51, 0.98), rgba(26, 32, 40, 0.94));
-	box-shadow: 0 18px 44px rgba(2, 6, 23, 0.34);
+.invoice-record-card {
+	border-radius: 12px !important;
+	border: 1px solid #e2e8f0 !important;
+	background: #ffffff !important;
+	padding: 0 !important;
+	overflow: hidden;
 }
 
-.invoice-management-card--dark .summary-tile__label {
-	color: rgba(226, 232, 240, 0.88);
-	opacity: 1;
-}
-
-.invoice-management-card--dark .summary-tile__value {
-	color: rgb(248, 250, 252);
-}
-
-.invoice-management-card--dark .summary-tile__meta {
-	color: rgba(226, 232, 240, 0.78);
-	opacity: 1;
-}
-
-.invoice-management-card--dark .summary-tile--history {
-	background: linear-gradient(145deg, rgba(28, 52, 81, 0.98), rgba(23, 37, 84, 0.92));
-}
-
-.invoice-management-card--dark .summary-tile--primary {
-	background: linear-gradient(145deg, rgba(49, 46, 129, 0.98), rgba(30, 41, 59, 0.92));
-}
-
-.invoice-management-card--dark .summary-tile--success {
-	background: linear-gradient(145deg, rgba(20, 83, 45, 0.96), rgba(22, 101, 52, 0.88));
-}
-
-.invoice-management-card--dark .summary-tile--warning {
-	background: linear-gradient(145deg, rgba(120, 53, 15, 0.96), rgba(146, 64, 14, 0.88));
-}
-
-.invoice-management-card--dark .summary-tile--warning-strong {
-	background: linear-gradient(145deg, rgba(124, 45, 18, 0.98), rgba(154, 52, 18, 0.9));
-}
-
-.invoice-management-card--dark .summary-tile--danger {
-	background: linear-gradient(145deg, rgba(127, 29, 29, 0.98), rgba(153, 27, 27, 0.88));
-}
-
-.status-strip {
+.invoice-record-card__hero {
+	padding: 14px 16px;
 	display: flex;
-	flex-wrap: wrap;
+	justify-content: space-between;
+	align-items: flex-start;
+}
+
+.invoice-record-card__title-row {
+	display: flex;
+	align-items: center;
 	gap: 8px;
 }
 
-.draft-source-toolbar {
+.invoice-record-card__title {
+	font-size: 1.02rem;
+	font-weight: 750;
+	color: #0f172a;
+}
+
+.status-pill--paid {
+	background: #e0f2fe;
+	color: #0284c7;
+	font-weight: 700;
+	font-size: 11px;
+	padding: 2px 10px;
+	border-radius: 999px;
+}
+
+.invoice-record-card__subtitle {
+	font-size: 0.82rem;
+	color: #64748b;
+	margin-top: 2px;
+}
+
+.invoice-record-card__amount-label {
+	font-size: 0.72rem;
+	color: #64748b;
+}
+
+.invoice-record-card__amount {
+	font-size: 1.1rem;
+	font-weight: 800;
+	color: #0f172a;
+}
+
+.invoice-record-card__metrics {
+	display: grid;
+	grid-template-columns: minmax(135px, 1.35fr) repeat(3, 1fr);
+	background: #f8fafc;
+	border-top: 1px solid #e2e8f0;
+	border-bottom: 1px solid #e2e8f0;
+	padding: 10px 12px;
+}
+
+.metric-col {
 	display: flex;
 	align-items: center;
+	gap: 6px;
+	padding: 0 6px;
+	border-right: 1px solid #e2e8f0;
+	min-width: 0;
+	overflow: hidden;
+}
+
+.metric-col:last-child {
+	border-right: none;
+}
+
+.metric-icon {
+	color: #64748b;
+	flex-shrink: 0;
+}
+
+.metric-label {
+	font-size: 0.7rem;
+	color: #64748b;
+	white-space: nowrap;
+}
+
+.metric-value {
+	font-size: 0.84rem;
+	font-weight: 700;
+	color: #0f172a;
+	white-space: nowrap;
+}
+
+.metric-col--posting .metric-value {
+	font-size: 0.78rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.metric-value--orange {
+	color: #f97316 !important;
+}
+
+.invoice-record-card__actions {
+	display: flex;
+	align-items: center;
+	justify-content: space-around;
+	padding: 8px 12px;
+}
+
+.card-action-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	background: transparent;
+	border: none;
+	font-size: 0.82rem;
+	font-weight: 600;
+	color: #334155;
+	padding: 6px 16px;
+	border-radius: 6px;
+	cursor: pointer;
+}
+
+.card-action-btn:hover {
+	background: #f1f5f9;
+}
+
+.card-action-divider {
+	width: 1px;
+	height: 18px;
+	background: #e2e8f0;
 }
 
 .tab-loader,
@@ -2987,202 +3400,17 @@ export default {
 	justify-content: center;
 	gap: 10px;
 	min-height: 280px;
-	border: 1px dashed rgba(148, 163, 184, 0.35);
-	border-radius: 18px;
-	background: rgba(248, 250, 252, 0.66);
-	color: var(--pos-text-primary);
-}
-
-.empty-state__title {
-	font-size: 1rem;
-	font-weight: 700;
-}
-
-.empty-state__subtitle {
-	font-size: 0.86rem;
-	color: var(--pos-text-secondary);
-	text-align: center;
-	max-width: 420px;
-}
-
-.invoice-management-card--dark .tab-loader,
-.invoice-management-card--dark .empty-state {
-	border-color: rgba(100, 116, 139, 0.38);
-	background: rgba(15, 23, 42, 0.42);
-}
-
-.invoice-record-grid {
-	display: grid;
-	gap: 16px;
-}
-
-.invoice-record-grid--history {
-	grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-}
-.invoice-record-grid--unpaid {
-	grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-}
-.invoice-record-grid--drafts {
-	grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-}
-.invoice-record-grid--returns {
-	grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-}
-
-.tab-pagination {
-	margin-top: 16px;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	flex-wrap: wrap;
-	gap: 10px;
-}
-
-.tab-pagination__meta {
-	font-size: 0.8rem;
-	color: var(--pos-text-secondary);
-}
-
-.invoice-record-card {
-	border-radius: 22px;
-	overflow: hidden;
-	border: 1px solid rgba(148, 163, 184, 0.18);
-	background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
-	box-shadow: 0 20px 44px rgba(15, 23, 42, 0.08);
-	color: var(--pos-text-primary);
-}
-
-.invoice-record-card__hero {
-	display: flex;
-	align-items: flex-start;
-	justify-content: space-between;
-	gap: 16px;
-	padding: 18px 20px;
-	background: linear-gradient(135deg, rgba(239, 246, 255, 0.95), rgba(224, 231, 255, 0.88));
-	border-bottom: 1px solid rgba(148, 163, 184, 0.14);
-}
-
-.invoice-record-card__hero--warm {
-	background: linear-gradient(135deg, rgba(255, 247, 237, 0.98), rgba(255, 237, 213, 0.9));
-}
-.invoice-record-card__hero--draft {
-	background: linear-gradient(135deg, rgba(245, 243, 255, 0.98), rgba(233, 213, 255, 0.9));
-}
-.invoice-record-card__hero--return {
-	background: linear-gradient(135deg, rgba(254, 242, 242, 0.98), rgba(254, 202, 202, 0.9));
-}
-
-.invoice-record-card__title-row {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 8px;
-}
-
-.invoice-record-card__title {
-	font-size: 1rem;
-	font-weight: 800;
-	line-height: 1.3;
-}
-
-.invoice-record-card__subtitle {
-	margin-top: 6px;
-	font-size: 0.88rem;
-	color: var(--pos-text-secondary);
-}
-
-.invoice-record-card__amount-block {
-	text-align: right;
-}
-
-.invoice-record-card__amount-label {
-	font-size: 0.72rem;
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.08em;
-	opacity: 0.65;
-}
-
-.invoice-record-card__amount {
-	margin-top: 6px;
-	font-size: 1.1rem;
-	font-weight: 800;
-}
-
-.invoice-record-card__content {
-	padding: 18px 20px;
-}
-
-.invoice-record-card__actions {
-	display: flex;
-	align-items: center;
-	justify-content: flex-end;
-	flex-wrap: wrap;
-	gap: 8px;
-	padding: 14px 18px 18px;
-	border-top: 1px solid rgba(148, 163, 184, 0.12);
-	background: rgba(248, 250, 252, 0.76);
-}
-
-.invoice-management-card--dark .invoice-record-card {
-	border-color: rgba(100, 116, 139, 0.34);
-	background: linear-gradient(180deg, rgba(36, 43, 51, 0.98), rgba(26, 32, 40, 0.96));
-	box-shadow: 0 22px 48px rgba(2, 6, 23, 0.38);
-}
-
-.invoice-management-card--dark .invoice-record-card__hero {
-	border-bottom-color: rgba(100, 116, 139, 0.24);
-	background: linear-gradient(135deg, rgba(30, 41, 59, 0.96), rgba(30, 64, 175, 0.34));
-}
-
-.invoice-management-card--dark .invoice-record-card__hero--warm {
-	background: linear-gradient(135deg, rgba(67, 20, 7, 0.96), rgba(120, 53, 15, 0.52));
-}
-
-.invoice-management-card--dark .invoice-record-card__hero--draft {
-	background: linear-gradient(135deg, rgba(76, 29, 149, 0.96), rgba(88, 28, 135, 0.44));
-}
-
-.invoice-management-card--dark .invoice-record-card__hero--return {
-	background: linear-gradient(135deg, rgba(127, 29, 29, 0.96), rgba(153, 27, 27, 0.42));
-}
-
-.invoice-management-card--dark .invoice-record-card--success .invoice-record-card__hero {
-	background: linear-gradient(135deg, rgba(20, 83, 45, 0.96), rgba(22, 101, 52, 0.42));
-}
-
-.invoice-management-card--dark .invoice-record-card--warning .invoice-record-card__hero {
-	background: linear-gradient(135deg, rgba(120, 53, 15, 0.96), rgba(161, 98, 7, 0.42));
-}
-
-.invoice-management-card--dark .invoice-record-card--error .invoice-record-card__hero {
-	background: linear-gradient(135deg, rgba(127, 29, 29, 0.96), rgba(153, 27, 27, 0.42));
-}
-
-.invoice-management-card--dark .invoice-record-card--info .invoice-record-card__hero {
-	background: linear-gradient(135deg, rgba(12, 74, 110, 0.96), rgba(30, 64, 175, 0.4));
-}
-
-.invoice-management-card--dark .invoice-record-card__actions {
-	border-top-color: rgba(100, 116, 139, 0.22);
-	background: rgba(15, 23, 42, 0.32);
-}
-
-.meta-pair-grid {
-	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 14px;
-}
-
-.meta-pair-grid--compact {
-	margin-bottom: 16px;
+	border: 1px dashed #cbd5e1;
+	border-radius: 14px;
+	background: #f8fafc;
+	color: #0f172a;
 }
 
 .meta-pair {
-	padding: 12px 14px;
-	border-radius: 16px;
-	background: rgba(255, 255, 255, 0.82);
-	border: 1px solid rgba(148, 163, 184, 0.14);
+	padding: 10px 14px;
+	border-radius: 12px;
+	background: var(--pos-surface-muted, #f8fafc);
+	border: 1px solid var(--pos-border-light, #e2e8f0);
 }
 
 .meta-pair__label {
@@ -3194,24 +3422,24 @@ export default {
 }
 
 .meta-pair__value {
-	margin-top: 6px;
+	margin-top: 4px;
 	font-size: 0.92rem;
 	font-weight: 700;
 	line-height: 1.35;
 }
 
 .meta-pair__value--success {
-	color: rgb(22, 163, 74);
+	color: var(--pos-success, #10b981);
 }
 .meta-pair__value--warning {
-	color: rgb(217, 119, 6);
+	color: var(--pos-warning, #f59e0b);
 }
 
 .payment-progress-block {
-	padding: 14px 16px;
-	border-radius: 16px;
-	background: rgba(255, 255, 255, 0.84);
-	border: 1px solid rgba(148, 163, 184, 0.14);
+	padding: 12px 14px;
+	border-radius: 12px;
+	background: var(--pos-surface-muted, #f8fafc);
+	border: 1px solid var(--pos-border-light, #e2e8f0);
 }
 
 .invoice-management-card--dark .meta-pair,
@@ -3250,34 +3478,74 @@ export default {
 }
 
 .invoice-detail-card {
-	background: var(--pos-surface-raised) !important;
-	color: var(--pos-text-primary) !important;
+	border-radius: 20px !important;
+	overflow: hidden !important;
+	background: #ffffff !important;
+	color: #0f172a !important;
 }
 
 .invoice-detail-card--dark {
-	background: var(--pos-surface-raised) !important;
-	color: var(--pos-text-primary) !important;
+	background: #0f172a !important;
+	color: #f8fafc !important;
 }
 
-.invoice-detail-card--dark .summary-tile {
-	border-color: rgba(100, 116, 139, 0.34);
-	background: linear-gradient(145deg, rgba(36, 43, 51, 0.98), rgba(26, 32, 40, 0.96));
-	box-shadow: 0 18px 40px rgba(2, 6, 23, 0.32);
+.detail-dialog-header {
+	background: #ffffff;
+	border-bottom: 1px solid #e2e8f0;
 }
 
-.invoice-detail-card--dark .summary-tile__label {
-	color: rgba(226, 232, 240, 0.84);
-	opacity: 1;
+.detail-summary-grid {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 12px;
 }
 
-.invoice-detail-card--dark .summary-tile__value {
-	color: rgb(248, 250, 252);
+@media (max-width: 768px) {
+	.detail-summary-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+.detail-section-header {
+	font-size: 0.92rem;
+	font-weight: 700;
+	color: #0f172a;
+	letter-spacing: 0.01em;
+}
+
+.invoice-detail-footer {
+	background: #ffffff;
+	border-top: 1px solid #e2e8f0;
+	gap: 8px;
 }
 
 @media (max-width: 960px) {
+	.invoice-management-dialog-content {
+		margin: 0 !important;
+		width: 100vw !important;
+		height: 100vh !important;
+		max-width: 100vw !important;
+		max-height: 100vh !important;
+	}
+
 	.invoice-management-card {
-		max-height: 100vh;
-		border-radius: 0;
+		height: 100vh !important;
+		min-height: 100vh !important;
+		max-height: 100vh !important;
+		border-radius: 0 !important;
+		border: none !important;
+	}
+
+	.invoice-management-header {
+		padding: 10px 16px !important;
+	}
+
+	.invoice-tabs-shell {
+		padding: 8px 12px 0 !important;
+	}
+
+	.invoice-management-card__body {
+		padding: 8px 12px 0 !important;
 	}
 
 	.invoice-record-card__hero {
@@ -3295,7 +3563,147 @@ export default {
 	}
 }
 
-@media (max-width: 640px) {
+.card-doc-icon-wrap {
+	width: 40px;
+	height: 40px;
+	min-width: 40px;
+	border-radius: 10px;
+	background: #e0f2fe;
+	border: 1px solid #bae6fd;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+
+.mobile-bottom-navy-bar {
+	width: 100%;
+	height: 48px;
+	border-radius: 12px;
+	background: #0f2b5c;
+	display: flex;
+	align-items: center;
+	padding: 4px;
+}
+
+.mobile-navy-btn {
+	flex: 1;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	color: #ffffff;
+	font-weight: 700;
+	font-size: 0.88rem;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+}
+
+.mobile-navy-btn-icon {
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	background: #00a8a8;
+	color: #ffffff;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.mobile-navy-divider {
+	width: 1px;
+	height: 24px;
+	background: rgba(255, 255, 255, 0.2);
+}
+
+@media (max-width: 600px) {
+	.header-subtitle {
+		display: none !important;
+	}
+
+	.invoice-tab-item {
+		padding: 0 6px !important;
+		font-size: 0.76rem !important;
+	}
+
+	.tab-badge {
+		font-size: 10px !important;
+		height: 18px !important;
+		min-width: 18px !important;
+		padding: 0 4px !important;
+	}
+
+	.filter-grid {
+		gap: 8px !important;
+	}
+
+	.filter-grid > .v-text-field,
+	.filter-grid > .v-select {
+		flex: 1 1 calc(50% - 4px) !important;
+		min-width: 130px !important;
+	}
+
+	.summary-grid {
+		display: flex !important;
+		overflow-x: auto !important;
+		scrollbar-width: none !important;
+		flex-wrap: nowrap !important;
+		padding-bottom: 4px;
+		gap: 8px !important;
+	}
+
+	.summary-grid::-webkit-scrollbar {
+		display: none;
+	}
+
+	.summary-tile {
+		flex: 0 0 145px !important;
+		min-width: 145px !important;
+		padding: 8px 10px !important;
+	}
+
+	.summary-tile__icon-box {
+		width: 30px !important;
+		height: 30px !important;
+		min-width: 30px !important;
+	}
+
+	.summary-tile__label {
+		font-size: 0.68rem !important;
+	}
+
+	.summary-tile__value {
+		font-size: 0.92rem !important;
+	}
+
+	.invoice-record-grid {
+		grid-template-columns: 1fr !important;
+		gap: 12px !important;
+	}
+
+	.invoice-record-card__hero {
+		flex-direction: row !important;
+		align-items: center !important;
+		justify-content: space-between !important;
+	}
+
+	.invoice-record-card__amount-block {
+		text-align: right !important;
+	}
+
+	.invoice-record-card__metrics {
+		grid-template-columns: repeat(2, 1fr) !important;
+		gap: 8px 4px !important;
+		padding: 8px 10px !important;
+	}
+
+	.metric-col {
+		border-right: none !important;
+		padding: 2px 4px !important;
+	}
+
 	.meta-pair-grid {
 		grid-template-columns: 1fr;
 	}

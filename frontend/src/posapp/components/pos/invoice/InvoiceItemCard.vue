@@ -464,7 +464,7 @@ function handleMinusClick() {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto auto;
 	grid-template-areas:
-		"identity amount amount"
+		"identity identity amount"
 		"qty rate actions";
 	gap: 8px 10px;
 	padding: 10px;
@@ -743,5 +743,44 @@ function handleMinusClick() {
 .delete-action-btn:hover {
 	color: var(--pos-error, #ef4444) !important;
 	background: color-mix(in srgb, var(--pos-error, #ef4444) 10%, transparent) !important;
+}
+
+@container (max-width: 540px) {
+	.invoice-item-card--row {
+		display: grid !important;
+		grid-template-columns: minmax(0, 1fr) auto auto !important;
+		grid-template-areas:
+			"identity identity amount"
+			"qty rate actions" !important;
+		gap: 8px 10px !important;
+		padding: 10px !important;
+		min-height: 104px !important;
+	}
+
+	.invoice-item-card--row .invoice-item-card__identity {
+		grid-area: identity !important;
+	}
+
+	.invoice-item-card--row .invoice-item-card__qty {
+		grid-area: qty !important;
+		justify-self: start !important;
+	}
+
+	.invoice-item-card--row .invoice-item-card__rate {
+		grid-area: rate !important;
+		display: flex !important;
+		align-items: center !important;
+	}
+
+	.invoice-item-card--row .invoice-item-card__amount {
+		grid-area: amount !important;
+		justify-self: end !important;
+		align-self: flex-start !important;
+	}
+
+	.invoice-item-card--row .invoice-item-card__actions {
+		grid-area: actions !important;
+		justify-self: end !important;
+	}
 }
 </style>

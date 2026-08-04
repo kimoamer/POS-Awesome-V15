@@ -327,7 +327,9 @@ const {
 	isStackedRows,
 } = responsive;
 
-const cartContainerWidth = computed(() => containerWidth.value || 0);
+const cartContainerWidth = computed(
+	() => containerWidth.value || (tableContainer.value as HTMLElement | null)?.offsetWidth || 0,
+);
 
 type InvoiceCardLayout = "row" | "stacked" | "phone";
 
@@ -335,7 +337,7 @@ const invoiceCardLayout = computed<InvoiceCardLayout>(() => {
 	if (windowWidth.value <= 600) {
 		return "phone";
 	}
-	if (isCompactViewport.value || cartContainerWidth.value < 620) {
+	if (isCompactViewport.value || !cartContainerWidth.value || cartContainerWidth.value < 540) {
 		return "stacked";
 	}
 	return "row";

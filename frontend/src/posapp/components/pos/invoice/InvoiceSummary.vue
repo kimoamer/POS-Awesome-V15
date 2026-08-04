@@ -242,9 +242,14 @@
 		<v-card class="pos-themed-card">
 			<v-card-title class="d-flex align-center justify-space-between">
 				<span>{{ __(currentDraftSourceOption.panelTitle) }}</span>
-				<v-btn variant="text" size="small" @click="mobileDraftsDialog = false">
-					{{ __("Close") }}
-				</v-btn>
+				<v-btn
+					icon="mdi-close"
+					variant="text"
+					density="compact"
+					size="small"
+					:aria-label="__('Close saved drafts')"
+					@click="mobileDraftsDialog = false"
+				/>
 			</v-card-title>
 			<v-card-text class="pt-0">
 				<DocumentSourceSelector
@@ -759,6 +764,17 @@ defineExpose({
 	border-radius: var(--pos-radius-md, 10px);
 	background: color-mix(in srgb, var(--pos-primary, #2563eb) 6%, var(--pos-surface-muted, #f8fafc));
 	border: 1px solid color-mix(in srgb, var(--pos-primary, #2563eb) 12%, transparent);
+}
+
+@container (max-width: 420px) {
+	.summary-hero {
+		padding: 8px 10px !important;
+		gap: 8px !important;
+	}
+
+	.summary-hero__field-wrap {
+		width: min(160px, 46%) !important;
+	}
 }
 
 .summary-hero__copy {

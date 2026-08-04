@@ -155,29 +155,45 @@
 
 					<v-card flat class="invoice-section-card invoice-items-command-card pos-themed-card">
 						<div class="invoice-section-heading">
-							<h3 class="invoice-section-heading__title">
-								<span>{{ __("Invoice Items") }}</span>
-							</h3>
-							<span class="invoice-section-heading__count">
-								{{ items.length }} {{ items.length === 1 ? __("item") : __("items") }}
-							</span>
+							<div class="d-flex align-center ga-2">
+								<h3 class="invoice-section-heading__title">
+									<span>{{ __("Invoice Items") }}</span>
+								</h3>
+								<span class="invoice-section-heading__count">
+									{{ items.length }} {{ items.length === 1 ? __("item") : __("items") }}
+								</span>
+							</div>
+							<div class="d-flex align-center ga-1">
+								<v-btn
+									icon
+									variant="text"
+									color="primary"
+									size="small"
+									class="invoice-item-search-toggle-btn"
+									:aria-label="__('Toggle search')"
+									@click="showMobileItemSearch = !showMobileItemSearch"
+								>
+									<v-icon size="20">{{ showMobileItemSearch ? 'mdi-close' : 'mdi-magnify' }}</v-icon>
+								</v-btn>
+								<InvoiceItemsActionToolbar
+									ref="actionToolbar"
+									:itemSearch="itemSearch"
+									:availableColumns="available_columns"
+									:selectedColumns="selected_columns"
+									:currentView="itemsTableRef?.effectiveInvoiceItemsView || 'list'"
+									:showViewToggle="itemsTableRef?.showViewToggle ?? true"
+									:searchVisible="showMobileItemSearch"
+									@update:itemSearch="itemSearch = $event"
+									@update:selectedColumns="
+										(cols) => {
+											setSelectedColumns(cols);
+											saveColumnPreferences();
+										}
+									"
+									@update:currentView="itemsTableRef?.setInvoiceItemsView($event)"
+								/>
+							</div>
 						</div>
-						<InvoiceItemsActionToolbar
-							ref="actionToolbar"
-							:itemSearch="itemSearch"
-							:availableColumns="available_columns"
-							:selectedColumns="selected_columns"
-							:currentView="itemsTableRef?.effectiveInvoiceItemsView || 'list'"
-							:showViewToggle="itemsTableRef?.showViewToggle ?? true"
-							@update:itemSearch="itemSearch = $event"
-							@update:selectedColumns="
-								(cols) => {
-									setSelectedColumns(cols);
-									saveColumnPreferences();
-								}
-							"
-							@update:currentView="itemsTableRef?.setInvoiceItemsView($event)"
-						/>
 					</v-card>
 				</section>
 
@@ -426,6 +442,7 @@ export default {
 			invoiceTypes: ["Invoice", "Order", "Quotation"],
 			itemsPerPage: 1000,
 			itemSearch: "",
+			showMobileItemSearch: false,
 			expanded: [],
 			singleExpand: true,
 			cancel_dialog: false,
@@ -1420,7 +1437,7 @@ export default {
 
 .invoice-workspace {
 	display: grid;
-	grid-template-rows: minmax(56px, auto) minmax(96px, auto) minmax(0, 1fr) auto;
+	grid-template-rows: minmax(56px, auto) minmax(56px, auto) minmax(0, 1fr) auto;
 	height: 100%;
 	min-height: 0;
 	min-width: 0;
@@ -1505,6 +1522,10 @@ export default {
 	overflow-y: auto !important;
 }
 
+.invoice-footer-region {
+	container-type: inline-size;
+}
+
 .invoice-workspace--compact .invoice-footer-region {
 	flex: 0 0 auto !important;
 	border-block-start: 1px solid var(--pos-border-light);
@@ -1542,9 +1563,9 @@ export default {
 	display: grid;
 	grid-template-rows: auto;
 	align-content: start;
-	gap: var(--pos-control-gap, 6px);
-	min-height: 48px;
-	padding: 4px 10px;
+	gap: var(--pos-control-gap, 4px);
+	min-height: 36px;
+	padding: 2px 10px;
 	border-block-end: 1px solid var(--pos-border-light);
 	background: var(--pos-surface);
 }
@@ -1652,6 +1673,20 @@ export default {
 	font-weight: 750;
 	line-height: 1;
 	white-space: nowrap;
+}
+
+.invoice-item-search-toggle-btn {
+	display: none !important;
+}
+
+@media (max-width: 1024px) {
+	.invoice-item-search-toggle-btn {
+		display: inline-flex !important;
+		width: 36px !important;
+		height: 36px !important;
+		min-width: 36px !important;
+		margin-inline-start: auto;
+	}
 }
 
 .invoice-customer-region .invoice-section-card {
