@@ -1,7 +1,7 @@
 <template>
-	<v-container class="pa-0">
+	<div class="purchase-header-section pa-0">
 		<v-row dense class="mb-2">
-			<v-col cols="12" md="6">
+			<v-col cols="12" sm="6">
 				<v-autocomplete
 					:model-value="supplier"
 					@update:model-value="$emit('update:supplier', $event)"
@@ -36,7 +36,8 @@
 					</template>
 				</v-autocomplete>
 			</v-col>
-			<v-col cols="12" md="6">
+
+			<v-col cols="12" sm="6">
 				<v-autocomplete
 					:model-value="warehouse"
 					@update:model-value="$emit('update:warehouse', $event)"
@@ -55,8 +56,8 @@
 			</v-col>
 		</v-row>
 
-		<v-row dense class="mb-4">
-			<v-col cols="6">
+		<v-row dense class="mb-3">
+			<v-col cols="12" sm="6">
 				<VueDatePicker
 					:model-value="transactionDate"
 					@update:model-value="$emit('update:transactionDate', $event)"
@@ -65,10 +66,10 @@
 					:enable-time-picker="false"
 					auto-apply
 					:placeholder="frappe._('Posting Date')"
-					class="pos-themed-input"
+					class="pos-themed-input purchase-date-picker"
 				/>
 			</v-col>
-			<v-col cols="6">
+			<v-col cols="12" sm="6">
 				<VueDatePicker
 					:model-value="scheduleDate"
 					@update:model-value="$emit('update:scheduleDate', $event)"
@@ -77,35 +78,46 @@
 					:enable-time-picker="false"
 					auto-apply
 					:placeholder="frappe._('Required By')"
-					class="pos-themed-input"
+					class="pos-themed-input purchase-date-picker"
 				/>
 			</v-col>
 		</v-row>
 
-		<div class="d-flex gap-4 mb-4">
-			<v-switch
+		<div class="purchase-switches-row d-flex flex-wrap align-center ga-3">
+			<div
 				v-if="posProfile.posa_allow_purchase_receipt"
-				:model-value="receiveNow"
-				@update:model-value="$emit('update:receiveNow', $event)"
-				density="compact"
-				hide-details
-				color="success"
-				:disabled="receiveDisabled"
-				:label="receiveDisabled ? __('Received') : __('Receive now')"
-				class="ma-0"
-			></v-switch>
-			<v-switch
-				:model-value="createInvoice"
-				@update:model-value="$emit('update:createInvoice', $event)"
-				density="compact"
-				hide-details
-				color="primary"
-				:disabled="createInvoiceDisabled"
-				:label="createInvoiceDisabled ? __('Billed') : __('Create Bill')"
-				class="ma-0 ml-4"
-			></v-switch>
+				class="purchase-switch-chip"
+				:class="{ 'purchase-switch-chip--disabled': receiveDisabled }"
+			>
+				<v-switch
+					:model-value="receiveNow"
+					@update:model-value="$emit('update:receiveNow', $event)"
+					density="compact"
+					hide-details
+					color="success"
+					:disabled="receiveDisabled"
+					:label="receiveDisabled ? __('Received') : __('Receive now')"
+					class="ma-0"
+				></v-switch>
+			</div>
+
+			<div
+				class="purchase-switch-chip"
+				:class="{ 'purchase-switch-chip--disabled': createInvoiceDisabled }"
+			>
+				<v-switch
+					:model-value="createInvoice"
+					@update:model-value="$emit('update:createInvoice', $event)"
+					density="compact"
+					hide-details
+					color="primary"
+					:disabled="createInvoiceDisabled"
+					:label="createInvoiceDisabled ? __('Billed') : __('Create Bill')"
+					class="ma-0"
+				></v-switch>
+			</div>
 		</div>
-	</v-container>
+	</div>
 </template>
 
 <script>

@@ -1,5 +1,5 @@
 <template>
-	<v-dialog v-model="dialog" max-width="1180px" scrollable>
+	<v-dialog v-model="dialog" max-width="1180px" scrollable :fullscreen="$vuetify.display.smAndDown">
 		<v-card class="purchase-management-card pos-themed-card" variant="flat">
 			<v-card-title class="purchase-management-card__title">
 				<div>

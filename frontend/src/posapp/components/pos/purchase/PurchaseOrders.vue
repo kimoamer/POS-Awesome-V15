@@ -1,28 +1,79 @@
 <template>
-	<div class="pa-0 h-100">
-		<v-row class="h-100 ma-0">
-			<!-- Left Column: Item Selector -->
-			<v-col cols="12" md="5" class="h-100 pa-0 border-e">
-				<ItemsSelector context="purchase" @add-item="onAddItem" />
-			</v-col>
+	<div class="purchase-orders-page pa-0 h-100">
+		<!-- Mobile/Tablet Responsive Tab Switcher (< 1200px) -->
+		<div class="purchase-mobile-tabs d-lg-none mb-2 px-2 pt-2">
+			<v-btn-toggle v-model="activeMobileTab" mandatory class="mobile-pane-toggle" block>
+				<v-btn value="browse" class="mobile-pane-btn">
+					<v-icon start size="18">mdi-format-list-bulleted-type</v-icon>
+					{{ __("Browse Products") }}
+				</v-btn>
+				<v-btn value="order" class="mobile-pane-btn">
+					<v-icon start size="18">mdi-cart-outline</v-icon>
+					{{ __("Purchase Order") }}
+					<v-badge
+						v-if="purchaseItems.length"
+						:content="purchaseItems.length"
+						color="primary"
+						inline
+						class="ml-1"
+					/>
+				</v-btn>
+			</v-btn-toggle>
+		</div>
 
-			<!-- Right Column: Purchase Order Form (Cart) -->
-			<v-col cols="12" md="7" class="h-100 pa-0">
-				<v-card class="h-100 d-flex flex-column pos-themed-card" flat>
+		<div class="purchase-layout-grid">
+			<!-- Left Column: Item Selector -->
+			<div
+				class="purchase-layout-column purchase-layout-column--browse"
+				:class="{ 'd-none d-lg-block': activeMobileTab !== 'browse' }"
+			>
+				<ItemsSelector context="purchase" @add-item="onAddItem" />
+			</div>
+
+			<!-- Right Column: Purchase Order Form -->
+			<div
+				class="purchase-layout-column purchase-layout-column--order"
+				:class="{ 'd-none d-lg-block': activeMobileTab !== 'order' }"
+			>
+				<v-card class="h-100 d-flex flex-column pos-themed-card purchase-order-card" flat>
 					<v-card-title class="py-2 px-4 bg-primary text-white d-flex align-center flex-wrap ga-2">
-						<span class="text-h6">{{ __("Create Purchase Order") }}</span>
+						<div class="d-flex align-center ga-2">
+							<v-icon icon="mdi-file-document-edit-outline" />
+							<span class="text-h6 font-weight-bold">{{ __("Create Purchase Order") }}</span>
+						</div>
 						<v-chip
 							v-if="purchaseOrderName"
 							size="small"
 							color="white"
 							variant="tonal"
-							prepend-icon="mdi-file-document-edit-outline"
+							prepend-icon="mdi-file-document-outline"
+							class="font-weight-bold"
 						>
-							{{ purchaseOrderName }}
+							<bdi>{{ purchaseOrderName }}</bdi>
 						</v-chip>
+						<v-chip
+							v-if="loadedSubmittedOrder"
+							size="small"
+							color="success"
+							variant="flat"
+							class="font-weight-bold"
+						>
+							{{ __("Submitted") }}
+						</v-chip>
+						<v-chip
+							v-else-if="purchaseOrderName"
+							size="small"
+							color="warning"
+							variant="flat"
+							class="font-weight-bold"
+						>
+							{{ __("Draft") }}
+						</v-chip>
+
 						<v-spacer></v-spacer>
+
 						<v-btn
-							icon="mdi-delete"
+							icon="mdi-delete-outline"
 							variant="text"
 							color="white"
 							@click="clearPurchaseForm"
@@ -52,10 +103,25 @@
 							@create-supplier="supplierDialog = true"
 						/>
 
-						<v-divider class="mb-4"></v-divider>
+						<v-divider class="my-4"></v-divider>
+
+						<!-- Empty State when no items are present -->
+						<div
+							v-if="!purchaseItems.length"
+							class="purchase-empty-state d-flex flex-column align-center justify-center text-center py-6 px-4"
+						>
+							<v-icon size="48" color="medium-emphasis" class="mb-2">mdi-cart-off</v-icon>
+							<div class="text-subtitle-1 font-weight-bold text-medium-emphasis">
+								{{ __("No items in Purchase Order") }}
+							</div>
+							<div class="text-body-2 text-disabled max-w-sm mt-1">
+								{{ __("Select products from the products catalog to start a purchase order.") }}
+							</div>
+						</div>
 
 						<!-- Items Table Section -->
 						<PurchaseItemsTable
+							v-else
 							:headers="itemHeaders"
 							:items="purchaseItems"
 							:currencySymbol="currencySymbol(priceListCurrency || supplierCurrency)"
@@ -74,78 +140,86 @@
 						</v-alert>
 					</v-card-text>
 
+					<!-- Bottom Action Bar & Totals -->
 					<div class="purchase-action-bar">
 						<div class="purchase-action-bar__totals">
-							<span class="purchase-action-bar__label">{{ __("Total") }}</span>
+							<span class="purchase-action-bar__label">{{ __("Total Amount") }}</span>
 							<strong>
-								{{ currencySymbol(priceListCurrency || supplierCurrency) }}
-								{{ formatCurrency(totalAmount) }}
+								<bdi>{{ currencySymbol(priceListCurrency || supplierCurrency) }}</bdi>
+								<bdi>{{ formatCurrency(totalAmount) }}</bdi>
 							</strong>
 							<span class="purchase-action-bar__meta">
-								{{ purchaseItems.length }} {{ __("items") }} &middot; {{ formatNumber(totalQty) }} {{ __("qty") }}
+								<bdi>{{ purchaseItems.length }}</bdi> {{ __("items") }} &middot;
+								<bdi>{{ formatNumber(totalQty) }}</bdi> {{ __("qty") }}
 							</span>
 						</div>
-						<v-row dense class="purchase-action-bar__buttons">
-							<v-col cols="12" sm="6">
-								<v-btn
-									block
-									theme="dark"
-									variant="flat"
-									prepend-icon="mdi-content-save"
-									class="purchase-summary-btn purchase-action-btn--save"
-									@click="saveDraft"
-									:loading="draftSaveLoading"
-									:disabled="saveAndClearDisabled"
-								>
-									{{ __("Save & Clear") }}
-								</v-btn>
-							</v-col>
-							<v-col cols="12" sm="6">
-								<v-btn
-									block
-									theme="dark"
-									variant="flat"
-									prepend-icon="mdi-tray-full"
-									class="purchase-summary-btn purchase-action-btn--drafts"
-									@click="draftDialog = true"
-									:disabled="submitLoading || draftSaveLoading"
-								>
-									{{ __("Drafts") }}
-								</v-btn>
-							</v-col>
-							<v-col cols="12">
-								<v-btn
-									block
-									theme="dark"
-									variant="flat"
-									prepend-icon="mdi-folder-search-outline"
-									class="purchase-summary-btn purchase-action-btn--management"
-									@click="managementDialog = true"
-									:disabled="submitLoading || draftSaveLoading"
-								>
-									{{ __("Purchase Mgmt") }}
-								</v-btn>
-							</v-col>
-							<v-col cols="12">
-								<v-btn
-									block
-									theme="dark"
-									variant="flat"
-									size="large"
-									prepend-icon="mdi-credit-card"
-									class="purchase-summary-btn purchase-action-btn--pay purchase-pay-btn"
-									:loading="submitLoading"
-									:disabled="submitLoading || !purchaseItems.length"
-									@click="openPaymentDialog"
-								>
-									{{ __("PAY") }}
-								</v-btn>
-							</v-col>
-						</v-row>
+
+						<div class="purchase-action-bar__buttons">
+							<v-row dense>
+								<v-col cols="6" sm="3">
+									<v-btn
+										block
+										height="44"
+										variant="tonal"
+										color="warning"
+										prepend-icon="mdi-content-save-outline"
+										class="purchase-summary-btn purchase-action-btn--save font-weight-bold"
+										@click="saveDraft"
+										:loading="draftSaveLoading"
+										:disabled="saveAndClearDisabled"
+									>
+										{{ __("Save & Clear") }}
+									</v-btn>
+								</v-col>
+								<v-col cols="6" sm="3">
+									<v-btn
+										block
+										height="44"
+										variant="tonal"
+										color="info"
+										prepend-icon="mdi-file-document-multiple-outline"
+										class="purchase-summary-btn purchase-action-btn--drafts font-weight-bold"
+										@click="draftDialog = true"
+										:disabled="submitLoading || draftSaveLoading"
+									>
+										{{ __("Drafts") }}
+									</v-btn>
+								</v-col>
+								<v-col cols="6" sm="3">
+									<v-btn
+										block
+										height="44"
+										variant="tonal"
+										color="secondary"
+										prepend-icon="mdi-folder-search-outline"
+										class="purchase-summary-btn purchase-action-btn--management font-weight-bold"
+										@click="managementDialog = true"
+										:disabled="submitLoading || draftSaveLoading"
+									>
+										{{ __("Purchase Mgmt") }}
+									</v-btn>
+								</v-col>
+								<v-col cols="6" sm="3">
+									<v-btn
+										block
+										height="44"
+										color="success"
+										variant="flat"
+										prepend-icon="mdi-credit-card-outline"
+										class="purchase-summary-btn purchase-action-btn--pay font-weight-bold"
+										:loading="submitLoading"
+										:disabled="submitLoading || !purchaseItems.length"
+										@click="openPaymentDialog"
+									>
+										{{ __("PAY") }}
+									</v-btn>
+								</v-col>
+							</v-row>
+						</div>
 					</div>
 				</v-card>
-			</v-col>
-		</v-row>
+			</div>
+		</div>
 
 		<!-- Payment Dialog -->
 		<PurchasePaymentDialog
@@ -218,6 +292,7 @@ export default {
 		const itemsStore = useItemsStore();
 		const eventBus = inject("eventBus");
 
+		const activeMobileTab = ref("browse");
 		const pos_profile = ref({});
 		const receiveNow = ref(false);
 
@@ -613,6 +688,8 @@ export default {
 		});
 
 		return {
+			activeMobileTab,
+			loadedSubmittedOrder,
 			pos_profile,
 			receiveNow,
 			purchaseItems,

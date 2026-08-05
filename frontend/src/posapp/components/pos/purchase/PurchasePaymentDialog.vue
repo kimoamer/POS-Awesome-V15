@@ -1,11 +1,11 @@
 <template>
-	<v-dialog v-model="dialog" max-width="600px" persistent>
-		<v-card class="pos-themed-card" style="max-height: 80vh; overflow: hidden">
+	<v-dialog v-model="dialog" max-width="600px" persistent :fullscreen="$vuetify.display.smAndDown">
+		<v-card class="pos-themed-card d-flex flex-column h-100" style="max-height: 90vh; overflow: hidden">
 			<v-card-title class="bg-primary text-white d-flex align-center py-3">
-				<span class="text-h6">{{ __("Payment") }}</span>
+				<span class="text-h6 font-weight-bold">{{ __("Payment") }}</span>
 				<v-spacer></v-spacer>
 				<span class="text-subtitle-1 font-weight-bold">
-					{{ formatCurrency(totalAmount, currency) }}
+					<bdi>{{ currencySymbol(currency) }}</bdi> <bdi>{{ formatCurrency(totalAmount) }}</bdi>
 				</span>
 			</v-card-title>
 
