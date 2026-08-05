@@ -1,7 +1,7 @@
 <template>
 	<div class="purchase-orders-page pa-0 h-100">
 		<!-- Tablet & Mobile Tab Switcher (< 1200px) -->
-		<div class="purchase-mobile-tabs">
+		<div class="purchase-workspace-tabs">
 			<div class="mobile-pane-toggle-wrapper">
 				<v-btn-toggle v-model="activeMobileTab" mandatory class="mobile-pane-toggle" rounded="pill">
 					<v-btn value="browse" class="mobile-pane-btn" prepend-icon="mdi-view-grid-outline">
@@ -23,19 +23,19 @@
 			</div>
 		</div>
 
-		<div class="purchase-layout-grid" :class="{ 'has-bottom-bar': activeMobileTab === 'browse' && purchaseItems.length > 0 }">
-			<!-- Left Column: Item Selector (Product Browser) -->
-			<div
-				class="purchase-layout-column purchase-layout-column--browse"
+		<div class="purchase-workspace" :class="{ 'has-bottom-bar': activeMobileTab === 'browse' && purchaseItems.length > 0 }">
+			<!-- Left Pane: Item Selector (Product Browser) -->
+			<section
+				class="purchase-browser-pane"
 				:class="{ 'mobile-pane-hidden': activeMobileTab !== 'browse' }"
 				:style="browserColumnStyle"
 			>
 				<ItemsSelector context="purchase" @add-item="onAddItem" />
-			</div>
+			</section>
 
-			<!-- Resizable Splitter (Desktop >= 1280px) -->
+			<!-- Resizable Splitter (Desktop >= 1200px) -->
 			<div
-				class="purchase-splitter d-none d-lg-flex"
+				class="purchase-workspace-splitter"
 				@mousedown="startResizing"
 				@touchstart.passive="startResizing"
 				@dblclick="resetSplitRatio"
@@ -44,9 +44,9 @@
 				<div class="purchase-splitter__handle"></div>
 			</div>
 
-			<!-- Right Column: Purchase Order Form -->
-			<div
-				class="purchase-layout-column purchase-layout-column--order"
+			<!-- Right Pane: Purchase Order Form -->
+			<section
+				class="purchase-order-pane"
 				:class="{ 'mobile-pane-hidden': activeMobileTab !== 'order' }"
 			>
 				<v-card class="h-100 d-flex flex-column pos-themed-card purchase-order-card" flat>
@@ -91,7 +91,7 @@
 						</v-btn>
 					</div>
 
-					<v-card-text class="flex-grow-1 overflow-y-auto pa-4">
+					<div class="purchase-order-body pa-4">
 						<!-- Header Section (Supplier, Warehouse, Dates, Switches) -->
 						<PurchaseHeader
 							v-model:supplier="supplier"
@@ -200,10 +200,10 @@
 								</v-col>
 							</v-row>
 						</div>
-					</v-card-text>
+					</div>
 
-					<!-- Footer Action Bar -->
-					<div class="purchase-action-bar pa-3 border-t">
+					<!-- Footer Actions Bar -->
+					<div class="purchase-order-actions pa-3 border-t">
 						<div class="d-flex align-center justify-space-between flex-wrap ga-2 w-100">
 							<div class="d-flex align-center ga-2 flex-wrap">
 								<v-btn
@@ -269,7 +269,7 @@
 						</div>
 					</div>
 				</v-card>
-			</div>
+			</section>
 		</div>
 
 		<!-- Tablet & Mobile Bottom Order Summary Bar (In Browse View) -->
@@ -981,8 +981,8 @@ export default {
 	width: 100%;
 }
 
-/* ===== MOBILE/TABLET TAB SWITCHER (hidden on desktop) ===== */
-.purchase-mobile-tabs {
+/* ===== TABLET & MOBILE TABS (hidden on desktop) ===== */
+.purchase-workspace-tabs {
 	display: none;
 	height: 56px;
 	min-height: 56px;
@@ -1016,21 +1016,19 @@ export default {
 	letter-spacing: 0 !important;
 }
 
-/* ===== DESKTOP SPLIT VIEW (>= 1280px) ===== */
-.purchase-layout-grid {
-	display: flex;
-	flex: 1 1 0;
-	min-height: 0;
+/* ===== DESKTOP WORKSPACE (>= 1200px) ===== */
+.purchase-workspace {
+	display: grid;
+	grid-template-columns: minmax(440px, var(--purchase-browser-width, 43%)) 10px minmax(620px, 1fr);
 	width: 100%;
+	height: 100%;
+	min-height: 0;
 	overflow: hidden;
 }
 
-/* === Browse Column (Left) 45% === */
-.purchase-layout-column--browse {
-	flex: 0 0 45%;
-	min-width: 420px;
-	height: 100%;
-	border-inline-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+.purchase-browser-pane,
+.purchase-order-pane {
+	min-width: 0;
 	min-height: 0;
 	overflow: hidden;
 	display: flex;
@@ -1038,103 +1036,93 @@ export default {
 }
 
 /* Override ItemsSelector's JS-computed inline height inside purchase context */
-/* The ItemsSelector sets inline height/maxHeight via selectorCardStyle, we reset it */
-.purchase-layout-column--browse :deep(.items-selector-shell) {
+.purchase-browser-pane :deep(.items-selector-shell),
+.purchase-browser-pane :deep(.selection-card) {
 	height: 100% !important;
 	max-height: 100% !important;
 	min-height: 0 !important;
 	flex: 1 1 0 !important;
 	overflow: hidden !important;
-}
-
-.purchase-layout-column--browse :deep(.selection-card) {
-	height: 100% !important;
-	max-height: 100% !important;
-	min-height: 0 !important;
-	overflow: hidden !important;
 	margin-top: 0 !important;
 }
 
-/* === Order Column (Right) 55% === */
-.purchase-layout-column--order {
-	flex: 1 1 55%;
-	min-width: 520px;
-	height: 100%;
-	min-height: 0;
-	overflow: hidden;
+/* ===== RESIZABLE SPLITTER ===== */
+.purchase-workspace-splitter {
+	width: 10px;
+	z-index: 15;
+	cursor: col-resize;
 	display: flex;
-	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+	user-select: none;
+	touch-action: none;
+	background: transparent;
 }
 
-/* ===== TABLET & MOBILE (< 1280px) ===== */
-@media (max-width: 1279px) {
-	.purchase-orders-page {
-		height: calc(100dvh - 52px);
-	}
-
-	.purchase-mobile-tabs {
-		display: flex;
-	}
-
-	.purchase-layout-grid {
-		display: block;
-		flex: 1 1 0;
-		height: auto;
-		min-height: 0;
-		overflow-y: auto;
-		-webkit-overflow-scrolling: touch;
-	}
-
-	.purchase-layout-grid.has-bottom-bar {
-		padding-bottom: 80px;
-	}
-
-	.purchase-layout-column--browse,
-	.purchase-layout-column--order {
-		flex: none;
-		min-width: 0;
-		width: 100%;
-		height: auto;
-		overflow: visible;
-		border-inline-end: none;
-	}
-
-	/* On mobile, restore ItemsSelector natural height flow */
-	.purchase-layout-column--browse :deep(.items-selector-shell),
-	.purchase-layout-column--browse :deep(.selection-card) {
-		height: auto !important;
-		max-height: none !important;
-	}
-
-	.mobile-pane-hidden {
-		display: none;
-	}
+.purchase-workspace-splitter::before {
+	content: "";
+	position: absolute;
+	inset-block: 0;
+	inset-inline-start: 4px;
+	width: 2px;
+	background-color: rgba(var(--v-border-color), var(--v-border-opacity));
+	transition: background-color 0.2s ease;
 }
 
-/* ===== BOTTOM SUMMARY BAR ===== */
-.purchase-bottom-summary-bar {
-	position: sticky;
-	bottom: 0;
-	z-index: 10;
-	background: rgba(var(--v-theme-surface), 1);
-	box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
-	border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+.purchase-splitter__handle {
+	width: 10px;
+	height: 24px;
+	border-radius: 4px;
+	background: var(--pos-surface-raised, #ffffff);
+	border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	transition: all 0.2s ease;
 }
 
-/* ===== PURCHASE ORDER CARD - Flex column to fill right column ===== */
+.purchase-splitter__handle::after {
+	content: "||";
+	font-size: 10px;
+	font-weight: bold;
+	color: var(--pos-text-muted, #757575);
+	line-height: 1;
+	letter-spacing: -1px;
+}
+
+.purchase-workspace-splitter:hover::before,
+.purchase-workspace-splitter:active::before {
+	background-color: rgb(var(--v-theme-primary));
+}
+
+.purchase-workspace-splitter:hover .purchase-splitter__handle,
+.purchase-workspace-splitter:active .purchase-splitter__handle {
+	border-color: rgb(var(--v-theme-primary));
+	background: rgb(var(--v-theme-primary));
+	box-shadow: 0 2px 6px rgba(var(--v-theme-primary), 0.3);
+}
+
+.purchase-workspace-splitter:hover .purchase-splitter__handle::after,
+.purchase-workspace-splitter:active .purchase-splitter__handle::after {
+	color: #ffffff;
+}
+
+/* ===== PURCHASE ORDER PANE INTERNAL GRID ===== */
+.purchase-order-pane {
+	display: grid;
+	grid-template-rows: auto auto minmax(0, 1fr) auto;
+	background: #ffffff;
+}
+
 .purchase-order-card {
 	border-radius: 0 !important;
 	height: 100% !important;
 	display: flex !important;
 	flex-direction: column !important;
-}
-
-/* Override Vuetify's v-card-text flex to let it scroll */
-.purchase-order-card :deep(.v-card-text) {
-	flex: 1 1 0 !important;
-	min-height: 0 !important;
-	overflow-y: auto !important;
-	overflow-x: hidden !important;
+	background: #ffffff !important;
 }
 
 .purchase-order-header {
@@ -1155,7 +1143,12 @@ export default {
 	flex-shrink: 0;
 }
 
-/* ===== EMPTY STATE - Cap height to avoid filling the screen ===== */
+.purchase-order-body {
+	min-height: 0;
+	overflow-y: auto;
+}
+
+/* Empty State */
 .purchase-empty-state {
 	border: 2px dashed rgba(var(--v-border-color), var(--v-border-opacity));
 	border-radius: 12px;
@@ -1168,24 +1161,65 @@ export default {
 	max-width: 380px;
 }
 
-/* ===== SUMMARY CARD ===== */
+/* Summary Card */
 .purchase-summary-card {
 	background: rgba(var(--v-theme-primary), 0.04);
 	border: 1px solid rgba(var(--v-theme-primary), 0.15) !important;
 }
 
-/* ===== ACTION BAR - sticky inside right column ===== */
-.purchase-action-bar {
+/* Order Actions Footer */
+.purchase-order-actions {
+	position: static;
+	border-top: 1px solid #e5e7eb;
+	background: #ffffff;
 	flex-shrink: 0;
-	position: sticky;
-	bottom: 0;
-	z-index: 5;
-	background: rgba(var(--v-theme-surface), 1);
-	border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-	box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
 }
 
-/* ===== MISC ===== */
+/* ===== TABLET & MOBILE BREAKPOINT (< 1200px) ===== */
+@media (max-width: 1199px) {
+	.purchase-orders-page {
+		height: calc(100dvh - 52px);
+	}
+
+	.purchase-workspace-tabs {
+		display: flex;
+	}
+
+	.purchase-workspace {
+		display: block;
+		height: calc(100% - 56px);
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	.purchase-workspace.has-bottom-bar {
+		padding-bottom: 80px;
+	}
+
+	.purchase-workspace-splitter {
+		display: none !important;
+	}
+
+	.purchase-browser-pane,
+	.purchase-order-pane {
+		display: flex;
+		width: 100%;
+		height: auto;
+		min-width: 0;
+		overflow: visible;
+	}
+
+	.purchase-browser-pane :deep(.items-selector-shell),
+	.purchase-browser-pane :deep(.selection-card) {
+		height: auto !important;
+		max-height: none !important;
+	}
+
+	.mobile-pane-hidden {
+		display: none !important;
+	}
+}
+
 .cursor-pointer {
 	cursor: pointer;
 }
