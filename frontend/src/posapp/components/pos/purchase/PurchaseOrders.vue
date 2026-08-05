@@ -28,8 +28,20 @@
 			<div
 				class="purchase-layout-column purchase-layout-column--browse"
 				:class="{ 'mobile-pane-hidden': activeMobileTab !== 'browse' }"
+				:style="browserColumnStyle"
 			>
 				<ItemsSelector context="purchase" @add-item="onAddItem" />
+			</div>
+
+			<!-- Resizable Splitter (Desktop >= 1280px) -->
+			<div
+				class="purchase-splitter d-none d-lg-flex"
+				@mousedown="startResizing"
+				@touchstart.passive="startResizing"
+				@dblclick="resetSplitRatio"
+				title="Drag to resize | Double click to reset"
+			>
+				<div class="purchase-splitter__handle"></div>
 			</div>
 
 			<!-- Right Column: Purchase Order Form -->
@@ -108,6 +120,16 @@
 								<v-icon size="20">mdi-cart-outline</v-icon>
 								{{ __("Items") }} (<bdi>{{ purchaseItems.length }}</bdi>)
 							</h4>
+							<v-btn
+								size="x-small"
+								variant="outlined"
+								color="primary"
+								prepend-icon="mdi-plus"
+								class="font-weight-bold"
+								@click="activeMobileTab = 'browse'"
+							>
+								{{ __("Add Item") }}
+							</v-btn>
 						</div>
 
 						<!-- Empty State when no items are present -->
@@ -119,9 +141,19 @@
 							<div class="text-subtitle-1 font-weight-bold text-medium-emphasis">
 								{{ __("No items added yet") }}
 							</div>
-							<div class="text-body-2 text-disabled max-w-sm mt-1">
+							<div class="text-body-2 text-disabled max-w-sm mt-1 mb-3">
 								{{ __("Select items from the product browser to start the purchase order.") }}
 							</div>
+							<v-btn
+								size="small"
+								variant="tonal"
+								color="primary"
+								prepend-icon="mdi-view-grid-outline"
+								class="font-weight-bold"
+								@click="activeMobileTab = 'browse'"
+							>
+								{{ __("Browse Items") }}
+							</v-btn>
 						</div>
 
 						<!-- Items Table Section -->
@@ -375,6 +407,88 @@ export default {
 		const pos_profile = ref({});
 		const receiveNow = ref(false);
 
+		// Splitter Resizing State & Methods
+		const STORAGE_KEY = "purchase_workspace_split_width";
+		const DEFAULT_RATIO = 43; // 43% browser, 57% order
+		const splitRatio = ref(DEFAULT_RATIO);
+		const isResizing = ref(false);
+
+		// Load saved split ratio from localStorage
+		try {
+			const saved = localStorage.getItem(STORAGE_KEY);
+			if (saved) {
+				const parsed = parseFloat(saved);
+				if (!isNaN(parsed) && parsed >= 25 && parsed <= 70) {
+					splitRatio.value = parsed;
+				}
+			}
+		} catch (e) {
+			console.warn("Could not read split ratio from localStorage", e);
+		}
+
+		const browserColumnStyle = computed(() => {
+			if (window.innerWidth < 1280) return {};
+			return {
+				flex: `0 0 ${splitRatio.value}%`,
+				maxWidth: `calc(100% - 650px)`,
+			};
+		});
+
+		const startResizing = (e) => {
+			e.preventDefault();
+			isResizing.value = true;
+			document.body.style.cursor = "col-resize";
+			document.body.style.userSelect = "none";
+
+			const onMouseMove = (moveEvent) => {
+				if (!isResizing.value) return;
+				const clientX = moveEvent.touches ? moveEvent.touches[0].clientX : moveEvent.clientX;
+				const containerWidth = window.innerWidth;
+				if (containerWidth <= 0) return;
+
+				let newRatio = (clientX / containerWidth) * 100;
+
+				// Min width constraints: Product Browser min 440px, Purchase Order min 650px
+				const minBrowserRatio = (440 / containerWidth) * 100;
+				const maxBrowserRatio = ((containerWidth - 650) / containerWidth) * 100;
+
+				newRatio = Math.max(minBrowserRatio, Math.min(maxBrowserRatio, newRatio));
+				splitRatio.value = Math.round(newRatio * 10) / 10;
+			};
+
+			const stopResizing = () => {
+				if (!isResizing.value) return;
+				isResizing.value = false;
+				document.body.style.cursor = "";
+				document.body.style.userSelect = "";
+
+				window.removeEventListener("mousemove", onMouseMove);
+				window.removeEventListener("mouseup", stopResizing);
+				window.removeEventListener("touchmove", onMouseMove);
+				window.removeEventListener("touchend", stopResizing);
+
+				try {
+					localStorage.setItem(STORAGE_KEY, splitRatio.value.toString());
+				} catch (err) {
+					console.warn("Could not save split ratio to localStorage", err);
+				}
+			};
+
+			window.addEventListener("mousemove", onMouseMove);
+			window.addEventListener("mouseup", stopResizing);
+			window.addEventListener("touchmove", onMouseMove, { passive: true });
+			window.addEventListener("touchend", stopResizing);
+		};
+
+		const resetSplitRatio = () => {
+			splitRatio.value = DEFAULT_RATIO;
+			try {
+				localStorage.setItem(STORAGE_KEY, DEFAULT_RATIO.toString());
+			} catch (err) {
+				console.warn("Could not reset split ratio in localStorage", err);
+			}
+		};
+
 		const {
 			purchaseItems,
 			purchaseOrderName,
@@ -499,6 +613,12 @@ export default {
 		};
 
 		const clearPurchaseForm = () => {
+			const hasData = supplier.value || purchaseItems.value.length > 0;
+			if (hasData) {
+				if (!confirm(__("Are you sure you want to clear the purchase order? All unsaved items and details will be lost."))) {
+					return;
+				}
+			}
 			resetForm();
 			purchaseOrderProgress.value = {};
 		};
@@ -768,6 +888,9 @@ export default {
 
 		return {
 			activeMobileTab,
+			browserColumnStyle,
+			startResizing,
+			resetSplitRatio,
 			loadedSubmittedOrder,
 			pos_profile,
 			receiveNow,
@@ -902,19 +1025,45 @@ export default {
 	overflow: hidden;
 }
 
+/* === Browse Column (Left) 45% === */
 .purchase-layout-column--browse {
-	flex: 0 0 41%;
+	flex: 0 0 45%;
+	min-width: 420px;
 	height: 100%;
 	border-inline-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 	min-height: 0;
 	overflow: hidden;
+	display: flex;
+	flex-direction: column;
 }
 
+/* Override ItemsSelector's JS-computed inline height inside purchase context */
+/* The ItemsSelector sets inline height/maxHeight via selectorCardStyle, we reset it */
+.purchase-layout-column--browse :deep(.items-selector-shell) {
+	height: 100% !important;
+	max-height: 100% !important;
+	min-height: 0 !important;
+	flex: 1 1 0 !important;
+	overflow: hidden !important;
+}
+
+.purchase-layout-column--browse :deep(.selection-card) {
+	height: 100% !important;
+	max-height: 100% !important;
+	min-height: 0 !important;
+	overflow: hidden !important;
+	margin-top: 0 !important;
+}
+
+/* === Order Column (Right) 55% === */
 .purchase-layout-column--order {
-	flex: 1 1 59%;
+	flex: 1 1 55%;
+	min-width: 520px;
 	height: 100%;
 	min-height: 0;
 	overflow: hidden;
+	display: flex;
+	flex-direction: column;
 }
 
 /* ===== TABLET & MOBILE (< 1280px) ===== */
@@ -943,10 +1092,18 @@ export default {
 	.purchase-layout-column--browse,
 	.purchase-layout-column--order {
 		flex: none;
+		min-width: 0;
 		width: 100%;
 		height: auto;
 		overflow: visible;
 		border-inline-end: none;
+	}
+
+	/* On mobile, restore ItemsSelector natural height flow */
+	.purchase-layout-column--browse :deep(.items-selector-shell),
+	.purchase-layout-column--browse :deep(.selection-card) {
+		height: auto !important;
+		max-height: none !important;
 	}
 
 	.mobile-pane-hidden {
@@ -964,9 +1121,20 @@ export default {
 	border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
-/* ===== PURCHASE ORDER CARD ===== */
+/* ===== PURCHASE ORDER CARD - Flex column to fill right column ===== */
 .purchase-order-card {
 	border-radius: 0 !important;
+	height: 100% !important;
+	display: flex !important;
+	flex-direction: column !important;
+}
+
+/* Override Vuetify's v-card-text flex to let it scroll */
+.purchase-order-card :deep(.v-card-text) {
+	flex: 1 1 0 !important;
+	min-height: 0 !important;
+	overflow-y: auto !important;
+	overflow-x: hidden !important;
 }
 
 .purchase-order-header {
@@ -987,10 +1155,13 @@ export default {
 	flex-shrink: 0;
 }
 
-/* ===== EMPTY STATE ===== */
+/* ===== EMPTY STATE - Cap height to avoid filling the screen ===== */
 .purchase-empty-state {
 	border: 2px dashed rgba(var(--v-border-color), var(--v-border-opacity));
 	border-radius: 12px;
+	min-height: 180px;
+	max-height: 280px;
+	padding: 24px !important;
 }
 
 .max-w-sm {
@@ -1003,10 +1174,15 @@ export default {
 	border: 1px solid rgba(var(--v-theme-primary), 0.15) !important;
 }
 
-/* ===== ACTION BAR ===== */
+/* ===== ACTION BAR - sticky inside right column ===== */
 .purchase-action-bar {
 	flex-shrink: 0;
-	background: rgba(var(--v-theme-surface-variant), 0.3);
+	position: sticky;
+	bottom: 0;
+	z-index: 5;
+	background: rgba(var(--v-theme-surface), 1);
+	border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+	box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
 }
 
 /* ===== MISC ===== */

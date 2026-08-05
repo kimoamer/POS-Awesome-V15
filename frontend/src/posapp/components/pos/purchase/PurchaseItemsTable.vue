@@ -16,10 +16,22 @@
 				</template>
 
 				<template v-slot:item.item_name="{ item }">
-					<div class="py-1">
-						<div class="font-weight-bold"><bdi>{{ item.item_name }}</bdi></div>
-						<div class="text-caption text-medium-emphasis">
-							<bdi>{{ item.item_code }}</bdi>
+					<div class="d-flex align-center ga-3 py-1">
+						<v-avatar size="42" rounded="lg" color="grey-lighten-4" class="border flex-shrink-0">
+							<v-img
+								v-if="item.image"
+								:src="item.image"
+								cover
+							/>
+							<v-icon v-else icon="mdi-package-variant-closed" color="medium-emphasis" size="24" />
+						</v-avatar>
+						<div class="min-w-0">
+							<div class="font-weight-bold text-truncate" :title="item.item_name">
+								<bdi>{{ item.item_name }}</bdi>
+							</div>
+							<div class="text-caption text-medium-emphasis">
+								SKU: <bdi>{{ item.item_code }}</bdi>
+							</div>
 						</div>
 					</div>
 				</template>
