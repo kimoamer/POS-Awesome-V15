@@ -11,6 +11,10 @@
 				hide-default-footer
 				:items-per-page="-1"
 			>
+				<template v-slot:item.index="{ index }">
+					<span class="text-caption font-weight-bold text-medium-emphasis"><bdi>{{ index + 1 }}</bdi></span>
+				</template>
+
 				<template v-slot:item.item_name="{ item }">
 					<div class="py-1">
 						<div class="font-weight-bold"><bdi>{{ item.item_name }}</bdi></div>

@@ -1,31 +1,33 @@
 <template>
 	<div class="purchase-orders-page pa-0 h-100">
-		<!-- Mobile/Tablet Responsive Tab Switcher (< 1200px) -->
-		<div class="purchase-mobile-tabs d-lg-none mb-2 px-2 pt-2">
-			<v-btn-toggle v-model="activeMobileTab" mandatory class="mobile-pane-toggle" block>
-				<v-btn value="browse" class="mobile-pane-btn">
-					<v-icon start size="18">mdi-format-list-bulleted-type</v-icon>
-					{{ __("Browse Products") }}
-				</v-btn>
-				<v-btn value="order" class="mobile-pane-btn">
-					<v-icon start size="18">mdi-cart-outline</v-icon>
-					{{ __("Purchase Order") }}
-					<v-badge
-						v-if="purchaseItems.length"
-						:content="purchaseItems.length"
-						color="primary"
-						inline
-						class="ml-1"
-					/>
-				</v-btn>
-			</v-btn-toggle>
+		<!-- Tablet & Mobile Tab Switcher (< 1200px) -->
+		<div class="purchase-mobile-tabs">
+			<div class="mobile-pane-toggle-wrapper">
+				<v-btn-toggle v-model="activeMobileTab" mandatory class="mobile-pane-toggle" rounded="pill">
+					<v-btn value="browse" class="mobile-pane-btn" prepend-icon="mdi-view-grid-outline">
+						{{ __("Browse") }}
+					</v-btn>
+					<v-btn value="order" class="mobile-pane-btn" prepend-icon="mdi-cart-outline">
+						{{ __("Order") }}
+						<v-chip
+							v-if="purchaseItems.length"
+							size="x-small"
+							color="primary"
+							class="font-weight-bold ml-1"
+							variant="flat"
+						>
+							<bdi>{{ purchaseItems.length }}</bdi>
+						</v-chip>
+					</v-btn>
+				</v-btn-toggle>
+			</div>
 		</div>
 
-		<div class="purchase-layout-grid">
-			<!-- Left Column: Item Selector -->
+		<div class="purchase-layout-grid" :class="{ 'has-bottom-bar': activeMobileTab === 'browse' && purchaseItems.length > 0 }">
+			<!-- Left Column: Item Selector (Product Browser) -->
 			<div
 				class="purchase-layout-column purchase-layout-column--browse"
-				:class="{ 'd-none d-lg-block': activeMobileTab !== 'browse' }"
+				:class="{ 'mobile-pane-hidden': activeMobileTab !== 'browse' }"
 			>
 				<ItemsSelector context="purchase" @add-item="onAddItem" />
 			</div>
@@ -33,57 +35,52 @@
 			<!-- Right Column: Purchase Order Form -->
 			<div
 				class="purchase-layout-column purchase-layout-column--order"
-				:class="{ 'd-none d-lg-block': activeMobileTab !== 'order' }"
+				:class="{ 'mobile-pane-hidden': activeMobileTab !== 'order' }"
 			>
 				<v-card class="h-100 d-flex flex-column pos-themed-card purchase-order-card" flat>
-					<v-card-title class="py-2 px-4 bg-primary text-white d-flex align-center flex-wrap ga-2">
-						<div class="d-flex align-center ga-2">
-							<v-icon icon="mdi-file-document-edit-outline" />
-							<span class="text-h6 font-weight-bold">{{ __("Create Purchase Order") }}</span>
+					<!-- Compact Header Bar (52-60px) -->
+					<div class="purchase-order-header px-4 py-2 border-b d-flex align-center justify-space-between ga-2">
+						<div class="d-flex align-center ga-2 flex-wrap">
+							<div class="purchase-header-icon-box">
+								<v-icon icon="mdi-file-document-edit-outline" color="primary" />
+							</div>
+							<span class="text-h6 font-weight-bold text-primary">
+								{{ purchaseOrderName || __("New Purchase Order") }}
+							</span>
+							<v-chip
+								v-if="loadedSubmittedOrder"
+								size="small"
+								color="success"
+								variant="tonal"
+								class="font-weight-bold"
+							>
+								{{ __("Submitted") }}
+							</v-chip>
+							<v-chip
+								v-else
+								size="small"
+								color="warning"
+								variant="tonal"
+								class="font-weight-bold"
+							>
+								{{ __("Draft") }}
+							</v-chip>
 						</div>
-						<v-chip
-							v-if="purchaseOrderName"
-							size="small"
-							color="white"
-							variant="tonal"
-							prepend-icon="mdi-file-document-outline"
-							class="font-weight-bold"
-						>
-							<bdi>{{ purchaseOrderName }}</bdi>
-						</v-chip>
-						<v-chip
-							v-if="loadedSubmittedOrder"
-							size="small"
-							color="success"
-							variant="flat"
-							class="font-weight-bold"
-						>
-							{{ __("Submitted") }}
-						</v-chip>
-						<v-chip
-							v-else-if="purchaseOrderName"
-							size="small"
-							color="warning"
-							variant="flat"
-							class="font-weight-bold"
-						>
-							{{ __("Draft") }}
-						</v-chip>
-
-						<v-spacer></v-spacer>
 
 						<v-btn
-							icon="mdi-delete-outline"
-							variant="text"
-							color="white"
+							variant="outlined"
+							color="error"
+							size="small"
+							prepend-icon="mdi-delete-outline"
+							class="font-weight-bold border-error"
 							@click="clearPurchaseForm"
-							:title="__('Clear All')"
-							:aria-label="__('Clear all purchase order items')"
-						></v-btn>
-					</v-card-title>
+						>
+							{{ __("Clear") }}
+						</v-btn>
+					</div>
 
 					<v-card-text class="flex-grow-1 overflow-y-auto pa-4">
-						<!-- Header Section -->
+						<!-- Header Section (Supplier, Warehouse, Dates, Switches) -->
 						<PurchaseHeader
 							v-model:supplier="supplier"
 							v-model:warehouse="warehouse"
@@ -105,17 +102,25 @@
 
 						<v-divider class="my-4"></v-divider>
 
+						<!-- Section Title -->
+						<div class="d-flex align-center justify-space-between mb-2">
+							<h4 class="text-subtitle-1 font-weight-bold text-primary d-flex align-center ga-1 mb-0">
+								<v-icon size="20">mdi-cart-outline</v-icon>
+								{{ __("Items") }} (<bdi>{{ purchaseItems.length }}</bdi>)
+							</h4>
+						</div>
+
 						<!-- Empty State when no items are present -->
 						<div
 							v-if="!purchaseItems.length"
-							class="purchase-empty-state d-flex flex-column align-center justify-center text-center py-6 px-4"
+							class="purchase-empty-state d-flex flex-column align-center justify-center text-center py-6 px-4 my-2"
 						>
 							<v-icon size="48" color="medium-emphasis" class="mb-2">mdi-cart-off</v-icon>
 							<div class="text-subtitle-1 font-weight-bold text-medium-emphasis">
-								{{ __("No items in Purchase Order") }}
+								{{ __("No items added yet") }}
 							</div>
 							<div class="text-body-2 text-disabled max-w-sm mt-1">
-								{{ __("Select products from the products catalog to start a purchase order.") }}
+								{{ __("Select items from the product browser to start the purchase order.") }}
 							</div>
 						</div>
 
@@ -138,86 +143,160 @@
 						<v-alert v-if="errorMessage" type="error" density="compact" class="mt-4">
 							{{ errorMessage }}
 						</v-alert>
-					</v-card-text>
 
-					<!-- Bottom Action Bar & Totals -->
-					<div class="purchase-action-bar">
-						<div class="purchase-action-bar__totals">
-							<span class="purchase-action-bar__label">{{ __("Total Amount") }}</span>
-							<strong>
-								<bdi>{{ currencySymbol(priceListCurrency || supplierCurrency) }}</bdi>
-								<bdi>{{ formatCurrency(totalAmount) }}</bdi>
-							</strong>
-							<span class="purchase-action-bar__meta">
-								<bdi>{{ purchaseItems.length }}</bdi> {{ __("items") }} &middot;
-								<bdi>{{ formatNumber(totalQty) }}</bdi> {{ __("qty") }}
-							</span>
-						</div>
-
-						<div class="purchase-action-bar__buttons">
-							<v-row dense>
-								<v-col cols="6" sm="3">
-									<v-btn
-										block
-										height="44"
-										variant="tonal"
-										color="warning"
-										prepend-icon="mdi-content-save-outline"
-										class="purchase-summary-btn purchase-action-btn--save font-weight-bold"
-										@click="saveDraft"
-										:loading="draftSaveLoading"
-										:disabled="saveAndClearDisabled"
-									>
-										{{ __("Save & Clear") }}
-									</v-btn>
+						<!-- Summary Card -->
+						<div class="purchase-summary-card mt-4 pa-3 border rounded-lg">
+							<v-row dense class="align-center">
+								<v-col cols="4" class="text-center border-e">
+									<div class="text-caption text-muted">{{ __("Items Count") }}</div>
+									<div class="text-h6 font-weight-bold text-primary">
+										<bdi>{{ purchaseItems.length }}</bdi>
+									</div>
 								</v-col>
-								<v-col cols="6" sm="3">
-									<v-btn
-										block
-										height="44"
-										variant="tonal"
-										color="info"
-										prepend-icon="mdi-file-document-multiple-outline"
-										class="purchase-summary-btn purchase-action-btn--drafts font-weight-bold"
-										@click="draftDialog = true"
-										:disabled="submitLoading || draftSaveLoading"
-									>
-										{{ __("Drafts") }}
-									</v-btn>
+								<v-col cols="4" class="text-center border-e">
+									<div class="text-caption text-muted">{{ __("Total Quantity") }}</div>
+									<div class="text-h6 font-weight-bold text-primary">
+										<bdi>{{ formatNumber(totalQty) }}</bdi>
+									</div>
 								</v-col>
-								<v-col cols="6" sm="3">
-									<v-btn
-										block
-										height="44"
-										variant="tonal"
-										color="secondary"
-										prepend-icon="mdi-folder-search-outline"
-										class="purchase-summary-btn purchase-action-btn--management font-weight-bold"
-										@click="managementDialog = true"
-										:disabled="submitLoading || draftSaveLoading"
-									>
-										{{ __("Purchase Mgmt") }}
-									</v-btn>
-								</v-col>
-								<v-col cols="6" sm="3">
-									<v-btn
-										block
-										height="44"
-										color="success"
-										variant="flat"
-										prepend-icon="mdi-credit-card-outline"
-										class="purchase-summary-btn purchase-action-btn--pay font-weight-bold"
-										:loading="submitLoading"
-										:disabled="submitLoading || !purchaseItems.length"
-										@click="openPaymentDialog"
-									>
-										{{ __("PAY") }}
-									</v-btn>
+								<v-col cols="4" class="text-center">
+									<div class="text-caption text-muted">{{ __("Grand Total") }}</div>
+									<div class="text-h6 font-weight-bold text-success">
+										<bdi>{{ currencySymbol(priceListCurrency || supplierCurrency) }}</bdi>
+										<bdi>{{ formatCurrency(totalAmount) }}</bdi>
+									</div>
 								</v-col>
 							</v-row>
 						</div>
+					</v-card-text>
+
+					<!-- Footer Action Bar -->
+					<div class="purchase-action-bar pa-3 border-t">
+						<div class="d-flex align-center justify-space-between flex-wrap ga-2 w-100">
+							<div class="d-flex align-center ga-2 flex-wrap">
+								<v-btn
+									variant="outlined"
+									color="primary"
+									size="small"
+									prepend-icon="mdi-file-document-multiple-outline"
+									class="font-weight-bold"
+									@click="draftDialog = true"
+									:disabled="submitLoading || draftSaveLoading"
+								>
+									{{ __("Drafts") }}
+								</v-btn>
+								<v-btn
+									variant="outlined"
+									color="secondary"
+									size="small"
+									prepend-icon="mdi-folder-search-outline"
+									class="font-weight-bold"
+									@click="managementDialog = true"
+									:disabled="submitLoading || draftSaveLoading"
+								>
+									{{ __("Purchase Management") }}
+								</v-btn>
+								<v-btn
+									variant="outlined"
+									color="error"
+									size="small"
+									prepend-icon="mdi-delete-outline"
+									class="font-weight-bold"
+									@click="clearPurchaseForm"
+								>
+									{{ __("Clear") }}
+								</v-btn>
+							</div>
+
+							<div class="d-flex align-center ga-2 flex-wrap">
+								<v-btn
+									variant="outlined"
+									color="primary"
+									size="small"
+									prepend-icon="mdi-content-save-outline"
+									class="font-weight-bold"
+									@click="saveDraft"
+									:loading="draftSaveLoading"
+									:disabled="saveAndClearDisabled"
+								>
+									{{ __("Save & Clear") }}
+								</v-btn>
+								<v-btn
+									color="primary"
+									variant="flat"
+									size="small"
+									prepend-icon="mdi-credit-card-outline"
+									class="font-weight-bold px-4"
+									:loading="submitLoading"
+									:disabled="submitLoading || !purchaseItems.length"
+									@click="openPaymentDialog"
+								>
+									{{ __("Pay") }}
+								</v-btn>
+							</div>
+						</div>
 					</div>
 				</v-card>
+			</div>
+		</div>
+
+		<!-- Tablet & Mobile Bottom Order Summary Bar (In Browse View) -->
+		<div
+			v-if="activeMobileTab === 'browse' && purchaseItems.length"
+			class="purchase-bottom-summary-bar d-lg-none pa-3 border-t bg-surface"
+		>
+			<div class="d-flex align-center justify-space-between ga-2 flex-wrap">
+				<div class="d-flex align-center ga-3">
+					<v-badge :content="purchaseItems.length" color="primary" inline>
+						<v-avatar color="primary-container" size="42" class="border">
+							<v-icon color="primary" size="24">mdi-cart-outline</v-icon>
+						</v-avatar>
+					</v-badge>
+					<div>
+						<div class="font-weight-bold text-subtitle-2">{{ __("Purchase Order in progress") }}</div>
+						<div class="text-caption text-medium-emphasis">
+							<bdi>{{ purchaseItems.length }}</bdi> {{ __("items added") }}
+						</div>
+					</div>
+				</div>
+
+				<div class="d-flex align-center ga-4">
+					<div class="text-right d-none d-sm-block border-e pe-4">
+						<div class="text-caption text-muted">{{ __("Total Quantity") }}</div>
+						<div class="font-weight-bold text-subtitle-1"><bdi>{{ formatNumber(totalQty) }}</bdi></div>
+					</div>
+
+					<div class="text-right">
+						<div class="text-caption text-muted">{{ __("Grand Total") }}</div>
+						<div class="font-weight-bold text-subtitle-1 text-primary">
+							<bdi>{{ currencySymbol(priceListCurrency || supplierCurrency) }}</bdi>
+							<bdi>{{ formatCurrency(totalAmount) }}</bdi>
+						</div>
+					</div>
+
+					<div class="d-flex align-center ga-2">
+						<v-btn
+							variant="outlined"
+							color="primary"
+							size="small"
+							prepend-icon="mdi-cart-outline"
+							class="font-weight-bold d-none d-sm-inline-flex"
+							@click="activeMobileTab = 'order'"
+						>
+							{{ __("View Order") }} (<bdi>{{ purchaseItems.length }}</bdi>)
+						</v-btn>
+						<v-btn
+							color="primary"
+							variant="flat"
+							size="small"
+							append-icon="mdi-arrow-right"
+							class="font-weight-bold"
+							@click="activeMobileTab = 'order'"
+						>
+							{{ __("Order") }} <bdi>{{ purchaseItems.length }}</bdi>
+						</v-btn>
+					</div>
+				</div>
 			</div>
 		</div>
 
@@ -743,16 +822,17 @@ export default {
 		},
 		itemHeaders() {
 			const h = [
+				{ title: "#", key: "index", align: "center", width: "40px" },
 				{ title: __("Item"), key: "item_name", align: "start", width: "35%" },
 				{ title: __("UOM"), key: "uom", align: "center", width: "15%" },
 				{ title: __("Qty"), key: "qty", align: "center", width: "15%" },
 				{ title: __("Rate"), key: "rate", align: "center", width: "15%" },
 			];
 			if (this.receiveNow)
-				h.push({ title: __("Received"), key: "received_qty", align: "center", width: "10%" });
+				h.push({ title: __("Received Qty"), key: "received_qty", align: "center", width: "10%" });
 			h.push(
 				{ title: __("Amount"), key: "amount", align: "end", width: "10%" },
-				{ title: "", key: "actions", align: "center", width: "50px" },
+				{ title: __("Actions"), key: "actions", align: "center", width: "60px" },
 			);
 			return h;
 		},
@@ -769,147 +849,169 @@ export default {
 </script>
 
 <style scoped>
-.cursor-pointer {
-	cursor: pointer;
-}
-
-.purchase-action-bar {
+/* ===== PAGE WRAPPER ===== */
+.purchase-orders-page {
 	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 16px;
-	padding: 16px;
-	border-top: 1px solid var(--pos-border);
-	background: color-mix(in srgb, var(--pos-surface-raised) 94%, rgb(var(--v-theme-primary)) 6%);
-}
-
-.purchase-action-bar__totals {
-	display: grid;
-	gap: 2px;
-	min-width: 210px;
-}
-
-.purchase-action-bar__label,
-.purchase-action-bar__meta {
-	font-size: 0.78rem;
-	color: var(--pos-text-muted);
-}
-
-.purchase-action-bar__totals strong {
-	font-size: 1.25rem;
-	line-height: 1.2;
-	color: var(--pos-text-primary);
-}
-
-.purchase-action-bar__buttons {
-	flex: 0 0 min(442px, 42vw);
-	margin: 0;
-	margin-inline-start: auto;
-}
-
-.purchase-action-bar__buttons :deep(.v-col) {
-	padding-top: 4px;
-	padding-bottom: 4px;
-}
-
-.purchase-summary-btn {
-	min-height: 46px !important;
-	text-transform: none !important;
-	transition: all 0.2s ease !important;
-	position: relative;
+	flex-direction: column;
 	overflow: hidden;
-	border-radius: 4px !important;
-	color: #fff !important;
+	height: 100%;
+	width: 100%;
+}
+
+/* ===== MOBILE/TABLET TAB SWITCHER (hidden on desktop) ===== */
+.purchase-mobile-tabs {
+	display: none;
+	height: 56px;
+	min-height: 56px;
+	align-items: center;
+	justify-content: center;
+	background: rgba(var(--v-theme-surface), 1);
+	border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+	flex-shrink: 0;
+}
+
+.mobile-pane-toggle-wrapper {
+	display: flex;
+	justify-content: center;
+	width: 100%;
+	max-width: 420px;
+}
+
+.mobile-pane-toggle {
+	border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+	padding: 3px;
+	height: 40px !important;
+}
+
+.mobile-pane-btn {
+	min-width: 130px !important;
+	height: 34px !important;
+	border-radius: 20px !important;
+	font-weight: 700 !important;
+	font-size: 13px !important;
+	text-transform: none !important;
 	letter-spacing: 0 !important;
 }
 
-.purchase-summary-btn :deep(.v-btn__content) {
-	white-space: normal !important;
-	transition: all 0.2s ease;
-	color: #fff !important;
-	font-weight: 700;
-	opacity: 1 !important;
+/* ===== DESKTOP SPLIT VIEW (>= 1280px) ===== */
+.purchase-layout-grid {
+	display: flex;
+	flex: 1 1 0;
+	min-height: 0;
+	width: 100%;
+	overflow: hidden;
 }
 
-.purchase-summary-btn :deep(.v-btn__prepend) {
-	color: #fff !important;
-	opacity: 1 !important;
+.purchase-layout-column--browse {
+	flex: 0 0 41%;
+	height: 100%;
+	border-inline-end: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+	min-height: 0;
+	overflow: hidden;
 }
 
-.purchase-action-btn--save {
-	background: #ff6333 !important;
-	box-shadow: 0 2px 8px rgba(255, 99, 51, 0.28) !important;
+.purchase-layout-column--order {
+	flex: 1 1 59%;
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
 }
 
-.purchase-action-btn--drafts {
-	background: #ffc107 !important;
-	box-shadow: 0 2px 8px rgba(255, 193, 7, 0.25) !important;
-}
-
-.purchase-action-btn--management {
-	background: #673ab7 !important;
-	box-shadow: 0 2px 8px rgba(103, 58, 183, 0.25) !important;
-}
-
-.purchase-action-btn--pay {
-	background: linear-gradient(135deg, #4caf50, #45a049) !important;
-	box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
-}
-
-.purchase-summary-btn.v-btn--disabled {
-	opacity: 0.72 !important;
-}
-
-.purchase-summary-btn.v-btn--disabled :deep(.v-btn__overlay) {
-	opacity: 0 !important;
-}
-
-.purchase-summary-btn:hover {
-	transform: translateY(-1px);
-	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
-}
-
-.purchase-summary-btn:active {
-	transform: translateY(0);
-}
-
-.purchase-pay-btn {
-	min-height: 58px !important;
-	font-weight: 600 !important;
-	font-size: 1.1rem !important;
-}
-
-.purchase-pay-btn:hover {
-	background: linear-gradient(135deg, #45a049, #3d8b40) !important;
-	box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4) !important;
-	transform: translateY(-2px);
-}
-
-.purchase-summary-btn :deep(.v-btn__overlay),
-.purchase-summary-btn :deep(.v-btn__underlay) {
-	display: none !important;
-}
-
-@media (max-width: 720px) {
-	.purchase-action-bar {
-		align-items: stretch;
-		flex-direction: column;
+/* ===== TABLET & MOBILE (< 1280px) ===== */
+@media (max-width: 1279px) {
+	.purchase-orders-page {
+		height: calc(100dvh - 52px);
 	}
 
-	.purchase-action-bar__buttons {
-		flex: 1 1 auto;
+	.purchase-mobile-tabs {
+		display: flex;
+	}
+
+	.purchase-layout-grid {
+		display: block;
+		flex: 1 1 0;
+		height: auto;
+		min-height: 0;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	.purchase-layout-grid.has-bottom-bar {
+		padding-bottom: 80px;
+	}
+
+	.purchase-layout-column--browse,
+	.purchase-layout-column--order {
+		flex: none;
 		width: 100%;
-		margin-inline-start: 0;
+		height: auto;
+		overflow: visible;
+		border-inline-end: none;
 	}
 
-	.purchase-summary-btn {
-		min-height: 42px !important;
-		font-size: 0.85rem !important;
+	.mobile-pane-hidden {
+		display: none;
 	}
+}
 
-	.purchase-pay-btn {
-		min-height: 50px !important;
-		font-size: 0.98rem !important;
-	}
+/* ===== BOTTOM SUMMARY BAR ===== */
+.purchase-bottom-summary-bar {
+	position: sticky;
+	bottom: 0;
+	z-index: 10;
+	background: rgba(var(--v-theme-surface), 1);
+	box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+	border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+/* ===== PURCHASE ORDER CARD ===== */
+.purchase-order-card {
+	border-radius: 0 !important;
+}
+
+.purchase-order-header {
+	height: 56px;
+	min-height: 56px;
+	flex-shrink: 0;
+	border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.purchase-header-icon-box {
+	width: 34px;
+	height: 34px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 8px;
+	background: rgba(var(--v-theme-primary), 0.1);
+	flex-shrink: 0;
+}
+
+/* ===== EMPTY STATE ===== */
+.purchase-empty-state {
+	border: 2px dashed rgba(var(--v-border-color), var(--v-border-opacity));
+	border-radius: 12px;
+}
+
+.max-w-sm {
+	max-width: 380px;
+}
+
+/* ===== SUMMARY CARD ===== */
+.purchase-summary-card {
+	background: rgba(var(--v-theme-primary), 0.04);
+	border: 1px solid rgba(var(--v-theme-primary), 0.15) !important;
+}
+
+/* ===== ACTION BAR ===== */
+.purchase-action-bar {
+	flex-shrink: 0;
+	background: rgba(var(--v-theme-surface-variant), 0.3);
+}
+
+/* ===== MISC ===== */
+.cursor-pointer {
+	cursor: pointer;
 }
 </style>
+
