@@ -111,27 +111,17 @@
 							@search-supplier="handleSupplierSearch"
 							@create-supplier="supplierDialog = true"
 						/>
+
+						<!-- Ultra Compact Pinned Items Strip -->
+						<div class="purchase-items-compact-bar px-4 py-1 d-flex align-center ga-1 border-t text-primary">
+							<v-icon size="16" color="primary">mdi-cart-outline</v-icon>
+							<span class="font-weight-bold text-caption text-primary">
+								{{ __("Items") }} (<bdi>{{ purchaseItems.length }}</bdi>)
+							</span>
+						</div>
 					</div>
 
-					<div class="purchase-order-body pa-4">
-						<!-- Section Title -->
-						<div class="d-flex align-center justify-space-between mb-2">
-							<h4 class="text-subtitle-1 font-weight-bold text-primary d-flex align-center ga-1 mb-0">
-								<v-icon size="20">mdi-cart-outline</v-icon>
-								{{ __("Items") }} (<bdi>{{ purchaseItems.length }}</bdi>)
-							</h4>
-							<v-btn
-								size="x-small"
-								variant="outlined"
-								color="primary"
-								prepend-icon="mdi-plus"
-								class="font-weight-bold"
-								@click="activeMobileTab = 'browse'"
-							>
-								{{ __("Add Item") }}
-							</v-btn>
-						</div>
-
+					<div class="purchase-order-body pa-3">
 						<!-- Empty State when no items are present -->
 						<div
 							v-if="!purchaseItems.length"
@@ -205,28 +195,39 @@
 					<div class="purchase-order-actions pa-3 border-t">
 						<div class="d-flex align-center justify-space-between flex-wrap ga-2 w-100">
 							<div class="d-flex align-center ga-2 flex-wrap">
-								<v-btn
-									variant="outlined"
-									color="primary"
-									size="small"
-									prepend-icon="mdi-file-document-multiple-outline"
-									class="font-weight-bold"
-									@click="draftDialog = true"
-									:disabled="submitLoading || draftSaveLoading"
-								>
-									{{ __("Drafts") }}
-								</v-btn>
-								<v-btn
-									variant="outlined"
-									color="secondary"
-									size="small"
-									prepend-icon="mdi-folder-search-outline"
-									class="font-weight-bold"
-									@click="managementDialog = true"
-									:disabled="submitLoading || draftSaveLoading"
-								>
-									{{ __("Purchase Management") }}
-								</v-btn>
+								<!-- Options Menu (Drafts & Purchase Management) -->
+								<v-menu location="top start" offset="6">
+									<template #activator="{ props: menuProps }">
+										<v-btn
+											v-bind="menuProps"
+											variant="outlined"
+											color="primary"
+											size="small"
+											icon="mdi-cog-outline"
+											class="rounded-lg"
+											:aria-label="__('Options')"
+											:disabled="submitLoading || draftSaveLoading"
+										/>
+									</template>
+									<v-list density="compact" elevation="3" class="rounded-xl py-1" min-width="210">
+										<v-list-item
+											prepend-icon="mdi-file-document-edit-outline"
+											class="font-weight-medium"
+											@click="draftDialog = true"
+										>
+											<v-list-item-title class="font-weight-bold">{{ __("Drafts") }}</v-list-item-title>
+										</v-list-item>
+										<v-divider class="my-1" />
+										<v-list-item
+											prepend-icon="mdi-inbox-full"
+											class="font-weight-medium"
+											@click="managementDialog = true"
+										>
+											<v-list-item-title class="font-weight-bold">{{ __("Purchase Management") }}</v-list-item-title>
+										</v-list-item>
+									</v-list>
+								</v-menu>
+
 								<v-btn
 									variant="outlined"
 									color="error"
@@ -744,7 +745,7 @@ export default {
 				});
 				if (message?.purchase_order) {
 					const savedName = message.purchase_order;
-					clearPurchaseForm();
+					confirmClearForm();
 					toastStore.show({
 						title: __("Purchase Order {0} saved and cleared", [savedName]),
 						color: "success",
@@ -868,7 +869,7 @@ export default {
 						);
 						window.open(printUrl, "_blank")?.focus();
 					}
-					clearPurchaseForm();
+					confirmClearForm();
 				}
 			} catch (error) {
 				errorMessage.value = extractServerError(error);
@@ -1194,6 +1195,12 @@ export default {
 	border-radius: 8px;
 	background: rgba(var(--v-theme-primary), 0.1);
 	flex-shrink: 0;
+}
+
+.purchase-items-compact-bar {
+	height: 28px;
+	min-height: 28px;
+	background: var(--pos-surface-raised, #ffffff);
 }
 
 .purchase-order-body {

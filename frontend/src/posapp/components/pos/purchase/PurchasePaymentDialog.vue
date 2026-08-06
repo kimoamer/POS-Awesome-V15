@@ -1,210 +1,240 @@
 <template>
-	<v-dialog v-model="dialog" max-width="600px" persistent :fullscreen="$vuetify.display.smAndDown">
-		<v-card class="pos-themed-card d-flex flex-column h-100" style="max-height: 90vh; overflow: hidden">
-			<v-card-title class="bg-primary text-white d-flex align-center py-3">
-				<span class="text-h6 font-weight-bold">{{ __("Payment") }}</span>
-				<v-spacer></v-spacer>
-				<span class="text-subtitle-1 font-weight-bold">
-					<bdi>{{ currencySymbol(currency) }}</bdi> <bdi>{{ formatCurrency(totalAmount) }}</bdi>
-				</span>
-			</v-card-title>
-
-			<v-card-text class="pa-0 overflow-y-auto" style="max-height: 60vh">
-				<!-- Payment Summary -->
-				<v-row v-if="totalAmount > 0" class="pa-3 ma-0" dense>
-					<v-col cols="6">
-						<v-text-field
-							variant="solo"
-							color="primary"
-							:label="frappe._('Paid Amount')"
-							class="sleek-field pos-themed-input"
-							hide-details
-							:model-value="formatCurrency(paidAmount, currency)"
-							readonly
-							:prefix="currencySymbol(currency)"
-							density="compact"
-						></v-text-field>
-					</v-col>
-					<v-col cols="6">
-						<v-text-field
-							variant="solo"
-							color="primary"
-							:label="remainingAmount > 0 ? __('To Be Paid') : __('Change')"
-							class="sleek-field pos-themed-input"
-							hide-details
-							:model-value="formatCurrency(Math.abs(remainingAmount), currency)"
-							:prefix="currencySymbol(currency)"
-							density="compact"
-							readonly
-							:class="remainingAmount > 0 ? 'text-error' : 'text-success'"
-						></v-text-field>
-					</v-col>
-				</v-row>
-
-				<v-divider class="mx-3"></v-divider>
-
-				<!-- Payment Inputs -->
-				<div class="pa-3">
-					<v-row
-						v-for="(payment, index) in paymentLines"
-						:key="payment.mode_of_payment"
-						class="payments pa-1 ma-0 align-center"
-						dense
-					>
-						<v-col cols="6">
-							<v-text-field
-								density="compact"
-								variant="solo"
-								color="primary"
-								:label="frappe._(payment.mode_of_payment)"
-								class="sleek-field pos-themed-input"
-								hide-details
-								:model-value="formatCurrency(payment.amount, currency)"
-								@change="handlePaymentAmountChange(payment, $event)"
-								:prefix="currencySymbol(currency)"
-								@focus="set_rest_amount(payment)"
-								inputmode="decimal"
-							></v-text-field>
-						</v-col>
-						<v-col cols="6">
-							<v-btn
-								block
-								color="primary"
-								theme="dark"
-								class="payment-method-btn"
-								@click="set_full_amount(payment)"
-								size="small"
-							>
-								{{ payment.mode_of_payment }}
-							</v-btn>
-						</v-col>
-
-						<!-- Cash Denomination Buttons -->
-						<v-col
-							cols="12"
-							v-if="isCashLikePayment(payment) && getVisibleDenominations(payment).length"
-							class="py-0 px-2 mt-2 mb-2"
-						>
-							<div class="d-flex flex-wrap gap-2">
-								<v-btn
-									v-for="d in getVisibleDenominations(payment)"
-									:key="d"
-									size="x-small"
-									class="mr-1 mb-1"
-									color="secondary"
-									variant="tonal"
-									@click="setPaymentToDenomination(payment, d)"
-								>
-									{{ formatCurrency(d, currency) }}
-								</v-btn>
-							</div>
-						</v-col>
-					</v-row>
+	<v-dialog v-model="dialog" max-width="740" persistent :fullscreen="$vuetify.display.smAndDown">
+		<v-card class="purchase-payment-modal rounded-xl">
+			<!-- Modal Header Title & Total Due -->
+			<div class="purchase-payment-modal__header px-4 pt-3 pb-2 border-b d-flex align-center justify-space-between">
+				<div class="d-flex align-center ga-2">
+					<div class="purchase-payment-header-icon">
+						<v-icon color="white" icon="mdi-wallet-outline" size="18" />
+					</div>
+					<span class="text-subtitle-1 font-weight-bold text-slate-800">
+						{{ __("Payment") }}
+					</span>
 				</div>
 
-				<v-divider class="mx-3"></v-divider>
+				<div class="d-flex align-center ga-3">
+					<div class="text-end">
+						<div class="text-caption text-medium-emphasis font-weight-medium" style="line-height: 1">{{ __("Total Due") }}</div>
+						<div class="text-subtitle-1 font-weight-bold text-teal-dark">
+							<span class="text-caption font-weight-bold me-1">{{ currencySymbol(currency) }}</span>
+							<span>{{ formatAmount(totalAmount) }}</span>
+						</div>
+					</div>
 
-				<!-- Invoice Totals -->
-				<v-row class="pa-3 ma-0" dense>
-					<v-col cols="6">
-						<v-text-field
-							density="compact"
-							variant="solo"
-							color="primary"
-							:label="frappe._('Net Total')"
-							class="sleek-field pos-themed-input"
-							:model-value="formatCurrency(totalAmount, currency)"
-							readonly
-							:prefix="currencySymbol(currency)"
-							hide-details
-						></v-text-field>
-					</v-col>
-					<v-col cols="6">
-						<v-text-field
-							density="compact"
-							variant="solo"
-							color="primary"
-							:label="frappe._('Total Amount')"
-							class="sleek-field pos-themed-input"
-							hide-details
-							:model-value="formatCurrency(totalAmount, currency)"
-							readonly
-							:prefix="currencySymbol(currency)"
-						></v-text-field>
-					</v-col>
-				</v-row>
+					<v-btn
+						icon="mdi-close"
+						variant="text"
+						size="x-small"
+						color="grey-darken-1"
+						:aria-label="__('Close')"
+						@click="close"
+					/>
+				</div>
+			</div>
 
-				<!-- Print Format Selection -->
-				<v-row class="pa-3 ma-0" dense>
-					<v-col cols="12" v-if="createInvoice">
-						<v-switch
-							v-model="printInvoice"
-							density="compact"
-							color="primary"
-							hide-details
-							:label="__('Print Purchase Invoice instead of PO')"
-							class="ma-0 mb-2"
-						></v-switch>
-					</v-col>
-					<v-col cols="12">
-						<v-select
-							v-model="selectedPrintFormat"
-							:items="printFormats"
-							:label="printInvoice ? __('Print Format (Invoice)') : __('Print Format (Order)')"
-							density="compact"
-							variant="solo"
-							color="primary"
-							hide-details
-							class="sleek-field pos-themed-input"
-							clearable
-						></v-select>
-					</v-col>
-				</v-row>
+			<v-card-text class="purchase-payment-modal__body px-4 py-3" style="max-height: min(78vh, 580px); overflow-y: auto;">
+				<!-- Top Stat Cards: Paid Amount & Change / Remaining -->
+				<div class="purchase-payment-stats-grid mb-3">
+					<!-- Paid Amount Card -->
+					<div class="pay-stat-card">
+						<div class="pay-stat-icon pay-stat-icon--blue">
+							<v-icon icon="mdi-wallet-outline" color="#0284c7" size="18" />
+						</div>
+						<div class="pay-stat-info">
+							<span class="pay-stat-label">{{ __("Paid Amount") }}</span>
+							<strong class="pay-stat-value text-blue-dark">
+								<span class="text-caption font-weight-bold me-1">{{ currencySymbol(currency) }}</span>
+								<span>{{ formatAmount(paidAmount) }}</span>
+							</strong>
+						</div>
+					</div>
+
+					<!-- Change / To Be Paid Card -->
+					<div class="pay-stat-card">
+						<div
+							class="pay-stat-icon"
+							:class="remainingAmount > 0 ? 'pay-stat-icon--orange' : 'pay-stat-icon--green'"
+						>
+							<v-icon
+								:icon="remainingAmount > 0 ? 'mdi-cash-clock' : 'mdi-swap-horizontal'"
+								:color="remainingAmount > 0 ? '#ea580c' : '#16a34a'"
+								size="18"
+							/>
+						</div>
+						<div class="pay-stat-info">
+							<span class="pay-stat-label">
+								{{ remainingAmount > 0 ? __("To Be Paid") : __("Change") }}
+							</span>
+							<strong
+								class="pay-stat-value"
+								:class="remainingAmount > 0 ? 'text-orange-dark' : 'text-green-dark'"
+							>
+								<span class="text-caption font-weight-bold me-1">{{ currencySymbol(currency) }}</span>
+								<span>{{ formatAmount(Math.abs(remainingAmount)) }}</span>
+							</strong>
+						</div>
+					</div>
+				</div>
+
+				<!-- Main Payment Columns Grid: Left Amounts Input | Right Payment Methods -->
+				<div class="purchase-payment-methods-grid">
+					<!-- Left Column: Amount Input Fields & Numpad Chips -->
+					<div class="pay-column pay-column--amounts">
+						<label class="pay-section-label mb-1">
+							{{ __("Amount") }} ({{ currencySymbol(currency) }})
+						</label>
+
+						<div class="pay-lines-container">
+							<div
+								v-for="payment in paymentLines"
+								:key="payment.mode_of_payment"
+								class="pay-amount-line-wrapper mb-2"
+							>
+								<!-- Input Box with Currency Prefix -->
+								<div
+									class="pay-amount-input-box"
+									:class="{ 'pay-amount-input-box--active': activeMode === payment.mode_of_payment }"
+									@click="setActivePayment(payment)"
+								>
+									<span class="pay-currency-prefix">{{ currencySymbol(currency) }}</span>
+									<input
+										type="number"
+										min="0"
+										step="any"
+										class="pay-amount-input"
+										:value="payment.amount"
+										@focus="setActivePayment(payment)"
+										@input="handlePaymentAmountChange(payment, $event.target.value)"
+									/>
+								</div>
+
+								<!-- Numpad Chips (Displayed when this mode is active and suggestions exist) -->
+								<div
+									v-if="activeMode === payment.mode_of_payment && getVisibleDenominations(payment).length"
+									class="pay-numpad-chips mt-1 d-flex flex-wrap ga-1"
+								>
+									<button
+										v-for="d in getVisibleDenominations(payment)"
+										:key="d"
+										type="button"
+										class="pay-numpad-chip"
+										:class="{ 'pay-numpad-chip--selected': Number(payment.amount) === Number(d) }"
+										@click.stop="setPaymentToDenomination(payment, d)"
+									>
+										{{ formatAmount(d) }}
+									</button>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Right Column: Payment Method Card Selectors -->
+					<div class="pay-column pay-column--methods">
+						<label class="pay-section-label mb-1">
+							{{ __("Payment Method") }}
+						</label>
+
+						<div class="pay-method-cards-container d-flex flex-column ga-2">
+							<div
+								v-for="payment in paymentLines"
+								:key="payment.mode_of_payment"
+								class="pay-method-card px-3 py-2 border rounded-lg d-flex align-center justify-space-between cursor-pointer"
+								:class="{ 'pay-method-card--active': activeMode === payment.mode_of_payment }"
+								@click="selectPaymentMethodCard(payment)"
+							>
+								<div class="d-flex align-center ga-2">
+									<v-icon
+										:icon="getPaymentMethodIcon(payment.mode_of_payment, payment.type)"
+										size="18"
+										:color="activeMode === payment.mode_of_payment ? '#00838f' : '#64748b'"
+									/>
+									<span
+										class="pay-method-name font-weight-bold text-caption"
+										:class="activeMode === payment.mode_of_payment ? 'text-teal-dark' : 'text-slate-700'"
+									>
+										{{ __ (payment.mode_of_payment) }}
+									</span>
+								</div>
+
+								<!-- Selection Checkmark Circle -->
+								<div class="pay-method-radio">
+									<v-icon
+										v-if="activeMode === payment.mode_of_payment"
+										icon="mdi-check-circle"
+										color="#00838f"
+										size="18"
+									/>
+									<div v-else class="pay-method-radio-unselected"></div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Optional Print Format & Invoice Toggle Section -->
+				<div class="mt-3 pt-2 border-t d-flex flex-column ga-1" v-if="createInvoice || printFormats.length > 1">
+					<v-switch
+						v-if="createInvoice"
+						v-model="printInvoice"
+						density="compact"
+						color="primary"
+						hide-details
+						:label="__('Print Purchase Invoice instead of Order')"
+						class="ma-0 scale-compact-switch"
+					/>
+					<v-select
+						v-if="printFormats.length > 1"
+						v-model="selectedPrintFormat"
+						:items="printFormats"
+						:label="printInvoice ? __('Print Format (Invoice)') : __('Print Format (Order)')"
+						density="compact"
+						variant="outlined"
+						hide-details
+						class="pos-themed-input compact-select"
+					/>
+				</div>
 			</v-card-text>
 
-			<v-card-actions class="pa-4 border-t bg-surface">
-				<v-row align="start" no-gutters class="w-100">
-					<v-col cols="6" class="pr-1">
-						<v-btn
-							block
-							size="large"
-							color="primary"
-							theme="dark"
-							class="submit-btn"
-							@click="submit(false)"
-							:loading="loading"
-							:disabled="loading || !isPaymentValid"
-						>
-							{{ __("Submit") }}
-						</v-btn>
-					</v-col>
-					<v-col cols="6" class="pl-1">
-						<v-btn
-							block
-							size="large"
-							color="success"
-							theme="dark"
-							@click="submit(true)"
-							:loading="loading"
-							:disabled="loading || !isPaymentValid"
-						>
-							{{ __("Submit & Print") }}
-						</v-btn>
-					</v-col>
-					<v-col cols="12" class="mt-2">
-						<v-btn
-							block
-							size="large"
-							color="error"
-							theme="dark"
-							variant="outlined"
-							@click="close"
-						>
-							{{ __("Cancel Payment") }}
-						</v-btn>
-					</v-col>
-				</v-row>
-			</v-card-actions>
+			<!-- Bottom Actions Footer -->
+			<div class="purchase-payment-modal__footer px-4 py-2 border-t d-flex align-center justify-space-between">
+				<v-btn
+					variant="outlined"
+					color="error"
+					size="small"
+					class="rounded-lg font-weight-bold text-none px-4 border-error-light"
+					@click="close"
+				>
+					{{ __("Cancel Payment") }}
+				</v-btn>
+
+				<div class="d-flex align-center ga-2">
+					<v-btn
+						variant="outlined"
+						color="#00838f"
+						size="small"
+						class="rounded-lg font-weight-bold text-none px-4 border-primary-light"
+						prepend-icon="mdi-printer-outline"
+						:loading="loading"
+						:disabled="loading || !isPaymentValid"
+						@click="submit(true)"
+					>
+						{{ __("Submit & Print") }}
+					</v-btn>
+
+					<v-btn
+						color="#00838f"
+						variant="flat"
+						size="small"
+						class="rounded-lg font-weight-bold text-none text-white px-5"
+						append-icon="mdi-chevron-right"
+						:loading="loading"
+						:disabled="loading || !isPaymentValid"
+						@click="submit(false)"
+					>
+						{{ __("Submit") }}
+					</v-btn>
+				</div>
+			</div>
 		</v-card>
 	</v-dialog>
 </template>
@@ -213,6 +243,7 @@
 import { computed, ref, watch } from "vue";
 import { formatUtils } from "../../../format";
 import { getSmartTenderSuggestions } from "../../../../utils/smartTender";
+import { formatPurchaseAmount, purchaseCurrencySymbol } from "./purchaseFormatting";
 
 defineOptions({
 	name: "PurchasePaymentDialog",
@@ -244,6 +275,7 @@ const emit = defineEmits(["update:modelValue", "submit"]);
 const currency_precision = ref(2);
 
 const paymentLines = ref([]);
+const activeMode = ref("");
 const printFormats = ref([]);
 const selectedPrintFormat = ref(null);
 const printInvoice = ref(props.createInvoice);
@@ -268,8 +300,6 @@ const isPaymentValid = computed(() => {
 	const hasNegativePayment = paymentLines.value.some((p) => (parseFloat(p.amount) || 0) < 0);
 	if (hasNegativePayment) return false;
 
-	// Allow submitting Purchase Order even with zero payment.
-	// If any payment is entered, keep full-settlement behavior.
 	if (paidAmount.value <= 0) return true;
 	return remainingAmount.value <= 0;
 });
@@ -300,26 +330,12 @@ const flt = (value, precision, number_format, rounding_method) => {
 	return window.flt(value, precision, number_format, rounding_method);
 };
 
-function formatCurrency(value, precision) {
-	if (value === null || value === undefined) {
-		value = 0;
-	}
-	let number = Number(formatUtils.fromArabicNumerals(String(value)).replace(/,/g, ""));
-	if (isNaN(number)) number = 0;
-	let prec = precision != null ? Number(precision) : Number(currency_precision.value) || 2;
-	if (!Number.isInteger(prec) || prec < 0 || prec > 20) {
-		prec = Math.min(Math.max(parseInt(prec) || 2, 0), 20);
-	}
+function formatAmount(value) {
+	return formatPurchaseAmount(value);
+}
 
-	const locale = formatUtils.getNumberLocale();
-	let formatted = number.toLocaleString(locale, {
-		minimumFractionDigits: prec,
-		maximumFractionDigits: prec,
-		useGrouping: true,
-	});
-
-	formatted = formatUtils.toArabicNumerals(formatted);
-	return formatted;
+function currencySymbol(curr) {
+	return purchaseCurrencySymbol(curr) || curr || "";
 }
 
 function initializePayments() {
@@ -331,36 +347,36 @@ function initializePayments() {
 		type: m.type,
 	}));
 
-	// Auto-fill default payment method if exists
 	const defaultMode = paymentLines.value.find((p) => p.default) || paymentLines.value[0];
 	if (defaultMode) {
 		defaultMode.amount = props.totalAmount;
+		activeMode.value = defaultMode.mode_of_payment;
+	} else if (paymentLines.value.length) {
+		activeMode.value = paymentLines.value[0].mode_of_payment;
 	}
 }
 
-function set_full_amount(payment) {
-	// Reset all other payments
-	paymentLines.value.forEach((p) => {
-		if (p !== payment) {
-			p.amount = 0;
-		}
-	});
-	// Set this payment to total amount
-	payment.amount = props.totalAmount;
+function setActivePayment(payment) {
+	if (!payment) return;
+	activeMode.value = payment.mode_of_payment;
 }
 
-function set_rest_amount(payment) {
-	// If payment is 0 and there's remaining amount, auto-fill
+function selectPaymentMethodCard(payment) {
+	if (!payment) return;
+	activeMode.value = payment.mode_of_payment;
+
 	if (payment.amount === 0 && remainingAmount.value > 0) {
 		payment.amount = remainingAmount.value;
+	} else if (paymentLines.value.length > 1 && paidAmount.value <= 0) {
+		payment.amount = props.totalAmount;
 	}
 }
 
-function handlePaymentAmountChange(payment, event) {
-	const val = parseFloat(event) || 0;
+function handlePaymentAmountChange(payment, valStr) {
+	const val = parseFloat(valStr) || 0;
 	payment.amount = val;
+	activeMode.value = payment.mode_of_payment;
 
-	// Auto-balance: if this payment exceeds remaining, reduce others
 	if (remainingAmount.value < 0) {
 		autoBalancePayments(payment);
 	}
@@ -368,7 +384,8 @@ function handlePaymentAmountChange(payment, event) {
 
 function setPaymentToDenomination(payment, amount) {
 	payment.amount = amount;
-	// Auto-balance other payments if needed
+	activeMode.value = payment.mode_of_payment;
+
 	if (remainingAmount.value < 0) {
 		autoBalancePayments(payment);
 	}
@@ -378,10 +395,7 @@ function autoBalancePayments(excludePayment) {
 	const excess = Math.abs(remainingAmount.value);
 	if (excess <= 0) return;
 
-	// Find other payments with amount > 0 to reduce
 	const otherPayments = paymentLines.value.filter((p) => p !== excludePayment && parseFloat(p.amount) > 0);
-
-	// Sort by amount descending to reduce larger chunks first
 	otherPayments.sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
 
 	let remainingExcess = excess;
@@ -400,7 +414,6 @@ function autoBalancePayments(excludePayment) {
 function isCashLikePayment(payment) {
 	if (!payment) return false;
 
-	// Check if it's the configured cash MOP or contains "cash" in name
 	const configuredCashMOP = String(props.posProfile?.posa_cash_mode_of_payment || "").toLowerCase();
 	const mode = String(payment.mode_of_payment || "").toLowerCase();
 	const type = String(payment.type || "").toLowerCase();
@@ -423,8 +436,16 @@ function getVisibleDenominations(payment) {
 	return getSmartTenderSuggestions(amountToPay, props.currency);
 }
 
-function currencySymbol(curr) {
-	return curr || "";
+function getPaymentMethodIcon(modeName, type) {
+	const mode = String(modeName || "").toLowerCase();
+	const t = String(type || "").toLowerCase();
+
+	if (t === "cash" || mode.includes("cash")) return "mdi-cash-multiple";
+	if (mode.includes("credit") || mode.includes("card")) return "mdi-credit-card-outline";
+	if (mode.includes("cheque") || mode.includes("check")) return "mdi-text-box-outline";
+	if (mode.includes("wire") || mode.includes("transfer") || mode.includes("bank")) return "mdi-bank-outline";
+	if (mode.includes("draft")) return "mdi-file-document-outline";
+	return "mdi-credit-card-outline";
 }
 
 function close() {
@@ -474,119 +495,217 @@ async function fetchPrintFormats() {
 </script>
 
 <style scoped>
-.v-text-field {
-	composes: pos-form-field;
+.purchase-payment-modal {
+	background: #ffffff !important;
+	overflow: hidden;
 }
 
-/* Remove readonly styling */
-.v-text-field--readonly {
-	cursor: text;
-}
-
-.v-text-field--readonly:hover {
-	background-color: transparent;
-}
-
-.cards {
-	background-color: var(--surface-secondary) !important;
-}
-
-.pos-themed-card {
-	border-radius: 12px;
-}
-
-/* Payment method button styling - matches Payments.vue */
-.payment-method-btn {
-	position: relative;
-	text-transform: none;
-	font-weight: 500;
-}
-
-.payment-method-btn:hover,
-.payment-method-btn:focus,
-.payment-method-btn:focus-visible,
-.payment-method-btn:active {
-	background-color: rgb(var(--v-theme-primary)) !important;
-	color: rgb(var(--v-theme-on-primary)) !important;
-	box-shadow: none;
-}
-
-.payment-method-btn::before,
-.payment-method-btn:hover::before,
-.payment-method-btn:focus::before,
-.payment-method-btn:focus-visible::before,
-.payment-method-btn:active::before {
-	opacity: 0 !important;
-}
-
-/* Submit button styling - matches Payments.vue */
-.submit-btn {
-	position: relative;
-}
-
-.submit-btn:hover,
-.submit-btn:focus,
-.submit-btn:focus-visible,
-.submit-btn:active {
-	background-color: rgb(var(--v-theme-primary)) !important;
-	color: rgb(var(--v-theme-on-primary)) !important;
-	box-shadow: none;
-}
-
-.submit-btn:focus-visible {
-	outline: 2px solid rgb(var(--v-theme-primary));
-	outline-offset: 2px;
-}
-
-.submit-btn::before,
-.submit-btn:hover::before,
-.submit-btn:focus::before,
-.submit-btn:focus-visible::before,
-.submit-btn:active::before {
-	opacity: 0 !important;
-}
-
-.submit-highlight {
-	box-shadow: 0 0 0 4px rgb(var(--v-theme-primary));
-	transition: box-shadow 0.3s ease-in-out;
-}
-
-/* Sleek field styling for right-aligned text */
-.sleek-field :deep(.v-field__input) {
-	text-align: right;
-}
-
-/* Payment row spacing */
-.payments {
-	margin-bottom: 8px;
-}
-
-/* Denomination buttons container */
-.d-flex.flex-wrap {
+.purchase-payment-header-icon {
+	width: 32px;
+	height: 32px;
+	border-radius: 8px;
+	background: #00838f;
 	display: flex;
-	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
 }
 
-.gap-2 {
-	gap: 8px;
+.text-teal-dark {
+	color: #00838f !important;
 }
 
-/* Dialog specific adjustments */
-.v-dialog .v-card-text {
-	scrollbar-width: thin;
-	scrollbar-color: var(--v-theme-primary) transparent;
+.purchase-payment-stats-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
 }
 
-.v-dialog .v-card-text::-webkit-scrollbar {
-	width: 6px;
+.pay-stat-card {
+	padding: 8px 12px;
+	border: 1px solid #e2e8f0;
+	border-radius: 10px;
+	background: #ffffff;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	transition: box-shadow 0.15s ease;
 }
 
-.v-dialog .v-card-text::-webkit-scrollbar-track {
+.pay-stat-card:hover {
+	box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.pay-stat-icon {
+	width: 34px;
+	height: 34px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+}
+
+.pay-stat-icon--blue {
+	background: #e0f2fe;
+}
+
+.pay-stat-icon--green {
+	background: #dcfce7;
+}
+
+.pay-stat-icon--orange {
+	background: #ffedd5;
+}
+
+.pay-stat-info {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.pay-stat-label {
+	font-size: 10px;
+	color: #64748b;
+	font-weight: 600;
+	line-height: 1.1;
+}
+
+.pay-stat-value {
+	font-size: 15px;
+	font-weight: 800;
+	line-height: 1.15;
+}
+
+.text-blue-dark {
+	color: #0284c7 !important;
+}
+
+.text-green-dark {
+	color: #16a34a !important;
+}
+
+.text-orange-dark {
+	color: #ea580c !important;
+}
+
+.purchase-payment-methods-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 12px;
+}
+
+.pay-section-label {
+	display: block;
+	font-size: 11px;
+	font-weight: 700;
+	color: #64748b;
+}
+
+.pay-amount-input-box {
+	display: flex;
+	align-items: center;
+	border: 1px solid #cbd5e1;
+	border-radius: 8px;
+	background: #ffffff;
+	padding: 4px 10px;
+	height: 36px;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pay-amount-input-box--active {
+	border-color: #00838f;
+	box-shadow: 0 0 0 1px #00838f;
+}
+
+.pay-currency-prefix {
+	font-size: 12px;
+	font-weight: 700;
+	color: #64748b;
+	margin-inline-end: 6px;
+}
+
+.pay-amount-input {
+	border: 0;
+	outline: 0;
+	width: 100%;
+	text-align: end;
+	font-size: 13px;
+	font-weight: 700;
+	color: #0f172a;
 	background: transparent;
 }
 
-.v-dialog .v-card-text::-webkit-scrollbar-thumb {
-	background-color: rgb(var(--v-theme-primary));
-	border-radius: 3px;
+.pay-numpad-chip {
+	padding: 2px 8px;
+	font-size: 11px;
+	font-weight: 700;
+	border-radius: 6px;
+	border: 1px solid #bae6fd;
+	background: #f0f9ff;
+	color: #0284c7;
+	cursor: pointer;
+	transition: background-color 0.15s ease;
+}
+
+.pay-numpad-chip:hover,
+.pay-numpad-chip--selected {
+	background: #00838f;
+	color: #ffffff;
+	border-color: #00838f;
+}
+
+.pay-method-card {
+	border: 1px solid #e2e8f0;
+	background: #ffffff;
+	height: 36px;
+	transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.pay-method-card:hover {
+	border-color: #94a3b8;
+}
+
+.pay-method-card--active {
+	border-color: #00838f !important;
+	background: #f0fdfa !important;
+}
+
+.pay-method-radio-unselected {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	border: 2px solid #cbd5e1;
+}
+
+.scale-compact-switch :deep(.v-switch__track) {
+	height: 14px !important;
+}
+
+.compact-select :deep(.v-field) {
+	min-height: 32px !important;
+	border-radius: 6px !important;
+}
+
+.compact-select :deep(.v-field__input) {
+	min-height: 32px !important;
+	padding-block: 0 !important;
+	font-size: 12px !important;
+}
+
+.border-primary-light {
+	border-color: #00838f !important;
+}
+
+.border-error-light {
+	border-color: #fca5a5 !important;
+}
+
+@media (max-width: 640px) {
+	.purchase-payment-stats-grid,
+	.purchase-payment-methods-grid {
+		grid-template-columns: 1fr;
+	}
 }
 </style>
+

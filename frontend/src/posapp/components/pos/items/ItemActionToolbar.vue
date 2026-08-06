@@ -124,6 +124,7 @@
 			</v-btn-toggle>
 
 			<v-btn
+				v-if="context !== 'purchase'"
 				variant="text"
 				class="filter-action-btn filter-action-btn--offers"
 				:aria-label="`${__('Offers')}: ${offersCount}`"
@@ -141,6 +142,7 @@
 			</v-btn>
 
 			<v-btn
+				v-if="context !== 'purchase'"
 				variant="text"
 				class="filter-action-btn filter-action-btn--coupons"
 				:aria-label="`${__('Coupons')}: ${couponsCount}`"
@@ -674,8 +676,8 @@ onBeforeUnmount(() => {
 }
 
 .category-select-wrapper {
-	min-width: 160px;
-	max-width: 280px;
+	min-width: 180px;
+	max-width: 340px;
 	flex: 1 1 auto;
 	margin-inline-end: auto;
 }
