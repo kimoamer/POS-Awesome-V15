@@ -1243,6 +1243,9 @@ export default {
 @media (max-width: 1199px) {
 	.purchase-orders-page {
 		height: calc(100dvh - 52px);
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
 	}
 
 	.purchase-workspace-tabs {
@@ -1250,14 +1253,18 @@ export default {
 	}
 
 	.purchase-workspace {
-		display: block;
+		display: flex;
+		flex-direction: column;
+		flex: 1 1 0;
 		height: calc(100% - 56px);
-		overflow-y: auto;
-		-webkit-overflow-scrolling: touch;
+		min-height: 0;
+		width: 100%;
+		overflow: hidden;
+		position: relative;
 	}
 
 	.purchase-workspace.has-bottom-bar {
-		padding-bottom: 80px;
+		padding-bottom: 0;
 	}
 
 	.purchase-workspace-splitter {
@@ -1267,16 +1274,24 @@ export default {
 	.purchase-browser-pane,
 	.purchase-order-pane {
 		display: flex;
+		flex-direction: column;
 		width: 100%;
-		height: auto;
+		height: 100%;
 		min-width: 0;
-		overflow: visible;
+		min-height: 0;
+		flex: 1 1 0;
+		overflow: hidden;
 	}
 
 	.purchase-browser-pane :deep(.items-selector-shell),
 	.purchase-browser-pane :deep(.selection-card) {
-		height: auto !important;
-		max-height: none !important;
+		height: 100% !important;
+		max-height: 100% !important;
+		min-height: 0 !important;
+		flex: 1 1 0 !important;
+		display: flex !important;
+		flex-direction: column !important;
+		overflow: hidden !important;
 	}
 }
 
