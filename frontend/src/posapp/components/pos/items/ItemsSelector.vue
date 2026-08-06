@@ -66,6 +66,7 @@
 									:active-price-list="active_price_list"
 									:offers-count="offersCount"
 									:coupons-count="couponsCount"
+									:context="context"
 									:reserve-bottom-dock-space="
 										context === 'pos' && responsive.windowWidth.value < 1200
 									"

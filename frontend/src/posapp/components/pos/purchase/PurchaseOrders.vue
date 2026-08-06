@@ -23,18 +23,18 @@
 			</div>
 		</div>
 
-		<div class="purchase-workspace" :class="{ 'has-bottom-bar': activeMobileTab === 'browse' && purchaseItems.length > 0 }">
+		<div class="purchase-workspace" :class="{ 'has-bottom-bar': !isDesktop && activeMobileTab === 'browse' && purchaseItems.length > 0 }" :style="workspaceStyle">
 			<!-- Left Pane: Item Selector (Product Browser) -->
 			<section
+				v-show="isDesktop || activeMobileTab === 'browse'"
 				class="purchase-browser-pane"
-				:class="{ 'mobile-pane-hidden': activeMobileTab !== 'browse' }"
-				:style="browserColumnStyle"
 			>
 				<ItemsSelector context="purchase" @add-item="onAddItem" />
 			</section>
 
 			<!-- Resizable Splitter (Desktop >= 1200px) -->
 			<div
+				v-show="isDesktop"
 				class="purchase-workspace-splitter"
 				@mousedown="startResizing"
 				@touchstart.passive="startResizing"
@@ -46,52 +46,52 @@
 
 			<!-- Right Pane: Purchase Order Form -->
 			<section
+				v-show="isDesktop || activeMobileTab === 'order'"
 				class="purchase-order-pane"
-				:class="{ 'mobile-pane-hidden': activeMobileTab !== 'order' }"
 			>
 				<v-card class="h-100 d-flex flex-column pos-themed-card purchase-order-card" flat>
-					<!-- Compact Header Bar (52-60px) -->
-					<div class="purchase-order-header px-4 py-2 border-b d-flex align-center justify-space-between ga-2">
-						<div class="d-flex align-center ga-2 flex-wrap">
-							<div class="purchase-header-icon-box">
-								<v-icon icon="mdi-file-document-edit-outline" color="primary" />
+					<!-- Fixed Header Bar & Order Details (Supplier, Warehouse, Dates, Switches) -->
+					<div class="purchase-order-header-fixed px-4 pt-3 pb-2 border-b">
+						<div class="d-flex align-center justify-space-between ga-2 mb-3">
+							<div class="d-flex align-center ga-2 flex-wrap">
+								<div class="purchase-header-icon-box">
+									<v-icon icon="mdi-file-document-edit-outline" color="primary" />
+								</div>
+								<span class="text-h6 font-weight-bold text-primary">
+									{{ purchaseOrderName || __("New Purchase Order") }}
+								</span>
+								<v-chip
+									v-if="loadedSubmittedOrder"
+									size="small"
+									color="success"
+									variant="tonal"
+									class="font-weight-bold"
+								>
+									{{ __("Submitted") }}
+								</v-chip>
+								<v-chip
+									v-else
+									size="small"
+									color="warning"
+									variant="tonal"
+									class="font-weight-bold"
+								>
+									{{ __("Draft") }}
+								</v-chip>
 							</div>
-							<span class="text-h6 font-weight-bold text-primary">
-								{{ purchaseOrderName || __("New Purchase Order") }}
-							</span>
-							<v-chip
-								v-if="loadedSubmittedOrder"
+
+							<v-btn
+								variant="outlined"
+								color="error"
 								size="small"
-								color="success"
-								variant="tonal"
-								class="font-weight-bold"
+								prepend-icon="mdi-delete-outline"
+								class="font-weight-bold border-error"
+								@click="clearPurchaseForm"
 							>
-								{{ __("Submitted") }}
-							</v-chip>
-							<v-chip
-								v-else
-								size="small"
-								color="warning"
-								variant="tonal"
-								class="font-weight-bold"
-							>
-								{{ __("Draft") }}
-							</v-chip>
+								{{ __("Clear") }}
+							</v-btn>
 						</div>
 
-						<v-btn
-							variant="outlined"
-							color="error"
-							size="small"
-							prepend-icon="mdi-delete-outline"
-							class="font-weight-bold border-error"
-							@click="clearPurchaseForm"
-						>
-							{{ __("Clear") }}
-						</v-btn>
-					</div>
-
-					<div class="purchase-order-body pa-4">
 						<!-- Header Section (Supplier, Warehouse, Dates, Switches) -->
 						<PurchaseHeader
 							v-model:supplier="supplier"
@@ -111,9 +111,9 @@
 							@search-supplier="handleSupplierSearch"
 							@create-supplier="supplierDialog = true"
 						/>
+					</div>
 
-						<v-divider class="my-4"></v-divider>
-
+					<div class="purchase-order-body pa-4">
 						<!-- Section Title -->
 						<div class="d-flex align-center justify-space-between mb-2">
 							<h4 class="text-subtitle-1 font-weight-bold text-primary d-flex align-center ga-1 mb-0">
@@ -176,29 +176,28 @@
 							{{ errorMessage }}
 						</v-alert>
 
-						<!-- Summary Card -->
-						<div class="purchase-summary-card mt-4 pa-3 border rounded-lg">
-							<v-row dense class="align-center">
-								<v-col cols="4" class="text-center border-e">
-									<div class="text-caption text-muted">{{ __("Items Count") }}</div>
-									<div class="text-h6 font-weight-bold text-primary">
-										<bdi>{{ purchaseItems.length }}</bdi>
-									</div>
-								</v-col>
-								<v-col cols="4" class="text-center border-e">
-									<div class="text-caption text-muted">{{ __("Total Quantity") }}</div>
-									<div class="text-h6 font-weight-bold text-primary">
-										<bdi>{{ formatNumber(totalQty) }}</bdi>
-									</div>
-								</v-col>
-								<v-col cols="4" class="text-center">
-									<div class="text-caption text-muted">{{ __("Grand Total") }}</div>
-									<div class="text-h6 font-weight-bold text-success">
-										<bdi>{{ currencySymbol(priceListCurrency || supplierCurrency) }}</bdi>
-										<bdi>{{ formatCurrency(totalAmount) }}</bdi>
-									</div>
-								</v-col>
-							</v-row>
+					</div>
+
+					<!-- Compact Fixed Summary Strip (Directly above actions footer) -->
+					<div class="purchase-summary-strip px-4 py-2 border-t">
+						<div class="d-flex align-center justify-space-between text-body-2 ga-3">
+							<div class="d-flex align-center ga-1">
+								<span class="text-medium-emphasis font-weight-medium">{{ __("Items:") }}</span>
+								<strong class="text-primary font-weight-bold"><bdi>{{ purchaseItems.length }}</bdi></strong>
+							</div>
+
+							<div class="d-flex align-center ga-1">
+								<span class="text-medium-emphasis font-weight-medium">{{ __("Total Qty:") }}</span>
+								<strong class="text-primary font-weight-bold"><bdi>{{ formatNumber(totalQty) }}</bdi></strong>
+							</div>
+
+							<div class="d-flex align-center ga-1">
+								<span class="text-medium-emphasis font-weight-bold">{{ __("Grand Total:") }}</span>
+								<strong class="text-subtitle-1 font-weight-bold text-success">
+									<bdi>{{ currencySymbol(priceListCurrency || supplierCurrency) }}</bdi>
+									<bdi>{{ formatCurrency(totalAmount) }}</bdi>
+								</strong>
+							</div>
 						</div>
 					</div>
 
@@ -355,14 +354,41 @@
 			:warehouse-options="warehouseOptions"
 		/>
 
-		<!-- Supplier Dialog -->
-		<SupplierDialog
-			v-model="supplierDialog"
-			:groups="supplierGroups"
-			:posProfile="pos_profile"
-			@created="handleSupplierCreated"
-			@error="(msg) => toastStore.show({ title: msg, color: 'error' })"
-		/>
+		<!-- Clear Confirmation Dialog (App UI Popup) -->
+		<v-dialog v-model="clearConfirmDialog" max-width="440" persistent>
+			<v-card class="rounded-xl pa-2">
+				<v-card-title class="d-flex align-center ga-2 pt-3 px-4">
+					<v-avatar color="warning" size="36" variant="tonal">
+						<v-icon icon="mdi-alert-outline" color="warning" size="20" />
+					</v-avatar>
+					<span class="text-h6 font-weight-bold">{{ __("Clear Purchase Order") }}</span>
+				</v-card-title>
+
+				<v-card-text class="px-4 py-2 text-body-1 text-medium-emphasis">
+					{{ __("Are you sure you want to clear the purchase order? All unsaved items and details will be lost.") }}
+				</v-card-text>
+
+				<v-card-actions class="px-4 pb-3 pt-2 justify-end ga-2">
+					<v-btn
+						variant="outlined"
+						color="medium-emphasis"
+						class="font-weight-bold"
+						@click="clearConfirmDialog = false"
+					>
+						{{ __("Cancel") }}
+					</v-btn>
+					<v-btn
+						color="error"
+						variant="flat"
+						class="font-weight-bold"
+						prepend-icon="mdi-delete-outline"
+						@click="confirmClearForm"
+					>
+						{{ __("Clear Order") }}
+					</v-btn>
+				</v-card-actions>
+			</v-card>
+		</v-dialog>
 	</div>
 </template>
 
@@ -407,6 +433,13 @@ export default {
 		const pos_profile = ref({});
 		const receiveNow = ref(false);
 
+		const windowWidth = ref(typeof window !== "undefined" ? window.innerWidth : 1200);
+		const isDesktop = computed(() => windowWidth.value >= 1200);
+
+		const handleResize = () => {
+			windowWidth.value = window.innerWidth;
+		};
+
 		// Splitter Resizing State & Methods
 		const STORAGE_KEY = "purchase_workspace_split_width";
 		const DEFAULT_RATIO = 43; // 43% browser, 57% order
@@ -426,11 +459,10 @@ export default {
 			console.warn("Could not read split ratio from localStorage", e);
 		}
 
-		const browserColumnStyle = computed(() => {
-			if (window.innerWidth < 1280) return {};
+		const workspaceStyle = computed(() => {
+			if (!isDesktop.value) return {};
 			return {
-				flex: `0 0 ${splitRatio.value}%`,
-				maxWidth: `calc(100% - 650px)`,
+				"--purchase-browser-width": `${splitRatio.value}%`,
 			};
 		});
 
@@ -612,13 +644,19 @@ export default {
 			supplierDialog.value = false;
 		};
 
+		const clearConfirmDialog = ref(false);
+
 		const clearPurchaseForm = () => {
 			const hasData = supplier.value || purchaseItems.value.length > 0;
 			if (hasData) {
-				if (!confirm(__("Are you sure you want to clear the purchase order? All unsaved items and details will be lost."))) {
-					return;
-				}
+				clearConfirmDialog.value = true;
+				return;
 			}
+			confirmClearForm();
+		};
+
+		const confirmClearForm = () => {
+			clearConfirmDialog.value = false;
 			resetForm();
 			purchaseOrderProgress.value = {};
 		};
@@ -876,11 +914,13 @@ export default {
 				console.error("Failed price list load", e);
 			}
 
+			window.addEventListener("resize", handleResize);
 			clearPurchaseForm();
 			await Promise.all([searchSuppliers(""), loadSupplierGroups(), loadWarehouses()]);
 		});
 
 		onBeforeUnmount(() => {
+			window.removeEventListener("resize", handleResize);
 			eventBus?.emit?.("update_buying_price_list", null);
 			if (pos_profile.value?.selling_price_list)
 				itemsStore.updatePriceList(pos_profile.value.selling_price_list);
@@ -888,7 +928,8 @@ export default {
 
 		return {
 			activeMobileTab,
-			browserColumnStyle,
+			isDesktop,
+			workspaceStyle,
 			startResizing,
 			resetSplitRatio,
 			loadedSubmittedOrder,
@@ -1028,11 +1069,17 @@ export default {
 
 .purchase-browser-pane,
 .purchase-order-pane {
+	display: flex;
+	flex-direction: column;
 	min-width: 0;
 	min-height: 0;
 	overflow: hidden;
-	display: flex;
-	flex-direction: column;
+}
+
+.purchase-browser-pane > *,
+.purchase-order-pane > * {
+	min-width: 0;
+	min-height: 0;
 }
 
 /* Override ItemsSelector's JS-computed inline height inside purchase context */
@@ -1110,26 +1157,32 @@ export default {
 	color: #ffffff;
 }
 
-/* ===== PURCHASE ORDER PANE INTERNAL GRID ===== */
+/* ===== PURCHASE ORDER PANE ===== */
 .purchase-order-pane {
-	display: grid;
-	grid-template-rows: auto auto minmax(0, 1fr) auto;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
 	background: #ffffff;
+	container-type: inline-size;
 }
 
 .purchase-order-card {
 	border-radius: 0 !important;
 	height: 100% !important;
+	flex: 1 1 0 !important;
+	min-height: 0 !important;
 	display: flex !important;
 	flex-direction: column !important;
 	background: #ffffff !important;
 }
 
-.purchase-order-header {
-	height: 56px;
-	min-height: 56px;
+.purchase-order-header-fixed {
 	flex-shrink: 0;
+	background: #ffffff;
 	border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+	z-index: 2;
 }
 
 .purchase-header-icon-box {
@@ -1144,8 +1197,10 @@ export default {
 }
 
 .purchase-order-body {
+	flex: 1 1 0;
 	min-height: 0;
 	overflow-y: auto;
+	padding-bottom: 24px !important;
 }
 
 /* Empty State */
@@ -1161,10 +1216,12 @@ export default {
 	max-width: 380px;
 }
 
-/* Summary Card */
-.purchase-summary-card {
-	background: rgba(var(--v-theme-primary), 0.04);
-	border: 1px solid rgba(var(--v-theme-primary), 0.15) !important;
+/* Compact Fixed Summary Strip */
+.purchase-summary-strip {
+	flex-shrink: 0;
+	background: #f8fafc;
+	border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+	z-index: 2;
 }
 
 /* Order Actions Footer */
@@ -1213,10 +1270,6 @@ export default {
 	.purchase-browser-pane :deep(.selection-card) {
 		height: auto !important;
 		max-height: none !important;
-	}
-
-	.mobile-pane-hidden {
-		display: none !important;
 	}
 }
 

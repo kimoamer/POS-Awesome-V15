@@ -1,6 +1,7 @@
 <template>
 	<div class="item-filter-strip" :class="{ 'item-filter-strip--dock-reserved': reserveBottomDockSpace }">
 		<div
+			v-if="context !== 'purchase'"
 			class="category-strip-shell"
 			:class="{ 'category-strip-shell--overflowing': hasCategoryOverflow }"
 		>
@@ -173,6 +174,7 @@ const props = defineProps({
 	offersCount: { type: Number, default: 0 },
 	couponsCount: { type: Number, default: 0 },
 	reserveBottomDockSpace: { type: Boolean, default: false },
+	context: { type: String, default: "pos" },
 });
 
 const emit = defineEmits(["update:modelValue", "update:itemsView", "open-offers", "open-coupons"]);
@@ -369,13 +371,11 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .item-filter-strip {
-	min-width: 0;
-	width: 100%;
-	min-height: calc(var(--pos-control-height, 44px) + 6px);
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) auto;
+	display: flex;
 	align-items: center;
-	gap: var(--pos-control-gap, 6px);
+	justify-content: space-between;
+	width: 100%;
+	gap: var(--pos-control-gap, 8px);
 	padding-top: 6px;
 	padding-bottom: 0;
 	padding-left: 0;
@@ -396,7 +396,7 @@ onBeforeUnmount(() => {
 .filter-actions {
 	display: flex;
 	align-items: center;
-	gap: var(--pos-control-gap, 6px);
+	gap: var(--pos-control-gap, 8px);
 	min-width: 0;
 }
 
@@ -406,6 +406,7 @@ onBeforeUnmount(() => {
 	align-items: center;
 	gap: var(--pos-control-gap, 6px);
 	overflow: hidden;
+	flex: 1 1 auto;
 }
 
 .category-strip-shell--overflowing {
@@ -455,9 +456,10 @@ onBeforeUnmount(() => {
 }
 
 .filter-actions {
-	flex: 0 0 auto;
+	flex: 1 1 auto;
 	flex-wrap: nowrap;
-	justify-content: flex-end;
+	justify-content: space-between;
+	width: 100%;
 	overflow: visible;
 	white-space: nowrap;
 }
@@ -672,9 +674,10 @@ onBeforeUnmount(() => {
 }
 
 .category-select-wrapper {
-	min-width: 150px;
-	max-width: 220px;
-	flex-shrink: 1;
+	min-width: 160px;
+	max-width: 280px;
+	flex: 1 1 auto;
+	margin-inline-end: auto;
 }
 
 :deep(.category-select-input .v-field) {
