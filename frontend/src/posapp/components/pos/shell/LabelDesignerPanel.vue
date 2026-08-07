@@ -9,30 +9,29 @@
 		</div>
 
 		<template v-else>
-			<div class="panel-section px-3 py-2">
-				<div class="text-caption font-weight-bold mb-1">{{ __("Position (mm)") }}</div>
-				<div class="d-flex ga-2">
+			<!-- Transform Section: Position, Size, Rotation & Z-Index -->
+			<div class="panel-section px-3 py-2 border-b">
+				<div class="text-caption font-weight-bold text-primary mb-2 d-flex align-center ga-1">
+					<v-icon size="14">mdi-axis-arrow</v-icon>
+					{{ __("Transform") }}
+				</div>
+
+				<div class="text-caption text-medium-emphasis mb-1">{{ __("Position & Size (mm)") }}</div>
+				<div class="d-flex ga-2 mb-2">
 					<v-text-field v-model.number="obj.x" :label="__('X')" type="number" hide-details density="compact" variant="outlined" @update:modelValue="onChange"></v-text-field>
 					<v-text-field v-model.number="obj.y" :label="__('Y')" type="number" hide-details density="compact" variant="outlined" @update:modelValue="onChange"></v-text-field>
 				</div>
-			</div>
 
-			<div class="panel-section px-3 py-2">
-				<div class="text-caption font-weight-bold mb-1">{{ __("Size (mm)") }}</div>
-				<div class="d-flex ga-2">
+				<div class="d-flex ga-2 mb-2">
 					<v-text-field v-model.number="obj.width" :label="__('W')" type="number" hide-details density="compact" variant="outlined" :min="3" @update:modelValue="onChange"></v-text-field>
 					<v-text-field v-model.number="obj.height" :label="__('H')" type="number" hide-details density="compact" variant="outlined" :min="3" @update:modelValue="onChange"></v-text-field>
 				</div>
-			</div>
 
-			<div class="panel-section px-3 py-2">
 				<div class="d-flex ga-2 align-center">
 					<v-text-field v-model.number="obj.rotation" :label="__('Rotation')" type="number" hide-details density="compact" variant="outlined" suffix="°" @update:modelValue="onChange" class="flex-grow-1"></v-text-field>
-					<v-text-field v-model.number="obj.zIndex" :label="__('Z')" type="number" hide-details density="compact" variant="outlined" @update:modelValue="onChange" class="flex-shrink-0" style="width:60px"></v-text-field>
+					<v-text-field v-model.number="obj.zIndex" :label="__('Z')" type="number" hide-details density="compact" variant="outlined" @update:modelValue="onChange" class="flex-shrink-0" style="width:64px"></v-text-field>
 				</div>
 			</div>
-
-			<v-divider></v-divider>
 
 			<template v-if="obj.type === 'text'">
 				<div class="panel-section px-3 py-2">
@@ -220,6 +219,9 @@ const onTextAlignChange = (val: string) => {
 <style scoped>
 .panel-root {
 	height: 100%;
+	min-width: 280px;
+	max-width: 320px;
+	width: 100%;
 	overflow-y: auto;
 	border-left: 1px solid var(--pos-border-light, #e0e0e0);
 	background: var(--pos-surface, #fff);
