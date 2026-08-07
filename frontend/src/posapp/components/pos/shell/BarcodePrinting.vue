@@ -99,10 +99,10 @@
 			</aside>
 
 			<!-- Right Pane: Queue Cards & Settings -->
-			<main class="barcode-labels-pane pa-4 overflow-y-auto">
-				<v-row dense class="ma-0 ga-4 align-start">
+			<main class="barcode-labels-pane">
+				<div class="barcode-labels-content">
 					<!-- Queue Column (Left) -->
-					<v-col cols="12" lg="7" class="pa-0">
+					<section class="barcode-queue-column">
 						<div class="d-flex align-center justify-space-between mb-3">
 							<h3 class="text-subtitle-1 font-weight-bold text-primary mb-0 d-flex align-center ga-2">
 								<v-icon size="20">mdi-tray-full</v-icon>
@@ -190,16 +190,20 @@
 										></v-text-field>
 									</div>
 
-									<div class="flex-grow-1" style="min-width: 130px;">
+									<div class="flex-grow-1" style="min-width: 140px;">
 										<label class="text-caption text-medium-emphasis d-block mb-1">{{ __("Location") }}</label>
-										<v-text-field
+										<v-autocomplete
 											v-model="item.warehouseLocation"
+											:items="warehouseOptions"
+											item-title="warehouse_name"
+											item-value="name"
 											density="compact"
 											variant="outlined"
 											hide-details
 											class="pos-themed-input"
-											:placeholder="__('Location')"
-										></v-text-field>
+											:placeholder="__('Loc')"
+											clearable
+										></v-autocomplete>
 									</div>
 								</div>
 							</v-card>
@@ -212,10 +216,10 @@
 								{{ __("Select items from the catalog on the left to add labels to the print queue.") }}
 							</div>
 						</div>
-					</v-col>
+					</section>
 
 					<!-- Controls Column (Right) -->
-					<v-col cols="12" lg="5" class="pa-0">
+					<aside class="barcode-settings-column">
 						<!-- PRINT SETUP CARD -->
 						<v-card class="mb-4 pa-4 border rounded-lg pos-themed-card" flat>
 							<h4 class="text-subtitle-2 font-weight-bold text-primary mb-3 d-flex align-center ga-2">
@@ -354,8 +358,40 @@
 						<v-alert v-if="sizeWarnings.length" type="warning" density="compact" variant="tonal" class="mb-4">
 							{{ sizeWarnings[0] }}
 						</v-alert>
-					</v-col>
-				</v-row>
+
+						<v-alert v-if="hasActiveTemplate" type="info" density="compact" variant="tonal" class="mb-4" closable @click:close="clearDesignerTemplate">
+							<div class="d-flex align-center justify-space-between flex-wrap ga-1">
+								<span>{{ __("Designer template active") }}</span>
+								<div>
+									<v-btn variant="text" size="x-small" color="primary" class="text-none font-weight-bold" @click="viewMode = 'designer'">{{ __("Edit") }}</v-btn>
+									<v-btn variant="text" size="x-small" color="error" class="text-none font-weight-bold" @click="clearDesignerTemplate">{{ __("Clear") }}</v-btn>
+								</div>
+							</div>
+						</v-alert>
+
+						<!-- Bottom Output Action Buttons -->
+						<div class="d-flex flex-column ga-2">
+							<v-btn color="info" variant="tonal" block height="38" class="font-weight-bold text-none" @click="openPreview" :disabled="!items.length">
+								<v-icon start size="18">mdi-eye-outline</v-icon>
+								{{ __("Preview Labels") }}
+							</v-btn>
+							<div class="d-flex ga-2">
+								<v-btn color="secondary" class="flex-grow-1 font-weight-bold text-none" height="40" @click="downloadPdf(items)" :disabled="!items.length">
+									<v-icon start size="18">mdi-file-pdf-box</v-icon>
+									{{ __("PDF") }}
+								</v-btn>
+								<v-btn color="primary" class="flex-grow-1 font-weight-bold text-none" height="40" @click="printLabels(items)" :disabled="!items.length">
+									<v-icon start size="18">mdi-printer</v-icon>
+									{{ __("Print") }}
+								</v-btn>
+								<v-btn color="deep-purple-accent-3" class="flex-grow-1 font-weight-bold text-none" height="40" @click="thermalPrint" :disabled="!items.length || !qzThermalAvailable" :loading="thermalPrinting">
+									<v-icon start size="18">mdi-fire</v-icon>
+									{{ __("Thermal") }}
+								</v-btn>
+							</div>
+						</div>
+					</aside>
+				</div>
 			</main>
 		</div>
 
@@ -1449,12 +1485,22 @@ onUnmounted(() => {
 	overflow: hidden;
 }
 
-.barcode-labels-workspace {
+.barcode-header {
+	flex: 0 0 auto;
+}
+
+.barcode-labels-workspace,
+.barcode-designer-workspace {
 	display: grid;
-	grid-template-columns: minmax(360px, 34%) minmax(0, 1fr);
-	height: calc(100% - 53px);
+	flex: 1 1 auto;
 	min-height: 0;
+	min-width: 0;
 	overflow: hidden;
+}
+
+.barcode-labels-workspace {
+	grid-template-columns: minmax(360px, 34%) minmax(0, 1fr);
+	height: 100%;
 }
 
 .barcode-items-pane {
@@ -1466,16 +1512,34 @@ onUnmounted(() => {
 
 .barcode-labels-pane {
 	height: 100%;
+	min-width: 0;
 	min-height: 0;
-	overflow-y: auto;
+	padding: 14px;
+	overflow: hidden;
 }
 
-.barcode-designer-workspace {
-	display: flex;
-	flex-direction: column;
-	height: calc(100% - 53px);
+.barcode-labels-content {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(330px, 380px);
+	gap: 14px;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
 	min-height: 0;
 	overflow: hidden;
+}
+
+.barcode-queue-column {
+	min-width: 0;
+	min-height: 0;
+	overflow-y: auto;
+	padding-inline-end: 4px;
+}
+
+.barcode-settings-column {
+	min-width: 0;
+	min-height: 0;
+	overflow-y: auto;
 }
 
 .designer-root {
