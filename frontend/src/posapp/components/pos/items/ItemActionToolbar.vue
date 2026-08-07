@@ -1,7 +1,13 @@
 <template>
-	<div class="item-filter-strip" :class="{ 'item-filter-strip--dock-reserved': reserveBottomDockSpace }">
+	<div
+		class="item-filter-strip"
+		:class="{
+			'item-filter-strip--dock-reserved': reserveBottomDockSpace,
+			'item-filter-strip--purchase': context !== 'pos'
+		}"
+	>
 		<div
-			v-if="context !== 'purchase'"
+			v-if="context === 'pos'"
 			class="category-strip-shell"
 			:class="{ 'category-strip-shell--overflowing': hasCategoryOverflow }"
 		>
@@ -124,7 +130,7 @@
 			</v-btn-toggle>
 
 			<v-btn
-				v-if="context !== 'purchase'"
+				v-if="context === 'pos'"
 				variant="text"
 				class="filter-action-btn filter-action-btn--offers"
 				:aria-label="`${__('Offers')}: ${offersCount}`"
@@ -142,7 +148,7 @@
 			</v-btn>
 
 			<v-btn
-				v-if="context !== 'purchase'"
+				v-if="context === 'pos'"
 				variant="text"
 				class="filter-action-btn filter-action-btn--coupons"
 				:aria-label="`${__('Coupons')}: ${couponsCount}`"
@@ -373,11 +379,13 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .item-filter-strip {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
+	min-width: 0;
 	width: 100%;
-	gap: var(--pos-control-gap, 8px);
+	min-height: calc(var(--pos-control-height, 44px) + 6px);
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: var(--pos-control-gap, 6px);
 	padding-top: 6px;
 	padding-bottom: 0;
 	padding-left: 0;
@@ -458,12 +466,26 @@ onBeforeUnmount(() => {
 }
 
 .filter-actions {
-	flex: 1 1 auto;
+	flex: 0 0 auto;
 	flex-wrap: nowrap;
-	justify-content: space-between;
-	width: 100%;
+	justify-content: flex-end;
 	overflow: visible;
 	white-space: nowrap;
+}
+
+/* Purchase Context Specific Overrides */
+.item-filter-strip--purchase {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+	gap: var(--pos-control-gap, 8px);
+}
+
+.item-filter-strip--purchase .filter-actions {
+	flex: 1 1 auto;
+	justify-content: space-between;
+	width: 100%;
 }
 
 .category-chip,
@@ -676,6 +698,12 @@ onBeforeUnmount(() => {
 }
 
 .category-select-wrapper {
+	min-width: 150px;
+	max-width: 220px;
+	flex-shrink: 1;
+}
+
+.item-filter-strip--purchase .category-select-wrapper {
 	min-width: 180px;
 	max-width: 340px;
 	flex: 1 1 auto;

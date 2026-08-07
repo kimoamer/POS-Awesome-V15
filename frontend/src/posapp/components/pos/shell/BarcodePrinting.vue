@@ -15,89 +15,105 @@
 			<!-- Right Column: Barcode Printing -->
 			<v-col cols="12" md="7" class="h-100 pa-0">
 				<v-card class="h-100 d-flex flex-column pos-themed-card" flat>
-					<v-card-title class="py-2 px-4 bg-primary text-white d-flex align-center">
-						<span class="text-h6">{{ __("Barcode Label Printing") }}</span>
-						<v-spacer></v-spacer>
-						<v-btn-toggle v-model="viewMode" mandatory density="compact" color="white" variant="text" divided>
-							<v-btn value="labels" size="small" class="text-none">
-								<v-icon start>mdi-format-list-bulleted</v-icon>
-								<span class="d-none d-sm-inline">{{ __("Labels") }}</span>
-							</v-btn>
-							<v-btn value="designer" size="small" class="text-none">
-								<v-icon start>mdi-drag-variant</v-icon>
-								<span class="d-none d-sm-inline">{{ __("Designer") }}</span>
-							</v-btn>
-						</v-btn-toggle>
-						<v-btn
-							icon="mdi-truck-delivery"
-							variant="text"
-							color="white"
-							@click="ssccDialog = true"
-							:title="__('Generate SSCC-18 Shipping Labels')"
-							:aria-label="__('Generate SSCC-18 shipping labels')"
-						></v-btn>
-						<v-btn
-							icon="mdi-verified"
-							variant="text"
-							color="white"
-							@click="verificationDialog = true"
-							:title="__('Barcode Verification')"
-							:aria-label="__('Verify printed barcodes')"
-						></v-btn>
-						<v-menu>
-							<template v-slot:activator="{ props }">
-								<v-btn
-									v-bind="props"
-									icon="mdi-download"
-									variant="text"
-									color="white"
-									:title="__('Export labels')"
-									:aria-label="__('Export labels')"
-								></v-btn>
-							</template>
-							<v-list density="compact">
-								<v-list-item @click="onExportPng" :disabled="!items.length">
-									<template v-slot:prepend><v-icon>mdi-image</v-icon></template>
-									<v-list-item-title>{{ __("PNG") }}</v-list-item-title>
-									<v-list-item-subtitle>{{ __("Render labels as PNG image") }}</v-list-item-subtitle>
-								</v-list-item>
-								<v-list-item @click="onExportSvg" :disabled="!items.length">
-									<template v-slot:prepend><v-icon>mdi-svg</v-icon></template>
-									<v-list-item-title>{{ __("SVG") }}</v-list-item-title>
-									<v-list-item-subtitle>{{ __("Export as SVG with embedded barcodes") }}</v-list-item-subtitle>
-								</v-list-item>
-								<v-list-item @click="onExportCsv" :disabled="!items.length">
-									<template v-slot:prepend><v-icon>mdi-file-delimited</v-icon></template>
-									<v-list-item-title>{{ __("CSV") }}</v-list-item-title>
-									<v-list-item-subtitle>{{ __("Item data as spreadsheet") }}</v-list-item-subtitle>
-								</v-list-item>
-							</v-list>
-						</v-menu>
-						<v-btn
-							icon="mdi-package-variant-closed"
-							variant="text"
-							color="white"
-							@click="importDialog = true"
-							:title="__('Import from Document')"
-							:aria-label="__('Import items from Sales Order, Delivery Note or BOM')"
-						></v-btn>
-						<v-btn
-							icon="mdi-upload"
-							variant="text"
-							color="white"
-							@click="bulkImportDialog = true"
-							:title="__('Bulk Import')"
-							:aria-label="__('Bulk import barcode items')"
-						></v-btn>
-						<v-btn
-							icon="mdi-delete"
-							variant="text"
-							color="white"
-							@click="clearAll"
-							:title="__('Clear All')"
-							:aria-label="__('Clear all barcode items')"
-						></v-btn>
-					</v-card-title>
+					<div class="px-4 py-2 border-b d-flex align-center justify-space-between flex-wrap ga-2 bg-surface">
+						<div class="d-flex align-center ga-2">
+							<div class="purchase-header-icon-box">
+								<v-icon icon="mdi-barcode-scan" color="primary" size="20" />
+							</div>
+							<span class="text-h6 font-weight-bold text-primary mb-0">
+								{{ __("Barcode Label Printing") }}
+							</span>
+						</div>
+
+						<div class="d-flex align-center ga-1 flex-wrap">
+							<v-btn-toggle v-model="viewMode" mandatory density="compact" color="primary" variant="outlined" divided class="rounded-lg mr-2">
+								<v-btn value="labels" size="small" class="text-none font-weight-bold">
+									<v-icon start size="16">mdi-format-list-bulleted</v-icon>
+									<span class="d-none d-sm-inline">{{ __("Labels") }}</span>
+								</v-btn>
+								<v-btn value="designer" size="small" class="text-none font-weight-bold">
+									<v-icon start size="16">mdi-drag-variant</v-icon>
+									<span class="d-none d-sm-inline">{{ __("Designer") }}</span>
+								</v-btn>
+							</v-btn-toggle>
+
+							<v-btn
+								icon="mdi-truck-delivery-outline"
+								variant="outlined"
+								color="primary"
+								size="small"
+								class="border-primary"
+								@click="ssccDialog = true"
+								:title="__('Generate SSCC-18 Shipping Labels')"
+							></v-btn>
+							<v-btn
+								icon="mdi-shield-check-outline"
+								variant="outlined"
+								color="primary"
+								size="small"
+								class="border-primary"
+								@click="verificationDialog = true"
+								:title="__('Barcode Verification')"
+							></v-btn>
+							<v-menu>
+								<template v-slot:activator="{ props }">
+									<v-btn
+										v-bind="props"
+										icon="mdi-tray-arrow-down"
+										variant="outlined"
+										color="primary"
+										size="small"
+										class="border-primary"
+										:title="__('Export labels')"
+									></v-btn>
+								</template>
+								<v-list density="compact">
+									<v-list-item @click="onExportPng" :disabled="!items.length">
+										<template v-slot:prepend><v-icon color="primary">mdi-image</v-icon></template>
+										<v-list-item-title class="font-weight-bold">{{ __("PNG Image") }}</v-list-item-title>
+										<v-list-item-subtitle>{{ __("Render labels as PNG image") }}</v-list-item-subtitle>
+									</v-list-item>
+									<v-list-item @click="onExportSvg" :disabled="!items.length">
+										<template v-slot:prepend><v-icon color="primary">mdi-svg</v-icon></template>
+										<v-list-item-title class="font-weight-bold">{{ __("SVG Vector") }}</v-list-item-title>
+										<v-list-item-subtitle>{{ __("Export as SVG with embedded barcodes") }}</v-list-item-subtitle>
+									</v-list-item>
+									<v-list-item @click="onExportCsv" :disabled="!items.length">
+										<template v-slot:prepend><v-icon color="primary">mdi-file-delimited</v-icon></template>
+										<v-list-item-title class="font-weight-bold">{{ __("CSV Spreadsheet") }}</v-list-item-title>
+										<v-list-item-subtitle>{{ __("Item data as spreadsheet") }}</v-list-item-subtitle>
+									</v-list-item>
+								</v-list>
+							</v-menu>
+							<v-btn
+								icon="mdi-file-import-outline"
+								variant="outlined"
+								color="primary"
+								size="small"
+								class="border-primary"
+								@click="importDialog = true"
+								:title="__('Import from Document')"
+							></v-btn>
+							<v-btn
+								icon="mdi-upload-outline"
+								variant="outlined"
+								color="primary"
+								size="small"
+								class="border-primary"
+								@click="bulkImportDialog = true"
+								:title="__('Bulk Import')"
+							></v-btn>
+							<v-btn
+								icon="mdi-delete-outline"
+								variant="outlined"
+								color="error"
+								size="small"
+								class="border-error"
+								@click="clearAll"
+								:title="__('Clear All')"
+							></v-btn>
+						</div>
+					</div>
 
 					<v-card-text v-if="viewMode === 'labels'" class="flex-grow-1 overflow-y-auto pa-4">
 						<!-- Configuration -->
