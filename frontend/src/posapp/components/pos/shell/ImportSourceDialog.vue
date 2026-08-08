@@ -1,15 +1,28 @@
 <template>
-	<v-dialog v-model="dialog" max-width="800">
-		<v-card>
-			<v-card-title class="bg-primary text-white">
-				{{ __("Import Labels from {0}", [sourceTypeLabel]) }}
+	<v-dialog v-model="dialog" max-width="820" transition="dialog-bottom-transition">
+		<v-card class="rounded-2xl border elevation-6 overflow-hidden pos-themed-card">
+			<v-card-title class="bg-surface border-b pa-4 d-flex align-center justify-space-between">
+				<div class="d-flex align-center ga-3">
+					<v-avatar color="primary" variant="tonal" size="40" class="rounded-xl">
+						<v-icon size="22">mdi-file-import-outline</v-icon>
+					</v-avatar>
+					<div>
+						<div class="text-subtitle-1 font-weight-bold text-high-emphasis mb-0">
+							{{ __("Import Labels from {0}", [sourceTypeLabel]) }}
+						</div>
+						<div class="text-caption text-medium-emphasis">
+							{{ __("Select a document to import items and quantities directly into print queue") }}
+						</div>
+					</div>
+				</div>
+				<v-btn icon="mdi-close" variant="tonal" color="medium-emphasis" size="small" class="rounded-circle" @click="dialog = false"></v-btn>
 			</v-card-title>
 
-			<v-card-text class="pt-4">
-				<v-tabs v-model="activeTab" class="mb-4">
-					<v-tab value="Sales Order">{{ __("Sales Order") }}</v-tab>
-					<v-tab value="Delivery Note">{{ __("Delivery Note") }}</v-tab>
-					<v-tab value="BOM">{{ __("BOM") }}</v-tab>
+			<v-card-text class="pa-5">
+				<v-tabs v-model="activeTab" color="primary" class="mb-4">
+					<v-tab value="Sales Order" class="text-none font-weight-bold">{{ __("Sales Order") }}</v-tab>
+					<v-tab value="Delivery Note" class="text-none font-weight-bold">{{ __("Delivery Note") }}</v-tab>
+					<v-tab value="BOM" class="text-none font-weight-bold">{{ __("BOM") }}</v-tab>
 				</v-tabs>
 
 				<v-text-field
@@ -21,9 +34,10 @@
 					@keydown.enter="searchDocuments"
 					:loading="searching"
 					hide-details
+					class="pos-themed-input rounded-lg"
 				/>
 
-				<v-list v-if="documents.length" density="compact" class="border rounded mt-2">
+				<v-list v-if="documents.length" density="compact" class="border rounded-lg mt-3">
 					<v-list-item
 						v-for="doc in documents"
 						:key="doc.name"
@@ -31,12 +45,12 @@
 						@click="selectDocument(doc)"
 						cursor="pointer"
 					>
-						<v-list-item-title>{{ doc.name }}</v-list-item-title>
+						<v-list-item-title class="font-weight-bold">{{ doc.name }}</v-list-item-title>
 						<v-list-item-subtitle>
 							{{ doc.customer || doc.item }} &bull; {{ formatDate(doc.transaction_date || doc.posting_date) }}
 						</v-list-item-subtitle>
 						<template v-slot:append>
-							<v-chip size="small" :color="statusColor(doc.status)">{{ doc.status }}</v-chip>
+							<v-chip size="small" :color="statusColor(doc.status)" variant="tonal">{{ doc.status }}</v-chip>
 						</template>
 					</v-list-item>
 				</v-list>
@@ -49,7 +63,7 @@
 					min="1"
 					density="compact"
 					variant="outlined"
-					class="mt-4"
+					class="mt-4 pos-themed-input rounded-lg"
 					hide-details
 				/>
 
@@ -58,7 +72,7 @@
 					:headers="previewHeaders"
 					:items="previewItems"
 					density="compact"
-					class="mt-4 border rounded"
+					class="mt-4 border rounded-lg overflow-hidden"
 					hide-default-footer
 				>
 					<template v-slot:item.qty="{ item }">
@@ -69,24 +83,27 @@
 							density="compact"
 							variant="outlined"
 							hide-details
-							class="pos-themed-input"
+							class="pos-themed-input my-1"
 						/>
 					</template>
 					<template v-slot:item.barcode="{ item }">
-						<span v-if="item.barcode" class="text-caption">{{ item.barcode }}</span>
-						<v-chip v-else size="x-small" color="warning">{{ __("No Barcode") }}</v-chip>
+						<span v-if="item.barcode" class="text-caption font-weight-medium">{{ item.barcode }}</span>
+						<v-chip v-else size="x-small" color="warning" variant="tonal">{{ __("No Barcode") }}</v-chip>
 					</template>
 				</v-data-table>
 			</v-card-text>
 
-			<v-card-actions class="justify-end">
-				<v-btn variant="text" @click="dialog = false">{{ __("Cancel") }}</v-btn>
+			<v-card-actions class="bg-surface border-t pa-3 px-4 justify-end ga-2">
+				<v-btn variant="outlined" color="medium-emphasis" class="px-5 font-weight-bold text-none rounded-lg" @click="dialog = false">{{ __("Cancel") }}</v-btn>
 				<v-btn
 					color="primary"
+					variant="elevated"
+					class="px-6 font-weight-bold text-none rounded-lg"
 					:disabled="!previewItems.length"
 					:loading="importing"
 					@click="importItems"
 				>
+					<v-icon start size="18">mdi-download-outline</v-icon>
 					{{ __("Import {0} Items", [previewItems.length]) }}
 				</v-btn>
 			</v-card-actions>

@@ -89,6 +89,15 @@ export function useLabelDesigner() {
 		historyIndex.value = history.value.length - 1;
 	};
 
+	let _debouncedHistoryTimer: ReturnType<typeof setTimeout> | null = null;
+	const debouncedPushHistory = (delay = 600) => {
+		if (_debouncedHistoryTimer) clearTimeout(_debouncedHistoryTimer);
+		_debouncedHistoryTimer = setTimeout(() => {
+			_debouncedHistoryTimer = null;
+			pushHistory();
+		}, delay);
+	};
+
 	const addObject = (obj: Omit<LabelObject, "id">) => {
 		const newObj: LabelObject = { ...obj, id: generateId() };
 		objects.value.push(newObj);
@@ -101,7 +110,7 @@ export function useLabelDesigner() {
 		const idx = objects.value.findIndex((o) => o.id === id);
 		if (idx >= 0) {
 			objects.value[idx] = { ...objects.value[idx], ...updates } as LabelObject;
-			pushHistory();
+			debouncedPushHistory();
 		}
 	};
 
@@ -396,6 +405,8 @@ export function useLabelDesigner() {
 		setLabelSize,
 		exportLayout,
 		importLayout,
+		pushHistory,
+		debouncedPushHistory,
 
 		addText,
 		addBarcode,

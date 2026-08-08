@@ -57,6 +57,7 @@
 					<div
 						v-for="obj in sortedObjects"
 						:key="obj.id"
+						:data-obj-id="obj.id"
 						class="designer-object"
 						:class="{ selected: obj.id === designer.selectedId.value }"
 						:style="objectStyle(obj)"
@@ -328,15 +329,20 @@ const resolveContent = (content: string): string => {
 
 let dragState: {
 	objId: string;
+	el: HTMLElement;
 	startX: number;
 	startY: number;
 	origX: number;
 	origY: number;
+	curDxMm: number;
+	curDyMm: number;
 	moved: boolean;
+	rafId: number;
 } | null = null;
 
 let resizeState: {
 	objId: string;
+	el: HTMLElement;
 	handle: string;
 	startX: number;
 	startY: number;
@@ -344,6 +350,9 @@ let resizeState: {
 	origH: number;
 	origX: number;
 	origY: number;
+	curDxPx: number;
+	curDyPx: number;
+	rafId: number;
 } | null = null;
 
 let rotateState: {
@@ -353,7 +362,15 @@ let rotateState: {
 	centerX: number;
 	centerY: number;
 	origRot: number;
+	curAngle: number;
+	rafId: number;
 } | null = null;
+
+/** Find the DOM element for a given object id inside the canvas */
+const getObjectEl = (id: string): HTMLElement | null => {
+	if (!scrollEl.value) return null;
+	return scrollEl.value.querySelector(`[data-obj-id="${id}"]`) as HTMLElement | null;
+};
 
 const onObjectMouseDown = (e: MouseEvent, id: string) => {
 	if (e.button !== 0) return;
@@ -361,15 +378,22 @@ const onObjectMouseDown = (e: MouseEvent, id: string) => {
 	emit("select", id);
 	const obj = props.designer.objects.value.find((o) => o.id === id);
 	if (!obj) return;
+	const el = getObjectEl(id);
+	if (!el) return;
+	el.classList.add("dragging");
 	dragState = {
 		objId: id,
+		el,
 		startX: e.clientX,
 		startY: e.clientY,
 		origX: obj.x,
 		origY: obj.y,
+		curDxMm: 0,
+		curDyMm: 0,
 		moved: false,
+		rafId: 0,
 	};
-	document.addEventListener("mousemove", onDragMove);
+	document.addEventListener("mousemove", onDragMove, { passive: true });
 	document.addEventListener("mouseup", onDragEnd);
 };
 
@@ -377,31 +401,50 @@ const onDragMove = (e: MouseEvent) => {
 	if (!dragState) return;
 	const dxPx = e.clientX - dragState.startX;
 	const dyPx = e.clientY - dragState.startY;
-	const dxMm = dxPx / PX_PER_MM / props.designer.zoom.value;
-	const dyMm = dyPx / PX_PER_MM / props.designer.zoom.value;
-	if (Math.abs(dxMm) > 0.1 || Math.abs(dyMm) > 0.1) {
+	dragState.curDxMm = dxPx / PX_PER_MM / props.designer.zoom.value;
+	dragState.curDyMm = dyPx / PX_PER_MM / props.designer.zoom.value;
+	if (Math.abs(dragState.curDxMm) > 0.05 || Math.abs(dragState.curDyMm) > 0.05) {
 		dragState.moved = true;
 	}
-	props.designer.moveObjectDelta(dragState.objId, dxMm, dyMm);
-	dragState.startX = e.clientX;
-	dragState.startY = e.clientY;
+	if (dragState.rafId) return; // already scheduled
+	dragState.rafId = requestAnimationFrame(() => {
+		if (!dragState) return;
+		dragState.rafId = 0;
+		// Move via CSS transform — zero Vue reactivity
+		const dxPxRaw = dragState.curDxMm * PX_PER_MM * props.designer.zoom.value;
+		const dyPxRaw = dragState.curDyMm * PX_PER_MM * props.designer.zoom.value;
+		dragState.el.style.transform = `translate(${dxPxRaw}px, ${dyPxRaw}px)${dragState.el.dataset.origRotation ? ` rotate(${dragState.el.dataset.origRotation}deg)` : ""}`;
+	});
 };
 
 const onDragEnd = () => {
-	if (dragState && dragState.moved) {
-		props.designer["pushHistory"]();
+	if (!dragState) return;
+	try {
+		if (dragState.rafId) cancelAnimationFrame(dragState.rafId);
+		dragState.el.style.transform = "";
+		dragState.el.classList.remove("dragging");
+		if (dragState.moved) {
+			// Commit final position to Vue reactive state ONCE
+			props.designer.moveObjectDelta(dragState.objId, dragState.curDxMm, dragState.curDyMm);
+			props.designer.pushHistory?.();
+		}
+	} finally {
+		dragState = null;
+		document.removeEventListener("mousemove", onDragMove);
+		document.removeEventListener("mouseup", onDragEnd);
 	}
-	dragState = null;
-	document.removeEventListener("mousemove", onDragMove);
-	document.removeEventListener("mouseup", onDragEnd);
 };
 
 const startResize = (e: MouseEvent, id: string, handle: string) => {
 	e.stopPropagation();
 	const obj = props.designer.objects.value.find((o) => o.id === id);
 	if (!obj) return;
+	const el = getObjectEl(id);
+	if (!el) return;
+	el.classList.add("resizing");
 	resizeState = {
 		objId: id,
+		el,
 		handle,
 		startX: e.clientX,
 		startY: e.clientY,
@@ -409,46 +452,84 @@ const startResize = (e: MouseEvent, id: string, handle: string) => {
 		origH: obj.height,
 		origX: obj.x,
 		origY: obj.y,
+		curDxPx: 0,
+		curDyPx: 0,
+		rafId: 0,
 	};
-	document.addEventListener("mousemove", onResizeMove);
+	document.addEventListener("mousemove", onResizeMove, { passive: true });
 	document.addEventListener("mouseup", onResizeEnd);
 };
 
 const onResizeMove = (e: MouseEvent) => {
 	if (!resizeState) return;
-	const dxPx = e.clientX - resizeState.startX;
-	const dyPx = e.clientY - resizeState.startY;
-	const dxMm = dxPx / PX_PER_MM / props.designer.zoom.value;
-	const dyMm = dyPx / PX_PER_MM / props.designer.zoom.value;
-	const h = resizeState.handle;
-	let dw = 0, dh = 0, dx = 0, dy = 0;
-	if (h.includes("r")) { dw = dxMm; }
-	if (h.includes("b")) { dh = dyMm; }
-	if (h.includes("l")) { dw = -dxMm; dx = dxMm; }
-	if (h.includes("t")) { dh = -dyMm; dy = dyMm; }
-	const obj = props.designer.objects.value.find((o) => o.id === resizeState!.objId);
-	if (!obj) return;
-	obj.width = Math.max(3, resizeState.origW + dw);
-	obj.height = Math.max(3, resizeState.origH + dh);
-	if (h.includes("l")) obj.x = resizeState.origX + dx;
-	if (h.includes("t")) obj.y = resizeState.origY + dy;
+	resizeState.curDxPx = e.clientX - resizeState.startX;
+	resizeState.curDyPx = e.clientY - resizeState.startY;
+	if (resizeState.rafId) return;
+	resizeState.rafId = requestAnimationFrame(() => {
+		if (!resizeState) return;
+		resizeState.rafId = 0;
+		const dxMm = resizeState.curDxPx / PX_PER_MM / props.designer.zoom.value;
+		const dyMm = resizeState.curDyPx / PX_PER_MM / props.designer.zoom.value;
+		const h = resizeState.handle;
+		let newW = resizeState.origW;
+		let newH = resizeState.origH;
+		let newX = resizeState.origX;
+		let newY = resizeState.origY;
+		if (h.includes("r")) newW = Math.max(3, resizeState.origW + dxMm);
+		if (h.includes("b")) newH = Math.max(3, resizeState.origH + dyMm);
+		if (h.includes("l")) { newW = Math.max(3, resizeState.origW - dxMm); newX = resizeState.origX + dxMm; }
+		if (h.includes("t")) { newH = Math.max(3, resizeState.origH - dyMm); newY = resizeState.origY + dyMm; }
+		// Direct DOM update — no Vue reactivity
+		const newWPx = mmToPx(newW);
+		const newHPx = mmToPx(newH);
+		const newXPx = mmToPx(newX);
+		const newYPx = mmToPx(newY);
+		resizeState.el.style.width = `${newWPx}px`;
+		resizeState.el.style.height = `${newHPx}px`;
+		resizeState.el.style.left = `${newXPx}px`;
+		resizeState.el.style.top = `${newYPx}px`;
+	});
 };
 
 const onResizeEnd = () => {
-	if (resizeState) {
-		props.designer["pushHistory"]();
+	if (!resizeState) return;
+	try {
+		if (resizeState.rafId) cancelAnimationFrame(resizeState.rafId);
+		resizeState.el.classList.remove("resizing");
+		// Commit to Vue reactive state ONCE
+		const dxMm = resizeState.curDxPx / PX_PER_MM / props.designer.zoom.value;
+		const dyMm = resizeState.curDyPx / PX_PER_MM / props.designer.zoom.value;
+		const h = resizeState.handle;
+		const obj = props.designer.objects.value.find((o) => o.id === resizeState!.objId);
+		if (obj) {
+			if (h.includes("r")) obj.width = Math.max(3, resizeState.origW + dxMm);
+			if (h.includes("b")) obj.height = Math.max(3, resizeState.origH + dyMm);
+			if (h.includes("l")) { obj.width = Math.max(3, resizeState.origW - dxMm); obj.x = resizeState.origX + dxMm; }
+			if (h.includes("t")) { obj.height = Math.max(3, resizeState.origH - dyMm); obj.y = resizeState.origY + dyMm; }
+			// Reset inline style so Vue takes over again
+			resizeState.el.style.width = "";
+			resizeState.el.style.height = "";
+			resizeState.el.style.left = "";
+			resizeState.el.style.top = "";
+			props.designer.pushHistory?.();
+		}
+	} finally {
+		resizeState = null;
+		document.removeEventListener("mousemove", onResizeMove);
+		document.removeEventListener("mouseup", onResizeEnd);
 	}
-	resizeState = null;
-	document.removeEventListener("mousemove", onResizeMove);
-	document.removeEventListener("mouseup", onResizeEnd);
 };
 
 const startRotate = (e: MouseEvent, id: string) => {
 	e.stopPropagation();
 	const obj = props.designer.objects.value.find((o) => o.id === id);
 	if (!obj) return;
+	const el = getObjectEl(id);
+	if (!el) return;
 	const cxPx = mmToPx(obj.x + obj.width / 2);
 	const cyPx = mmToPx(obj.y + obj.height / 2);
+	// Store original rotation as data attribute for drag transform reference
+	el.dataset.origRotation = String(obj.rotation || 0);
 	rotateState = {
 		objId: id,
 		startX: e.clientX,
@@ -456,8 +537,10 @@ const startRotate = (e: MouseEvent, id: string) => {
 		centerX: cxPx,
 		centerY: cyPx,
 		origRot: obj.rotation || 0,
+		curAngle: obj.rotation || 0,
+		rafId: 0,
 	};
-	document.addEventListener("mousemove", onRotateMove);
+	document.addEventListener("mousemove", onRotateMove, { passive: true });
 	document.addEventListener("mouseup", onRotateEnd);
 };
 
@@ -467,19 +550,42 @@ const onRotateMove = (e: MouseEvent) => {
 	const dx = e.clientX - rs.centerX;
 	const dy = e.clientY - rs.centerY;
 	const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-	const snapped = Math.round(angle / 15) * 15;
-	const obj = props.designer.objects.value.find((o) => o.id === rs.objId);
-	if (obj) obj.rotation = snapped;
+	rs.curAngle = Math.round(angle / 15) * 15;
+	if (rs.rafId) return;
+	rs.rafId = requestAnimationFrame(() => {
+		if (!rotateState) return;
+		rotateState.rafId = 0;
+		const el = getObjectEl(rotateState.objId);
+		if (el) {
+			// Keep left/top as-is, only rotate
+			const baseTransform = el.style.transform.replace(/\s*rotate\([^)]+\)/, "");
+			el.style.transform = `${baseTransform} rotate(${rotateState.curAngle}deg)`;
+		}
+	});
 };
 
 const onRotateEnd = () => {
 	const rs = rotateState;
-	if (rs) {
-		props.designer["pushHistory"]();
+	if (!rs) return;
+	try {
+		if (rs.rafId) cancelAnimationFrame(rs.rafId);
+		// Commit final angle to Vue reactive state ONCE
+		const obj = props.designer.objects.value.find((o) => o.id === rs.objId);
+		if (obj) {
+			obj.rotation = rs.curAngle;
+			props.designer.pushHistory?.();
+		}
+		// Clean up el style so Vue recalculates objectStyle
+		const el = getObjectEl(rs.objId);
+		if (el) {
+			el.style.transform = "";
+			delete el.dataset.origRotation;
+		}
+	} finally {
+		rotateState = null;
+		document.removeEventListener("mousemove", onRotateMove);
+		document.removeEventListener("mouseup", onRotateEnd);
 	}
-	rotateState = null;
-	document.removeEventListener("mousemove", onRotateMove);
-	document.removeEventListener("mouseup", onRotateEnd);
 };
 
 const onObjectDblClick = (id: string) => {
@@ -642,8 +748,16 @@ watch(() => props.designer.labelSize.value, () => {
 	position: absolute;
 	z-index: 2;
 	outline: none;
-	transition: outline 0.1s;
 	box-sizing: border-box;
+	will-change: transform;
+}
+
+.designer-object.dragging,
+.designer-object.resizing {
+	user-select: none;
+	pointer-events: none;
+	transition: none !important;
+	z-index: 100;
 }
 
 .designer-object.selected {

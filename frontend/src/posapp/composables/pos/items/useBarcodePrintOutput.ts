@@ -807,9 +807,12 @@ export function useBarcodePrintOutput() {
 				html += '<div class="label" style="position:relative;overflow:hidden;">';
 				objects.forEach((obj) => {
 					if (obj.hidden) return;
-					const resolvedCondition = resolveTemplateVars(obj.condition || "", copyItem);
-					if (resolvedCondition === "" || resolvedCondition === "false" || resolvedCondition === "0") return;
-					const baseStyle = `position:absolute;left:${obj.x}mm;top:${obj.y}mm;width:${obj.width}mm;height:${obj.height}mm;`;
+					if (obj.condition && obj.condition.trim()) {
+						const resolvedCondition = resolveTemplateVars(obj.condition, copyItem);
+						if (resolvedCondition === "false" || resolvedCondition === "0") return;
+					}
+					const rotStyle = obj.rotation ? `transform:rotate(${obj.rotation}deg);` : "";
+					const baseStyle = `position:absolute;left:${obj.x}mm;top:${obj.y}mm;width:${obj.width}mm;height:${obj.height}mm;${rotStyle}`;
 					switch (obj.type) {
 						case "text": {
 							const content = resolveTemplateVars(obj.content || "", copyItem);
@@ -824,33 +827,35 @@ export function useBarcodePrintOutput() {
 							break;
 						}
 						case "barcode": {
-							const bd = resolveTemplateVars(obj.content || copyItem.barcode || "", copyItem);
+							const rawContent = obj.content && obj.content.trim() ? obj.content : "{barcode}";
+							const bd = resolveTemplateVars(rawContent, copyItem) || copyItem.barcode || "";
 							if (!bd) break;
 							const sym = obj.symbology || guessSymbologyFromBarcode(bd);
 							const jsb = getSymbologyForJsBarcode(sym);
 							const dims = calculateBarcodeDimensions(sym, ctx, bd.length);
 							const ean128 = jsb.ean128 ? ' jsbarcode-ean128="true"' : "";
-							html += `<div style="${baseStyle}display:flex;align-items:center;justify-content:center;overflow:hidden;"><img class="barcode" jsbarcode-format="${jsb.format}" jsbarcode-value="${escapeHtml(bd)}" jsbarcode-textmargin="0" jsbarcode-fontoptions="bold" jsbarcode-height="${dims.heightPx}" jsbarcode-width="${dims.moduleWidthPx}" jsbarcode-margin="${dims.quietZonePx}" jsbarcode-displayValue="true" jsbarcode-fontSize="${dims.fontSize}"${ean128} style="max-width:100%;max-height:100%;"></div>`;
+							const dispVal = obj.humanReadable !== false ? "true" : "false";
+							html += `<div style="${baseStyle}display:flex;align-items:center;justify-content:center;overflow:hidden;"><img class="barcode" jsbarcode-format="${jsb.format}" jsbarcode-value="${escapeHtml(bd)}" jsbarcode-textmargin="0" jsbarcode-fontoptions="bold" jsbarcode-height="${dims.heightPx}" jsbarcode-width="${dims.moduleWidthPx}" jsbarcode-margin="${dims.quietZonePx}" jsbarcode-displayValue="${dispVal}" jsbarcode-fontSize="${dims.fontSize}"${ean128} style="max-width:100%;max-height:100%;"></div>`;
 							break;
 						}
 						case "shape": {
-							const bg = obj.color || "#ccc";
+							const bg = obj.color || "transparent";
 							const bc = obj.borderColor || "#000";
-							const bw = obj.borderWidth || 0;
+							const bw = obj.borderWidth || 0.5;
 							if (obj.shapeType === "ellipse") {
-								html += `<div style="${baseStyle}background:${bg};border:${bw}px solid ${bc};border-radius:50%;"></div>`;
+								html += `<div style="${baseStyle}background:${bg};border:${bw}mm solid ${bc};border-radius:50%;box-sizing:border-box;"></div>`;
 							} else {
-								html += `<div style="${baseStyle}background:${bg};border:${bw}px solid ${bc};"></div>`;
+								html += `<div style="${baseStyle}background:${bg};border:${bw}mm solid ${bc};box-sizing:border-box;"></div>`;
 							}
 							break;
 						}
 						case "line": {
-							const lc = obj.color || "#000";
-							const th = obj.borderWidth || 1;
+							const lc = obj.borderColor || obj.color || "#000";
+							const th = obj.borderWidth || 0.5;
 							if (obj.lineDirection === "vertical") {
-								html += `<div style="position:absolute;left:${obj.x + obj.width / 2}mm;top:${obj.y}mm;width:${th}px;height:${obj.height}mm;background:${lc};"></div>`;
+								html += `<div style="${baseStyle}width:${th}mm;height:100%;background:${lc};margin:0 auto;"></div>`;
 							} else {
-								html += `<div style="position:absolute;left:${obj.x}mm;top:${obj.y + obj.height / 2}mm;height:${th}px;width:${obj.width}mm;background:${lc};"></div>`;
+								html += `<div style="${baseStyle}height:${th}mm;width:100%;background:${lc};margin:auto 0;"></div>`;
 							}
 							break;
 						}
