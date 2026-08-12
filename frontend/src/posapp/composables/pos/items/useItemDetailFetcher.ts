@@ -12,7 +12,9 @@ import {
 	initializeStockCache,
 	isOffline,
 } from "../../../../offline/index";
-import { scheduleFrame } from "../../../utils/perf.js";
+import { buildOfflineProfileScope } from "../../../../offline/scope";
+import { scheduleFrame } from "../../../utils/perf";
+import { posDebug } from "../../../utils/debug";
 import { buildItemDetailsRequestIdentity } from "./detailFetcher/requestIdentity";
 
 declare const frappe: any;
@@ -75,9 +77,7 @@ export function useItemDetailFetcher() {
 	}
 
 	function getStorageScope() {
-		const profileName = ctx.pos_profile?.name || "no_profile";
-		const warehouse = ctx.pos_profile?.warehouse || "no_warehouse";
-		return `${profileName}_${warehouse}`;
+		return buildOfflineProfileScope(ctx.pos_profile);
 	}
 
 	function cancelItemDetailsRequest() {
@@ -210,6 +210,8 @@ export function useItemDetailFetcher() {
 				ctx.pos_profile?.name,
 				ctx.active_price_list,
 				itemCodes,
+				undefined,
+				getStorageScope(),
 			);
 			const missingCodes = new Set(cacheResult?.missing || []);
 			const updates: Array<{ item: any; upd: any }> = [];
@@ -244,7 +246,7 @@ export function useItemDetailFetcher() {
 
 			if (cacheResult.missing.length === 0) {
 				updates.forEach(({ item, upd }) => Object.assign(item, upd));
-				updateLocalStockCache(cacheResult.cached);
+				updateLocalStockCache(cacheResult.cached, getStorageScope());
 				return;
 			}
 
@@ -289,7 +291,7 @@ export function useItemDetailFetcher() {
 			});
 
 			updates.forEach(({ item, upd }) => Object.assign(item, upd));
-			updateLocalStockCache(details);
+			updateLocalStockCache(details, getStorageScope());
 			saveItemDetailsCache(
 				ctx.pos_profile?.name,
 				ctx.active_price_list,
@@ -348,6 +350,7 @@ export function useItemDetailFetcher() {
 			effectivePriceList,
 			itemCodes,
 			forceRefresh ? 0 : undefined,
+			getStorageScope(),
 		);
 		const missingCodes = new Set(cacheResult?.missing || []);
 
@@ -408,7 +411,7 @@ export function useItemDetailFetcher() {
 
 		let allCached = cacheResult.missing.length === 0;
 		items.forEach((item) => {
-			const localQty = getLocalStock(item.item_code);
+			const localQty = getLocalStock(item.item_code, getStorageScope());
 			if (localQty !== null) {
 				item.actual_qty = localQty;
 				if (ctx.itemAvailability)
@@ -590,7 +593,7 @@ export function useItemDetailFetcher() {
 					baseRecords.clear();
 				}
 
-				updateLocalStockCache(details);
+				updateLocalStockCache(details, getStorageScope());
 				saveItemDetailsCache(
 					ctx.pos_profile?.name,
 					effectivePriceList,
@@ -620,7 +623,10 @@ export function useItemDetailFetcher() {
 			if (err?.name !== "AbortError") {
 				console.error("Error fetching item details:", err);
 				items.forEach((item) => {
-					const localQty = getLocalStock(item.item_code);
+					const localQty = getLocalStock(
+						item.item_code,
+						getStorageScope(),
+					);
 					if (localQty !== null) {
 						item.actual_qty = localQty;
 						if (ctx.itemAvailability)
@@ -683,25 +689,21 @@ export function useItemDetailFetcher() {
 
 		prePopulateInProgress.value = true;
 		try {
-			const cache = getLocalStockCache();
+			const cache = getLocalStockCache(getStorageScope());
 			const cacheSize = Object.keys(cache).length;
-			if (isStockCacheReady() && cacheSize >= items.length) {
-				console.debug("Stock cache already initialized");
+			if (
+				isStockCacheReady(getStorageScope()) &&
+				cacheSize >= items.length
+			) {
+				posDebug("stock-cache", "detail fetcher cache already initialized", {
+					cacheSize,
+				});
 				return;
 			}
-			if (items.length > 500) {
-				console.info(
-					"Pre-populating stock cache for",
-					items.length,
-					"items in batches",
-				);
-			} else {
-				console.info(
-					"Pre-populating stock cache for",
-					items.length,
-					"items",
-				);
-			}
+			posDebug("stock-cache", "pre-populating from item details", {
+				itemCount: items.length,
+				largeDataset: items.length > 500,
+			});
 			await initializeStockCache(items, ctx.pos_profile);
 		} catch (error: any) {
 			console.error("Failed to pre-populate stock cache:", error);

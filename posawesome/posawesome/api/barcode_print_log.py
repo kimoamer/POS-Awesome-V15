@@ -6,85 +6,121 @@
 import frappe
 from frappe import _
 from frappe.utils import now_datetime
+from posawesome.posawesome.api.utils import (
+    assert_document_permission,
+    get_pos_request_context,
+)
+
+
+def _print_context(pos_profile, pos_opening_shift=None, permission_type="read", company=None):
+    return get_pos_request_context(
+        pos_profile,
+        company=company,
+        doctype="Barcode Print Log",
+        permission_type=permission_type,
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
 
 
 @frappe.whitelist()
-def batch_create_print_logs(entries):
+def batch_create_print_logs(entries, pos_profile=None, pos_opening_shift=None):
     """Bulk insert print logs using frappe.db.bulk_insert for performance."""
     if not entries:
         return []
     parsed = frappe.parse_json(entries) if isinstance(entries, str) else entries
     if not isinstance(parsed, list):
         frappe.throw(_("Entries must be a JSON array"))
+    if len(parsed) > 500:
+        frappe.throw(_("A maximum of 500 print-log rows is allowed per request."))
+    context = _print_context(pos_profile, pos_opening_shift, "create")
 
     docs = []
     now = now_datetime()
     for entry in parsed:
         doc = frappe.get_doc({
             "doctype": "Barcode Print Log",
-            "posting_date": entry.get("posting_date") or now.strftime("%Y-%m-%d"),
-            "timestamp": entry.get("timestamp") or now,
+            "posting_date": now.strftime("%Y-%m-%d"),
+            "timestamp": now,
             "item_code": entry.get("item_code"),
             "item_name": entry.get("item_name"),
             "barcode": entry.get("barcode"),
             "barcode_type": entry.get("barcode_type"),
-            "qty": entry.get("qty", 1),
+            "qty": max(int(entry.get("qty") or 1), 1),
             "uom": entry.get("uom"),
             "price": entry.get("price", 0),
             "symbology": entry.get("symbology"),
             "label_size": entry.get("label_size"),
-            "user": entry.get("user") or frappe.session.user,
-            "company": entry.get("company"),
-            "pos_profile": entry.get("pos_profile"),
+            "user": frappe.session.user,
+            "company": context.company,
+            "pos_profile": context.profile_name,
             "print_method": entry.get("print_method"),
-            "status": entry.get("status", "Sent"),
+            "status": entry.get("status") if entry.get("status") in {"Sent", "Failed"} else "Sent",
             "error_message": entry.get("error_message"),
             "reference_doctype": entry.get("reference_doctype"),
             "reference_docname": entry.get("reference_docname"),
             "batch_no": entry.get("batch_no"),
             "serial_no": entry.get("serial_no"),
-            "warehouse": entry.get("warehouse"),
+            "warehouse": context.warehouse,
         })
         docs.append(doc)
-
-    _BULK_FIELDS = (
-        "posting_date", "timestamp", "item_code", "item_name", "barcode", "barcode_type",
-        "qty", "uom", "price", "symbology", "label_size", "user", "company", "pos_profile",
-        "print_method", "status", "error_message", "reference_doctype", "reference_docname",
-        "batch_no", "serial_no", "warehouse",
-    )
-    rows = [[d.get(f) for f in _BULK_FIELDS] for d in docs]
-    frappe.db.bulk_insert("Barcode Print Log", fields=list(_BULK_FIELDS), values=rows, ignore_duplicates=True)
+    for doc in docs:
+        doc.insert()
     return [d.name for d in docs]
 
 
 @frappe.whitelist()
-def verify_barcode(log_id, scanned_barcode, status="Verified"):
+def verify_barcode(
+    log_id,
+    scanned_barcode,
+    status="Verified",
+    pos_profile=None,
+    pos_opening_shift=None,
+):
     """Mark a print log as verified or mismatched."""
     if not log_id or not scanned_barcode:
         frappe.throw(_("Log ID and scanned barcode are required"))
     doc = frappe.get_doc("Barcode Print Log", log_id)
+    context = _print_context(
+        pos_profile or doc.pos_profile,
+        pos_opening_shift,
+        "write",
+        company=doc.company,
+    )
+    assert_document_permission(doc, "write")
+    if doc.pos_profile != context.profile_name or doc.user != frappe.session.user:
+        frappe.throw(_("Print log is outside the active POS session."), frappe.PermissionError)
+    if status not in {"Verified", "Mismatch"}:
+        frappe.throw(_("Invalid verification status."))
     doc.verification_status = status
     doc.scanned_barcode = scanned_barcode
     doc.verified_at = now_datetime()
     doc.verified_by = frappe.session.user
-    doc.save(ignore_permissions=True)
+    doc.save()
     return {"name": doc.name, "verification_status": doc.verification_status}
 
 
 @frappe.whitelist()
-def get_print_logs(filters=None, limit=50, offset=0):
+def get_print_logs(
+    filters=None,
+    limit=50,
+    offset=0,
+    pos_profile=None,
+    pos_opening_shift=None,
+):
     """Return filtered print logs with stats."""
     filters = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
     limit = min(int(limit or 50), 500)
-    offset = int(offset or 0)
+    offset = max(int(offset or 0), 0)
+    context = _print_context(pos_profile, pos_opening_shift)
 
-    conditions = []
-    values = {}
+    conditions = ["`company` = %(company)s", "`pos_profile` = %(pos_profile)s", "`user` = %(session_user)s"]
+    values = {
+        "company": context.company,
+        "pos_profile": context.profile_name,
+        "session_user": frappe.session.user,
+    }
 
-    if filters.get("user"):
-        conditions.append("`user` = %(user)s")
-        values["user"] = filters["user"]
     if filters.get("date"):
         conditions.append("`posting_date` = %(date)s")
         values["date"] = filters["date"]
@@ -139,15 +175,17 @@ def get_print_logs(filters=None, limit=50, offset=0):
 
 
 @frappe.whitelist()
-def get_print_stats(filters=None):
+def get_print_stats(filters=None, pos_profile=None, pos_opening_shift=None):
     """Aggregate print statistics for dashboard."""
     filters = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
 
-    conditions = []
-    values = {}
-    if filters.get("user"):
-        conditions.append("`user` = %(user)s")
-        values["user"] = filters["user"]
+    context = _print_context(pos_profile, pos_opening_shift)
+    conditions = ["`company` = %(company)s", "`pos_profile` = %(pos_profile)s", "`user` = %(session_user)s"]
+    values = {
+        "company": context.company,
+        "pos_profile": context.profile_name,
+        "session_user": frappe.session.user,
+    }
     if filters.get("date_from"):
         conditions.append("`posting_date` >= %(date_from)s")
         values["date_from"] = filters["date_from"]

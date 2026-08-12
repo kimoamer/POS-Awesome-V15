@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, expect, it } from "vitest";
 import fs from "fs";
 import path from "path";
@@ -10,9 +12,9 @@ describe("Payment Dialog Layout & CSS Validity Contract", () => {
 		expect(content).toContain("<style scoped>");
 		expect(content).not.toContain('<style scoped src="./Payments.vue.css"></style>');
 		expect(content).toContain(".payment-shell");
-		expect(content).toContain("grid-template-rows: 72px 76px minmax(0, 1fr) 66px");
+		expect(content).toContain("grid-template-rows: 64px 76px minmax(0, 1fr) 60px");
 		expect(content).toContain(".payment-layout");
-		expect(content).toContain("grid-template-columns: minmax(0, 1.15fr) minmax(350px, 0.85fr)");
+		expect(content).toContain("grid-template-columns: minmax(0, 1.12fr) minmax(350px, 0.88fr)");
 	});
 
 	it("verifies theme.css contains global posa-payment-dialog-overlay overlay rule", () => {

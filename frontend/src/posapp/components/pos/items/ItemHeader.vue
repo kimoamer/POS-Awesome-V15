@@ -118,6 +118,20 @@
 						<span v-if="lastSyncTimeLabel" class="status-inline-time text-caption text-secondary">
 							· {{ lastSyncTimeLabel }}
 						</span>
+						<v-progress-linear
+							v-if="showSyncProgress"
+							:model-value="clampedSyncProgress"
+							color="primary"
+							height="3"
+							class="command-status-inline__progress"
+							data-test="item-search-sync-bar"
+						/>
+						<span
+							v-if="showSyncProgress && normalizedSyncItemsCount"
+							class="status-inline-count text-caption text-secondary"
+						>
+							{{ syncItemsCountLabel }}
+						</span>
 					</div>
 					<v-btn
 						icon

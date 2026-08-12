@@ -12,6 +12,11 @@ export function useSyncCoordinator() {
 	return coordinator;
 }
 
+export function setSyncCoordinator(nextCoordinator: SyncCoordinator) {
+	coordinator = nextCoordinator;
+	return coordinator;
+}
+
 export function resetSyncCoordinatorForTests() {
 	coordinator = null;
 }

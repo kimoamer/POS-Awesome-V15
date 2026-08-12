@@ -23,6 +23,12 @@ vi.mock("../src/offline/index", () => ({
 	memoryInitPromise: Promise.resolve(),
 }));
 
+vi.mock("../src/offline/sync/useSyncCoordinator", () => ({
+	useSyncCoordinator: () => ({
+		runTrigger: vi.fn(async () => ({})),
+	}),
+}));
+
 vi.mock("../src/posapp/composables/core/useResponsive", () => ({
 	useResponsive: () => ({
 		windowWidth: ref(1440),
@@ -710,6 +716,7 @@ describe("ItemsSelector stock wiring", () => {
 			name: "POS-1",
 			currency: "PKR",
 			selling_price_list: "Standard Selling",
+			posa_allow_purchase_order: 1,
 		} as any);
 		employeeStore.currentCashier = {
 			user: "supervisor@example.com",
@@ -745,6 +752,8 @@ describe("ItemsSelector stock wiring", () => {
 		}).entries;
 
 		expect(lastBuyingRateContext.show_last_buying_rate()).toBe(true);
+		wrapper.vm.pos_profile.posa_allow_purchase_order = 0;
+		expect(lastBuyingRateContext.show_last_buying_rate()).toBe(false);
 		expect(entries.map((entry: any) => entry.key)).toEqual([
 			"sale",
 			"purchase",

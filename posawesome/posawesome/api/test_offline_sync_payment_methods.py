@@ -44,7 +44,7 @@ def _install_stubs():
     sys.modules["frappe"] = frappe_module
 
     payment_utils_module = types.ModuleType("posawesome.posawesome.api.payment_processing.utils")
-    payment_utils_module.get_mode_of_payment_accounts = lambda company, modes: {"Cash": "PKR", "Card": "USD"}
+    payment_utils_module._get_mode_of_payment_accounts = lambda company, modes: {"Cash": "PKR", "Card": "USD"}
     sys.modules["posawesome.posawesome.api.payment_processing.utils"] = payment_utils_module
 
     api_utils_module = types.ModuleType("posawesome.posawesome.api.utils")
@@ -74,8 +74,14 @@ def _load_module():
 class TestOfflineSyncPaymentMethods(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         _install_stubs()
         cls.module = _load_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def test_sync_payment_method_currencies_returns_profile_mapping_snapshot(self):
         response = self.module.sync_payment_method_currencies(

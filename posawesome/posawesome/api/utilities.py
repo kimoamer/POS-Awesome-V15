@@ -23,10 +23,22 @@ except ImportError:  # pragma: no cover - optional dependency
 _PSUTIL_MISSING_LOGGED = False
 import functools
 
-from .utils import get_item_groups, fetch_sales_person_names
+from .utils import (
+    assert_pos_profile_access_allowed,
+    fetch_sales_person_names,
+    get_item_groups,
+    get_pos_request_context,
+)
 from posawesome.utils import get_build_version
 
 POS_AWESOME_REPO_URL = "https://github.com/defendicon/POS-Awesome-V15"
+
+
+def _require_system_manager():
+    user = getattr(frappe.session, "user", None)
+    if user == "Administrator" or "System Manager" in set(frappe.get_roles(user)):
+        return
+    frappe.throw(_("System Manager permission is required."), frappe.PermissionError)
 
 
 def _normalize_release_tag(version):
@@ -166,9 +178,18 @@ def get_company_domain(company):
 
 
 @frappe.whitelist()
-def get_selling_price_lists():
+def get_selling_price_lists(pos_profile=None, pos_opening_shift=None):
     """Return all selling price lists"""
-    return frappe.get_all(
+    context = get_pos_request_context(
+        pos_profile,
+        doctype="Price List",
+        permission_type="read",
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
+    if not context.pos_profile.get("posa_enable_price_list_dropdown"):
+        return [{"name": context.pos_profile.get("selling_price_list")}]
+    return frappe.get_list(
         "Price List",
         filters={"selling": 1},
         fields=["name"],
@@ -227,6 +248,7 @@ def _get_git_commit_info(app_name: str = "posawesome") -> Dict[str, Any]:
 @frappe.whitelist()
 def get_build_info() -> Dict[str, Any]:
     """Return build version + latest git commit info for update prompts."""
+    _require_system_manager()
     data: Dict[str, Any] = {"build_version": get_build_version(), **_get_update_metadata()}
     data.update(_get_git_commit_info("posawesome"))
     return data
@@ -361,6 +383,7 @@ def _get_current_branch(app_path: str) -> str:
 
 @frappe.whitelist()
 def get_remote_update_info() -> Dict[str, Any]:
+    _require_system_manager()
     data: Dict[str, Any] = {"build_version": get_build_version(), **_get_update_metadata()}
     base = _get_git_commit_info("posawesome")
     if base:
@@ -482,11 +505,13 @@ def get_pos_profile_tax_inclusive(pos_profile: str):
     """Return the 'posa_tax_inclusive' setting for the given POS Profile."""
     if not pos_profile:
         return None
-    return frappe.get_cached_value("POS Profile", pos_profile, "posa_tax_inclusive")
+    profile = assert_pos_profile_access_allowed(pos_profile)
+    return profile.get("posa_tax_inclusive")
 
 
 @frappe.whitelist()
 def get_database_usage():
+    _require_system_manager()
     db_size = None
     db_connections = None
     db_slow_queries = None
@@ -574,6 +599,7 @@ def get_database_usage():
 
 @frappe.whitelist()
 def get_server_usage():
+    _require_system_manager()
     global _PSUTIL_MISSING_LOGGED
 
     cpu_percent = None

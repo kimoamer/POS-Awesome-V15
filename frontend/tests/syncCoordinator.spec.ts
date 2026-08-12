@@ -6,6 +6,7 @@ import type {
 } from "../src/offline/sync/types";
 
 vi.mock("../src/offline/sync/syncState", () => ({
+	getSyncResourceState: vi.fn(async () => null),
 	setSyncResourceState: vi.fn(async () => undefined),
 }));
 
@@ -103,6 +104,34 @@ describe("SyncCoordinator", () => {
 		expect(coordinator.getResourceState("bootstrap_config")?.status).toBe(
 			"fresh",
 		);
+	});
+
+	it("serializes different triggers through the same coordinator", async () => {
+		const resource = makeResource("items", "warm", [
+			"online_resume",
+			"user_action",
+		]);
+		let activeRuns = 0;
+		let maxActiveRuns = 0;
+		const triggers: SyncTrigger[] = [];
+		const coordinator = new SyncCoordinator({
+			resources: [resource],
+			runResource: async (_resource, trigger) => {
+				activeRuns += 1;
+				maxActiveRuns = Math.max(maxActiveRuns, activeRuns);
+				triggers.push(trigger);
+				await new Promise((resolve) => setTimeout(resolve, 5));
+				activeRuns -= 1;
+			},
+		});
+
+		await Promise.all([
+			coordinator.runTrigger("online_resume"),
+			coordinator.runTrigger("user_action"),
+		]);
+
+		expect(maxActiveRuns).toBe(1);
+		expect(triggers).toEqual(["online_resume", "user_action"]);
 	});
 
 	it("continues warm resources after a non-critical failure and records a summary", async () => {

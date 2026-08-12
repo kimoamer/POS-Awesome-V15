@@ -2,6 +2,7 @@
 	<div v-if="invoiceDoc && allowPurchaseOrder" class="payment-po">
 		<div class="payment-po-grid">
 			<div class="payment-po-cell">
+				<label class="payment-field-label">{{ __("Purchase Order Number") }}</label>
 				<v-text-field
 					v-model="invoiceDoc.po_no"
 					:label="__('Purchase Order Number')"
@@ -14,6 +15,7 @@
 				></v-text-field>
 			</div>
 			<div class="payment-po-cell">
+				<label class="payment-field-label">{{ __("Purchase Order Date") }}</label>
 				<VueDatePicker
 					:model-value="newPoDate"
 					model-type="format"

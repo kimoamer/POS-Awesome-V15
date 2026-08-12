@@ -33,13 +33,24 @@
  * mutation. For large, searchable datasets (`items`, `customers`) it also issues
  * `db` table queries directly. Domain queue modules (`invoices`, `payments`, etc.)
  * and sync adapters import `db`, `memory`, and `persist` from this file.
- * `checkDbHealth` is called defensively before every IndexedDB operation
- * elsewhere in the layer; it will reopen, or delete and recreate, the database
- * on detected corruption.
+ * `checkDbHealth` is called defensively before IndexedDB operations elsewhere
+ * in the layer. Health checks and controlled reopen attempts are single-flight;
+ * pending POS writes are never deleted automatically.
  */
 import Dexie from "dexie/dist/dexie.mjs";
+import {
+	buildCustomerIndexTokens,
+	normalizeCustomerIndexValue,
+} from "../posapp/stores/customers/customerSearch";
 
 type AnyRecord = Record<string, any>;
+
+declare const __BUILD_VERSION__: string;
+
+const OFFLINE_ASSET_VERSION =
+	typeof __BUILD_VERSION__ !== "undefined" && __BUILD_VERSION__
+		? String(__BUILD_VERSION__)
+		: "dev";
 
 // --- Dexie initialization ---------------------------------------------------
 export const db = new Dexie("posawesome_offline");
@@ -86,8 +97,62 @@ const SCHEMA_V15 = {
 
 const SCHEMA_V16 = {
 	...SCHEMA_V15,
-	items:
-		"&item_code,item_name,item_group,profile_scope,item_code_lc,item_name_lc,*barcodes,*barcodes_lc,*name_keywords,*name_keywords_lc,*serials,*batches",
+	items: "&item_code,item_name,item_group,profile_scope,item_code_lc,item_name_lc,*barcodes,*barcodes_lc,*name_keywords,*name_keywords_lc,*serials,*batches",
+};
+
+const SCHEMA_V17 = {
+	...SCHEMA_V16,
+	// IndexedDB cannot change an object store's primary key in-place. Items are
+	// server-derived, so remove the legacy store here and recreate it in v18.
+	items: null,
+};
+
+const SCHEMA_V18 = {
+	...SCHEMA_V17,
+	items: "&[profile_scope+item_code],profile_scope,item_code,item_name,item_group,[profile_scope+item_code_lc],[profile_scope+item_group],item_code_lc,item_name_lc,*barcodes,*barcodes_lc,*name_keywords,*name_keywords_lc,*serials,*batches",
+};
+
+const SCHEMA_V19 = {
+	...SCHEMA_V18,
+	// Customers are a server-derived read model. Recreate them in v20 so the
+	// compound primary key is introduced without an unsupported mutation.
+	customers: null,
+	write_queue:
+		"++queue_id,owner_scope,entity_type,status,resource,next_attempt_at,created_at,last_attempt_at,retry_count,&[owner_scope+idempotency_key],[owner_scope+entity_type],[owner_scope+entity_type+status],[owner_scope+status+next_attempt_at],[status+last_attempt_at],[status+created_at]",
+	invoice_outbox:
+		"++outbox_id,owner_scope,client_request_id,status,resource,created_at,updated_at,acknowledged_at,next_retry_at,nextAttemptAt,retry_count,&[owner_scope+client_request_id],[owner_scope+status],[owner_scope+status+next_retry_at],[resource+status],[status+acknowledged_at],[status+updated_at],[status+created_at]",
+};
+
+const SCHEMA_V20 = {
+	...SCHEMA_V19,
+	customers:
+		"&[customer_scope+name],customer_scope,name,customer_name,mobile_no,email_id,tax_id,[customer_scope+customer_name]",
+	// Stage the remaining derived primary-key changes across two versions.
+	item_price_records: null,
+	pricing_rule_records: null,
+};
+
+const SCHEMA_V21 = {
+	...SCHEMA_V20,
+	item_price_records:
+		"&[profile_scope+name],profile_scope,name,price_list,item_code,uom,currency,customer,modified,[profile_scope+price_list+item_code],[profile_scope+price_list+item_code+uom]",
+	pricing_rule_records:
+		"&[profile_scope+key],profile_scope,key,rule_name,target_type,target_value,modified,[profile_scope+rule_name],[profile_scope+target_type+target_value]",
+	currency_rate_records: null,
+};
+
+const SCHEMA_V22 = {
+	...SCHEMA_V21,
+	currency_rate_records:
+		"&[profile_scope+name],profile_scope,name,profile_name,company,from_currency,to_currency,date,modified,[profile_scope+company+from_currency+to_currency]",
+};
+
+const SCHEMA_V23 = {
+	...SCHEMA_V22,
+	customers:
+		"&[customer_scope+name],customer_scope,name,customer_name,mobile_no,email_id,tax_id,customer_name_lc,mobile_no_normalized,email_id_lc,tax_id_lc,[customer_scope+customer_name_lc],[customer_scope+mobile_no_normalized],[customer_scope+email_id_lc],[customer_scope+tax_id_lc]",
+	customer_search_tokens:
+		"&[customer_scope+token+customer_name],customer_scope,token,customer_name,[customer_scope+token],[customer_scope+customer_name]",
 };
 
 export const KEY_TABLE_MAP: Record<string, string> = {
@@ -224,6 +289,7 @@ const DERIVED_OFFLINE_TABLES_TO_CLEAR = Object.freeze([
 	"item_prices",
 	"item_price_records",
 	"customers",
+	"customer_search_tokens",
 	"cache",
 	"local_stock",
 	"coupons",
@@ -276,13 +342,158 @@ db.version(13).stores(BASE_SCHEMA);
 db.version(14).stores(SCHEMA_V14);
 db.version(15).stores(SCHEMA_V15);
 db.version(16).stores(SCHEMA_V16);
+db.version(17)
+	.stores(SCHEMA_V17)
+	.upgrade(async (transaction) => {
+		// Only server-derived read models are invalidated. Financial queues and
+		// the outbox remain untouched throughout the staged schema migration.
+		await transaction.table("sync_state").clear();
+		await transaction.table("local_stock").clear();
+		await transaction.table("cache").delete("item_details_cache");
+		await transaction.table("settings").bulkPut([
+			{ key: "cache_ready", value: false },
+			{ key: "stock_cache_ready", value: false },
+		]);
+	});
+db.version(18).stores(SCHEMA_V18);
+db.version(19)
+	.stores(SCHEMA_V19)
+	.upgrade(async (transaction) => {
+		await transaction
+			.table("write_queue")
+			.toCollection()
+			.modify((entry) => {
+				entry.owner_scope =
+					String(entry.owner_scope || "").trim() ||
+					"legacy::unclaimed";
+			});
+		await transaction
+			.table("invoice_outbox")
+			.toCollection()
+			.modify((entry) => {
+				entry.owner_scope =
+					String(entry.owner_scope || "").trim() ||
+					"legacy::unclaimed";
+			});
+		await transaction.table("sync_state").clear();
+	});
+db.version(20).stores(SCHEMA_V20);
+db.version(21).stores(SCHEMA_V21);
+db.version(22)
+	.stores(SCHEMA_V22)
+	.upgrade(async (transaction) => {
+		const writeQueue = transaction.table("write_queue");
+		const outbox = transaction.table("invoice_outbox");
+		const invoiceRows = await writeQueue
+			.where("entity_type")
+			.equals("invoice")
+			.toArray();
+
+		for (const row of invoiceRows) {
+			const payload = row?.payload || {};
+			const invoice = { ...(payload?.invoice || {}) };
+			const data = { ...(payload?.data || {}) };
+			const fallbackKey = String(row?.idempotency_key || "")
+				.replace(/^invoice:/, "")
+				.trim();
+			const clientRequestId = String(
+				invoice?.posa_client_request_id ||
+					data?.idempotency_key ||
+					data?.client_request_id ||
+					fallbackKey ||
+					`legacy-invoice-${row.queue_id}`,
+			).trim();
+			const ownerScope =
+				String(row?.owner_scope || "").trim() || "legacy::unclaimed";
+			invoice.posa_client_request_id = clientRequestId;
+			data.idempotency_key = data.idempotency_key || clientRequestId;
+			data.client_request_id = data.client_request_id || clientRequestId;
+
+			const existing = await outbox
+				.where("[owner_scope+client_request_id]")
+				.equals([ownerScope, clientRequestId])
+				.first();
+			if (!existing) {
+				const deadLetter = row?.status === "dead_letter";
+				await outbox.add({
+					client_request_id: clientRequestId,
+					owner_scope: ownerScope,
+					resource: "invoice_outbox",
+					status: deadLetter ? "dead_letter" : "pending",
+					invoice,
+					data,
+					created_at: row?.created_at || new Date().toISOString(),
+					updated_at:
+						row?.last_attempt_at ||
+						row?.created_at ||
+						new Date().toISOString(),
+					next_retry_at: deadLetter
+						? null
+						: row?.next_attempt_at || null,
+					nextAttemptAt: deadLetter
+						? null
+						: row?.next_attempt_at || null,
+					retry_count: Number(row?.retry_count || 0),
+					last_error: row?.last_error || null,
+					invoice_name: null,
+					acknowledged_at: null,
+					lease_token: null,
+				});
+			}
+			await writeQueue.delete(row.queue_id);
+		}
+
+		await transaction.table("settings").put({
+			key: "invoice_outbox_mode",
+			value: "coordinator",
+		});
+	});
+db.version(23)
+	.stores(SCHEMA_V23)
+	.upgrade(async (transaction) => {
+		const customers = transaction.table("customers");
+		const searchTokens = transaction.table("customer_search_tokens");
+		const keys = await customers.toCollection().primaryKeys();
+		const chunkSize = 500;
+
+		for (let index = 0; index < keys.length; index += chunkSize) {
+			const rows = (
+				await customers.bulkGet(keys.slice(index, index + chunkSize))
+			).filter(Boolean);
+			const normalizedRows = rows.map((customer) => ({
+				...customer,
+				customer_name_lc: normalizeCustomerIndexValue(
+					customer.customer_name || customer.name,
+				),
+				mobile_no_normalized: String(customer.mobile_no || "").replace(
+					/\D/g,
+					"",
+				),
+				email_id_lc: normalizeCustomerIndexValue(customer.email_id),
+				tax_id_lc: normalizeCustomerIndexValue(customer.tax_id),
+			}));
+			await customers.bulkPut(normalizedRows);
+			const tokenRows = normalizedRows.flatMap((customer) =>
+				buildCustomerIndexTokens(customer).map((token) => ({
+					customer_scope: customer.customer_scope,
+					token,
+					customer_name: customer.name,
+				})),
+			);
+			if (tokenRows.length) {
+				await searchTokens.bulkPut(tokenRows);
+			}
+		}
+	});
 
 let persistWorker: Worker | null = null;
 if (typeof Worker !== "undefined") {
 	try {
-		// Use the plain URL so the service worker cache matches when offline
-		const workerUrl =
-			"/assets/posawesome/dist/js/posapp/workers/itemWorker.js";
+		// The worker is statically copied rather than content-hashed. Tie its URL
+		// to the app build so an older cached worker cannot open a newer schema.
+		const workerUrl = `/assets/posawesome/dist/js/posapp/workers/itemWorker.js?v=${encodeURIComponent(
+			OFFLINE_ASSET_VERSION,
+		)}`;
 		persistWorker = new Worker(workerUrl, { type: "classic" });
 	} catch (e) {
 		console.error("Failed to init persist worker", e);
@@ -295,7 +506,7 @@ const MEMORY_DEFAULTS: AnyRecord = {
 	offline_customers: [],
 	offline_payments: [],
 	offline_cash_movements: [],
-	invoice_outbox_mode: "off",
+	invoice_outbox_mode: "coordinator",
 	pos_last_sync_totals: { pending: 0, synced: 0, drafted: 0 },
 	uom_cache: {},
 	offers_cache: [],
@@ -459,15 +670,22 @@ type PersistWorkerBatch = {
 };
 
 const PERSIST_WORKER_TIMEOUT_MS = 10_000;
+const PERSIST_RETRY_BASE_DELAY_MS = 2_000;
+const PERSIST_RETRY_MAX_DELAY_MS = 60_000;
 const pendingPersistEntries = new Map<string, unknown>();
 const inFlightWorkerBatches = new Map<number, PersistWorkerBatch>();
 const activePersistOperations = new Set<Promise<void>>();
 let persistFlushScheduled = false;
+let persistRetryAfter = 0;
+let persistRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let persistRetryAttempt = 0;
 let nextPersistBatchId = 1;
 let persistWorkerHealthy = Boolean(persistWorker);
 let directPersistChain: Promise<void> = Promise.resolve();
 
-export async function hydrateMemoryKeys(keys: readonly string[]): Promise<void> {
+export async function hydrateMemoryKeys(
+	keys: readonly string[],
+): Promise<void> {
 	const uniqueKeys = Array.from(new Set(keys)).filter((key) =>
 		Object.prototype.hasOwnProperty.call(memory, key),
 	);
@@ -492,18 +710,22 @@ export async function hydrateMemoryKeys(keys: readonly string[]): Promise<void> 
 	const primaryRecords = new Map<string, PersistedValueRecord>();
 	const legacyRecords = new Map<string, PersistedValueRecord>();
 	await Promise.all([
-		...Array.from(primaryGroups.entries()).map(async ([tableName, tableKeys]) => {
-			const rows = (await db.table(tableName).bulkGet(tableKeys)) as PersistedValueRecord[];
-			tableKeys.forEach((key, index) => {
-				primaryRecords.set(key, rows[index]);
-			});
-		}),
+		...Array.from(primaryGroups.entries()).map(
+			async ([tableName, tableKeys]) => {
+				const rows = (await db
+					.table(tableName)
+					.bulkGet(tableKeys)) as PersistedValueRecord[];
+				tableKeys.forEach((key, index) => {
+					primaryRecords.set(key, rows[index]);
+				});
+			},
+		),
 		(async () => {
 			// One keyval read covers both keys owned by keyval and legacy fallback
 			// rows left behind before KEY_TABLE_MAP routed them elsewhere.
-			const rows = (await db.table("keyval").bulkGet(
-				uniqueKeys,
-			)) as PersistedValueRecord[];
+			const rows = (await db
+				.table("keyval")
+				.bulkGet(uniqueKeys)) as PersistedValueRecord[];
 			uniqueKeys.forEach((key, index) => {
 				legacyRecords.set(key, rows[index]);
 			});
@@ -647,6 +869,11 @@ async function persistEntriesDirectly(entries: PersistEntry[]) {
 	if (!entries.length) {
 		return;
 	}
+	if (!(await checkDbHealth())) {
+		throw new Error(
+			"IndexedDB is unavailable; offline batch retained for retry",
+		);
+	}
 	if (!db.isOpen()) {
 		await db.open();
 	}
@@ -688,7 +915,10 @@ function disablePersistWorker(error: unknown) {
 		return;
 	}
 	persistWorkerHealthy = false;
-	console.error("Persistence worker disabled; using main-thread fallback", error);
+	console.error(
+		"Persistence worker disabled; using main-thread fallback",
+		error,
+	);
 	try {
 		persistWorker?.terminate();
 	} catch {
@@ -697,10 +927,7 @@ function disablePersistWorker(error: unknown) {
 	persistWorker = null;
 }
 
-function settleWorkerBatch(
-	batchId: number,
-	error?: unknown,
-) {
+function settleWorkerBatch(batchId: number, error?: unknown) {
 	const batch = inFlightWorkerBatches.get(batchId);
 	if (!batch) {
 		return;
@@ -734,6 +961,12 @@ if (persistWorker) {
 				new Error(
 					data.error ||
 						`Persistence worker rejected batch ${Number(data.batchId)}`,
+				),
+			);
+		} else if (data.type === "persist_worker_unavailable") {
+			failAllWorkerBatches(
+				new Error(
+					data.error || "Persistence worker could not open IndexedDB",
 				),
 			);
 		}
@@ -781,10 +1014,10 @@ function dispatchPersistBatch(entries: PersistEntry[]) {
 }
 
 function drainPendingPersistEntries() {
-	const entries = Array.from(
-		pendingPersistEntries,
-		([key, value]) => ({ key, value }),
-	);
+	const entries = Array.from(pendingPersistEntries, ([key, value]) => ({
+		key,
+		value,
+	}));
 	pendingPersistEntries.clear();
 	return entries;
 }
@@ -795,17 +1028,51 @@ function flushPendingPersistBatch() {
 	if (!entries.length) {
 		return Promise.resolve();
 	}
-	return trackPersistOperation(dispatchPersistBatch(entries));
+	const operation = dispatchPersistBatch(entries)
+		.catch((error) => {
+			// Keep the last in-memory value retryable. A transient close/versionchange
+			// must not silently discard the drained batch.
+			for (const entry of entries) {
+				if (!pendingPersistEntries.has(entry.key)) {
+					pendingPersistEntries.set(entry.key, entry.value);
+				}
+			}
+			persistRetryAttempt += 1;
+			const retryDelay = Math.min(
+				PERSIST_RETRY_BASE_DELAY_MS * 2 ** (persistRetryAttempt - 1),
+				PERSIST_RETRY_MAX_DELAY_MS,
+			);
+			persistRetryAfter = Date.now() + retryDelay;
+			throw error;
+		})
+		.then(() => {
+			persistRetryAfter = 0;
+			persistRetryAttempt = 0;
+			if (persistRetryTimer) {
+				clearTimeout(persistRetryTimer);
+				persistRetryTimer = null;
+			}
+		});
+	return trackPersistOperation(operation);
 }
 
 function schedulePersistFlush() {
-	if (persistFlushScheduled) {
+	if (persistFlushScheduled || persistRetryTimer) {
+		return;
+	}
+	const retryDelay = Math.max(0, persistRetryAfter - Date.now());
+	if (retryDelay > 0) {
+		persistRetryTimer = setTimeout(() => {
+			persistRetryTimer = null;
+			schedulePersistFlush();
+		}, retryDelay);
 		return;
 	}
 	persistFlushScheduled = true;
 	queueMicrotask(() => {
 		void flushPendingPersistBatch().catch((error) => {
 			console.error("Failed to persist offline batch", error);
+			schedulePersistFlush();
 		});
 	});
 }
@@ -890,14 +1157,29 @@ async function pruneInvoiceOutboxRows(cutoff: number, cutoffIso: string) {
 	for (const status of ["acknowledged", "dead_letter"]) {
 		deleted += await pruneCollectionInChunks(
 			"invoice_outbox",
-			(table) => statusDateRange(table, "[status+acknowledged_at]", status, cutoffIso),
+			(table) =>
+				statusDateRange(
+					table,
+					"[status+acknowledged_at]",
+					status,
+					cutoffIso,
+				),
 			(row) =>
 				row.status === status &&
-				isOlderThan(row.acknowledged_at || row.updated_at || row.created_at, cutoff),
+				isOlderThan(
+					row.acknowledged_at || row.updated_at || row.created_at,
+					cutoff,
+				),
 		);
 		deleted += await pruneCollectionInChunks(
 			"invoice_outbox",
-			(table) => statusDateRange(table, "[status+updated_at]", status, cutoffIso),
+			(table) =>
+				statusDateRange(
+					table,
+					"[status+updated_at]",
+					status,
+					cutoffIso,
+				),
 			(row) =>
 				row.status === status &&
 				!row.acknowledged_at &&
@@ -905,7 +1187,13 @@ async function pruneInvoiceOutboxRows(cutoff: number, cutoffIso: string) {
 		);
 		deleted += await pruneCollectionInChunks(
 			"invoice_outbox",
-			(table) => statusDateRange(table, "[status+created_at]", status, cutoffIso),
+			(table) =>
+				statusDateRange(
+					table,
+					"[status+created_at]",
+					status,
+					cutoffIso,
+				),
 			(row) =>
 				row.status === status &&
 				!row.acknowledged_at &&
@@ -920,14 +1208,21 @@ async function pruneWriteQueueRows(cutoff: number, cutoffIso: string) {
 	const status = "synced";
 	let deleted = await pruneCollectionInChunks(
 		"write_queue",
-		(table) => statusDateRange(table, "[status+last_attempt_at]", status, cutoffIso),
+		(table) =>
+			statusDateRange(
+				table,
+				"[status+last_attempt_at]",
+				status,
+				cutoffIso,
+			),
 		(row) =>
 			row.status === status &&
 			isOlderThan(row.last_attempt_at || row.created_at, cutoff),
 	);
 	deleted += await pruneCollectionInChunks(
 		"write_queue",
-		(table) => statusDateRange(table, "[status+created_at]", status, cutoffIso),
+		(table) =>
+			statusDateRange(table, "[status+created_at]", status, cutoffIso),
 		(row) =>
 			row.status === status &&
 			!row.last_attempt_at &&
@@ -945,7 +1240,8 @@ async function pruneSyncStateRows(cutoff: number, cutoffIso: string) {
 	deleted += await pruneCollectionInChunks(
 		"sync_state",
 		(table) => table.where("key").startsWith("posa_sync_state::"),
-		(row) => !row.updated_at && isOlderThan(row.value?.lastSyncedAt, cutoff),
+		(row) =>
+			!row.updated_at && isOlderThan(row.value?.lastSyncedAt, cutoff),
 	);
 	return deleted;
 }
@@ -957,7 +1253,8 @@ async function pruneKeyvalPrefixRows(
 	return pruneCollectionInChunks(
 		"keyval",
 		(table) => table.where("key").startsWith(prefix),
-		(row) => isOlderThan(row.value?.created_at || row.value?.updated_at, cutoff),
+		(row) =>
+			isOlderThan(row.value?.created_at || row.value?.updated_at, cutoff),
 	);
 }
 
@@ -988,7 +1285,10 @@ export async function pruneOfflineStorage(
 	result.writeQueue = await pruneWriteQueueRows(cutoff, cutoffIso);
 	result.syncState = await pruneSyncStateRows(cutoff, cutoffIso);
 	result.tombstones = await pruneKeyvalPrefixRows("tombstone:", cutoff);
-	result.localTelemetry = await pruneKeyvalPrefixRows("local_telemetry:", cutoff);
+	result.localTelemetry = await pruneKeyvalPrefixRows(
+		"local_telemetry:",
+		cutoff,
+	);
 
 	return result;
 }
@@ -1074,53 +1374,10 @@ export function toggleManualOffline() {
 }
 
 export async function clearAllCache() {
-	try {
-		if (db.isOpen()) {
-			await db.close();
-		}
-		await Dexie.delete("posawesome_offline");
-		await db.open();
-	} catch (e) {
-		console.error("Failed to clear IndexedDB cache", e);
-	}
-
-	if (typeof localStorage !== "undefined") {
-		Object.keys(localStorage).forEach((key) => {
-			if (key.startsWith("posa_")) {
-				localStorage.removeItem(key);
-			}
-		});
-	}
-
-	// Reset memory state
-	memory.offline_invoices = [];
-	memory.offline_customers = [];
-	memory.offline_payments = [];
-	memory.offline_cash_movements = [];
-	memory.invoice_outbox_mode = "off";
-	memory.pos_last_sync_totals = { pending: 0, synced: 0, drafted: 0 };
-	memory.uom_cache = {};
-	memory.offers_cache = [];
-	memory.customer_balance_cache = {};
-	memory.local_stock_cache = {};
-	memory.stock_cache_ready = false;
-	memory.customer_storage = [];
-	memory.items_last_sync = null;
-	memory.customers_last_sync = null;
-	memory.payment_methods_last_sync = null;
-	memory.pos_opening_storage = null;
-	memory.opening_dialog_storage = null;
-	memory.sales_persons_storage = [];
-	memory.price_list_cache = {};
-	memory.item_details_cache = {};
-	memory.tax_template_cache = {};
-	memory.tax_inclusive = false;
-	memory.manual_offline = false;
-	memory.item_groups_cache = [];
-	memory.coupons_cache = {};
-	memory.bootstrap_snapshot = null;
-	memory.bootstrap_snapshot_status = null;
-	memory.bootstrap_limited_mode = false;
+	// "Clear cache" must never delete financial mutations. Rebuild only
+	// server-derived read models and keep write_queue, invoice_outbox, opening
+	// shifts and manual-offline state intact.
+	await clearDerivedOfflineCaches();
 }
 
 export async function forceClearAllCache() {
@@ -1193,34 +1450,63 @@ export async function quickDbHealthCheck() {
 	}
 }
 
-export async function repairDbAfterFailedHealthCheck(error?: unknown) {
-	try {
-		if (db.isOpen()) {
-			db.close();
-		}
-		await db.open();
-		return true;
-	} catch (reopenError) {
-		console.error("DB reopen failed", reopenError);
-		if (isCorruptionError(reopenError) || isCorruptionError(error)) {
-			try {
-				await Dexie.delete("posawesome_offline");
-				await db.open();
-				return true;
-			} catch (recreateError) {
-				console.error("DB recreate failed", recreateError);
-			}
-		}
+let dbRepairInFlight: Promise<boolean> | null = null;
+let dbHealthCheckInFlight: Promise<boolean> | null = null;
+let dbHealthRetryAfter = 0;
+const DB_HEALTH_RETRY_COOLDOWN_MS = 5_000;
+
+export function repairDbAfterFailedHealthCheck(error?: unknown) {
+	if (dbRepairInFlight) {
+		return dbRepairInFlight;
 	}
-	return false;
+
+	dbRepairInFlight = (async () => {
+		try {
+			if (db.isOpen()) {
+				db.close();
+			}
+			await db.open();
+			return true;
+		} catch (reopenError) {
+			console.error("DB reopen failed", reopenError);
+			if (isCorruptionError(reopenError) || isCorruptionError(error)) {
+				console.error(
+					"IndexedDB appears corrupted; automatic deletion is blocked to protect pending POS writes.",
+				);
+			}
+			return false;
+		} finally {
+			dbRepairInFlight = null;
+		}
+	})();
+
+	return dbRepairInFlight;
 }
 
-export async function checkDbHealth() {
-	const healthy = await quickDbHealthCheck();
-	if (healthy) {
-		return true;
+export function checkDbHealth() {
+	if (dbHealthCheckInFlight) {
+		return dbHealthCheckInFlight;
 	}
-	return repairDbAfterFailedHealthCheck();
+	if (Date.now() < dbHealthRetryAfter) {
+		return Promise.resolve(false);
+	}
+
+	dbHealthCheckInFlight = (async () => {
+		const healthy = await quickDbHealthCheck();
+		if (healthy) {
+			dbHealthRetryAfter = 0;
+			return true;
+		}
+		const repaired = await repairDbAfterFailedHealthCheck();
+		dbHealthRetryAfter = repaired
+			? 0
+			: Date.now() + DB_HEALTH_RETRY_COOLDOWN_MS;
+		return repaired;
+	})().finally(() => {
+		dbHealthCheckInFlight = null;
+	});
+
+	return dbHealthCheckInFlight;
 }
 
 export function queueHealthCheck() {
@@ -1240,7 +1526,11 @@ function legacyQueuePruneCutoff(
 ) {
 	return (
 		(options.now || Date.now()) -
-		(options.maxAgeDays || LEGACY_QUEUE_PRUNE_MAX_AGE_DAYS) * 24 * 60 * 60 * 1000
+		(options.maxAgeDays || LEGACY_QUEUE_PRUNE_MAX_AGE_DAYS) *
+			24 *
+			60 *
+			60 *
+			1000
 	);
 }
 

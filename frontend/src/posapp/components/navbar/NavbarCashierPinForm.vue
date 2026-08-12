@@ -221,6 +221,7 @@ async function loadPinStatus() {
 			args: {
 				pos_profile: props.posProfile.name,
 				user: props.currentCashier.user,
+				cashier_grant: props.currentCashier.cashier_grant || null,
 			},
 		});
 		pinStatus.value = response?.message || { has_pin: false };
@@ -270,6 +271,7 @@ async function saveCashierPin() {
 				user: props.currentCashier.user,
 				current_pin: pinForm.current_pin,
 				new_pin: pinForm.new_pin,
+				cashier_grant: props.currentCashier.cashier_grant || null,
 			},
 		});
 		pinStatus.value = response?.message || { has_pin: true };

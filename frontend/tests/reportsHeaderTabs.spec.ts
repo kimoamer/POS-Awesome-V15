@@ -144,7 +144,7 @@ describe("DashboardHeader", () => {
 			},
 		});
 
-		expect(wrapper.text()).toContain("Awesome Dashboard");
+		expect(wrapper.text()).toContain("Dashboard");
 		expect(wrapper.text()).toContain("Scope: All Profiles");
 		expect(wrapper.text()).toContain("Profiles: 2");
 		expect(wrapper.text()).toContain("Profit: Invoice Item Estimate");
@@ -242,8 +242,8 @@ describe("DashboardTabs", () => {
 			},
 		});
 
-		wrapper.findComponent(TabsStub).vm.$emit("update:modelValue", "finance");
 		wrapper.findAllComponents(ButtonStub)[1].vm.$emit("click");
+		wrapper.findAllComponents(ButtonStub)[3].vm.$emit("click");
 		await wrapper.vm.$nextTick();
 
 		expect(updates).toEqual(["finance", "finance"]);

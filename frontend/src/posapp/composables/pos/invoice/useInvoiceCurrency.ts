@@ -28,6 +28,7 @@ import { ref, computed, watch } from "vue";
 import { useInvoiceStore } from "../../../stores/invoiceStore";
 import { useToastStore } from "../../../stores/toastStore";
 import { useUIStore } from "../../../stores/uiStore";
+import { posDebug } from "../../../utils/debug";
 import {
 	getCachedCurrencyOptions,
 	getCachedExchangeRate,
@@ -41,6 +42,7 @@ import {
 	getPlcConversionRate,
 	toCompanyCurrency,
 } from "../../../utils/erpnextCurrency";
+import { parseBooleanSetting } from "../../../utils/stock";
 
 // @ts-ignore
 const __ = window.__ || ((s) => s);
@@ -72,6 +74,37 @@ export function useInvoiceCurrency() {
 	// Get company and pos_profile from UI store
 	const pos_profile = computed(() => uiStore.posProfile);
 	const company = computed(() => uiStore.companyDoc);
+	const multi_currency_enabled = computed(() =>
+		parseBooleanSetting(pos_profile.value?.posa_allow_multi_currency),
+	);
+
+	const getProfileCurrency = () =>
+		String(
+			pos_profile.value?.currency || company.value?.default_currency || "",
+		).trim();
+
+	/**
+	 * Keep single-currency profiles isolated from stale multi-currency cache data.
+	 * The related server endpoints are capability protected, so they must never be
+	 * called merely to discover the profile's own currency.
+	 */
+	const enforceSingleCurrencyMode = () => {
+		const baseCurrency = getProfileCurrency();
+		available_currencies.value = baseCurrency
+			? [{ value: baseCurrency, title: baseCurrency }]
+			: [];
+		selected_currency.value = baseCurrency;
+		price_list_currency.value = baseCurrency;
+		exchange_rate.value = 1;
+		conversion_rate.value = 1;
+
+		const profileName = pos_profile.value?.name;
+		if (profileName) {
+			saveCurrencyOptionsCache(profileName, available_currencies.value);
+		}
+
+		return available_currencies.value;
+	};
 
 	// Watch for pos_profile changes to update precision
 	watch(
@@ -82,6 +115,9 @@ export function useInvoiceCurrency() {
 				if (!isNaN(prec)) {
 					float_precision.value = prec;
 					currency_precision.value = prec;
+				}
+				if (!parseBooleanSetting(newProfile.posa_allow_multi_currency)) {
+					enforceSingleCurrencyMode();
 				}
 			}
 		},
@@ -151,10 +187,18 @@ export function useInvoiceCurrency() {
 
 	const fetch_available_currencies = async () => {
 		if (!pos_profile.value) return [];
+		if (!multi_currency_enabled.value) {
+			return enforceSingleCurrencyMode();
+		}
 		const profileName = pos_profile.value.name;
 		try {
 			const r = await frappe.call({
 				method: "posawesome.posawesome.api.invoices.get_available_currencies",
+				args: {
+					pos_profile: pos_profile.value?.name || null,
+					pos_opening_shift:
+						uiStore.posOpeningShift?.name || uiStore.posOpeningShift || null,
+				},
 			});
 
 			if (r.message) {
@@ -178,7 +222,7 @@ export function useInvoiceCurrency() {
 			}
 			return [];
 		} catch (error) {
-			console.error("Error fetching currencies:", error);
+			posDebug("currency", "Live currency list unavailable; using cache", error);
 			const cachedCurrencies = getCachedCurrencyOptions(profileName);
 			if (Array.isArray(cachedCurrencies) && cachedCurrencies.length) {
 				available_currencies.value = cachedCurrencies;
@@ -197,7 +241,12 @@ export function useInvoiceCurrency() {
 	};
 
 	const update_currency_and_rate = async () => {
-		if (!selected_currency.value || !pos_profile.value) return;
+		if (!pos_profile.value) return;
+		if (!multi_currency_enabled.value) {
+			enforceSingleCurrencyMode();
+			return;
+		}
+		if (!selected_currency.value) return;
 
 		const rateDate =
 			(typeof frappe !== "undefined" && frappe.datetime?.get_today?.()) ||
@@ -218,6 +267,7 @@ export function useInvoiceCurrency() {
 					args: {
 						from_currency: plCurrency,
 						to_currency: selected_currency.value,
+						pos_profile: pos_profile.value?.name,
 					},
 				});
 				if (r && r.message) {
@@ -243,6 +293,7 @@ export function useInvoiceCurrency() {
 					args: {
 						from_currency: selected_currency.value,
 						to_currency: companyCurrency,
+						pos_profile: pos_profile.value?.name,
 					},
 				});
 				if (r2 && r2.message) {
@@ -259,7 +310,7 @@ export function useInvoiceCurrency() {
 				}
 			}
 		} catch (error) {
-			console.error("Error updating currency:", error);
+			posDebug("currency", "Live exchange rate unavailable; using cache", error);
 			const cachedDisplayRate = getCachedExchangeRate({
 				profileName: pos_profile.value.name,
 				company: pos_profile.value.company,
@@ -298,10 +349,9 @@ export function useInvoiceCurrency() {
 	};
 
 	const update_item_rates = async () => {
-		console.log(
-			"Updating item rates with exchange rate:",
-			exchange_rate.value,
-		);
+		posDebug("currency", "Updating item rates", {
+			exchangeRate: exchange_rate.value,
+		});
 		const items = invoiceStore.items;
 		const companyCurrency =
 			(company.value && company.value.default_currency) ||
@@ -398,7 +448,7 @@ export function useInvoiceCurrency() {
 		const baseCurrency =
 			price_list_currency.value || pos_profile.value?.currency;
 		if (
-			pos_profile.value?.posa_allow_multi_currency &&
+			multi_currency_enabled.value &&
 			selected_currency.value !== baseCurrency
 		) {
 			return flt(amount, 2);
@@ -414,6 +464,11 @@ export function useInvoiceCurrency() {
 			try {
 				const r = await frappe.call({
 					method: "posawesome.posawesome.api.utilities.get_selling_price_lists",
+					args: {
+						pos_profile: pos_profile.value?.name,
+						pos_opening_shift:
+							uiStore.posOpeningShift?.name || uiStore.posOpeningShift || null,
+					},
 				});
 				if (r && r.message) {
 					price_lists.value = r.message.map((pl: any) => pl.name);
@@ -430,10 +485,25 @@ export function useInvoiceCurrency() {
 			selected_price_list.value = pos_profile.value.selling_price_list;
 		}
 
+		if (!multi_currency_enabled.value) {
+			enforceSingleCurrencyMode();
+			savePriceListMetaCache(profileName, {
+				price_lists: price_lists.value,
+				selected_price_list: selected_price_list.value,
+				price_list_currency: price_list_currency.value,
+			});
+			return price_lists.value;
+		}
+
 		try {
 			const r = await frappe.call({
 				method: "posawesome.posawesome.api.invoices.get_price_list_currency",
-				args: { price_list: selected_price_list.value },
+				args: {
+					price_list: selected_price_list.value,
+					pos_profile: pos_profile.value?.name || null,
+					pos_opening_shift:
+						uiStore.posOpeningShift?.name || uiStore.posOpeningShift || null,
+				},
 			});
 			if (r && r.message) {
 				price_list_currency.value = r.message;
@@ -464,12 +534,17 @@ export function useInvoiceCurrency() {
 		price_lists,
 		selected_price_list,
 		price_list_currency,
+		multi_currency_enabled,
 		float_precision,
 		currency_precision,
 		flt,
 		fetch_available_currencies,
 		update_currency_and_rate,
 		update_currency: async (val: string) => {
+			if (!multi_currency_enabled.value) {
+				enforceSingleCurrencyMode();
+				return;
+			}
 			if (val) selected_currency.value = val;
 			await update_currency_and_rate();
 		},

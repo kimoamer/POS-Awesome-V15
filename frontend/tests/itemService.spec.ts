@@ -42,6 +42,7 @@ describe("itemService API surface", () => {
 		expect(api.callEnvelope).toHaveBeenCalledTimes(2);
 		expect(api.callEnvelope).toHaveBeenCalledWith(
 			"posawesome.posawesome.api.items.get_items_groups",
+			{ pos_profile: undefined },
 		);
 	});
 

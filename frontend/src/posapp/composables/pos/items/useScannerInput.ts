@@ -1,22 +1,24 @@
 import { ref, nextTick, onMounted, onUnmounted } from "vue";
 import { useToastStore } from "../../../stores/toastStore";
+import { useUIStore } from "../../../stores/uiStore";
 import {
 	normalizeScaleBarcodeSettings,
 	parseScaleBarcodeSettingsResponse,
 	getScaleBarcodePrefix,
 	scaleBarcodeMatches,
-} from "../../../utils/scaleBarcode.js";
+} from "../../../utils/scaleBarcode";
 import {
 	getScanTimestamp,
 	isLikelyKeyboardScan,
 	isSearchFieldPrimedForScan,
-} from "../../../utils/keyboardScan.js";
+} from "../../../utils/keyboardScan";
 import {
 	perfMarkStart,
 	perfMarkEnd,
 	scheduleFrame,
-} from "../../../utils/perf.js";
+} from "../../../utils/perf";
 import { classifyClipboardScanText } from "./scannerInput/clipboardScan";
+import { posDebug } from "../../../utils/debug";
 
 declare const frappe: any;
 declare const __: (_str: string, _args?: any[]) => string;
@@ -54,6 +56,7 @@ export function useScannerInput(options: ScannerInputOptions = {}) {
 	};
 
 	const toastStore = useToastStore();
+	const uiStore = useUIStore();
 
 	// State
 	const scannerLocked = ref(false);
@@ -251,7 +254,12 @@ export function useScannerInput(options: ScannerInputOptions = {}) {
 		try {
 			const res = await frappe.call({
 				method: "posawesome.posawesome.api.items.parse_scale_barcode",
-				args: { barcode: "" },
+					args: {
+						barcode: "",
+						pos_profile: uiStore.posProfile?.name || null,
+						pos_opening_shift:
+							uiStore.posOpeningShift?.name || uiStore.posOpeningShift || null,
+					},
 			});
 			const settings = parseScaleBarcodeSettingsResponse(res);
 			if (settings) {
@@ -299,7 +307,7 @@ export function useScannerInput(options: ScannerInputOptions = {}) {
 		const runScanPipeline = async (code: string) => {
 			const mark = perfMarkStart("pos:scan-handler");
 			try {
-				console.log("Barcode scanned:", code);
+				posDebug("scan", "Barcode captured", code);
 				pendingScanCode.value = code;
 				searchFromScanner.value = true;
 

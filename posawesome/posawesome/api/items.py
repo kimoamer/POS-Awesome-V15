@@ -47,19 +47,29 @@ from posawesome.posawesome.api.item_processing.search import (
 )
 
 
-def _collect_delta_item_codes(pos_profile, modified_after, price_list, limit):
+def _collect_delta_item_codes(
+    pos_profile,
+    modified_after,
+    price_list,
+    limit,
+    start_after_item_code=None,
+):
     """Collect changed item codes from Item Price and Bin updates."""
     changed_codes = set()
     timestamp = modified_after.isoformat()
 
     if price_list:
+        price_filters = {
+            "price_list": price_list,
+            "modified": [">", timestamp],
+        }
+        if start_after_item_code:
+            price_filters["item_code"] = [">", start_after_item_code]
         price_codes = frappe.get_all(
             "Item Price",
-            filters={
-                "price_list": price_list,
-                "modified": [">", timestamp],
-            },
+            filters=price_filters,
             pluck="item_code",
+            order_by="item_code asc",
             limit_page_length=limit,
         )
         changed_codes.update([code for code in price_codes if code])
@@ -71,13 +81,17 @@ def _collect_delta_item_codes(pos_profile, modified_after, price_list, limit):
             warehouses = frappe.db.get_descendants("Warehouse", warehouse) or []
 
         if warehouses:
+            stock_filters = {
+                "warehouse": ["in", warehouses],
+                "modified": [">", timestamp],
+            }
+            if start_after_item_code:
+                stock_filters["item_code"] = [">", start_after_item_code]
             stock_codes = frappe.get_all(
                 "Bin",
-                filters={
-                    "warehouse": ["in", warehouses],
-                    "modified": [">", timestamp],
-                },
+                filters=stock_filters,
                 pluck="item_code",
+                order_by="item_code asc",
                 limit_page_length=limit,
             )
             changed_codes.update([code for code in stock_codes if code])
@@ -89,11 +103,21 @@ def _collect_delta_item_codes(pos_profile, modified_after, price_list, limit):
 def get_delta_items(
     pos_profile,
     modified_after=None,
+    modified_before=None,
     price_list=None,
     customer=None,
     limit=500,
+    start_after_item_code=None,
+    include_related_changes=True,
+    include_image=False,
 ):
-    """Return only items changed since ``modified_after`` for price/stock updates."""
+    """Return items changed since ``modified_after``.
+
+    Legacy callers can keep including Item Price and Bin changes.  The
+    offline-sync v2 pipeline disables that expansion because prices and stock
+    have independent cursor streams; mixing their timestamps into an Item
+    cursor can otherwise skip or repeat rows.
+    """
     profile, profile_json = _ensure_pos_profile(pos_profile)
 
     if not modified_after:
@@ -117,9 +141,15 @@ def get_delta_items(
             customer=customer,
             limit=resolved_limit,
             modified_after=parsed_modified_after.isoformat(),
+            modified_before=modified_before,
+            start_after_item_code=start_after_item_code or "",
+            include_image=include_image,
         )
         or []
     )
+
+    if not include_related_changes:
+        return base_items[:resolved_limit]
 
     if len(base_items) >= resolved_limit:
         return base_items[:resolved_limit]
@@ -131,8 +161,9 @@ def get_delta_items(
         parsed_modified_after,
         effective_price_list,
         resolved_limit,
+        start_after_item_code=start_after_item_code,
     )
-    extra_codes = [code for code in delta_codes if code not in existing_codes]
+    extra_codes = sorted(code for code in delta_codes if code not in existing_codes)
 
     if not extra_codes:
         return base_items
@@ -174,13 +205,15 @@ def get_delta_items(
         "brand",
         "allow_negative_stock",
     ]
+    if include_image:
+        fields.append("image")
 
-    item_rows = frappe.get_all(
+    item_rows = frappe.get_list(
         "Item",
         filters=filters,
         fields=fields,
         limit_page_length=remaining,
-        order_by="item_name asc",
+        order_by="item_code asc",
     )
 
     if not item_rows:
@@ -210,7 +243,10 @@ def get_delta_items(
 
         base_items.append(merged)
 
-    return base_items[:resolved_limit]
+    return sorted(
+        base_items,
+        key=lambda row: str(row.get("item_code") or ""),
+    )[:resolved_limit]
 
 
 def build_item_cache(item_code):
@@ -220,10 +256,14 @@ def build_item_cache(item_code):
 
 
 @frappe.whitelist()
-def get_item_brand(item_code):
+def get_item_brand(item_code, pos_profile=None):
     """Return normalized brand for an item, falling back to its template's brand."""
     if not item_code:
         return ""
+    profile, _serialized = _ensure_pos_profile(pos_profile)
+    from posawesome.posawesome.api.item_processing.details import _validate_item_codes
+
+    _validate_item_codes(profile, [item_code])
     data = frappe.db.get_value("Item", item_code, ["brand", "variant_of"], as_dict=True)
     if not data:
         return ""

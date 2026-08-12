@@ -100,14 +100,15 @@
 </template>
 
 <script setup>
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, inject, ref, watch } from "vue";
 import { formatUtils } from "../../../format";
+import { useUIStore } from "../../../stores/uiStore";
 
 defineOptions({
 	name: "MpesaPayments",
 });
 
-const props = defineProps({
+defineProps({
 	viewportMode: {
 		type: String,
 		default: "desktop",
@@ -119,11 +120,19 @@ const __ = (s) =>
 		? (window.__ || window.frappe._)(s)
 		: s;
 const eventBus = inject("eventBus");
+const uiStore = useUIStore();
 
-const dialog = ref(false);
+const dialog = computed({
+	get: () => uiStore.mpesaDialog,
+	set: (value) => {
+		if (!value) uiStore.closeMpesaPayments();
+	},
+});
 const selected = ref([]);
 const dialog_data = ref("");
 const company = ref("");
+const pos_profile = ref("");
+const pos_opening_shift_name = ref("");
 const customer = ref("");
 const mode_of_payment = ref("");
 const full_name = ref("");
@@ -160,7 +169,7 @@ const headers = [
 ];
 
 function close_dialog() {
-	dialog.value = false;
+	uiStore.closeMpesaPayments();
 }
 
 async function search() {
@@ -176,6 +185,7 @@ async function search() {
 			method: "posawesome.posawesome.api.m_pesa.get_mpesa_draft_payments",
 			args: {
 				company: company.value,
+				pos_profile: pos_profile.value,
 				mode_of_payment: mode_of_payment.value,
 				mobile_no: mobile_no.value,
 				full_name: full_name.value,
@@ -206,11 +216,13 @@ async function submit_dialog() {
 			args: {
 				mpesa_payment: selected_payment,
 				customer: customer.value,
+				pos_profile: pos_profile.value,
+				pos_opening_shift_name: pos_opening_shift_name.value || null,
 			},
 		});
 
 		eventBus?.emit("set_mpesa_payment", message);
-		dialog.value = false;
+		uiStore.closeMpesaPayments();
 	} catch (error) {
 		console.error("Failed to submit M-Pesa payment:", error);
 		errorMessage.value = __("Unable to submit the selected payment");
@@ -241,12 +253,15 @@ function formatCurrency(value) {
 	return formatted;
 }
 
-onMounted(() => {
-	eventBus?.on("open_mpesa_payments", (data) => {
-		dialog.value = true;
+watch(
+	() => uiStore.mpesaData,
+	(data) => {
+		if (!data) return;
 		full_name.value = "";
 		mobile_no.value = "";
 		company.value = data.company;
+		pos_profile.value = data.pos_profile;
+		pos_opening_shift_name.value = data.pos_opening_shift_name || "";
 		customer.value = data.customer;
 		mode_of_payment.value = data.mode_of_payment;
 		dialog_data.value = "";
@@ -254,12 +269,9 @@ onMounted(() => {
 		errorMessage.value = "";
 		isLoading.value = false;
 		isSubmitting.value = false;
-	});
-});
-
-onBeforeUnmount(() => {
-	eventBus?.off("open_mpesa_payments");
-});
+	},
+	{ immediate: true },
+);
 </script>
 
 <style scoped>

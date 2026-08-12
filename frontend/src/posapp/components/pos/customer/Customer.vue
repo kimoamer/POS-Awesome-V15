@@ -318,10 +318,10 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, getCurrentInstance, n
 import { storeToRefs } from "pinia";
 import _ from "lodash";
 import UpdateCustomer from "../dialogs/customer/UpdateCustomer.vue";
-import { useCustomersStore } from "../../../stores/customersStore.js";
+import { useCustomersStore } from "../../../stores/customersStore";
 import { useOnlineStatus } from "../../../composables/core/useOnlineStatus";
-import { useToastStore } from "../../../stores/toastStore.js";
-import { useUIStore } from "../../../stores/uiStore.js";
+import { useToastStore } from "../../../stores/toastStore";
+import { useUIStore } from "../../../stores/uiStore";
 import { ensureCustomersReady } from "../../../modules/customers/customerLoadingCoordinator";
 
 export default {

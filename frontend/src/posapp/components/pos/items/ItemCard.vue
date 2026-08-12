@@ -1,6 +1,12 @@
 <template>
 	<div
-		:class="['card-item-card', { 'item-highlighted': isItemHighlighted }]"
+		:class="[
+			'card-item-card',
+			{
+				'item-highlighted': isItemHighlighted,
+				'card-item-card--no-media': !showMedia,
+			},
+		]"
 		data-pos-keyboard-target="item-card"
 		tabindex="0"
 		role="button"
@@ -11,7 +17,7 @@
 		@dragstart="onDragStart"
 		@dragend="onDragEnd"
 	>
-		<div class="card-item-image-container">
+		<div v-if="showMedia" class="card-item-image-container">
 			<v-img
 				v-if="resolvedImage && !imageFailed"
 				:src="resolvedImage"
@@ -30,7 +36,19 @@
 			</div>
 		</div>
 		<div class="card-item-content">
-			<div class="card-item-header">
+			<div class="card-item-header" :class="{ 'card-item-header--compact-media': !showMedia }">
+				<div v-if="!showMedia" class="card-item-compact-thumb" aria-hidden="true">
+					<v-img
+						v-if="resolvedImage && !imageFailed"
+						:src="resolvedImage"
+						:alt="item.item_name || item.item_code"
+						class="card-item-compact-thumb__image"
+						@error="imageFailed = true"
+					/>
+					<v-icon v-else size="20" class="card-item-compact-thumb__fallback">
+						mdi-package-variant-closed
+					</v-icon>
+				</div>
 				<div class="card-item-name-shell" :title="item.item_name || item.item_code">
 					<h4 class="card-item-name">{{ item.item_name || item.item_code }}</h4>
 					<v-tooltip activator="parent" location="bottom">
@@ -135,6 +153,7 @@ const props = defineProps({
 	formatNumber: { type: Function, required: true },
 	ratePrecision: { type: Function, required: true },
 	isNegative: { type: Function, default: (val) => val < 0 },
+	showMedia: { type: Boolean, default: true },
 });
 
 const emit = defineEmits(["click", "dragstart", "dragend"]);
@@ -310,6 +329,15 @@ const onDragEnd = (event) => {
 	background: color-mix(in srgb, var(--pos-primary-container) 24%, var(--pos-surface-raised));
 }
 
+.card-item-card--no-media {
+	--item-card-name-height: 44px;
+	grid-template-rows:
+		var(--item-card-name-height)
+		var(--item-card-price-height)
+		var(--item-card-stock-height);
+	align-content: center;
+}
+
 .card-item-image-container {
 	position: relative;
 	min-block-size: 0;
@@ -356,6 +384,46 @@ const onDragEnd = (event) => {
 	block-size: var(--item-card-name-height);
 	min-width: 0;
 	overflow: hidden;
+}
+
+.card-item-header--compact-media {
+	display: grid;
+	grid-template-columns: 40px minmax(0, 1fr);
+	align-items: center;
+	gap: 9px;
+}
+
+.card-item-compact-thumb {
+	inline-size: 40px;
+	block-size: 40px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	border: 1px solid var(--pos-border-light);
+	border-radius: 9px;
+	background: var(--pos-surface-muted);
+	color: var(--pos-action-active-fg, #006d77);
+}
+
+.card-item-compact-thumb__image {
+	inline-size: 100%;
+	block-size: 100%;
+}
+
+.card-item-compact-thumb__image :deep(.v-img__img) {
+	object-fit: contain;
+}
+
+.card-item-compact-thumb__fallback {
+	opacity: 0.9;
+}
+
+.card-item-header--compact-media .card-item-name {
+	display: -webkit-box;
+	align-content: center;
+	block-size: auto;
+	max-block-size: 38px;
 }
 
 .card-item-name-shell {

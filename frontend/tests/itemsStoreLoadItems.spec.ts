@@ -31,6 +31,10 @@ const itemsSyncMocks = vi.hoisted(() => ({
 	backgroundSyncItems: vi.fn(async () => []),
 }));
 
+const syncCoordinatorMocks = vi.hoisted(() => ({
+	runTrigger: vi.fn(async () => ({})),
+}));
+
 vi.mock("../src/posapp/services/itemService", () => ({
 	default: {
 		getItemsData: itemServiceMocks.getItemsData,
@@ -47,6 +51,7 @@ vi.mock("../src/offline/index", () => ({
 	getAllStoredItems: offlineMocks.getAllStoredItems,
 	searchStoredItems: offlineMocks.searchStoredItems,
 	getCachedPriceListItems: offlineMocks.getCachedPriceListItems,
+	setActiveStockScope: vi.fn(),
 }));
 
 vi.mock("../src/posapp/composables/pos/items/store/useItemsCache", () => ({
@@ -160,6 +165,10 @@ vi.mock("../src/posapp/composables/pos/items/store/useItemsSync", () => ({
 		})),
 		backgroundSyncItems: itemsSyncMocks.backgroundSyncItems,
 	}),
+}));
+
+vi.mock("../src/offline/sync/useSyncCoordinator", () => ({
+	useSyncCoordinator: () => syncCoordinatorMocks,
 }));
 
 vi.mock("../src/posapp/composables/pos/items/store/useItemsPagination", () => ({
@@ -290,7 +299,7 @@ describe("itemsStore loadItems", () => {
 				price_list: "Retail",
 				limit: 250,
 				days: 120,
-				include_image: 0,
+				include_image: 1,
 				item_groups: ["Medicines"],
 			}),
 		);
@@ -396,22 +405,9 @@ describe("itemsStore loadItems", () => {
 			}),
 			expect.any(AbortSignal),
 		);
-		expect(itemsSyncMocks.backgroundSyncItems).toHaveBeenCalledWith(
-			expect.objectContaining({
-				groupFilter: "ALL",
-				reset: false,
-			}),
-			expect.anything(),
-			"Customer Retail",
-			"POS-1_Main WH",
-			true,
-			expect.any(Function),
-			expect.any(Function),
-			expect.any(Function),
-			expect.anything(),
-			expect.anything(),
-			expect.anything(),
-		);
+		await vi.waitFor(() => {
+			expect(syncCoordinatorMocks.runTrigger).toHaveBeenCalledWith("timer");
+		});
 	});
 
 	it("does not prime detail cache when the server returns no items", async () => {
@@ -451,23 +447,9 @@ describe("itemsStore loadItems", () => {
 			}),
 			expect.any(AbortSignal),
 		);
-		expect(itemsSyncMocks.backgroundSyncItems).toHaveBeenCalledTimes(1);
-		expect(itemsSyncMocks.backgroundSyncItems).toHaveBeenCalledWith(
-			expect.objectContaining({
-				groupFilter: "ALL",
-				reset: false,
-			}),
-			expect.anything(),
-			"Retail",
-			"POS-1_Main WH",
-			true,
-			expect.any(Function),
-			expect.any(Function),
-			expect.any(Function),
-			expect.anything(),
-			expect.anything(),
-			expect.anything(),
-		);
+		await vi.waitFor(() => {
+			expect(syncCoordinatorMocks.runTrigger).toHaveBeenCalledWith("timer");
+		});
 	});
 
 	it("bypasses memory result cache when scoped offline catalog is large", async () => {

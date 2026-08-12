@@ -33,8 +33,20 @@ def _load_employees_module():
 class TestEmployeesApi(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         _install_frappe_stub()
         cls.employees = _load_employees_module()
+        cls.employees.assert_pos_profile_access_allowed = lambda profile: types.SimpleNamespace(
+            name=profile
+        )
+        cls.employees._pin_attempts = lambda *_args: 0
+        cls.employees._clear_failed_pin = lambda *_args: None
+        cls.employees._issue_cashier_grant = lambda *_args: ("signed-test-grant", 9999999999)
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def test_get_terminal_employees_returns_profile_users_with_current_flag(self):
         self.employees.frappe.session.user = "cashier@example.com"
@@ -181,7 +193,7 @@ class TestEmployeesApi(unittest.TestCase):
                 self.saved_value = value
 
             def save(self, ignore_permissions=False):
-                self.saved = ignore_permissions
+                self.saved = True
 
         user_doc = FakeUserDoc()
         self.employees.frappe.get_all = lambda doctype, **kwargs: (

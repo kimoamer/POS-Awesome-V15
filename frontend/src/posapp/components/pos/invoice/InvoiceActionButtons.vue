@@ -2,6 +2,7 @@
 	<div class="invoice-action-bar" :class="{ 'invoice-action-bar--compact': compactExternalPay }">
 		<!-- Compact 3-Icon Slots (Save, Drafts, More) -->
 		<template v-if="compactExternalPay">
+			<div class="invoice-action-bar__secondary invoice-action-bar__secondary--compact">
 			<v-btn
 				variant="tonal"
 				color="secondary"
@@ -37,7 +38,7 @@
 						v-bind="menuProps"
 						variant="tonal"
 						color="secondary"
-						class="cmd-icon-btn invoice-action-btn"
+						class="cmd-icon-btn invoice-action-btn invoice-action-btn--more"
 						:aria-label="__('More invoice actions')"
 					>
 						<v-icon size="small">mdi-dots-horizontal</v-icon>
@@ -78,6 +79,7 @@
 					</v-list-item>
 				</v-list>
 			</v-menu>
+			</div>
 		</template>
 
 		<!-- Desktop Standard Layout -->
@@ -190,8 +192,9 @@
 				>
 					<v-icon start size="medium">mdi-credit-card-outline</v-icon>
 					<span class="pay-btn__label">{{ __("Pay") }}</span>
+					<span v-if="payableTotalFormatted" class="pay-btn__separator" aria-hidden="true">·</span>
 					<bdi class="pay-btn__amount" v-if="payableTotalFormatted">
-						· {{ payableTotalFormatted }}
+						{{ payableTotalFormatted }}
 					</bdi>
 				</v-btn>
 			</div>
@@ -347,6 +350,17 @@ async function handlePayClick() {
 	flex-wrap: nowrap;
 }
 
+.invoice-action-bar__secondary--compact {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(44px, 1fr));
+	width: 100%;
+	gap: 6px;
+}
+
+.invoice-action-bar__secondary--compact .invoice-action-btn {
+	width: 100%;
+}
+
 .invoice-action-bar__primary {
 	flex: 1 1 auto;
 	min-width: 0;
@@ -408,6 +422,23 @@ async function handlePayClick() {
 	text-transform: none !important;
 	letter-spacing: 0.02em !important;
 	box-shadow: var(--pos-shadow-sm, 0 2px 6px rgba(37, 99, 235, 0.25)) !important;
+	color: var(--pos-on-primary, #ffffff) !important;
+}
+
+.invoice-pay-btn :deep(.v-btn__content) {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 7px;
+	color: inherit !important;
+}
+
+.invoice-pay-btn :deep(.v-icon),
+.invoice-pay-btn .pay-btn__label,
+.invoice-pay-btn .pay-btn__separator,
+.invoice-pay-btn .pay-btn__amount {
+	color: inherit !important;
+	opacity: 1 !important;
 }
 
 .pay-btn__label {
@@ -416,7 +447,14 @@ async function handlePayClick() {
 
 .pay-btn__amount {
 	font-weight: 700;
-	margin-inline-start: 4px;
+	margin-inline-start: 0;
+	unicode-bidi: isolate;
+	direction: auto;
+}
+
+.pay-btn__separator {
+	font-weight: 800;
+	opacity: 0.82 !important;
 }
 
 .invoice-actions-menu {

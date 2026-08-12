@@ -12,6 +12,7 @@
 			:loading-active="loadingActive"
 			:loading-indeterminate="loadingIndeterminate"
 			:loading-message="loadingMessage"
+			:show-system-metrics="isSystemManager"
 			@nav-click="handleNavClick"
 			@go-desk="goDesk"
 			@show-offline-invoices="showOfflineInvoices = true"
@@ -53,12 +54,12 @@
 
 			<!-- Slot for CPU gadget -->
 			<template #cpu-gadget>
-				<ServerUsageGadget />
+				<ServerUsageGadget v-if="isSystemManager" />
 			</template>
 
 			<!-- Slot for Database Usage Gadget -->
 			<template #db-usage-gadget>
-				<DatabaseUsageGadget />
+				<DatabaseUsageGadget v-if="isSystemManager" />
 			</template>
 
 			<template #notification-bell>
@@ -178,6 +179,10 @@ import { useUIStore } from "../stores/uiStore";
 import { useEmployeeStore } from "../stores/employeeStore";
 import { useOfflineSyncStore } from "../stores/offlineSyncStore";
 import { storeToRefs } from "pinia";
+import {
+	can,
+	hydrateRuntimeCapabilityContext,
+} from "../services/capabilities";
 
 export default {
 	name: "NavBar",
@@ -302,10 +307,30 @@ export default {
 			drawer: false,
 			item: 0,
 			baseItems: [
-				{ text: "POS", icon: "mdi-monitor-dashboard", to: "/pos" },
-				{ text: "Payments", icon: "mdi-credit-card-check-outline", to: "/payments" },
-				{ text: "Purchase Order", icon: "mdi-basket-plus-outline", to: "/orders" },
-				{ text: "Barcode Printing", icon: "mdi-barcode-scan", to: "/barcode" },
+				{
+					text: "POS",
+					icon: "mdi-monitor-dashboard",
+					to: "/pos",
+					capability: "pos.sale",
+				},
+				{
+					text: "Payments",
+					icon: "mdi-credit-card-check-outline",
+					to: "/payments",
+					capability: "payments.manage",
+				},
+				{
+					text: "Purchase Order",
+					icon: "mdi-basket-plus-outline",
+					to: "/orders",
+					capability: "purchase_order.create",
+				},
+				{
+					text: "Barcode Printing",
+					icon: "mdi-barcode-scan",
+					to: "/barcode",
+					capability: "barcode.print",
+				},
 			],
 			items: [],
 			company: "",
@@ -355,6 +380,13 @@ export default {
 		},
 	},
 	computed: {
+		isSystemManager() {
+			const user = window?.frappe?.session?.user;
+			const roles = Array.isArray(window?.frappe?.user_roles)
+				? window.frappe.user_roles
+				: [];
+			return user === "Administrator" || roles.includes("System Manager");
+		},
 		hideNavbarForPayment() {
 			return this.uiStore?.activeView === "payment" && Number(this.responsive?.windowWidth?.value || 0) < 1200;
 		},
@@ -409,7 +441,11 @@ export default {
 					icon: "mdi-logout",
 					tone: "danger",
 				},
-			];
+			].filter((action) => {
+				if (action.id === "settings") return can("settings.manage");
+				if (action.id === "switch-cashier") return can("cashier.switch");
+				return true;
+			});
 		},
 		settingsSections() {
 			const offlineActions = [
@@ -513,7 +549,31 @@ export default {
 					description: this.__("Low-frequency maintenance and system details."),
 					actions: systemActions,
 				},
-			].filter((section) => section.actions.length);
+			]
+				.map((section) => {
+					if (!can("settings.manage") && section.id === "offline-sync") {
+						return { ...section, actions: [] };
+					}
+					if (!can("settings.manage") && section.id === "terminal-devices") {
+						return { ...section, actions: [] };
+					}
+					if (!can("settings.manage") && section.id === "system-diagnostics") {
+						return {
+							...section,
+							actions: section.actions.filter((action) => action.id === "logout"),
+						};
+					}
+					if (!can("cashier.switch") && section.id === "personal") {
+						return {
+							...section,
+							actions: section.actions.filter(
+								(action) => action.id !== "manage-cashier-pin",
+							),
+						};
+					}
+					return section;
+				})
+				.filter((section) => section.actions.length);
 		},
 	},
 	mounted() {
@@ -571,26 +631,36 @@ export default {
 			}
 		},
 		updateNavigationItems() {
-			const items = this.baseItems.map((item) => ({ ...item, text: this.__(item.text) }));
-			if (this.posProfile?.posa_use_gift_cards) {
+			hydrateRuntimeCapabilityContext({
+				posProfile: this.posProfile || null,
+				currentCashier: this.currentCashier || null,
+				networkOnline: this.networkOnline,
+			});
+			const items = this.baseItems
+				.filter((item) => can(item.capability))
+				.map((item) => ({ ...item, text: this.__(item.text) }));
+			if (can("gift_cards.manage")) {
 				items.splice(2, 0, {
 					text: this.__("Gift Cards"),
 					icon: "mdi-gift-outline",
 					to: "/gift-cards",
+					capability: "gift_cards.manage",
 				});
 			}
-			if (this.currentCashier?.is_supervisor) {
+			if (can("dashboard.view")) {
 				items.splice(1, 0, {
 					text: this.__("Dashboard"),
 					icon: "mdi-view-grid-plus-outline",
 					to: "/dashboard",
+					capability: "dashboard.view",
 				});
 			}
-			if (this.posProfile?.posa_enable_cash_movement) {
+			if (can("cash_movement.manage")) {
 				items.push({
 					text: this.__("Cash Movement"),
 					icon: "mdi-bank-transfer",
 					to: "/cash-movement",
+					capability: "cash_movement.manage",
 				});
 			}
 			this.items = items;

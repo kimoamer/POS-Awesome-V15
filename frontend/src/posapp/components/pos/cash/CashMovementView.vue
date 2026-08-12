@@ -62,6 +62,7 @@
 import { computed, ref, watch } from "vue";
 import { useUIStore } from "../../../stores/uiStore";
 import { useToastStore } from "../../../stores/toastStore";
+import { useDialogStore } from "../../../stores/dialogStore";
 import { useCashMovement } from "../../../composables/pos/cash/useCashMovement";
 import {
 	getPendingOfflineCashMovementCount,
@@ -76,6 +77,7 @@ const __ = window.__ || ((text: string, _args?: any[]) => text);
 
 const uiStore = useUIStore();
 const toastStore = useToastStore();
+const dialogStore = useDialogStore();
 
 const {
 	loading,
@@ -220,7 +222,12 @@ function handleDuplicate(row: any) {
 async function handleCancel(row: any) {
 	if (!row?.name) return;
 	try {
-		const confirmed = window.confirm(__("Cancel cash movement {0}?", [row.name]));
+		const confirmed = await dialogStore.confirm({
+			title: __("Cancel cash movement"),
+			message: __("Cancel cash movement {0}?", [row.name]),
+			confirmLabel: __("Cancel movement"),
+			color: "warning",
+		});
 		if (!confirmed) {
 			return;
 		}
@@ -235,7 +242,12 @@ async function handleCancel(row: any) {
 async function handleDelete(row: any) {
 	if (!row?.name) return;
 	try {
-		const confirmed = window.confirm(__("Delete cancelled cash movement {0}?", [row.name]));
+		const confirmed = await dialogStore.confirm({
+			title: __("Delete cash movement"),
+			message: __("Delete cancelled cash movement {0}?", [row.name]),
+			confirmLabel: __("Delete"),
+			color: "error",
+		});
 		if (!confirmed) {
 			return;
 		}

@@ -1,6 +1,7 @@
 import { parseBooleanSetting } from "../../../utils/stock";
 import { useStockUtils } from "../../../composables/pos/shared/useStockUtils";
 import { useBatchSerial } from "../../../composables/pos/shared/useBatchSerial";
+import { posDebug } from "../../../utils/debug";
 
 declare const __: (_text: string, _args?: any[]) => string;
 declare const flt: (_value: unknown, _precision?: number) => number;
@@ -154,6 +155,9 @@ export async function fetch_available_qty(context: any, item: any) {
 							batch_no: item.batch_no,
 						},
 					]),
+					pos_profile: context.pos_profile?.name || context.pos_profile,
+					pos_opening_shift:
+						context.pos_opening_shift?.name || context.pos_opening_shift,
 				},
 			});
 			const qty =
@@ -206,7 +210,7 @@ export function set_batch_qty(
 export function calc_uom(context: any, item: any, value: any) {
 	if (!item) return;
 	const { calcUom } = getStockUtilsApi();
-	console.log("[stock.ts] calc_uom event received", {
+	posDebug("stock", "calc_uom event received", {
 		item: item.item_code,
 		uom: value,
 	});

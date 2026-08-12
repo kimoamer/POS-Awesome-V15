@@ -346,10 +346,10 @@
 
 <script>
 import { isOffline, saveOfflineCustomer } from "../../../../../offline/index";
-import { useCustomersStore } from "../../../../stores/customersStore.js";
-import { useUIStore } from "../../../../stores/uiStore.js";
+import { useCustomersStore } from "../../../../stores/customersStore";
+import { useUIStore } from "../../../../stores/uiStore";
 import { storeToRefs } from "pinia";
-import { useToastStore } from "../../../../stores/toastStore.js";
+import { useToastStore } from "../../../../stores/toastStore";
 
 export default {
 	setup() {
@@ -753,7 +753,8 @@ export default {
 			const apiArgs = {
 				...args,
 				company: vm.pos_profile.company,
-				pos_profile_doc: JSON.stringify(vm.pos_profile),
+				pos_profile_doc: vm.pos_profile.name,
+				pos_opening_shift: vm.uiStore.posOpeningShift?.name,
 				method: this.customer_id ? "update" : "create",
 			};
 
@@ -780,7 +781,9 @@ export default {
 				args: apiArgs,
 				callback: async (r) => {
 					if (!r.exc && r.message.name) {
-						let text = __("Customer created successfully.");
+						let text = r.message.already_exists
+							? __("Customer already exists and was selected.")
+							: __("Customer created successfully.");
 						if (vm.customer_id) {
 							text = __("Customer updated successfully.");
 						}

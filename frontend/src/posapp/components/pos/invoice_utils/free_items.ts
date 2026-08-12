@@ -1,4 +1,4 @@
-import { useItemsStore } from "../../../stores/itemsStore.js";
+import { useItemsStore } from "../../../stores/itemsStore";
 import { resolvePricingRuleName } from "./pricing_rule_names";
 
 declare const __: (_text: string, _args?: any[]) => string;

@@ -122,7 +122,7 @@ export async function runSupportedOfflineSyncResource({
 					callOfflineSyncMethod(
 						"posawesome.posawesome.api.offline_sync.bootstrap.sync_bootstrap_config",
 						{
-							pos_profile: posProfile,
+							pos_profile: posProfile.name,
 							watermark,
 							schema_version: schemaVersion,
 						},
@@ -135,7 +135,7 @@ export async function runSupportedOfflineSyncResource({
 					callOfflineSyncMethod(
 						"posawesome.posawesome.api.offline_sync.bootstrap.sync_bootstrap_config",
 						{
-							pos_profile: posProfile,
+							pos_profile: posProfile.name,
 							watermark,
 							schema_version: schemaVersion,
 						},
@@ -148,16 +148,20 @@ export async function runSupportedOfflineSyncResource({
 					posProfile,
 					currencyPairs = [],
 					watermark,
-					offset,
+					startAfter,
+					syncUntil,
+					limit,
 					schemaVersion,
 				}) =>
 					callOfflineSyncMethod(
 						"posawesome.posawesome.api.offline_sync.currencies.sync_currency_scope",
 						{
-							pos_profile: posProfile,
+							pos_profile: posProfile.name,
 							watermark,
 							currency_pairs: currencyPairs,
-							offset: offset || 0,
+							start_after: startAfter,
+							sync_until: syncUntil,
+							limit,
 							schema_version: schemaVersion,
 						},
 					),
@@ -169,7 +173,7 @@ export async function runSupportedOfflineSyncResource({
 					callOfflineSyncMethod(
 						"posawesome.posawesome.api.offline_sync.payment_methods.sync_payment_method_currencies",
 						{
-							pos_profile: posProfile,
+							pos_profile: posProfile.name,
 							watermark,
 							schema_version: schemaVersion,
 						},
@@ -185,17 +189,19 @@ export async function runSupportedOfflineSyncResource({
 					customer,
 					watermark,
 					startAfter,
+					syncUntil,
 					limit,
 					schemaVersion,
 				}) =>
 					callOfflineSyncMethod(
 						"posawesome.posawesome.api.offline_sync.items.sync_items",
 						{
-							pos_profile: posProfile,
+							pos_profile: posProfile.name,
 							price_list: priceList,
 							customer: customer || null,
 							watermark,
 							start_after: startAfter || null,
+							sync_until: syncUntil || null,
 							limit: limit || null,
 							schema_version: schemaVersion,
 						},
@@ -207,15 +213,19 @@ export async function runSupportedOfflineSyncResource({
 				fetcher: ({
 					posProfile,
 					watermark,
-					offset,
+					startAfter,
+					syncUntil,
+					limit,
 					schemaVersion,
 				}) =>
 					callOfflineSyncMethod(
 						"posawesome.posawesome.api.offline_sync.item_prices.sync_item_prices",
 						{
-							pos_profile: posProfile,
+							pos_profile: posProfile.name,
 							watermark,
-							offset: offset || 0,
+							start_after: startAfter || null,
+							sync_until: syncUntil || null,
+							limit: limit || null,
 							schema_version: schemaVersion,
 						},
 					),
@@ -226,15 +236,19 @@ export async function runSupportedOfflineSyncResource({
 				fetcher: ({
 					posProfile,
 					watermark,
-					offset,
+					startAfter,
+					syncUntil,
+					limit,
 					schemaVersion,
 				}) =>
 					callOfflineSyncMethod(
 						"posawesome.posawesome.api.offline_sync.pricing_rules.sync_pricing_rules",
 						{
-							pos_profile: posProfile,
+							pos_profile: posProfile.name,
 							watermark,
-							offset: offset || 0,
+							start_after: startAfter || null,
+							sync_until: syncUntil || null,
+							limit: limit || null,
 							schema_version: schemaVersion,
 						},
 					),
@@ -242,12 +256,22 @@ export async function runSupportedOfflineSyncResource({
 		case "stock":
 			return syncStockResource({
 				...sharedArgs,
-				fetcher: ({ posProfile, watermark, schemaVersion }) =>
+				fetcher: ({
+					posProfile,
+					watermark,
+					startAfter,
+					syncUntil,
+					limit,
+					schemaVersion,
+				}) =>
 					callOfflineSyncMethod(
 						"posawesome.posawesome.api.offline_sync.stock.sync_stock",
 						{
-							pos_profile: posProfile,
+							pos_profile: posProfile.name,
 							watermark,
+							start_after: startAfter || null,
+							sync_until: syncUntil || null,
+							limit: limit || null,
 							schema_version: schemaVersion,
 						},
 					),
@@ -255,13 +279,21 @@ export async function runSupportedOfflineSyncResource({
 		case "customers":
 			return syncCustomersResource({
 				...sharedArgs,
-				fetcher: ({ posProfile, watermark, startAfter, limit, schemaVersion }) =>
+				fetcher: ({
+					posProfile,
+					watermark,
+					startAfter,
+					syncUntil,
+					limit,
+					schemaVersion,
+				}) =>
 					callOfflineSyncMethod(
 						"posawesome.posawesome.api.offline_sync.customers.sync_customers",
 						{
-							pos_profile: posProfile,
+							pos_profile: posProfile.name,
 							watermark,
 							start_after: startAfter || null,
+							sync_until: syncUntil || null,
 							limit: limit || null,
 							schema_version: schemaVersion,
 						},

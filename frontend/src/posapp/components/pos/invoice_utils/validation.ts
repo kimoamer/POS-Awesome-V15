@@ -1,3 +1,5 @@
+import { posDebug } from "../../../utils/debug";
+
 declare const __: (_text: string, _args?: any[]) => string;
 declare const frappe: any;
 
@@ -14,7 +16,9 @@ export async function validate(context: any) {
 			});
 		}
 		if (allTasks.length > 0) {
-			console.log(`[Validation] Awaiting ${allTasks.length} pending item tasks...`);
+			posDebug("validation", "awaiting pending item tasks", {
+				count: allTasks.length,
+			});
 			await Promise.allSettled(allTasks);
 		}
 	}

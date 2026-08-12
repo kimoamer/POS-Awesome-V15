@@ -38,7 +38,6 @@
 							class="pos-header-brand"
 							:aria-label="brandAriaLabel"
 							@click="$emit('go-desk')"
-							@keydown.enter="$emit('go-desk')"
 						>
 							<span class="pos-header-brand__mark">
 								<v-img
@@ -72,7 +71,6 @@
 							class="pos-header-nav-item"
 							:class="{ 'pos-header-nav-item--active': isNavigationItemActive(item) }"
 							:aria-current="isNavigationItemActive(item) ? 'page' : undefined"
-							:title="item.text"
 						>
 							<v-icon class="pos-header-nav-item__icon" :size="navIconSize">
 								{{ item.icon }}
@@ -122,7 +120,11 @@
 						<slot name="status-indicator"></slot>
 					</div>
 
-					<NavbarInfoGadgets v-if="!isMobile" class="pos-header-action-shell pos-header-action-shell--info">
+					<NavbarInfoGadgets
+						v-if="!isMobile"
+						:show-system-metrics="showSystemMetrics"
+						class="pos-header-action-shell pos-header-action-shell--info"
+					>
 						<template #cache-usage-meter>
 							<slot name="cache-usage-meter"></slot>
 						</template>
@@ -141,7 +143,6 @@
 						:class="{ 'pos-header-offline-btn--pending': pendingInvoices > 0 }"
 						:aria-label="__('Offline Invoices') + ` (${pendingInvoices})`"
 						@click="$emit('show-offline-invoices')"
-						@keydown.enter="$emit('show-offline-invoices')"
 					>
 						<v-badge
 							v-if="pendingInvoices > 0"
@@ -159,16 +160,17 @@
 
 					<v-btn
 						variant="text"
+						data-test="cashier-chip"
+						role="button"
 						class="pos-header-control pos-header-cashier-btn"
 						:class="{ 'pos-header-cashier-btn--icon-only': hideCashierLabel }"
 						:icon="hideCashierLabel"
 						:aria-label="cashierButtonLabel"
 						@click="$emit('open-employee-switch')"
-						@keydown.enter="$emit('open-employee-switch')"
 					>
 						<v-icon :size="actionIconSize">mdi-account-switch-outline</v-icon>
 						<span v-if="!hideCashierLabel" class="pos-header-cashier-btn__label">
-							{{ __("Switch Cashier") }}
+							{{ cashierChipLabel }}
 						</span>
 						<v-tooltip activator="parent" location="bottom">
 							{{ cashierTooltip }}
@@ -183,7 +185,6 @@
 							class="pos-header-control pos-header-settings-btn"
 							:aria-label="__('Settings')"
 							@click="$emit('open-settings')"
-							@keydown.enter="$emit('open-settings')"
 						>
 							<v-icon :size="actionIconSize">mdi-cog-outline</v-icon>
 							<v-tooltip activator="parent" location="bottom">
@@ -210,7 +211,6 @@
 							class="pos-header-nav-item"
 							:class="{ 'pos-header-nav-item--active': isNavigationItemActive(item) }"
 							:aria-current="isNavigationItemActive(item) ? 'page' : undefined"
-							:title="item.text"
 						>
 							<v-icon class="pos-header-nav-item__icon" :size="navIconSize">
 								{{ item.icon }}
@@ -356,6 +356,10 @@ export default {
 			type: String,
 			default: "",
 		},
+		showSystemMetrics: {
+			type: Boolean,
+			default: false,
+		},
 	},
 	emits: ["nav-click", "go-desk", "show-offline-invoices", "open-employee-switch", "open-settings"],
 	data() {
@@ -428,7 +432,7 @@ export default {
 			return this.isCompactDesktop ? 62 : 68;
 		},
 		hideCashierLabel() {
-			return this.windowWidth < 1380;
+			return this.windowWidth < 1280;
 		},
 		hideActionLabels() {
 			return this.windowWidth < 1280;
@@ -809,12 +813,31 @@ export default {
 
 .pos-header-nav-item:hover,
 .pos-header-nav-item--active {
-	background: color-mix(in srgb, var(--pos-primary) 11%, var(--pos-surface)) !important;
-	color: var(--pos-primary) !important;
+	background-color: var(--pos-action-hover-bg, #f0fafa) !important;
+	color: var(--pos-action-active-fg, #006d77) !important;
 }
 
 .pos-header-nav-item--active {
-	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pos-primary) 16%, transparent);
+	background-color: var(--pos-action-active-bg, #e6f7f8) !important;
+	color: var(--pos-action-active-fg, #006d77) !important;
+	box-shadow: inset 0 0 0 1px rgba(0, 109, 119, 0.22);
+}
+
+.pos-header-nav-item--active :deep(.v-btn__overlay),
+.pos-header-nav-item:hover :deep(.v-btn__overlay) {
+	opacity: 0 !important;
+	background: transparent !important;
+}
+
+.pos-header-nav-item--active :deep(.v-btn__content),
+.pos-header-nav-item:hover :deep(.v-btn__content),
+.pos-header-nav-item--active .pos-header-nav-item__icon,
+.pos-header-nav-item:hover .pos-header-nav-item__icon,
+.pos-header-nav-item--active .pos-header-nav-item__label,
+.pos-header-nav-item:hover .pos-header-nav-item__label {
+	color: inherit !important;
+	-webkit-text-fill-color: currentColor !important;
+	opacity: 1 !important;
 }
 
 .pos-header-nav-item--more {

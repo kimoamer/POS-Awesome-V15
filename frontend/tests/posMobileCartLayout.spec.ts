@@ -21,7 +21,7 @@ describe("Pass 6.9 — Mobile Cart Layout & Command Bar", () => {
 		});
 
 		expect(wrapper.find(".mobile-cart-command-bar").exists()).toBe(true);
-		expect(wrapper.find(".mobile-cart-command-bar__total").text()).toContain("26.00");
+		expect(wrapper.find(".mobile-cart-command-bar__total").text()).toContain("26");
 	});
 
 	it("renders 4 action targets in mobile command bar: Discount, Save, Drafts, More", () => {

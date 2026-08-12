@@ -1,7 +1,9 @@
 import { db } from "../db";
+import { buildOfflineProfileScope } from "../scope";
 
 export type OfflineCurrencyRateRecord = {
 	name: string;
+	profile_scope?: string;
 	profile_name: string;
 	company: string;
 	from_currency: string;
@@ -13,6 +15,7 @@ export type OfflineCurrencyRateRecord = {
 };
 
 type CurrencyRateLookup = {
+	profileScope?: string;
 	profileName: string;
 	company: string;
 	fromCurrency: string;
@@ -21,11 +24,20 @@ type CurrencyRateLookup = {
 };
 
 class CurrencyRateRepository {
-	async clear() {
-		await db.table("currency_rate_records").clear();
+	private resolveScope(scope?: string) {
+		return scope || buildOfflineProfileScope(null);
 	}
 
-	async upsertMany(rows: OfflineCurrencyRateRecord[]) {
+	async clear(scope?: string) {
+		await db
+			.table("currency_rate_records")
+			.where("profile_scope")
+			.equals(this.resolveScope(scope))
+			.delete();
+	}
+
+	async upsertMany(rows: OfflineCurrencyRateRecord[], scope?: string) {
+		const profileScope = this.resolveScope(scope);
 		const validRows = (rows || []).filter(
 			(row) =>
 				row?.name &&
@@ -37,18 +49,24 @@ class CurrencyRateRepository {
 		if (!validRows.length) {
 			return;
 		}
-		await db.table("currency_rate_records").bulkPut(validRows);
+		await db.table("currency_rate_records").bulkPut(
+			validRows.map((row) => ({ ...row, profile_scope: profileScope })),
+		);
 	}
 
-	async deleteByNames(names: string[]) {
+	async deleteByNames(names: string[], scope?: string) {
 		const keys = [...new Set((names || []).filter(Boolean))];
 		if (!keys.length) {
 			return;
 		}
-		await db.table("currency_rate_records").bulkDelete(keys);
+		const profileScope = this.resolveScope(scope);
+		await db
+			.table("currency_rate_records")
+			.bulkDelete(keys.map((name) => [profileScope, name]));
 	}
 
 	async findForPair({
+		profileScope,
 		profileName,
 		company,
 		fromCurrency,
@@ -61,9 +79,11 @@ class CurrencyRateRepository {
 		}
 		return db
 			.table("currency_rate_records")
-			.where("[profile_name+company+from_currency+to_currency]")
+			.where("[profile_scope+company+from_currency+to_currency]")
 			.equals([
-				profileName,
+				this.resolveScope(
+					profileScope || buildOfflineProfileScope({ name: profileName }),
+				),
 				company || "",
 				fromCurrency,
 				toCurrency,

@@ -1,204 +1,80 @@
 <template>
-	<v-row justify="center">
-		<v-dialog v-model="dialog" max-width="1200px" persistent transition="fade-transition">
-			<v-card class="pos-card offline-invoices-card elevation-12">
-				<!-- Revamped Modern Header -->
-				<v-card-title class="offline-header pa-8">
-					<div class="header-content-wrapper">
-						<div class="header-main-content">
-							<div class="header-icon-wrapper-revamped">
-								<div class="icon-background">
-									<v-icon class="header-icon-revamped" size="32"
-										>mdi-file-document-multiple-outline</v-icon
-									>
-								</div>
-								<div class="icon-glow"></div>
-							</div>
-							<div class="header-text-revamped">
-								<h2 class="header-title-revamped">{{ __("Offline Invoices") }}</h2>
-								<p class="header-subtitle-revamped">
-									{{ __("Manage and synchronize your offline transactions") }}
-								</p>
-								<div class="header-stats-revamped">
-									<v-chip
-										v-if="invoices.length > 0"
-										color="warning"
-										variant="elevated"
-										size="default"
-										class="status-chip-revamped pending-chip"
-										elevation="2"
-									>
-										<v-icon start size="16">mdi-clock-outline</v-icon>
-										{{ invoices.length }} {{ __("Pending Sync") }}
-									</v-chip>
-									<v-chip
-										v-else
-										color="success"
-										variant="elevated"
-										size="default"
-										class="status-chip-revamped synced-chip"
-										elevation="2"
-									>
-										<v-icon start size="16">mdi-check-circle</v-icon>
-										{{ __("All Synchronized") }}
-									</v-chip>
-								</div>
-							</div>
-						</div>
-						<div class="header-close-section">
-							<v-btn
-								icon="mdi-close"
-								variant="text"
-								size="large"
-								color="error"
-								class="header-close-btn"
-								@click="dialog = false"
-								:aria-label="__('Close offline invoices dialog')"
-							>
-								<v-tooltip activator="parent" location="bottom">
-									{{ __("Close Dialog") }}
-								</v-tooltip>
-							</v-btn>
-						</div>
+	<v-dialog v-model="dialog" max-width="920" scrollable transition="dialog-bottom-transition">
+		<v-card class="offline-invoices-card pos-themed-card">
+			<header class="offline-dialog-header">
+				<div class="offline-dialog-heading">
+					<div class="offline-dialog-icon"><v-icon size="23">mdi-file-sync-outline</v-icon></div>
+					<div class="offline-dialog-copy">
+						<h2>{{ __("Offline Invoices") }}</h2>
+						<p>{{ __("Review queued sales and synchronization status on this terminal.") }}</p>
 					</div>
-				</v-card-title>
+					<PosStatusPill :tone="invoices.length ? 'warning' : 'success'" dot>
+						{{ invoices.length ? `${invoices.length} ${__('Pending')}` : __("All synchronized") }}
+					</PosStatusPill>
+				</div>
+				<v-btn icon="mdi-close" variant="text" size="small" class="offline-dialog-close" :aria-label="__('Close offline invoices dialog')" @click="dialog = false" />
+			</header>
 
-				<v-divider class="header-divider"></v-divider>
-
-				<v-card-text class="pa-0 white-background">
-					<v-container fluid class="pa-6">
-						<!-- Enhanced Empty State -->
-						<div v-if="!invoices.length" class="empty-state text-center py-12">
-							<div class="empty-icon-wrapper mb-4">
-								<v-icon size="80" color="success" class="empty-icon"
-									>mdi-check-circle-outline</v-icon
-								>
-							</div>
-							<h3 class="text-h5 mb-3 text-grey-darken-2 font-weight-medium">
-								{{ __("All Caught Up!") }}
-							</h3>
-							<p class="text-body-1 text-grey-darken-1 mb-0">
-								{{ __("No offline invoices pending synchronization") }}
-							</p>
-						</div>
-
-						<!-- Enhanced Invoices Table -->
-						<div v-else class="table-container">
-							<div class="table-header mb-4">
-								<h4 class="text-h6 text-grey-darken-2 mb-1">{{ __("Pending Invoices") }}</h4>
-								<p class="text-body-2 text-grey">
-									{{ __("These invoices will be synced when connection is restored") }}
-								</p>
-							</div>
-
-							<v-data-table
-								:headers="headers"
-								:items="invoices"
-								class="elevation-0 rounded-lg white-table"
-								:items-per-page="15"
-								:items-per-page-options="[15, 25, 50]"
-							>
-								<template #item.customer="{ item }">
-									<div class="customer-cell">
-										<v-avatar size="32" color="primary" class="mr-3">
-											<v-icon size="18" color="white">mdi-account</v-icon>
-										</v-avatar>
-										<div>
-											<div class="font-weight-medium text-grey-darken-2">
-												{{ item.invoice.customer_name || item.invoice.customer }}
-											</div>
-											<div class="text-caption text-grey">{{ __("Customer") }}</div>
-										</div>
-									</div>
-								</template>
-
-								<template #item.posting_date="{ item }">
-									<v-chip size="small" color="info" variant="tonal" class="date-chip">
-										<v-icon start size="14">mdi-calendar</v-icon>
-										{{ item.invoice.posting_date }}
-									</v-chip>
-								</template>
-
-								<template #item.grand_total="{ item }">
-									<div class="amount-cell text-right">
-										<div class="text-h6 font-weight-bold text-success">
-											{{ currencySymbol(item.invoice.currency) }}
-											{{
-												formatCurrency(
-													item.invoice.grand_total || item.invoice.rounded_total,
-												)
-											}}
-										</div>
-										<div class="text-caption text-grey">{{ __("Total Amount") }}</div>
-									</div>
-								</template>
-
-								<template #item.actions="{ index }">
-									<v-btn
-										v-if="posProfile.posa_allow_delete_offline_invoice"
-										icon
-										color="error"
-										size="small"
-										variant="text"
-										@click="removeInvoice(index)"
-										class="delete-btn"
-										:aria-label="__('Delete offline invoice')"
-									>
-										<v-icon size="18">mdi-delete-outline</v-icon>
-										<v-tooltip activator="parent" location="top">
-											{{ __("Delete Invoice") }}
-										</v-tooltip>
-									</v-btn>
-								</template>
-							</v-data-table>
-						</div>
-					</v-container>
-				</v-card-text>
-
-				<!-- Revamped Modern Footer -->
-				<v-divider class="footer-divider"></v-divider>
-				<v-card-actions class="dialog-actions-container-revamped">
-					<div class="actions-left-section">
-						<v-btn
-							v-if="invoices.length > 0"
-							variant="elevated"
-							prepend-icon="mdi-sync"
-							@click="$emit('sync-all')"
-							class="sync-action-btn-revamped"
-							size="large"
-							elevation="3"
-						>
-							{{ __("Sync All Invoices") }}
-						</v-btn>
-						<div v-else class="sync-status-indicator">
-							<v-icon color="success" size="20" class="mr-2">mdi-check-circle</v-icon>
-							<span class="text-success font-weight-medium">{{
-								__("All invoices are synchronized")
-							}}</span>
-						</div>
+			<section class="offline-dialog-body">
+				<div v-if="!invoices.length" class="offline-empty-state">
+					<div class="offline-empty-state__icon"><v-icon size="40">mdi-check</v-icon></div>
+					<h3>{{ __("Everything is synchronized") }}</h3>
+					<p>{{ __("There are no offline invoices waiting to be sent.") }}</p>
+				</div>
+				<div v-else class="offline-table-section">
+					<div class="offline-table-heading">
+						<h3>{{ __("Pending invoices") }}</h3>
+						<p>{{ __("Queued sales remain on this device until the server accepts them.") }}</p>
 					</div>
-					<div class="actions-right-section">
-						<v-btn
-							variant="outlined"
-							color="error"
-							@click="dialog = false"
-							class="close-action-btn-revamped"
-							size="large"
-							prepend-icon="mdi-close"
-						>
-							{{ __("Close") }}
-						</v-btn>
-					</div>
-				</v-card-actions>
-			</v-card>
-		</v-dialog>
-	</v-row>
+					<v-data-table :headers="headers" :items="invoices" class="offline-invoices-table" :items-per-page="15" :items-per-page-options="[15, 25, 50]">
+						<template #item.customer="{ item }">
+							<div class="offline-customer-cell">
+								<v-avatar size="34" color="primary" variant="tonal"><v-icon size="18">mdi-account</v-icon></v-avatar>
+								<div><strong>{{ item.invoice.customer_name || item.invoice.customer }}</strong><small>{{ __("Customer") }}</small></div>
+							</div>
+						</template>
+						<template #item.posting_date="{ item }"><bdi>{{ item.invoice.posting_date }}</bdi></template>
+						<template #item.grand_total="{ item }"><strong class="offline-amount"><bdi>{{ currencySymbol(item.invoice.currency) }}</bdi> <bdi>{{ formatCurrency(item.invoice.grand_total || item.invoice.rounded_total) }}</bdi></strong></template>
+						<template #item.status="{ item }">
+							<div class="offline-state-cell"><PosStatusPill :tone="statusTone(item.status)" dot>{{ statusLabel(item.status) }}</PosStatusPill><small v-if="item.last_error" class="offline-state-error">{{ item.last_error }}</small></div>
+						</template>
+						<template #item.actions="{ item, index }">
+							<div class="offline-row-actions">
+								<v-btn v-if="item.status === 'dead_letter' || item.status === 'retrying'" icon="mdi-refresh" color="primary" size="small" variant="text" :aria-label="__('Retry queued invoice')" @click="retryInvoice(item)" />
+								<v-btn v-if="posProfile.posa_allow_delete_offline_invoice" icon="mdi-delete-outline" color="error" size="small" variant="text" :aria-label="__('Delete offline invoice')" @click="removeInvoice(index, item)" />
+							</div>
+						</template>
+					</v-data-table>
+				</div>
+			</section>
+
+			<footer class="offline-dialog-footer">
+				<div class="offline-dialog-footer__status">
+					<v-icon :color="invoices.length ? 'warning' : 'success'" size="18">{{ invoices.length ? 'mdi-clock-outline' : 'mdi-check-circle-outline' }}</v-icon>
+					<span>{{ invoices.length ? __("Invoices are safely queued on this terminal") : __("No synchronization work is pending") }}</span>
+				</div>
+				<div class="offline-dialog-footer__actions">
+					<v-btn v-if="invoices.length" color="primary" variant="flat" prepend-icon="mdi-sync" @click="$emit('sync-all')">{{ __("Sync All") }}</v-btn>
+					<v-btn variant="outlined" class="offline-close-action" prepend-icon="mdi-close" @click="dialog = false">{{ __("Close") }}</v-btn>
+				</div>
+			</footer>
+		</v-card>
+	</v-dialog>
 </template>
 
 <script setup>
 import { ref, watch } from "vue";
 import { formatUtils } from "../format";
-import { getOfflineInvoices, deleteOfflineInvoice, getPendingOfflineInvoiceCount } from "../../offline/index";
+import {
+	deleteInvoiceOutboxEntry,
+	deleteOfflineInvoice,
+	getInvoiceOutboxMode,
+	getInvoiceOutboxRows,
+	getOfflineInvoices,
+	getPendingOfflineInvoiceCount,
+	retryInvoiceOutboxEntry,
+} from "../../offline/index";
+import PosStatusPill from "./ui/PosStatusPill.vue";
 
 defineOptions({
 	name: "OfflineInvoicesDialog",
@@ -239,10 +115,16 @@ const headers = [
 		width: "25%",
 	},
 	{
+		title: __("Status"),
+		value: "status",
+		align: "start",
+		width: "20%",
+	},
+	{
 		title: __("Actions"),
 		value: "actions",
 		align: "center",
-		width: "20%",
+		width: "12%",
 		sortable: false,
 	},
 ];
@@ -252,7 +134,7 @@ watch(
 	(val) => {
 		dialog.value = val;
 		if (val) {
-			loadInvoices();
+			void loadInvoices();
 		}
 	},
 );
@@ -287,21 +169,66 @@ function currencySymbol(currency) {
 	return get_currency_symbol?.(currency);
 }
 
-function loadInvoices() {
-	invoices.value = getOfflineInvoices();
+function statusTone(status) {
+	if (status === "dead_letter") return "danger";
+	if (status === "retrying") return "warning";
+	if (status === "syncing") return "info";
+	return "neutral";
 }
 
-async function removeInvoice(index) {
+function statusLabel(status) {
+	const labels = {
+		pending: __("Pending"),
+		syncing: __("Sending"),
+		retrying: __("Retry scheduled"),
+		dead_letter: __("Action required"),
+	};
+	return labels[status] || __("Pending");
+}
+
+async function loadInvoices() {
+	invoices.value =
+		getInvoiceOutboxMode() === "coordinator"
+			? await getInvoiceOutboxRows()
+			: getOfflineInvoices();
+}
+
+async function retryInvoice(item) {
+	if (!item?.outbox_id) return;
+	await retryInvoiceOutboxEntry(item.outbox_id);
+	await loadInvoices();
+	emit("sync-all");
+}
+
+async function removeInvoice(index, item) {
 	if (!props.posProfile.posa_allow_delete_offline_invoice) {
 		return;
 	}
-	await deleteOfflineInvoice(index);
-	loadInvoices();
+	if (getInvoiceOutboxMode() === "coordinator" && item?.outbox_id) {
+		await deleteInvoiceOutboxEntry(item.outbox_id);
+	} else {
+		await deleteOfflineInvoice(index);
+	}
+	await loadInvoices();
 	emit("deleted", getPendingOfflineInvoiceCount());
 }
 </script>
 
 <style>
+.offline-state-cell {
+	display: grid;
+	gap: 6px;
+	min-inline-size: 140px;
+}
+
+.offline-state-error {
+	max-inline-size: 260px;
+	overflow: hidden;
+	color: var(--pos-error);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 /* ========== REVAMPED OFFLINE INVOICES DIALOG ========== */
 
 /* Main Card Styling */
@@ -813,5 +740,230 @@ async function removeInvoice(index) {
 .sync-status-indicator span {
 	font-size: 15px;
 	letter-spacing: 0.3px;
+}
+
+/* Compact terminal-first dialog. These selectors intentionally supersede the
+   legacy decorative rules above while existing installations transition. */
+.offline-invoices-card {
+	max-height: min(76vh, 650px);
+	border: 1px solid var(--pos-border-light, #e2e8f0) !important;
+	border-radius: 16px !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
+	box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18) !important;
+	overflow: hidden;
+}
+
+.offline-dialog-header,
+.offline-dialog-heading,
+.offline-dialog-footer,
+.offline-dialog-footer__status,
+.offline-dialog-footer__actions,
+.offline-customer-cell,
+.offline-row-actions {
+	display: flex;
+	align-items: center;
+}
+
+.offline-dialog-header {
+	justify-content: space-between;
+	gap: 16px;
+	min-height: 74px;
+	padding: 13px 16px;
+	border-bottom: 1px solid var(--pos-border-light, #e2e8f0);
+	background: var(--pos-surface-muted, #f8fafc);
+}
+
+.offline-dialog-heading {
+	min-width: 0;
+	gap: 12px;
+}
+
+.offline-dialog-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 42px;
+	height: 42px;
+	border-radius: 12px;
+	color: var(--pos-primary, #0891a2);
+	background: color-mix(in srgb, var(--pos-primary, #0891a2) 12%, transparent);
+	border: 1px solid color-mix(in srgb, var(--pos-primary, #0891a2) 24%, transparent);
+	flex-shrink: 0;
+}
+
+.offline-dialog-copy {
+	min-width: 0;
+}
+
+.offline-dialog-copy h2,
+.offline-table-heading h3,
+.offline-empty-state h3 {
+	margin: 0;
+	color: var(--pos-text-primary, #0f172a);
+}
+
+.offline-dialog-copy h2 {
+	font-size: 18px;
+	font-weight: 750;
+}
+
+.offline-dialog-copy p,
+.offline-table-heading p,
+.offline-empty-state p {
+	margin: 3px 0 0;
+	font-size: 12px;
+	line-height: 1.45;
+	color: var(--pos-text-secondary, #64748b);
+}
+
+.offline-dialog-close {
+	flex-shrink: 0;
+	color: var(--pos-text-secondary, #64748b) !important;
+}
+
+.offline-dialog-close:hover {
+	color: var(--pos-text-primary, #0f172a) !important;
+	background: var(--pos-hover-bg, #eef2f7) !important;
+}
+
+.offline-dialog-body {
+	min-height: 260px;
+	max-height: min(58vh, 500px);
+	padding: 18px;
+	overflow: auto;
+	background: var(--pos-surface-raised, #ffffff);
+}
+
+.offline-empty-state {
+	display: grid;
+	place-items: center;
+	align-content: center;
+	min-height: 235px;
+	padding: 24px;
+	text-align: center;
+	border: 1px dashed var(--pos-border-light, #cbd5e1);
+	border-radius: 14px;
+	background: color-mix(in srgb, var(--pos-success, #16a34a) 3%, var(--pos-surface-raised, #ffffff));
+}
+
+.offline-empty-state__icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 68px;
+	height: 68px;
+	margin-bottom: 12px;
+	border-radius: 50%;
+	color: var(--pos-success, #16a34a);
+	background: color-mix(in srgb, var(--pos-success, #16a34a) 12%, transparent);
+}
+
+.offline-empty-state h3,
+.offline-table-heading h3 {
+	font-size: 16px;
+	font-weight: 750;
+}
+
+.offline-table-heading {
+	margin-bottom: 12px;
+}
+
+.offline-invoices-table {
+	border: 1px solid var(--pos-border-light, #e2e8f0);
+	border-radius: 12px;
+	overflow: hidden;
+	background: var(--pos-surface-raised, #ffffff) !important;
+}
+
+.offline-customer-cell {
+	gap: 9px;
+	min-width: 0;
+}
+
+.offline-customer-cell > div {
+	display: grid;
+	min-width: 0;
+}
+
+.offline-customer-cell strong {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.offline-customer-cell small {
+	color: var(--pos-text-secondary, #64748b);
+}
+
+.offline-amount {
+	color: var(--pos-success, #16a34a);
+	white-space: nowrap;
+}
+
+.offline-row-actions {
+	justify-content: center;
+	gap: 4px;
+}
+
+.offline-dialog-footer {
+	justify-content: space-between;
+	gap: 16px;
+	min-height: 64px;
+	padding: 10px 16px;
+	border-top: 1px solid var(--pos-border-light, #e2e8f0);
+	background: var(--pos-surface-muted, #f8fafc);
+}
+
+.offline-dialog-footer__status,
+.offline-dialog-footer__actions {
+	gap: 8px;
+}
+
+.offline-dialog-footer__status {
+	font-size: 12px;
+	color: var(--pos-text-secondary, #64748b);
+}
+
+.offline-close-action {
+	color: var(--pos-error, #dc2626) !important;
+	border-color: color-mix(in srgb, var(--pos-error, #dc2626) 55%, transparent) !important;
+}
+
+.offline-close-action:hover {
+	color: #ffffff !important;
+	background: var(--pos-error, #dc2626) !important;
+	border-color: var(--pos-error, #dc2626) !important;
+}
+
+@media (max-width: 700px) {
+	.offline-invoices-card {
+		max-height: calc(100dvh - 24px);
+		border-radius: 14px !important;
+	}
+
+	.offline-dialog-heading > .pos-status-pill {
+		display: none;
+	}
+
+	.offline-dialog-copy p {
+		display: none;
+	}
+
+	.offline-dialog-body {
+		padding: 12px;
+	}
+
+	.offline-dialog-footer {
+		align-items: stretch;
+		flex-direction: column;
+	}
+
+	.offline-dialog-footer__status {
+		display: none;
+	}
+
+	.offline-dialog-footer__actions > * {
+		flex: 1 1 0;
+	}
 }
 </style>

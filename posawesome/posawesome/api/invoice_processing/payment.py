@@ -12,6 +12,7 @@ from posawesome.posawesome.api.payment_processing.utils import get_party_account
 from posawesome.posawesome.api.payment_processing.utils import (
     get_bank_cash_account as get_bank_account_processing,
 )
+from posawesome.posawesome.api.utils import assert_doctype_permission
 
 
 def _create_change_payment_entries(
@@ -24,6 +25,8 @@ def _create_change_payment_entries(
 
     if credit_change_amount <= 0 and paid_change_amount <= 0:
         return
+    assert_doctype_permission("Payment Entry", "create")
+    assert_doctype_permission("Payment Entry", "submit")
 
     if invoice_doc.docstatus != 1:
         frappe.throw(
@@ -249,8 +252,6 @@ def _create_change_payment_entries(
             advance_payment_entry.reference_no = reference_no
             advance_payment_entry.reference_date = posting_date
 
-        advance_payment_entry.flags.ignore_permissions = True
-        frappe.flags.ignore_account_permission = True
         advance_payment_entry.save()
         advance_payment_entry.submit()
 
@@ -279,8 +280,6 @@ def _create_change_payment_entries(
         change_payment_entry.set_missing_values()
         change_payment_entry.set_amounts()
 
-        change_payment_entry.flags.ignore_permissions = True
-        frappe.flags.ignore_account_permission = True
         change_payment_entry.save()
         change_payment_entry.submit()
 

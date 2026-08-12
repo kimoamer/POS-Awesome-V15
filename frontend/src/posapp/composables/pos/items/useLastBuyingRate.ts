@@ -28,14 +28,15 @@ const unwrapValue = <T>(source: MaybeRefLike<T> | undefined): T | undefined => {
 };
 
 interface UseLastBuyingRateContext {
-	pos_profile?: MaybeRefLike<{ company?: string } | null>;
+	pos_profile?: MaybeRefLike<{ name?: string; company?: string } | null>;
+	pos_opening_shift?: MaybeRefLike<string | null>;
 	supplier?: MaybeRefLike<any>;
 	displayedItems?: MaybeRefLike<Array<{ item_code?: string }>>;
 	show_last_buying_rate?: MaybeRefLike<boolean>;
 }
 
 export function useLastBuyingRate(context: UseLastBuyingRateContext = {}) {
-	const { pos_profile, supplier, displayedItems, show_last_buying_rate } = context;
+	const { pos_profile, pos_opening_shift, supplier, displayedItems, show_last_buying_rate } = context;
 
 	const lastBuyingRates = ref<LastBuyingRatesMap>({});
 	const lastBuyingRateCache = new Map<string, LastBuyingRatesMap>();
@@ -91,6 +92,8 @@ export function useLastBuyingRate(context: UseLastBuyingRateContext = {}) {
 					supplier: supplierVal || null,
 					item_codes: JSON.stringify(itemCodes),
 					company: profile?.company || null,
+					pos_profile: profile?.name || null,
+					pos_opening_shift: unwrapValue(pos_opening_shift) || null,
 				},
 			});
 

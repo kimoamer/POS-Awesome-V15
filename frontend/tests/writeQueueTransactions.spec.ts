@@ -12,6 +12,7 @@ type SeedEntry = {
 	status: "pending" | "syncing" | "failed" | "dead_letter" | "synced";
 	idempotency_key: string;
 	last_error: string | null;
+	owner_scope?: string;
 };
 
 function clone<T>(value: T): T {
@@ -19,7 +20,9 @@ function clone<T>(value: T): T {
 }
 
 async function loadWriteQueueModule(seedRows: SeedEntry[]) {
-	const rows = seedRows.map((entry) => clone(entry));
+	const rows = seedRows.map((entry) =>
+		clone({ ...entry, owner_scope: entry.owner_scope || "test-owner" }),
+	);
 	const memory = {
 		offline_invoices: [] as any[],
 		offline_customers: [] as any[],
@@ -32,13 +35,25 @@ async function loadWriteQueueModule(seedRows: SeedEntry[]) {
 	const addTxStates: boolean[] = [];
 	const putTxStates: boolean[] = [];
 
+	const matchesIndex = (row: SeedEntry, field: string, value: unknown) => {
+		const compoundFields = field.startsWith("[")
+			? field.slice(1, -1).split("+")
+			: null;
+		if (compoundFields && Array.isArray(value)) {
+			return compoundFields.every(
+				(key, index) => String((row as any)[key]) === String(value[index]),
+			);
+		}
+		return String((row as any)[field]) === String(value);
+	};
+
 	const writeQueueTable = {
 		where: vi.fn((field: string) => ({
-			equals: vi.fn((value: string) => ({
+			equals: vi.fn((value: unknown) => ({
 				sortBy: vi.fn(async (sortField: string) => {
 					sortByTxStates.push(txActive);
 					return rows
-						.filter((row) => String((row as any)[field]) === value)
+						.filter((row) => matchesIndex(row, field, value))
 						.sort((left, right) =>
 							String((left as any)[sortField]).localeCompare(
 								String((right as any)[sortField]),
@@ -48,7 +63,7 @@ async function loadWriteQueueModule(seedRows: SeedEntry[]) {
 				}),
 				first: vi.fn(async () => {
 					firstTxStates.push(txActive);
-					return rows.find((row) => String((row as any)[field]) === value);
+					return rows.find((row) => matchesIndex(row, field, value));
 				}),
 			})),
 		})),
@@ -97,7 +112,15 @@ async function loadWriteQueueModule(seedRows: SeedEntry[]) {
 
 	vi.doMock("../src/offline/db", () => ({
 		checkDbHealth: vi.fn().mockResolvedValue(true),
+		startupInitPromise: Promise.resolve(),
 		initPromise: Promise.resolve(),
+		hydrateMemoryKeys: vi.fn(async () => undefined),
+		PENDING_OFFLINE_QUEUE_KEYS: [
+			"offline_invoices",
+			"offline_customers",
+			"offline_payments",
+			"offline_cash_movements",
+		],
 		memory,
 		db: {
 			isOpen: vi.fn(() => true),
@@ -122,6 +145,9 @@ async function loadWriteQueueModule(seedRows: SeedEntry[]) {
 	vi.doMock("../src/offline/idempotency", () => ({
 		ensureOfflineInvoiceRequest: vi.fn(),
 		ensurePaymentClientRequestId: vi.fn(),
+	}));
+	vi.doMock("../src/offline/scope", () => ({
+		buildOfflineTenantScope: () => "test-owner",
 	}));
 
 	const module = await import("../src/offline/writeQueue");

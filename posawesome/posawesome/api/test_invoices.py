@@ -81,7 +81,19 @@ def _install_frappe_stub():
 
     utils_module = types.ModuleType("posawesome.posawesome.api.utils")
     utils_module.log_perf_event = lambda *args, **kwargs: None
+    utils_module.assert_document_permission = lambda *args, **kwargs: True
+    utils_module.get_pos_request_context = lambda pos_profile=None, **kwargs: types.SimpleNamespace(
+        company=kwargs.get("company") or "Test Company",
+        profile_name=pos_profile or "Main POS",
+        opening_shift=types.SimpleNamespace(name=kwargs.get("opening_shift") or "POS-OPEN-0001"),
+        warehouse="Stores - TC",
+        pos_profile={"custom_allow_select_sales_order": 1},
+    )
     sys.modules["posawesome.posawesome.api.utils"] = utils_module
+
+    employees_module = types.ModuleType("posawesome.posawesome.api.employees")
+    employees_module.verify_cashier_grant = lambda *args, **kwargs: True
+    sys.modules["posawesome.posawesome.api.employees"] = employees_module
 
     erpnext_compat_module = types.ModuleType("posawesome.posawesome.api.erpnext_compat")
     erpnext_compat_module.resolve_make_sales_invoice_from_order = lambda: erpnext_sales_order.make_sales_invoice
@@ -101,8 +113,14 @@ def _load_invoices_module():
 class TestInvoicesApi(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         _install_frappe_stub()
         cls.invoices = _load_invoices_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def test_get_draft_invoices_keeps_shift_scope_for_cashiers(self):
         captured = {}
@@ -123,6 +141,8 @@ class TestInvoicesApi(unittest.TestCase):
             {
                 "posa_pos_opening_shift": "POS-OPEN-0001",
                 "docstatus": 0,
+                "company": "Test Company",
+                "pos_profile": "Main POS",
             },
         )
 
@@ -150,6 +170,7 @@ class TestInvoicesApi(unittest.TestCase):
             {
                 "company": "Farooq Chemicals",
                 "docstatus": 0,
+                "pos_profile": "Main POS",
             },
         )
 
@@ -172,6 +193,7 @@ class TestInvoicesApi(unittest.TestCase):
         source_order = FakeDoc(
             doctype="Sales Order",
             name="SO-0001",
+            company="Test Company",
             pos_profile="VAT Inclusive POS",
             taxes=[
                 {
@@ -183,6 +205,7 @@ class TestInvoicesApi(unittest.TestCase):
         mapped_invoice = FakeDoc(
             doctype="Sales Invoice",
             pos_profile=None,
+            items=[],
             taxes=[
                 {
                     "charge_type": "On Net Total",
@@ -205,7 +228,10 @@ class TestInvoicesApi(unittest.TestCase):
         )
         self.invoices.resolve_make_sales_invoice_from_order = lambda: (lambda name: mapped_invoice)
 
-        result = self.invoices.create_sales_invoice_from_order("SO-0001")
+        result = self.invoices.create_sales_invoice_from_order(
+            "SO-0001",
+            pos_profile="VAT Inclusive POS",
+        )
 
         self.assertEqual(result.pos_profile, "VAT Inclusive POS")
         self.assertEqual(result.taxes[0]["included_in_print_rate"], 1)

@@ -29,6 +29,8 @@ export const fetchDraftInvoices = async ({
 		args: {
 			pos_opening_shift: posOpeningShift?.name,
 			doctype,
+			company: posProfile?.company,
+			pos_profile: posProfile?.name,
 		},
 	});
 
@@ -51,6 +53,8 @@ export const fetchDraftInvoiceDoc = async ({
 		args: {
 			invoice_name: draft.name,
 			doctype: resolveDraftInvoiceDoctype(draft, posProfile),
+			pos_profile: posProfile?.name,
+			pos_opening_shift: draft?.posa_pos_opening_shift,
 		},
 	});
 

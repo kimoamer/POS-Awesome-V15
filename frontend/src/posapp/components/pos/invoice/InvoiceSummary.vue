@@ -18,7 +18,7 @@
 			</v-alert>
 
 			<!-- Compact Mode Layout for Mobile/Tablet (< 1200px) -->
-			<div v-if="useCompactSaleDock" class="mobile-cart-command-bar">
+			<div v-if="useCompactSaleDock" class="mobile-cart-command-bar compact-checkout">
 				<div class="mobile-cart-command-bar__summary">
 					<span class="mobile-cart-command-bar__label">{{ __("Total") }}</span>
 					<strong class="mobile-cart-command-bar__total"><bdi>{{ formatMoney(subtotal, formatCurrency || ((v) => String(v)), currencySymbol || (() => ""), displayCurrency) }}</bdi></strong>
@@ -367,11 +367,9 @@ const { parkedOrders, draftSource } = storeToRefs(uiStore);
 const __ = (window as any).__ || ((s: string) => s);
 const frappe = (window as any).frappe || { _: (s: string) => s };
 
-const additionalDiscountDisplay = ref(normalizeAdditionalDiscountDisplay(props.additional_discount));
-const additionalDiscountPercentageDisplay = ref(
-	normalizeDiscountDisplay(props.additional_discount_percentage),
+const useCompactSaleDock = computed(
+	() => props.compactExternalPay || responsive.windowWidth.value < 1200,
 );
-const useCompactSaleDock = computed(() => responsive.windowWidth.value < 1200);
 const showDesktopDrafts = computed(() => Boolean(responsive.isDesktop.value));
 
 const allowAdditionalDiscount = computed(() =>
@@ -380,6 +378,11 @@ const allowAdditionalDiscount = computed(() =>
 
 const usePercentageDiscount = computed(() =>
 	parseBooleanSetting(props.pos_profile?.posa_use_percentage_discount),
+);
+
+const additionalDiscountDisplay = ref(normalizeAdditionalDiscountDisplay(props.additional_discount));
+const additionalDiscountPercentageDisplay = ref(
+	normalizeDiscountDisplay(props.additional_discount_percentage),
 );
 
 const canEditAdditionalDiscount = computed(

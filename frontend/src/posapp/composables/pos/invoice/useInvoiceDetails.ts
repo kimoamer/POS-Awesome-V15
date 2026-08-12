@@ -43,6 +43,7 @@ export interface InvoiceDetailsOptions {
 	stores?: {
 		toastStore?: any;
 		invoiceStore?: any;
+		uiStore?: any;
 	};
 	eventBus?: any;
 }
@@ -93,7 +94,6 @@ export function useInvoiceDetails(options: InvoiceDetailsOptions) {
 		// invoiceType,
 		posSettings,
 		stores,
-		eventBus,
 	} = options;
 
 	const addresses = ref<Address[]>([]);
@@ -183,10 +183,14 @@ export function useInvoiceDetails(options: InvoiceDetailsOptions) {
 			return Promise.resolve(addresses.value);
 		}
 
-		return new Promise((resolve, reject) => {
+		return new Promise((resolve) => {
 			frappe.call({
 				method: "posawesome.posawesome.api.customers.get_customer_addresses",
-				args: { customer: requestedCustomer },
+				args: {
+					customer: requestedCustomer,
+					pos_profile: unref(posProfile)?.name,
+					pos_opening_shift: stores?.uiStore?.posOpeningShift?.name,
+				},
 				async: true,
 				callback: function (r: any) {
 					const currentCustomer = String(unref(invoiceDoc)?.customer || "");
@@ -218,10 +222,10 @@ export function useInvoiceDetails(options: InvoiceDetailsOptions) {
 						if (!applyCachedAddresses()) {
 							addresses.value = [];
 						}
-						reject(new Error(r.exc || "Failed to fetch addresses"));
+						resolve(addresses.value);
 					}
 				},
-				error: function (error: any) {
+				error: function (_error: any) {
 					const currentCustomer = String(unref(invoiceDoc)?.customer || "");
 					if (currentCustomer !== requestedCustomer) {
 						resolve([]);
@@ -230,7 +234,7 @@ export function useInvoiceDetails(options: InvoiceDetailsOptions) {
 					if (!applyCachedAddresses()) {
 						addresses.value = [];
 					}
-					reject(error || new Error("Failed to fetch addresses"));
+					resolve(addresses.value);
 				},
 			});
 		});
@@ -247,9 +251,7 @@ export function useInvoiceDetails(options: InvoiceDetailsOptions) {
 			}
 			return;
 		}
-		if (eventBus) {
-			eventBus.emit("open_new_address", doc.customer);
-		}
+		stores?.uiStore?.openNewAddress?.(doc.customer);
 	};
 
 	const addressFilter = (item: any, queryText: string) => {

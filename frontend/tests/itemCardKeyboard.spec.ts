@@ -51,4 +51,30 @@ describe("ItemCard keyboard control", () => {
 
 		expect(card.attributes("aria-label")).toBe("Paracetamol");
 	});
+
+	it("keeps a compact product thumbnail beside the name when large media is hidden", () => {
+		const wrapper = shallowMount(ItemCard, {
+			props: {
+				...baseProps,
+				item: {
+					...baseProps.item,
+					image: "/files/paracetamol.webp",
+				},
+				showMedia: false,
+			},
+			global: {
+				stubs: {
+					VImg: { template: '<img class="stub-image" />' },
+					VIcon: { template: "<span />" },
+					ItemRateInfoMenu: { template: "<span />" },
+				},
+			},
+		});
+
+		expect(wrapper.find(".card-item-compact-thumb").exists()).toBe(true);
+		expect(wrapper.find(".card-item-compact-thumb .stub-image").exists()).toBe(true);
+		expect(wrapper.find(".card-item-header--compact-media").text()).toContain(
+			"Paracetamol",
+		);
+	});
 });

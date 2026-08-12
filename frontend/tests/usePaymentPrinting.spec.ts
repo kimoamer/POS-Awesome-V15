@@ -15,7 +15,7 @@ vi.mock("../src/posapp/plugins/print", () => ({
 }));
 
 vi.mock("../src/posapp/services/documentPrint", () => ({
-	confirmDocumentPrintFallback: vi.fn(() => false),
+	confirmDocumentPrintFallback: vi.fn(async () => false),
 	printDocumentViaConfiguredQz: vi.fn(),
 	shouldUseRawDocumentPrinting: (profile: Record<string, any> | null | undefined) =>
 		profile?.posa_raw_printing === 1 || profile?.posa_raw_printing === true,
@@ -335,7 +335,7 @@ describe("usePaymentPrinting", () => {
 		vi.mocked(printDocumentViaConfiguredQz).mockRejectedValueOnce(
 			new Error("QZ Tray is not available."),
 		);
-		vi.mocked(confirmDocumentPrintFallback).mockReturnValueOnce(true);
+		vi.mocked(confirmDocumentPrintFallback).mockResolvedValueOnce(true);
 
 		const { loadPrintPage } = usePaymentPrinting({
 			invoiceDoc: ref({ name: "ACC-SINV-0007", doctype: "Sales Invoice" }),

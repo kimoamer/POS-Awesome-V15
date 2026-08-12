@@ -1,13 +1,15 @@
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, nextTick, watch, type Ref } from "vue";
 import _ from "lodash";
 import {
 	getCardGap,
 	getCardPadding,
-} from "../../../utils/itemSelectorLayout.js";
+} from "../../../utils/itemSelectorLayout";
+import { useResponsive } from "../../core/useResponsive";
 
 type SelectorLayoutOptions = {
 	resizeDebounce?: number;
 	loadVisibleItems?: () => void;
+	showMedia?: Ref<boolean>;
 };
 
 /**
@@ -21,7 +23,7 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 	} = options;
 
 	// State
-	const windowWidth = ref(window.innerWidth);
+	const { windowWidth } = useResponsive();
 	const containerWidth = ref(0);
 	const isOverflowing = ref(false);
 	const itemsContainerRef = ref<any>(null);
@@ -67,6 +69,9 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 	const cardRowHeight = computed(() => {
 		const container = measuredWidth.value;
 		const width = cardColumnWidth.value;
+		if (options.showMedia?.value === false) {
+			return container < 560 ? 152 : 158;
+		}
 
 		if (container < 560) return width < 170 ? 208 : 216;
 		if (container < 900) return width < 175 ? 220 : 228;
@@ -78,13 +83,8 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 	const cardSlotWidth = computed(() => cardColumnWidth.value + cardGap.value);
 
 	// Actions
-	const updateWindowWidth = () => {
-		windowWidth.value = window.innerWidth;
-	};
-
 	const refreshLayoutMetrics = async () => {
 		await nextTick();
-		updateWindowWidth();
 		updateContainerWidth();
 		checkItemContainerOverflow();
 	};
@@ -95,10 +95,7 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 
 	const getItemsContainerElement = (): HTMLElement | null => {
 		if (!itemsContainerRef.value) {
-			if (typeof document === "undefined") return null;
-			return document.querySelector(
-				".items-card-container",
-			) as HTMLElement | null;
+			return null;
 		}
 		// Handle both Vue component ref and raw element
 		return (itemsContainerRef.value.$el ||
@@ -201,20 +198,23 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 		},
 		{ flush: "post" },
 	);
+	const stopViewportWatch = watch(windowWidth, () => {
+		if (typeof ResizeObserver === "undefined") {
+			scheduleCardMetricsUpdate();
+		}
+	});
 
 	// Lifecycle
 	onMounted(() => {
-		window.addEventListener("resize", scheduleCardMetricsUpdate);
 		nextTick(() => {
-			updateWindowWidth();
 			observeItemsContainer();
 			checkItemContainerOverflow();
 		});
 	});
 
 	onUnmounted(() => {
-		window.removeEventListener("resize", scheduleCardMetricsUpdate);
 		stopContainerRefWatch();
+		stopViewportWatch();
 		disconnectResizeObserver();
 		if (scrollThrottle.value) {
 			cancelAnimationFrame(scrollThrottle.value);

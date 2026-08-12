@@ -10,6 +10,7 @@ from frappe.utils import add_days, flt
 from posawesome.posawesome.api.utilities import get_company_domain  # Updated import
 from posawesome.posawesome.api.payments import get_posawesome_credit_redeem_remark
 from posawesome.posawesome.api.tax_contracts import apply_pos_tax_inclusion_contract
+from posawesome.posawesome.api.utils import assert_doctype_permission
 from posawesome.posawesome.doctype.delivery_charges.delivery_charges import (
     get_applicable_delivery_charges,
 )
@@ -170,8 +171,6 @@ def create_sales_order(doc):
         sales_order_doc = make_sales_order(doc.name)
         if sales_order_doc:
             sales_order_doc.posa_notes = getattr(doc, "posa_notes", None)
-            sales_order_doc.flags.ignore_permissions = True
-            sales_order_doc.flags.ignore_account_permission = True
             sales_order_doc.save()
             sales_order_doc.submit()
             url = frappe.utils.get_url_to_form(sales_order_doc.doctype, sales_order_doc.name)
@@ -184,10 +183,13 @@ def create_sales_order(doc):
                 i += 1
 
 
-def make_sales_order(source_name, target_doc=None, ignore_permissions=True):
+def make_sales_order(source_name, target_doc=None, ignore_permissions=False):
+    assert_doctype_permission("Sales Invoice", "read")
+    assert_doctype_permission("Sales Order", "create")
+    assert_doctype_permission("Sales Order", "submit")
+
     def set_missing_values(source, target):
         target.ignore_pricing_rule = 1
-        target.flags.ignore_permissions = ignore_permissions
         target.run_method("set_missing_values")
         target.run_method("calculate_taxes_and_totals")
 

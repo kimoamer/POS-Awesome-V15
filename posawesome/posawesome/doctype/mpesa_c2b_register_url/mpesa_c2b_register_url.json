@@ -9,6 +9,7 @@
   "mpesa_settings",
   "till_number",
   "business_shortcode",
+  "webhook_secret",
   "column_break_4",
   "company",
   "mode_of_payment",
@@ -27,7 +28,7 @@
   {
    "fetch_from": "mpesa_settings.till_number",
    "fieldname": "till_number",
-   "fieldtype": "Data",
+   "fieldtype": "Password",
    "label": "Till Number",
    "read_only": 1
   },
@@ -36,6 +37,14 @@
    "fieldname": "business_shortcode",
    "fieldtype": "Data",
    "label": "Business Shortcode",
+   "read_only": 1
+  },
+  {
+   "fieldname": "webhook_secret",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Webhook Secret",
+   "no_copy": 1,
    "read_only": 1
   },
   {

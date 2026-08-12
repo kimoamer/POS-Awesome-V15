@@ -36,6 +36,7 @@ def _install_stubs():
         "posawesome.posawesome.api.sales_orders",
         "posawesome.posawesome.api.tax_contracts",
         "posawesome.posawesome.api.erpnext_compat",
+        "posawesome.posawesome.api.utils",
         "erpnext.selling.doctype.quotation.quotation",
         "erpnext.selling.doctype.sales_order.sales_order",
         "erpnext.stock.doctype.delivery_note.delivery_note",
@@ -71,7 +72,7 @@ def _install_stubs():
 
     quotations_module = types.ModuleType("posawesome.posawesome.api.quotations")
     quotations_module.search_quotations = lambda **kwargs: []
-    quotations_module.submit_quotation = lambda payload: {"name": "QTN-0001", "status": 1}
+    quotations_module.submit_quotation = lambda payload, **kwargs: {"name": "QTN-0001", "status": 1}
     sys.modules["posawesome.posawesome.api.quotations"] = quotations_module
 
     sales_orders_module = types.ModuleType("posawesome.posawesome.api.sales_orders")
@@ -85,6 +86,23 @@ def _install_stubs():
     erpnext_compat_module.resolve_make_sales_invoice_from_quotation = lambda: quotation_mapping_module.make_sales_invoice
     erpnext_compat_module.resolve_make_sales_order_from_quotation = lambda: quotation_mapping_module.make_sales_order
     sys.modules["posawesome.posawesome.api.erpnext_compat"] = erpnext_compat_module
+
+    utils_module = types.ModuleType("posawesome.posawesome.api.utils")
+    profile = {
+        "name": "Main POS",
+        "company": "Test Company",
+        "currency": "PKR",
+        "custom_allow_select_sales_order": 1,
+        "custom_allow_create_quotation": 1,
+    }
+    utils_module.get_pos_request_context = lambda *args, **kwargs: types.SimpleNamespace(
+        pos_profile=profile,
+        profile_name="Main POS",
+        company=kwargs.get("company") or "Test Company",
+        opening_shift=types.SimpleNamespace(name=kwargs.get("opening_shift") or "POS-OPEN-0001"),
+    )
+    utils_module.assert_doctype_permission = lambda *args, **kwargs: True
+    sys.modules["posawesome.posawesome.api.utils"] = utils_module
 
     quotation_mapping_module = types.ModuleType("erpnext.selling.doctype.quotation.quotation")
     quotation_mapping_module.make_sales_order = lambda source_name: FakeDoc(
@@ -163,6 +181,7 @@ class TestCommercialFlowApi(unittest.TestCase):
             cls.sales_orders_module,
         ) = _install_stubs()
         cls.module = _load_module()
+        cls.module._assert_source_document_scope = lambda *_args, **_kwargs: None
 
     @classmethod
     def tearDownClass(cls):

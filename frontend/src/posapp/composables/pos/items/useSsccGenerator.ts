@@ -1,4 +1,5 @@
 import { ref } from "vue";
+import { useUIStore } from "../../../stores/uiStore";
 
 declare const __: (_str: string, _args?: any[]) => string;
 declare const frappe: any;
@@ -18,6 +19,7 @@ export function formatSsccHuman(sscc: string): string {
 }
 
 export function useSsccGenerator() {
+	const uiStore = useUIStore();
 	const companyPrefix = ref("1234567");
 	const extensionDigit = ref("0");
 	const generating = ref(false);
@@ -32,6 +34,8 @@ export function useSsccGenerator() {
 					company_prefix: companyPrefix.value,
 					extension_digit: extensionDigit.value,
 					count: c,
+					pos_profile: uiStore.posProfile?.name,
+					pos_opening_shift: uiStore.posOpeningShift?.name,
 				},
 				silent: true,
 			});

@@ -3,6 +3,7 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
+from datetime import datetime
 import json
 import frappe
 from frappe.utils import nowdate, flt, cstr, get_datetime
@@ -10,8 +11,12 @@ from frappe import _
 from erpnext.accounts.doctype.loyalty_program.loyalty_program import (
     get_loyalty_program_details_with_points,
 )
-from frappe.utils.caching import redis_cache
-from .utils import assert_pos_profile_write_allowed, fetch_sales_person_names
+from .utils import (
+    assert_doctype_permission,
+    assert_document_permission,
+    fetch_sales_person_names,
+    get_pos_request_context,
+)
 from .stored_value import get_stored_value_summary
 
 
@@ -21,8 +26,48 @@ def _load_json_arg(value):
     return value
 
 
-def _assert_customer_write_allowed(pos_profile_doc=None, company=None):
-    return assert_pos_profile_write_allowed(pos_profile_doc, company=company)
+def _customer_context(
+    pos_profile_doc=None,
+    company=None,
+    pos_opening_shift=None,
+    permission_type="read",
+):
+    return get_pos_request_context(
+        pos_profile_doc,
+        company=company,
+        doctype="Customer",
+        permission_type=permission_type,
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
+
+
+def _assert_customer_write_allowed(
+    pos_profile_doc=None,
+    company=None,
+    pos_opening_shift=None,
+    permission_type="write",
+):
+    return _customer_context(
+        pos_profile_doc,
+        company,
+        pos_opening_shift,
+        permission_type,
+    ).pos_profile
+
+
+def _validate_customer_access(customer, profile, permission_type="read"):
+    customer_name = cstr(customer or "").strip()
+    if not customer_name:
+        frappe.throw(_("Customer is required."))
+    doc = frappe.get_doc("Customer", customer_name)
+    assert_document_permission(doc, permission_type)
+    allowed_groups = set(get_customer_groups(profile))
+    if allowed_groups and doc.get("customer_group") not in allowed_groups:
+        frappe.throw(_("Customer is outside this POS Profile."), frappe.PermissionError)
+    if doc.get("disabled"):
+        frappe.throw(_("Customer is disabled."), frappe.PermissionError)
+    return doc
 
 
 def get_default_non_group_customer_group():
@@ -74,26 +119,22 @@ def get_customer_group_condition(pos_profile):
 
 
 @frappe.whitelist()
-def get_customer_balance(customer, company=None):
+def get_customer_balance(
+    customer,
+    company=None,
+    pos_profile=None,
+    pos_opening_shift=None,
+):
     if not customer:
         return {"balance": 0, "customer_name": None, "currency": None}
-
-    if not company:
-        if frappe.db.exists("DocType", "POS Session"):
-            pos_session = frappe.db.get_value(
-                "POS Session",
-                {"user": frappe.session.user, "status": "Open"},
-                "pos_profile",
-            )
-            if pos_session:
-                company = frappe.db.get_value("POS Profile", pos_session, "company")
-        if not company:
-            company = frappe.defaults.get_user_default("Company") or frappe.db.get_default("Company")
+    context = _customer_context(pos_profile, company, pos_opening_shift)
+    company = context.company
+    customer_doc = _validate_customer_access(customer, context.pos_profile)
 
     from erpnext.accounts.party import get_dashboard_info
 
     try:
-        customer_name = frappe.db.get_value("Customer", customer, "customer_name")
+        customer_name = customer_doc.customer_name
 
         dashboard_info = get_dashboard_info("Customer", customer)
         company_data = [d for d in dashboard_info if d.get("company") == company]
@@ -114,37 +155,76 @@ def get_customer_balance(customer, company=None):
 
 
 @frappe.whitelist()
-def get_customer_names(pos_profile, limit=None, offset=None, start_after=None, modified_after=None):
-    _pos_profile = json.loads(pos_profile)
-    ttl = _pos_profile.get("posa_server_cache_duration")
-    if ttl:
-        ttl = int(ttl) * 60
-
-    @redis_cache(ttl=ttl or 1800)
-    def __get_customer_names(pos_profile, limit=None, offset=None, start_after=None, modified_after=None):
-        return _get_customer_names(pos_profile, limit, offset, start_after, modified_after)
-
-    def _get_customer_names(pos_profile, limit=None, offset=None, start_after=None, modified_after=None):
-        pos_profile = json.loads(pos_profile)
+def get_customer_names(
+    pos_profile,
+    limit=None,
+    offset=None,
+    start_after=None,
+    modified_after=None,
+    modified_before=None,
+    pos_opening_shift=None,
+    search_text=None,
+):
+    context = _customer_context(pos_profile, pos_opening_shift=pos_opening_shift)
+    def _get_customer_names(
+        pos_profile,
+        limit=None,
+        offset=None,
+        start_after=None,
+        modified_after=None,
+        modified_before=None,
+        search_text=None,
+    ):
+        pos_profile = context.pos_profile
         filters = {"disabled": 0}
 
         customer_groups = get_customer_groups(pos_profile)
         if customer_groups:
             filters["customer_group"] = ["in", customer_groups]
 
+        parsed_modified_after = None
+        parsed_modified_before = None
         if modified_after:
             try:
                 parsed_modified_after = get_datetime(modified_after)
             except Exception:
                 frappe.throw(_("modified_after must be a valid ISO datetime"))
+        if modified_before:
+            try:
+                parsed_modified_before = get_datetime(modified_before)
+            except Exception:
+                frappe.throw(_("modified_before must be a valid ISO datetime"))
+        if parsed_modified_after and parsed_modified_before:
+            filters["modified"] = [
+                "between",
+                [parsed_modified_after.isoformat(), parsed_modified_before.isoformat()],
+            ]
+        elif parsed_modified_after:
             filters["modified"] = [">", parsed_modified_after.isoformat()]
+        elif parsed_modified_before:
+            filters["modified"] = ["<=", parsed_modified_before.isoformat()]
 
         if start_after:
             filters["name"] = [">", start_after]
 
-        customers = frappe.get_all(
+        normalized_search = cstr(search_text or "").strip()[:140]
+        or_filters = None
+        if normalized_search:
+            search_pattern = f"%{normalized_search}%"
+            or_filters = [
+                ["Customer", "name", "like", search_pattern],
+                ["Customer", "customer_name", "like", search_pattern],
+                ["Customer", "mobile_no", "like", search_pattern],
+                ["Customer", "email_id", "like", search_pattern],
+                ["Customer", "tax_id", "like", search_pattern],
+            ]
+
+        resolved_limit = min(max(int(limit or 200), 1), 1000)
+        resolved_offset = max(int(offset or 0), 0)
+        customers = frappe.get_list(
             "Customer",
             filters=filters,
+            or_filters=or_filters,
             fields=[
                 "name",
                 "modified",
@@ -159,34 +239,55 @@ def get_customer_names(pos_profile, limit=None, offset=None, start_after=None, m
                 "primary_address",
             ],
             order_by="name",
-            limit_start=None if start_after else offset,
-            limit_page_length=limit,
+            limit_start=None if start_after else resolved_offset,
+            limit_page_length=resolved_limit,
         )
         return customers
 
-    if _pos_profile.get("posa_use_server_cache") and not (limit or offset or start_after or modified_after):
-        return __get_customer_names(pos_profile, limit, offset, start_after, modified_after)
-    else:
-        return _get_customer_names(pos_profile, limit, offset, start_after, modified_after)
+    # Do not cache permission-filtered lists across users assigned to the same
+    # profile. Offline sync provides the durable client cache instead.
+    return _get_customer_names(
+        context.profile_name,
+        limit,
+        offset,
+        start_after,
+        modified_after,
+        modified_before,
+        search_text,
+    )
 
 
 @frappe.whitelist()
-def get_customers_count(pos_profile):
-    pos_profile = json.loads(pos_profile)
+def get_customers_count(pos_profile, pos_opening_shift=None):
+    context = _customer_context(pos_profile, pos_opening_shift=pos_opening_shift)
+    pos_profile = context.pos_profile
     filters = {"disabled": 0}
     customer_groups = get_customer_groups(pos_profile)
     if customer_groups:
         filters["customer_group"] = ["in", customer_groups]
-    return frappe.db.count("Customer", filters)
+    rows = frappe.get_list(
+        "Customer",
+        filters=filters,
+        fields=["count(name) as count"],
+        limit_page_length=1,
+    )
+    return int((rows[0].get("count") if rows else 0) or 0)
 
 
 @frappe.whitelist()
-def get_customer_info(customer=None, company=None):
+def get_customer_info(
+    customer=None,
+    company=None,
+    pos_profile=None,
+    pos_opening_shift=None,
+):
     customer = cstr(customer or "").strip()
     if not customer:
         return {}
 
-    customer = frappe.get_doc("Customer", customer)
+    context = _customer_context(pos_profile, company, pos_opening_shift)
+    company = context.company
+    customer = _validate_customer_access(customer, context.pos_profile)
 
     res = {"loyalty_points": None, "conversion_factor": None}
 
@@ -224,14 +325,20 @@ def get_customer_info(customer=None, company=None):
         res["loyalty_points"] = lp_details.get("loyalty_points")
         res["conversion_factor"] = lp_details.get("conversion_factor")
 
-    company = cstr(company or "").strip()
-    if company:
-        stored_value = get_stored_value_summary(customer=customer.name, company=company)
+    # Customer details are needed for every sale. Credit is an optional POS
+    # capability, so a disabled credit setting must not make customer selection
+    # fail with a permission error.
+    res["stored_value_balance"] = 0
+    res["stored_value_sources"] = 0
+    if context.pos_profile.get("use_customer_credit"):
+        stored_value = get_stored_value_summary(
+            customer=customer.name,
+            company=company,
+            pos_profile=context.profile_name,
+            opening_shift=context.opening_shift.name,
+        )
         res["stored_value_balance"] = stored_value.get("available_amount", 0)
         res["stored_value_sources"] = stored_value.get("source_count", 0)
-    else:
-        res["stored_value_balance"] = 0
-        res["stored_value_sources"] = 0
 
     addresses = frappe.db.sql(
         """
@@ -288,25 +395,38 @@ def create_customer(
     address_line1=None,
     city=None,
     country=None,
+    pos_opening_shift=None,
 ):
-    pos_profile_doc_obj = _assert_customer_write_allowed(pos_profile_doc, company=company)
-    pos_profile = pos_profile_doc_obj.as_dict() if pos_profile_doc_obj else {}
+    method = cstr(method or "create").strip().lower()
+    if method not in {"create", "update"}:
+        frappe.throw(_("Unsupported customer operation."))
+    context = _customer_context(
+        pos_profile_doc,
+        company,
+        pos_opening_shift,
+        "create" if method == "create" else "write",
+    )
+    company = context.company
+    pos_profile = context.pos_profile
+    customer_name = cstr(customer_name or "").strip()[:140]
+    if not customer_name:
+        frappe.throw(_("Customer name is required."))
 
-    # Format birthday to MySQL compatible format (YYYY-MM-DD) if provided
+    # Accept the two formats used by the existing clients without accidentally
+    # reversing an already-normalized ISO date.
     formatted_birthday = None
     if birthday:
-        try:
-            # Try to parse date in DD-MM-YYYY format
-            if "-" in birthday:
-                date_parts = birthday.split("-")
-                if len(date_parts) == 3:
-                    day, month, year = date_parts
-                    formatted_birthday = f"{year}-{month.zfill(2)}-{day.zfill(2)}"
-            # If format is already YYYY-MM-DD, use as is
-            elif len(birthday) == 10 and birthday[4] == "-" and birthday[7] == "-":
-                formatted_birthday = birthday
-        except Exception:
-            frappe.log_error(f"Error formatting birthday: {birthday}", "POS Awesome")
+        birthday_value = cstr(birthday).strip()
+        for date_format in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y"):
+            try:
+                formatted_birthday = datetime.strptime(birthday_value, date_format).date().isoformat()
+                break
+            except ValueError:
+                continue
+        if not formatted_birthday:
+            frappe.throw(_("Birthday must use YYYY-MM-DD or DD-MM-YYYY format."))
+        if formatted_birthday > nowdate():
+            frappe.throw(_("Birthday cannot be in the future."))
 
     if method == "create":
         is_exist = frappe.db.exists("Customer", {"customer_name": customer_name})
@@ -326,16 +446,17 @@ def create_customer(
                 }
             )
             if customer_group and not frappe.db.get_value("Customer Group", customer_group, "is_group"):
+                _validate_customer_group(customer_group, pos_profile)
                 customer.customer_group = customer_group
             else:
-                customer.customer_group = get_default_non_group_customer_group()
+                customer.customer_group = _default_customer_group(pos_profile)
 
             if territory and not frappe.db.get_value("Territory", territory, "is_group"):
                 customer.territory = territory
             else:
                 customer.territory = get_default_non_group_territory()
 
-            customer.save()
+            customer.insert()
 
             if address_line1 or city:
                 args = {
@@ -350,15 +471,22 @@ def create_customer(
                     "country": country or "",
                     "company": company,
                     "pos_profile_doc": pos_profile_doc,
+                    "pos_opening_shift": context.opening_shift.name,
                 }
                 make_address(json.dumps(args))
 
             return customer
         else:
-            frappe.throw(_("Customer already exists"))
+            # Treat create as idempotent when duplicate names are disabled. The
+            # returned existing customer is still checked against document and
+            # POS Profile permissions before it can be selected by the client.
+            existing_customer = _validate_customer_access(is_exist, pos_profile)
+            existing_payload = existing_customer.as_dict()
+            existing_payload["already_exists"] = True
+            return existing_payload
 
     elif method == "update":
-        customer_doc = frappe.get_doc("Customer", customer_id)
+        customer_doc = _validate_customer_access(customer_id, pos_profile, "write")
         customer_doc.customer_name = customer_name
         customer_doc.tax_id = tax_id
         customer_doc.mobile_no = mobile_no
@@ -368,6 +496,7 @@ def create_customer(
         customer_doc.customer_type = customer_type
         customer_doc.gender = gender
         if customer_group and not frappe.db.get_value("Customer Group", customer_group, "is_group"):
+            _validate_customer_group(customer_group, pos_profile)
             customer_doc.customer_group = customer_group
         if territory and not frappe.db.get_value("Territory", territory, "is_group"):
             customer_doc.territory = territory
@@ -381,6 +510,7 @@ def create_customer(
                 mobile_no,
                 pos_profile_doc=pos_profile_doc,
                 company=company,
+                pos_opening_shift=context.opening_shift.name,
             )
         if email_id:
             set_customer_info(
@@ -389,6 +519,7 @@ def create_customer(
                 email_id,
                 pos_profile_doc=pos_profile_doc,
                 company=company,
+                pos_opening_shift=context.opening_shift.name,
             )
 
         existing_address_name = frappe.db.get_value(
@@ -403,6 +534,7 @@ def create_customer(
 
         if existing_address_name:
             address_doc = frappe.get_doc("Address", existing_address_name)
+            assert_document_permission(address_doc, "write")
             address_doc.address_line1 = address_line1 or ""
             address_doc.city = city or ""
             address_doc.country = country or ""
@@ -421,6 +553,7 @@ def create_customer(
                     "country": country or "",
                     "company": company,
                     "pos_profile_doc": pos_profile_doc,
+                    "pos_opening_shift": context.opening_shift.name,
                 }
                 make_address(json.dumps(args))
 
@@ -428,23 +561,42 @@ def create_customer(
 
 
 @frappe.whitelist()
-def set_customer_info(customer, fieldname, value="", pos_profile_doc=None, company=None):
-    _assert_customer_write_allowed(pos_profile_doc, company=company)
+def set_customer_info(
+    customer,
+    fieldname,
+    value="",
+    pos_profile_doc=None,
+    company=None,
+    pos_opening_shift=None,
+):
+    context = _customer_context(
+        pos_profile_doc,
+        company,
+        pos_opening_shift,
+        "write",
+    )
+    customer_doc = _validate_customer_access(customer, context.pos_profile, "write")
+    fieldname = cstr(fieldname or "")
+    if fieldname not in {"loyalty_program", "email_id", "mobile_no"}:
+        frappe.throw(_("This customer field cannot be updated from POS."))
 
     if fieldname == "loyalty_program":
-        frappe.db.set_value("Customer", customer, "loyalty_program", value)
+        customer_doc.loyalty_program = value or None
+        customer_doc.save()
 
     contact = frappe.get_cached_value("Customer", customer, "customer_primary_contact") or ""
 
     if contact:
         contact_doc = frappe.get_doc("Contact", contact)
+        assert_document_permission(contact_doc, "write")
         if fieldname == "email_id":
             contact_doc.set("email_ids", [{"email_id": value, "is_primary": 1}])
-            frappe.db.set_value("Customer", customer, "email_id", value)
+            customer_doc.email_id = value
         elif fieldname == "mobile_no":
             contact_doc.set("phone_nos", [{"phone": value, "is_primary_mobile_no": 1}])
-            frappe.db.set_value("Customer", customer, "mobile_no", value)
+            customer_doc.mobile_no = value
         contact_doc.save()
+        customer_doc.save()
 
     else:
         contact_doc = frappe.new_doc("Contact")
@@ -460,13 +612,21 @@ def set_customer_info(customer, fieldname, value="", pos_profile_doc=None, compa
         contact_doc.append("links", {"link_doctype": "Customer", "link_name": customer})
 
         contact_doc.flags.ignore_mandatory = True
+        assert_doctype_permission("Contact", "create")
         contact_doc.save()
-        frappe.set_value("Customer", customer, "customer_primary_contact", contact_doc.name)
+        customer_doc.customer_primary_contact = contact_doc.name
+        if fieldname == "email_id":
+            customer_doc.email_id = value
+        elif fieldname == "mobile_no":
+            customer_doc.mobile_no = value
+        customer_doc.save()
 
 
 @frappe.whitelist()
-def get_customer_addresses(customer):
-    return frappe.db.sql(
+def get_customer_addresses(customer, pos_profile=None, pos_opening_shift=None):
+    context = _customer_context(pos_profile, pos_opening_shift=pos_opening_shift)
+    _validate_customer_access(customer, context.pos_profile)
+    rows = frappe.db.sql(
         """
         SELECT
             address.name,
@@ -488,17 +648,34 @@ def get_customer_addresses(customer):
         (customer,),
         as_dict=1,
     )
+    allowed = []
+    for row in rows:
+        address_doc = frappe.get_doc("Address", row.get("name"))
+        assert_document_permission(address_doc, "read")
+        allowed.append(row)
+    return allowed
 
 
 @frappe.whitelist()
 def make_address(args):
     args = _load_json_arg(args)
-    _assert_customer_write_allowed(args.get("pos_profile_doc"), company=args.get("company"))
+    context = _customer_context(
+        args.get("pos_profile_doc") or args.get("pos_profile"),
+        args.get("company"),
+        args.get("pos_opening_shift"),
+    )
+    assert_doctype_permission("Address", "create")
+    customer_doc = _validate_customer_access(
+        args.get("customer"),
+        context.pos_profile,
+    )
+    if args.get("doctype") not in (None, "", "Customer"):
+        frappe.throw(_("Only customer shipping addresses can be created from POS."))
 
     address = frappe.get_doc(
         {
             "doctype": "Address",
-            "address_title": args.get("name"),
+            "address_title": cstr(args.get("name") or customer_doc.customer_name).strip()[:140],
             "address_line1": args.get("address_line1"),
             "address_line2": args.get("address_line2"),
             "city": args.get("city"),
@@ -506,7 +683,7 @@ def make_address(args):
             "pincode": args.get("pincode"),
             "country": args.get("country"),
             "address_type": "Shipping",
-            "links": [{"link_doctype": args.get("doctype"), "link_name": args.get("customer")}],
+            "links": [{"link_doctype": "Customer", "link_name": customer_doc.name}],
         }
     ).insert()
 
@@ -516,3 +693,20 @@ def make_address(args):
 @frappe.whitelist()
 def get_sales_person_names(pos_profile=None):
     return fetch_sales_person_names(pos_profile=pos_profile)
+
+
+def _validate_customer_group(customer_group, profile):
+    allowed_groups = set(get_customer_groups(profile))
+    if allowed_groups and customer_group not in allowed_groups:
+        frappe.throw(_("Customer Group is outside this POS Profile."), frappe.PermissionError)
+    return customer_group
+
+
+def _default_customer_group(profile):
+    allowed_groups = sorted(get_customer_groups(profile))
+    if allowed_groups:
+        for group in allowed_groups:
+            if not frappe.db.get_value("Customer Group", group, "is_group"):
+                return group
+        frappe.throw(_("POS Profile does not contain an assignable Customer Group."))
+    return get_default_non_group_customer_group()

@@ -356,7 +356,22 @@
 			</span>
 		</div>
 
-		<!-- 6. Transaction ID (Optional) -->
+	<div class="auto-allocation-control mb-2">
+		<v-switch
+			:model-value="autoAllocatePaymentAmount"
+			data-test="auto-allocate-payment-toggle"
+			color="primary"
+			density="compact"
+			hide-details
+			:label="__('Auto Allocate Payment Amount')"
+			@update:model-value="emit('update:autoAllocatePaymentAmount', $event)"
+		/>
+		<p class="auto-allocation-control__helper mb-0">
+			{{ __("Unselected payments stay unallocated first, then auto reconcile after submit.") }}
+		</p>
+	</div>
+
+	<!-- 6. Transaction ID (Optional) -->
 		<v-card variant="outlined" class="mb-2 transaction-id-card pos-themed-card">
 			<div class="d-flex align-center justify-space-between py-2 px-3">
 				<span class="text-subtitle-2 font-weight-bold text-slate-800">{{ __("Transaction ID (Optional)") }}</span>

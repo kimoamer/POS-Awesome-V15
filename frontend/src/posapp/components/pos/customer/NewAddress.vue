@@ -72,29 +72,41 @@
 
 <script>
 import { useToastStore } from "../../../stores/toastStore";
+import { useUIStore } from "../../../stores/uiStore";
 
 export default {
 	setup() {
 		const toastStore = useToastStore();
-		return { toastStore };
+		const uiStore = useUIStore();
+		return { toastStore, uiStore };
 	},
 	data: () => ({
-		addressDialog: false,
 		address: {},
 		customer: "",
-		openNewAddressHandler: null,
 	}),
-	computed: {},
+	computed: {
+		addressDialog: {
+			get() {
+				return this.uiStore.newAddressDialog;
+			},
+			set(value) {
+				if (!value) this.uiStore.closeNewAddress();
+			},
+		},
+	},
 
 	methods: {
 		close_dialog() {
-			this.addressDialog = false;
+			this.uiStore.closeNewAddress();
 		},
 
 		submit_dialog() {
 			var vm = this;
 			this.address.customer = this.customer;
 			this.address.doctype = "Customer";
+			this.address.company = this.uiStore.posProfile?.company;
+			this.address.pos_profile_doc = this.uiStore.posProfile?.name;
+			this.address.pos_opening_shift = this.uiStore.posOpeningShift?.name;
 			frappe.call({
 				method: "posawesome.posawesome.api.customers.make_address",
 				args: {
@@ -107,7 +119,7 @@ export default {
 							text: __("Customer Address created successfully."),
 							color: "success",
 						});
-						vm.addressDialog = false;
+						vm.uiStore.closeNewAddress();
 						vm.customer = "";
 						vm.address = {};
 					}
@@ -115,18 +127,14 @@ export default {
 			});
 		},
 	},
-	created: function () {
-		this.openNewAddressHandler = (data) => {
-			this.addressDialog = true;
-			this.customer = data;
-		};
-		this.eventBus.on("open_new_address", this.openNewAddressHandler);
+	created() {
+		this.customer = this.uiStore.newAddressCustomer || "";
 	},
-	beforeUnmount() {
-		if (this.openNewAddressHandler) {
-			this.eventBus.off("open_new_address", this.openNewAddressHandler);
-			this.openNewAddressHandler = null;
-		}
+	watch: {
+		"uiStore.newAddressCustomer"(customer) {
+			this.customer = customer || "";
+			this.address = {};
+		},
 	},
 };
 </script>

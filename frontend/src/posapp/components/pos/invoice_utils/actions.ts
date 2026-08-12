@@ -159,7 +159,11 @@ export async function cancel_invoice(context: any) {
 	if (doc.name && context.pos_profile.posa_allow_delete) {
 		await frappe.call({
 			method: "posawesome.posawesome.api.invoices.delete_invoice",
-			args: { invoice: doc.name },
+			args: {
+				invoice: doc.name,
+				pos_profile: context.pos_profile?.name,
+				pos_opening_shift: context.pos_opening_shift?.name,
+			},
 			async: true,
 			callback: function (r) {
 				if (r.message) {

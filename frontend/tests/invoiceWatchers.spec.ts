@@ -30,4 +30,35 @@ describe("invoiceWatchers", () => {
 
 		expect(context.additional_discount_percentage).toBe(5);
 	});
+
+	it("keeps single-currency price-list changes local", () => {
+		const apiCall = vi.fn();
+		(globalThis as any).frappe = { call: apiCall };
+		const context = {
+			pos_profile: {
+				name: "POS-1",
+				currency: "PKR",
+				selling_price_list: "Retail",
+				posa_allow_multi_currency: "0",
+			},
+			selected_price_list: "Retail",
+			selected_currency: "USD",
+			price_list_currency: "USD",
+			exchange_rate: 2,
+			conversion_rate: 300,
+			items: [],
+			packed_items: [],
+			eventBus: { emit: vi.fn() },
+			get_effective_price_list: () => "Retail",
+			apply_cached_price_list: vi.fn(),
+		};
+
+		(invoiceWatchers as any).selected_price_list.call(context, "Retail");
+
+		expect(apiCall).not.toHaveBeenCalled();
+		expect(context.selected_currency).toBe("PKR");
+		expect(context.price_list_currency).toBe("PKR");
+		expect(context.exchange_rate).toBe(1);
+		expect(context.conversion_rate).toBe(1);
+	});
 });

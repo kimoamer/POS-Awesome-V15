@@ -28,7 +28,6 @@
 import { defineStore } from "pinia";
 import { computed, ref, reactive } from "vue";
 
-declare const frappe: any;
 declare const __: any;
 import type {
 	CartItem,
@@ -250,7 +249,11 @@ export const useInvoiceStore = defineStore("invoice", () => {
 	const orderToLoad = ref<any>(null);
 	const flowToLoad = ref<any>(null);
 	const flowContext = ref<any | null>(null);
-	const postingDate = ref(frappe.datetime.nowdate());
+	const getToday = () => {
+		const frappeClient = (globalThis as any)?.frappe;
+		return frappeClient?.datetime?.nowdate?.() || new Date().toISOString().slice(0, 10);
+	};
+	const postingDate = ref(getToday());
 
 	// Sticky fields moved from local component state
 	const discountAmount = ref(0);
@@ -298,7 +301,7 @@ export const useInvoiceStore = defineStore("invoice", () => {
 
 	/** Resets `postingDate` to today's date via `frappe.datetime.nowdate()`. */
 	const resetPostingDate = () => {
-		postingDate.value = frappe.datetime.nowdate();
+		postingDate.value = getToday();
 	};
 
 	/** Sets the line-level discount amount. Non-numeric values are coerced to `0`. */

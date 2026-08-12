@@ -1,4 +1,5 @@
-import opencvWorkerManager from "./opencvWorkerManager.ts";
+import opencvWorkerManager from "./opencvWorkerManager";
+import { posDebug } from "./debug";
 
 /**
  * Interface for image quality assessment results.
@@ -112,11 +113,11 @@ class OpenCVProcessor {
             await this.workerManager.initialize();
             this.initialized = true;
             this.fallbackMode = false;
-            console.log("✅ OpenCV Processor with Web Worker initialized successfully");
+			posDebug("opencv", "processor worker initialized");
             return true;
         } catch (error) {
             console.error("❌ Failed to initialize OpenCV Processor:", error);
-            console.log("🔄 Falling back to non-worker mode (image processing disabled)");
+			posDebug("opencv", "falling back to non-worker mode");
             this.initialized = false;
             // Set a flag to indicate fallback mode
             this.fallbackMode = true;
@@ -200,7 +201,7 @@ class OpenCVProcessor {
         }
 
         try {
-            console.log("Applying extreme processing for very poor quality image");
+			posDebug("opencv", "applying extreme processing");
             const processedImageData = await this.workerManager.processImageExtreme(imageData);
             return processedImageData;
         } catch (error) {
@@ -225,22 +226,22 @@ class OpenCVProcessor {
             const quality = this.assessImageQuality(imageData);
             this.lastQualityAssessment = quality;
 
-            console.log("Enhanced image quality assessment:", quality);
+			posDebug("opencv", "quality assessment", quality);
 
             // Apply smart processing based on barcode size and quality
             if (quality.needsMagnification) {
-                console.log(
-                    `Small barcode detected (${quality.estimatedBarcodeSize}), applying magnification processing`
-                );
+				posDebug("opencv", "small barcode detected; applying magnification", {
+					estimatedBarcodeSize: quality.estimatedBarcodeSize,
+				});
                 return await this.smartMagnificationProcess(imageData, quality);
             } else if (quality.level === "very_poor") {
-                console.log("Using extreme processing for very poor quality image");
+				posDebug("opencv", "using extreme processing for very poor quality image");
                 return await this.extremeProcess(imageData);
             } else if (quality.level === "poor") {
-                console.log("Using full processing for poor quality image");
+				posDebug("opencv", "using full processing for poor quality image");
                 return await this.fullProcess(imageData);
             } else {
-                console.log("Using quick processing for acceptable quality image");
+				posDebug("opencv", "using quick processing for acceptable quality image");
                 return await this.quickProcess(imageData);
             }
         } catch (error) {
@@ -259,7 +260,7 @@ class OpenCVProcessor {
         }
 
         try {
-            console.log("Applying smart magnification processing for small barcodes");
+			posDebug("opencv", "applying smart magnification");
 
             // Determine magnification factor based on estimated barcode size
             let magnificationFactor = 2.0; // Default
@@ -286,7 +287,9 @@ class OpenCVProcessor {
                 barcodePattern: qualityAssessment.barcodePattern,
             };
 
-            console.log(`Applying ${magnificationFactor}x magnification with enhanced processing`);
+			posDebug("opencv", "applying enhanced magnification", {
+				magnificationFactor,
+			});
             const processedImageData = await this.workerManager.processImage(imageData, magnificationOptions);
             return processedImageData;
         } catch (error) {
@@ -306,7 +309,7 @@ class OpenCVProcessor {
         }
 
         try {
-            console.log("Applying multi-scale processing for challenging barcode detection");
+			posDebug("opencv", "applying multi-scale processing");
 
             const multiScaleOptions: ProcessingOptions = {
                 useMultiScale: true,
@@ -549,7 +552,7 @@ class OpenCVProcessor {
         }
 
         try {
-            console.log("Using OpenCV native barcode detection");
+			posDebug("opencv", "using native barcode detection");
             const barcodeResults = await this.workerManager.detectBarcodes(imageData, {
                 forcePreprocessing: options.forcePreprocessing || false,
                 useExtremePreprocessing: options.useExtremePreprocessing || true,
@@ -574,15 +577,13 @@ class OpenCVProcessor {
 
         try {
             // First attempt: Native OpenCV barcode detection
-            console.log("Attempting native OpenCV barcode detection...");
+			posDebug("opencv", "attempting native barcode detection");
             const nativeResults = await this.detectBarcodes(imageData, options);
 
             if (nativeResults.detected && nativeResults.barcodes.length > 0) {
-                console.log(
-                    "Native barcode detection successful:",
-                    nativeResults.barcodes.length,
-                    "barcodes found"
-                );
+				posDebug("opencv", "native barcode detection successful", {
+					barcodeCount: nativeResults.barcodes.length,
+				});
                 return {
                     ...nativeResults,
                     method: "native_opencv",
@@ -591,7 +592,7 @@ class OpenCVProcessor {
             }
 
             // Fallback: Enhanced image processing for external barcode libraries
-            console.log("Native detection failed, applying enhanced processing for external libraries...");
+			posDebug("opencv", "native detection missed; applying enhanced processing");
             const processedImageData = await this.intelligentProcess(imageData);
 
             return {

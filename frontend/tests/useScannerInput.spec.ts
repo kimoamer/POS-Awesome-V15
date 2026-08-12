@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createPinia, setActivePinia } from "pinia";
 
 vi.mock("../src/posapp/stores/toastStore", () => ({
 	useToastStore: () => ({
@@ -12,6 +13,7 @@ describe("useScannerInput", () => {
 	let now = 0;
 
 	beforeEach(() => {
+		setActivePinia(createPinia());
 		vi.useFakeTimers();
 		(globalThis as any).__ = (value: string) => value;
 		now = 0;

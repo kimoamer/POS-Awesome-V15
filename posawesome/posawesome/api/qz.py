@@ -53,6 +53,11 @@ def _require_cryptography():
     return x509, hashes, serialization, padding, rsa, NameOID
 
 
+def _require_authenticated_user():
+    if not getattr(frappe.session, "user", None) or frappe.session.user == "Guest":
+        frappe.throw(_("Authentication is required for QZ printing."), frappe.PermissionError)
+
+
 @frappe.whitelist()
 def get_certificate() -> str:
     """Return the public QZ certificate PEM.
@@ -60,6 +65,7 @@ def get_certificate() -> str:
     Returns an empty string when certificate is not configured yet so
     frontend can gracefully fall back without server error noise.
     """
+    _require_authenticated_user()
     cert_path = _cert_path()
     if not os.path.exists(cert_path):
         return ""
@@ -69,6 +75,7 @@ def get_certificate() -> str:
 @frappe.whitelist()
 def get_certificate_download() -> dict[str, str]:
     """Return certificate PEM + default company name for file naming."""
+    _require_authenticated_user()
     cert_path = _cert_path()
     if not os.path.exists(cert_path):
         frappe.throw(
@@ -88,6 +95,10 @@ def sign_message(message: str) -> str:
 
     Returns empty string when key is not configured yet.
     """
+    _require_authenticated_user()
+    message = message or ""
+    if len(message.encode("utf-8")) > 5 * 1024 * 1024:
+        frappe.throw(_("QZ signing payload is too large."))
     key_path = _key_path()
     if not os.path.exists(key_path):
         return ""
@@ -95,7 +106,7 @@ def sign_message(message: str) -> str:
     _x509, hashes, serialization, padding, _rsa, _name_oid = _require_cryptography()
     private_key = serialization.load_pem_private_key(_read_bytes(key_path), password=None)
     signature = private_key.sign(
-        (message or "").encode("utf-8"),
+        message.encode("utf-8"),
         padding.PKCS1v15(),
         hashes.SHA512(),
     )

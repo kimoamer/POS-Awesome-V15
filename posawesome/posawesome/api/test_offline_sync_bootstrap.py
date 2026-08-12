@@ -53,7 +53,7 @@ def _install_stubs():
     sys.modules["posawesome.posawesome.api.utilities"] = utilities_module
 
     invoice_utils_module = types.ModuleType("posawesome.posawesome.api.invoice_processing.utils")
-    invoice_utils_module.get_price_list_currency = lambda price_list: "PKR"
+    invoice_utils_module._get_price_list_currency = lambda price_list: "PKR"
     sys.modules["posawesome.posawesome.api.invoice_processing.utils"] = invoice_utils_module
 
     api_utils_module = types.ModuleType("posawesome.posawesome.api.utils")
@@ -80,8 +80,14 @@ def _load_module():
 class TestOfflineSyncBootstrap(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         _install_stubs()
         cls.module = _load_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def test_sync_bootstrap_config_returns_bootstrap_and_price_list_meta_changes(self):
         response = self.module.sync_bootstrap_config(

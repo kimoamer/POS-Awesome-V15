@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { buildOfflineTenantScope } from "../src/offline/scope";
 
 const persist = vi.fn();
 
@@ -13,6 +14,13 @@ const customersTable = {
 	count: vi.fn(),
 };
 
+const customerTokensTable = {
+	bulkPut: vi.fn(),
+	where: vi.fn().mockReturnThis(),
+	equals: vi.fn().mockReturnThis(),
+	delete: vi.fn(),
+};
+
 vi.mock("../src/offline/db", () => ({
 	memory: {
 		customer_storage: [],
@@ -22,21 +30,32 @@ vi.mock("../src/offline/db", () => ({
 	initPromise: Promise.resolve(),
 	persist,
 	checkDbHealth: vi.fn().mockResolvedValue(true),
-	db: {
+		db: {
 		isOpen: vi.fn(() => true),
 		open: vi.fn().mockResolvedValue(undefined),
-		table: vi.fn((name: string) => {
+			table: vi.fn((name: string) => {
 			if (name === "customers") {
 				return customersTable;
-			}
+				}
+				if (name === "customer_search_tokens") {
+					return customerTokensTable;
+				}
 			return {
 				get: vi.fn(),
 				put: vi.fn(),
 				clear: vi.fn(),
 				count: vi.fn().mockResolvedValue(0),
 			};
-		}),
-	},
+			}),
+			transaction: vi.fn(
+				async (
+					_mode: string,
+					_table1: unknown,
+					_table2: unknown,
+					callback: () => Promise<unknown>,
+				) => callback(),
+			),
+		},
 }));
 
 vi.mock("../src/offline/writeQueue", () => ({
@@ -62,6 +81,10 @@ describe("offline storage ownership", () => {
 		customersTable.bulkDelete.mockReset();
 		customersTable.clear.mockReset();
 		customersTable.count.mockReset();
+		customerTokensTable.bulkPut.mockReset();
+		customerTokensTable.where.mockClear();
+		customerTokensTable.equals.mockClear();
+		customerTokensTable.delete.mockReset();
 		window.localStorage.clear();
 	});
 
@@ -144,6 +167,7 @@ describe("offline storage ownership", () => {
 		memory.customer_storage = [
 			{
 				name: "CUST-1",
+				_offline_scope: buildOfflineTenantScope(),
 				customer_name: "Customer 1",
 				loyalty_program: "Retail Loyalty",
 				loyalty_points: 12,

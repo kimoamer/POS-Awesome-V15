@@ -1,5 +1,5 @@
 import { ref, computed, reactive } from "vue";
-import { getItemsTableHeaders } from "../../../utils/itemsTableHeaders.js";
+import { getItemsTableHeaders } from "../../../utils/itemsTableHeaders";
 
 declare const get_currency_symbol: (_currency: string) => string;
 

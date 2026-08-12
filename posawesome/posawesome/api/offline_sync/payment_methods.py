@@ -1,16 +1,12 @@
 import frappe
 
 from posawesome.posawesome.api.offline_sync.common import (
+    SYNC_SCHEMA_VERSION,
     _build_response,
     _normalize_timestamp,
     _resolve_profile,
 )
-from posawesome.posawesome.api.payment_processing.utils import (
-    get_mode_of_payment_accounts,
-)
-
-SYNC_SCHEMA_VERSION = "2026-04-09"
-
+from posawesome.posawesome.api.payment_processing.utils import _get_mode_of_payment_accounts
 
 def _should_include(modified, watermark):
     modified = _normalize_timestamp(modified)
@@ -44,7 +40,7 @@ def sync_payment_method_currencies(
 
     changes = []
     if _should_include(profile_modified, watermark):
-        mapping = get_mode_of_payment_accounts(profile.get("company"), payment_methods)
+        mapping = _get_mode_of_payment_accounts(profile.get("company"), payment_methods)
         changes.append(
             {
                 "key": "payment_method_currencies",

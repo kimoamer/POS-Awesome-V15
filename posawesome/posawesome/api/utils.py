@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from dataclasses import dataclass
 from functools import cache
 from typing import Any
 
@@ -13,6 +14,16 @@ HAS_VARIANTS_EXCLUSION = {"has_variants": 0}
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class POSRequestContext:
+    user: str
+    pos_profile: Any
+    profile_name: str
+    company: str | None
+    warehouse: str | None
+    opening_shift: Any | None = None
 
 
 def _get_mapping_value(source: Any, key: str, default: Any = None) -> Any:
@@ -52,6 +63,171 @@ def _is_profile_action_enabled(pos_profile: Any, action_flag: str | None) -> boo
         return True
 
     return bool(_get_mapping_value(pos_profile, action_flag))
+
+
+def _throw_permission(message: str):
+    permission_error = getattr(frappe, "PermissionError", None)
+    if permission_error:
+        frappe.throw(message, permission_error)
+    frappe.throw(message)
+
+
+def assert_doctype_permission(doctype: str, permission_type: str = "read", user=None):
+    """Enforce the matching ERPNext DocType permission when Frappe exposes it."""
+
+    from frappe import _
+
+    user = user or getattr(frappe.session, "user", None)
+    if _is_guest_user(user):
+        _throw_permission(_("Guest users are not allowed to access {0}.").format(doctype))
+
+    checker = getattr(frappe, "has_permission", None)
+    if callable(checker) and not checker(doctype, ptype=permission_type, user=user):
+        _throw_permission(
+            _("User {0} does not have {1} permission for {2}.").format(
+                user,
+                permission_type,
+                doctype,
+            )
+        )
+    return True
+
+
+def assert_document_permission(doc: Any, permission_type: str = "read", user=None):
+    """Enforce ERPNext permission for one concrete document.
+
+    DocType checks alone do not apply user-permission and document ownership
+    constraints.  POS endpoints that load an existing document must call this
+    helper before returning or mutating it.
+    """
+
+    from frappe import _
+
+    if doc is None:
+        _throw_permission(_("The requested document is not accessible."))
+
+    user = user or getattr(frappe.session, "user", None)
+    if _is_guest_user(user):
+        _throw_permission(_("Guest users are not allowed to access this document."))
+
+    doctype = _get_mapping_value(doc, "doctype")
+    name = _get_mapping_value(doc, "name")
+    checker = getattr(frappe, "has_permission", None)
+    if callable(checker):
+        try:
+            allowed = checker(
+                doctype,
+                ptype=permission_type,
+                doc=doc,
+                user=user,
+            )
+        except TypeError:
+            # Compatibility with older Frappe versions that do not accept a
+            # user argument when a document is supplied.
+            allowed = checker(doctype, ptype=permission_type, doc=doc)
+        if not allowed:
+            _throw_permission(
+                _("User {0} does not have {1} permission for {2} {3}.").format(
+                    user,
+                    permission_type,
+                    doctype,
+                    name or "",
+                )
+            )
+    return True
+
+
+def _resolve_opening_shift(profile_doc, opening_shift=None, required=False):
+    from frappe import _
+
+    if not required and not opening_shift:
+        return None
+
+    user = getattr(frappe.session, "user", None)
+    profile_name = _get_mapping_value(profile_doc, "name")
+    company = _get_mapping_value(profile_doc, "company")
+    shift_name = _get_mapping_value(opening_shift, "name", opening_shift)
+
+    if not shift_name:
+        shift_name = frappe.db.get_value(
+            "POS Opening Shift",
+            {
+                "user": user,
+                "pos_profile": profile_name,
+                "company": company,
+                "docstatus": 1,
+                "status": "Open",
+                "pos_closing_shift": ["is", "not set"],
+            },
+            "name",
+        )
+
+    if not shift_name:
+        _throw_permission(_("An active POS Opening Shift is required."))
+
+    shift_doc = frappe.get_doc("POS Opening Shift", shift_name)
+    valid = all(
+        (
+            _get_mapping_value(shift_doc, "user") == user,
+            _get_mapping_value(shift_doc, "pos_profile") == profile_name,
+            _get_mapping_value(shift_doc, "company") == company,
+            int(_get_mapping_value(shift_doc, "docstatus", 0) or 0) == 1,
+            _get_mapping_value(shift_doc, "status") == "Open",
+            not _get_mapping_value(shift_doc, "pos_closing_shift"),
+        )
+    )
+    if not valid:
+        _throw_permission(_("The POS Opening Shift does not belong to this session."))
+    return shift_doc
+
+
+def get_pos_request_context(
+    pos_profile,
+    *,
+    company=None,
+    action_flag=None,
+    doctype=None,
+    permission_type="read",
+    require_open_shift=False,
+    opening_shift=None,
+):
+    """Resolve the authoritative profile/session boundary for a POS request."""
+
+    from frappe import _
+
+    profile_doc = assert_pos_profile_access_allowed(pos_profile)
+    profile_name = _get_mapping_value(profile_doc, "name")
+    profile_company = _get_mapping_value(profile_doc, "company")
+    if company and not _is_profile_company_allowed(profile_company, company):
+        _throw_permission(
+            _("POS Profile {0} is not allowed to access company {1}.").format(
+                profile_name,
+                company,
+            )
+        )
+    if action_flag and not _is_profile_action_enabled(profile_doc, action_flag):
+        _throw_permission(
+            _("POS Profile {0} does not allow this action: {1}.").format(
+                profile_name,
+                action_flag,
+            )
+        )
+    if doctype:
+        assert_doctype_permission(doctype, permission_type)
+
+    shift_doc = _resolve_opening_shift(
+        profile_doc,
+        opening_shift=opening_shift,
+        required=require_open_shift,
+    )
+    return POSRequestContext(
+        user=getattr(frappe.session, "user", ""),
+        pos_profile=profile_doc,
+        profile_name=profile_name,
+        company=profile_company,
+        warehouse=_get_mapping_value(profile_doc, "warehouse"),
+        opening_shift=shift_doc,
+    )
 
 
 def _get_pos_profile_doc(pos_profile: Any):
@@ -100,7 +276,53 @@ def _get_pos_profile_doc(pos_profile: Any):
     return None
 
 
-def assert_pos_profile_write_allowed(pos_profile, action_flag=None, company=None):
+def assert_pos_profile_access_allowed(pos_profile):
+    """Return the authoritative POS Profile document for this session.
+
+    Request payloads are treated only as profile-name selectors.  Company,
+    warehouse, price lists and feature flags are always reloaded server-side,
+    and non-Administrator users must be explicitly listed in POS Profile User.
+    """
+
+    from frappe import _
+
+    user = getattr(frappe.session, "user", None)
+    if _is_guest_user(user):
+        frappe.throw(_("Guest users are not allowed to access POS data."))
+
+    profile_doc = _get_pos_profile_doc(pos_profile)
+    if not profile_doc:
+        frappe.throw(_("POS Profile {0} was not found.").format(pos_profile or ""))
+
+    profile_name = _get_mapping_value(profile_doc, "name")
+    if _get_mapping_value(profile_doc, "disabled", 0):
+        frappe.throw(_("POS Profile {0} is disabled.").format(profile_name))
+
+    if user != "Administrator":
+        is_assigned = frappe.db.exists(
+            "POS Profile User",
+            {"parent": profile_name, "user": user},
+        )
+        if not is_assigned:
+            frappe.throw(
+                _("User {0} is not assigned to POS Profile {1}.").format(
+                    user,
+                    profile_name,
+                )
+            )
+
+    return profile_doc
+
+
+def assert_pos_profile_write_allowed(
+    pos_profile,
+    action_flag=None,
+    company=None,
+    doctype=None,
+    permission_type="create",
+    require_open_shift=False,
+    opening_shift=None,
+):
     """Validate the current request can perform a POS Profile-scoped write.
 
     This intentionally does not replace document permissions or remove existing
@@ -114,7 +336,11 @@ def assert_pos_profile_write_allowed(pos_profile, action_flag=None, company=None
     if _is_guest_user(user):
         frappe.throw(_("Guest users are not allowed to perform POS write actions."))
 
-    profile_doc = _get_pos_profile_doc(pos_profile)
+    profile_doc = (
+        assert_pos_profile_access_allowed(pos_profile)
+        if pos_profile
+        else None
+    )
     if pos_profile and not profile_doc:
         frappe.throw(_("POS Profile {0} was not found.").format(pos_profile))
 
@@ -137,6 +363,15 @@ def assert_pos_profile_write_allowed(pos_profile, action_flag=None, company=None
                 _get_mapping_value(profile_doc, "name", pos_profile),
                 action_flag,
             )
+        )
+
+    if doctype:
+        assert_doctype_permission(doctype, permission_type)
+    if profile_doc and (require_open_shift or opening_shift):
+        _resolve_opening_shift(
+            profile_doc,
+            opening_shift=opening_shift,
+            required=require_open_shift,
         )
 
     return profile_doc
@@ -197,12 +432,10 @@ def _ensure_pos_profile(pos_profile):
     from frappe import _
     from frappe import as_json
 
-    profile_dict = None
-    profile_json = None
+    profile_selector = None
 
     if isinstance(pos_profile, dict):
-        profile_dict = pos_profile
-        profile_json = as_json(pos_profile)
+        profile_selector = pos_profile.get("name")
     elif isinstance(pos_profile, str):
         raw_value = pos_profile.strip()
         if raw_value:
@@ -212,27 +445,24 @@ def _ensure_pos_profile(pos_profile):
                 decoded_value = raw_value
 
             if isinstance(decoded_value, dict):
-                profile_dict = decoded_value
-                profile_json = raw_value
+                profile_selector = decoded_value.get("name")
             elif isinstance(decoded_value, str):
-                if decoded_value:
-                    profile_doc = frappe.get_doc("POS Profile", decoded_value)
-                    profile_dict = profile_doc.as_dict()
-                else:
-                    profile_dict = get_active_pos_profile()
-            elif decoded_value is None:
-                profile_dict = get_active_pos_profile()
-        else:
-            profile_dict = get_active_pos_profile()
-    elif pos_profile is None:
-        profile_dict = get_active_pos_profile()
+                profile_selector = decoded_value or None
 
-    if profile_dict and not profile_json:
-        profile_json = as_json(profile_dict)
+    if not profile_selector:
+        active_profile = get_active_pos_profile()
+        profile_selector = _get_mapping_value(active_profile, "name")
 
-    if not profile_dict or not profile_json:
+    if not profile_selector:
         frappe.throw(_("POS profile data is missing or invalid."))
 
+    profile_doc = assert_pos_profile_access_allowed(profile_selector)
+    profile_dict = (
+        profile_doc.as_dict()
+        if hasattr(profile_doc, "as_dict")
+        else dict(profile_doc)
+    )
+    profile_json = as_json(profile_dict)
     return profile_dict, profile_json
 
 
@@ -241,37 +471,72 @@ def get_active_pos_profile(user=None):
     """Return the active POS profile for the given user."""
     user = user or frappe.session.user
     profile = frappe.db.get_value("POS Profile User", {"user": user}, "parent")
-    if not profile:
+    if not profile and user == "Administrator":
         profile = frappe.db.get_single_value("POS Settings", "pos_profile")
     if not profile:
         return None
-    return frappe.get_doc("POS Profile", profile).as_dict()
+    profile_doc = assert_pos_profile_access_allowed(profile)
+    return profile_doc.as_dict()
 
 
 @frappe.whitelist()
-def get_warehouses(company=None):
+def get_warehouses(company=None, pos_profile=None, pos_opening_shift=None):
     """Return non-group, non-disabled warehouses optionally scoped by company."""
-    filters = {"is_group": 0, "disabled": 0}
-    if company:
-        filters["company"] = company
-    return frappe.get_all("Warehouse", filters=filters, fields=["name", "warehouse_name"])
+    context = get_pos_request_context(
+        pos_profile,
+        company=company,
+        doctype="Warehouse",
+        permission_type="read",
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
+    warehouses = [context.warehouse] if context.warehouse else []
+    if context.warehouse and frappe.db.get_value("Warehouse", context.warehouse, "is_group"):
+        warehouses = frappe.db.get_descendants("Warehouse", context.warehouse) or []
+    if not warehouses:
+        return []
+    return frappe.get_list(
+        "Warehouse",
+        filters={
+            "name": ["in", warehouses],
+            "company": context.company,
+            "is_group": 0,
+            "disabled": 0,
+        },
+        fields=["name", "warehouse_name"],
+        order_by="name asc",
+        limit_page_length=500,
+    )
 
 
 @frappe.whitelist()
-def get_default_warehouse(company=None):
+def get_default_warehouse(company=None, pos_profile=None, pos_opening_shift=None):
     """Return the default warehouse for the given company."""
+    context = get_pos_request_context(
+        pos_profile,
+        company=company,
+        doctype="Warehouse",
+        permission_type="read",
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
+    return context.warehouse
+
+
+def _get_default_warehouse(company=None):
+    """Internal settings fallback; callers must establish authorization."""
+
     company = company or frappe.defaults.get_default("company")
     if not company:
         return None
-    warehouse = frappe.db.get_single_value("Stock Settings", "default_warehouse")
-    return warehouse
+    return frappe.db.get_single_value("Stock Settings", "default_warehouse")
 
 
 def _resolve_pos_profile_input(pos_profile=None):
     """Return a POS profile dict from a name, JSON string, dict or fallback."""
 
     if isinstance(pos_profile, dict):
-        return pos_profile
+        pos_profile = pos_profile.get("name")
 
     if isinstance(pos_profile, str):
         raw_value = pos_profile.strip()
@@ -284,11 +549,13 @@ def _resolve_pos_profile_input(pos_profile=None):
             decoded_value = raw_value
 
         if isinstance(decoded_value, dict):
-            return decoded_value
+            pos_profile = decoded_value.get("name")
 
-        if isinstance(decoded_value, str) and decoded_value:
-            return frappe.get_cached_doc("POS Profile", decoded_value).as_dict()
+        elif isinstance(decoded_value, str) and decoded_value:
+            pos_profile = decoded_value
 
+    if pos_profile:
+        return assert_pos_profile_access_allowed(pos_profile).as_dict()
     return None
 
 
@@ -298,6 +565,7 @@ def fetch_sales_person_names(pos_profile=None):
     logger.info("Fetching sales persons...")
 
     try:
+        assert_doctype_permission("Sales Person", "read")
         profile = _resolve_pos_profile_input(pos_profile) or get_active_pos_profile()
         allowed = []
         if profile:
@@ -308,7 +576,7 @@ def fetch_sales_person_names(pos_profile=None):
         filters = {"enabled": 1}
         if allowed:
             filters["name"] = ["in", allowed]
-            sales_persons = frappe.get_all(
+            sales_persons = frappe.get_list(
                 "Sales Person",
                 filters=filters,
                 fields=["name", "sales_person_name"],

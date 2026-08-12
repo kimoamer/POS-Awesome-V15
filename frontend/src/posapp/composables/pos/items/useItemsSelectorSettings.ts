@@ -1,8 +1,8 @@
-import { normalizeBackgroundSyncInterval } from "../../../utils/backgroundSync.js";
+import { normalizeBackgroundSyncInterval } from "../../../utils/backgroundSync";
 import {
 	loadItemSelectorSettings,
 	saveItemSelectorSettings,
-} from "../../../utils/itemSelectorSettings.js";
+} from "../../../utils/itemSelectorSettings";
 
 declare const frappe: any;
 declare const __: (_text: string) => string;

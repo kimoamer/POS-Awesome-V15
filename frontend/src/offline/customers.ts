@@ -1,5 +1,10 @@
 import { checkDbHealth, db, isOffline, memory, persist } from "./db";
-import { buildCustomerSearchText } from "../posapp/stores/customers/customerSearch";
+import {
+	buildCustomerIndexTokens,
+	buildCustomerSearchText,
+	normalizeCustomerIndexValue,
+} from "../posapp/stores/customers/customerSearch";
+import { buildOfflineTenantScope } from "./scope";
 import {
 	claimRetryableQueueEntries,
 	clearWriteQueueEntries,
@@ -127,18 +132,20 @@ export async function syncOfflineCustomers() {
 // Historical helper names mention "storage", but the durable customer read model
 // is db.table("customers"). memory.customer_storage is only a bounded hot cache
 // for recently selected or updated customers.
-export function getCustomerStorage() {
-	return memory.customer_storage || [];
+export function getCustomerStorage(scope = buildOfflineTenantScope()) {
+	return (memory.customer_storage || []).filter(
+		(row: AnyRecord) => row?._offline_scope === scope,
+	);
 }
 
-function mergeCustomerStorageRows(rows: AnyRecord[]) {
+function mergeCustomerStorageRows(rows: AnyRecord[], scope: string) {
 	const merged = new Map<string, AnyRecord>();
 	const existingRows = Array.isArray(memory.customer_storage)
 		? memory.customer_storage
 		: [];
 
 	existingRows.forEach((row) => {
-		if (!row?.name) {
+		if (!row?.name || row?._offline_scope !== scope) {
 			return;
 		}
 		merged.set(row.name, row);
@@ -156,9 +163,12 @@ function mergeCustomerStorageRows(rows: AnyRecord[]) {
 	return mergedRows.slice(-CUSTOMER_MEMORY_CACHE_LIMIT);
 }
 
-export async function getStoredCustomer(customerName: string) {
+export async function getStoredCustomer(
+	customerName: string,
+	scope = buildOfflineTenantScope(),
+) {
 	try {
-		const customers = getCustomerStorage();
+		const customers = getCustomerStorage(scope);
 		const cachedCustomer = customers.find((c) => c.name === customerName);
 		if (cachedCustomer) {
 			return cachedCustomer;
@@ -169,11 +179,17 @@ export async function getStoredCustomer(customerName: string) {
 			await db.open();
 		}
 
-		const storedCustomer = await db.table("customers").get(customerName);
+		const storedCustomer = await db
+			.table("customers")
+			.get([scope, customerName]);
 		if (storedCustomer?.name) {
-			memory.customer_storage = mergeCustomerStorageRows([
-				storedCustomer,
-			]);
+			const otherScopes = (memory.customer_storage || []).filter(
+				(row: AnyRecord) => row?._offline_scope !== scope,
+			);
+			memory.customer_storage = [
+				...otherScopes,
+				...mergeCustomerStorageRows([storedCustomer], scope),
+			];
 			return storedCustomer;
 		}
 		return null;
@@ -183,7 +199,10 @@ export async function getStoredCustomer(customerName: string) {
 	}
 }
 
-export async function setCustomerStorage(customers: AnyRecord[]) {
+export async function setCustomerStorage(
+	customers: AnyRecord[],
+	scope = buildOfflineTenantScope(),
+) {
 	try {
 		await checkDbHealth();
 		if (!db.isOpen()) {
@@ -191,9 +210,7 @@ export async function setCustomerStorage(customers: AnyRecord[]) {
 		}
 
 		const existingByName = new Map<string, AnyRecord>();
-		const existingRows = Array.isArray(memory.customer_storage)
-			? memory.customer_storage
-			: [];
+		const existingRows = getCustomerStorage(scope);
 		existingRows.forEach((row) => {
 			if (row?.name) {
 				existingByName.set(row.name, row);
@@ -208,12 +225,13 @@ export async function setCustomerStorage(customers: AnyRecord[]) {
 			),
 		);
 		const customerTable = db.table("customers");
+		const tokenTable = db.table("customer_search_tokens");
 		if (
 			incomingNames.length &&
 			typeof (customerTable as any).bulkGet === "function"
 		) {
 			const durableRows = await (customerTable as any).bulkGet(
-				incomingNames,
+				incomingNames.map((name) => [scope, name]),
 			);
 			for (const row of durableRows || []) {
 				if (row?.name && !existingByName.has(row.name)) {
@@ -272,19 +290,56 @@ export async function setCustomerStorage(customers: AnyRecord[]) {
 			return [
 				{
 					...normalized,
+					customer_scope: scope,
+					_offline_scope: scope,
 					_search_text: buildCustomerSearchText(normalized),
+					customer_name_lc: normalizeCustomerIndexValue(
+						normalized.customer_name || name,
+					),
+					mobile_no_normalized: String(
+						normalized.mobile_no || "",
+					).replace(/\D/g, ""),
+					email_id_lc: normalizeCustomerIndexValue(normalized.email_id),
+					tax_id_lc: normalizeCustomerIndexValue(normalized.tax_id),
 				},
 			];
 		});
 
-		await customerTable.bulkPut(clean);
-		memory.customer_storage = mergeCustomerStorageRows(clean);
+		await db.transaction("rw", customerTable, tokenTable, async () => {
+			for (const name of incomingNames) {
+				await tokenTable
+					.where("[customer_scope+customer_name]")
+					.equals([scope, name])
+					.delete();
+			}
+			await customerTable.bulkPut(clean);
+			const tokenRows = clean.flatMap((customer) =>
+				buildCustomerIndexTokens(customer).map((token) => ({
+					customer_scope: scope,
+					token,
+					customer_name: customer.name,
+				})),
+			);
+			if (tokenRows.length) {
+				await tokenTable.bulkPut(tokenRows);
+			}
+		});
+		const otherScopes = (memory.customer_storage || []).filter(
+			(row: AnyRecord) => row?._offline_scope !== scope,
+		);
+		memory.customer_storage = [
+			...otherScopes,
+			...mergeCustomerStorageRows(clean, scope),
+		];
 	} catch (error) {
 		console.error("Failed to save customers to storage", error);
 	}
 }
 
-export async function deleteCustomerStorageByNames(names: string[]) {
+export async function deleteCustomerStorageByNames(
+	names: string[],
+	scope = buildOfflineTenantScope(),
+) {
 	try {
 		const normalizedNames = Array.from(
 			new Set(
@@ -296,13 +351,27 @@ export async function deleteCustomerStorageByNames(names: string[]) {
 		if (!normalizedNames.length) {
 			return;
 		}
-		await db.table("customers").bulkDelete(normalizedNames);
+		const customerTable = db.table("customers");
+		const tokenTable = db.table("customer_search_tokens");
+		await db.transaction("rw", customerTable, tokenTable, async () => {
+			await customerTable.bulkDelete(
+				normalizedNames.map((name) => [scope, name]),
+			);
+			for (const name of normalizedNames) {
+				await tokenTable
+					.where("[customer_scope+customer_name]")
+					.equals([scope, name])
+					.delete();
+			}
+		});
 		const deletedNames = new Set(normalizedNames);
 		const existingRows = Array.isArray(memory.customer_storage)
 			? memory.customer_storage
 			: [];
 		memory.customer_storage = existingRows.filter(
-			(row) => !deletedNames.has(String(row?.name || "").trim()),
+			(row) =>
+				row?._offline_scope !== scope ||
+				!deletedNames.has(String(row?.name || "").trim()),
 		);
 	} catch (error) {
 		console.error("Failed to delete customers from storage", error);

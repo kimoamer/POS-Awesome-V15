@@ -14,11 +14,7 @@
 				</v-btn>
 			</template>
 			<v-list density="compact" class="payment-more-menu-list">
-				<v-list-item
-					link
-					:disabled="loading || validatePayment"
-					@click="$emit('submit-and-print')"
-				>
+				<v-list-item link :disabled="loading || validatePayment" @click="emit('submit-and-print')">
 					<template v-slot:prepend>
 						<v-icon size="18" color="success">mdi-printer</v-icon>
 					</template>
@@ -36,7 +32,7 @@
 			data-pos-keyboard-target="payment-cancel"
 			:disabled="loading"
 			:aria-disabled="loading"
-			@click="!loading && $emit('cancel')"
+			@click="!loading && emit('cancel')"
 		>
 			{{ __("Cancel") }}
 		</v-btn>
@@ -47,7 +43,7 @@
 			variant="flat"
 			class="payment-submit-btn payment-footer-btn"
 			data-pos-keyboard-target="payment-submit"
-			@click="$emit('submit')"
+			@click="emit('submit')"
 			:loading="loading"
 			:disabled="loading || validatePayment"
 			:class="{ 'submit-highlight': highlightSubmit }"
@@ -64,7 +60,7 @@
 			data-pos-keyboard-target="payment-cancel"
 			:disabled="loading"
 			:aria-disabled="loading"
-			@click="!loading && $emit('cancel')"
+			@click="!loading && emit('cancel')"
 		>
 			{{ __("Cancel Payment") }}
 		</v-btn>
@@ -75,7 +71,7 @@
 			variant="flat"
 			class="payment-submit-btn payment-footer-btn"
 			data-pos-keyboard-target="payment-submit"
-			@click="$emit('submit')"
+			@click="emit('submit')"
 			:loading="loading"
 			:disabled="loading || validatePayment"
 			:class="{ 'submit-highlight': highlightSubmit }"
@@ -88,7 +84,7 @@
 			variant="flat"
 			class="payment-submit-print-btn payment-footer-btn"
 			data-pos-keyboard-target="payment-submit-print"
-			@click="$emit('submit-and-print')"
+			@click="emit('submit-and-print')"
 			:loading="loading"
 			:disabled="loading || validatePayment"
 		>
@@ -109,9 +105,10 @@ defineProps({
 	},
 });
 
-defineEmits(["submit", "submit-and-print", "cancel"]);
+const emit = defineEmits(["submit", "submit-and-print", "cancel"]);
 
-const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
+const __ = (s) =>
+	typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s;
 </script>
 
 <style scoped>
@@ -211,8 +208,19 @@ const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?
 }
 
 :deep(.payment-footer-btn .v-btn__overlay),
-:deep(.payment-footer-btn .v-btn__underlay) {
+:deep(.payment-footer-btn .v-btn__underlay),
+:deep(.payment-footer-btn .v-ripple__container) {
+	display: none !important;
 	opacity: 0 !important;
 	background: transparent !important;
+}
+
+:deep(.payment-footer-btn .v-btn__content),
+:deep(.payment-footer-btn .v-icon) {
+	position: relative;
+	z-index: 1;
+	color: inherit !important;
+	-webkit-text-fill-color: currentColor !important;
+	opacity: 1 !important;
 }
 </style>

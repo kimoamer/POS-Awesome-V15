@@ -28,6 +28,10 @@ def _install_framework_stubs():
     frappe_module.whitelist = lambda *args, **kwargs: (lambda fn: fn)
     frappe_module.log_error = lambda *args, **kwargs: None
     frappe_module.get_all = lambda *args, **kwargs: []
+    frappe_module.get_list = lambda doctype, filters=None, fields=None, **kwargs: [
+        {"name": code, "item_group": "Products"}
+        for code in ((filters or {}).get("name", [None, []])[1] or [])
+    ] if doctype == "Item" else []
     frappe_module.db = types.SimpleNamespace(
         get_value=lambda *args, **kwargs: None,
     )
@@ -49,8 +53,25 @@ def _install_dependency_stubs():
 
     utils_module = types.ModuleType("posawesome.posawesome.api.utils")
     utils_module._ensure_pos_profile = lambda pos_profile: (pos_profile, pos_profile)
+    utils_module.expand_item_groups = lambda groups: groups
+    utils_module.get_pos_request_context = lambda *args, **kwargs: types.SimpleNamespace(
+        profile_name="POS-TEST",
+        company=kwargs.get("company") or "Test Company",
+        warehouse=None,
+        pos_profile=AttrDict({"name": "POS-TEST", "item_groups": []}),
+    )
     utils_module.log_perf_event = lambda *args, **kwargs: None
     sys.modules["posawesome.posawesome.api.utils"] = utils_module
+
+    invoice_utils_module = types.ModuleType(
+        "posawesome.posawesome.api.invoice_processing.utils"
+    )
+    invoice_utils_module._resolve_effective_price_list = (
+        lambda _customer, _profile, fallback=None: fallback
+    )
+    sys.modules[
+        "posawesome.posawesome.api.invoice_processing.utils"
+    ] = invoice_utils_module
 
     erpnext_stock_module = types.ModuleType("erpnext.stock.get_item_details")
     erpnext_stock_module.get_item_details = lambda *args, **kwargs: {}
@@ -85,10 +106,16 @@ def _load_module():
 class TestGetItemDetailNormalization(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         cls.frappe = _install_framework_stubs()
         _install_dependency_stubs()
         _install_package_stubs()
         cls.details = _load_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def test_normalizes_dict_item_and_json_doc_before_attribute_access(self):
         captured = {}

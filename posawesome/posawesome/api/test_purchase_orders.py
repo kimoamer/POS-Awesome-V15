@@ -96,6 +96,7 @@ def _install_stubs():
 
     frappe_utils = types.ModuleType("frappe.utils")
     frappe_utils.cint = int
+    frappe_utils.cstr = lambda value="": str(value or "")
     frappe_utils.flt = lambda value=0, *args, **kwargs: float(value or 0)
     frappe_utils.nowdate = lambda: "2026-04-17"
     def fake_getdate(value=None):
@@ -122,6 +123,23 @@ def _install_stubs():
         "company": "Test Co",
     }
     utils_module.get_default_warehouse = lambda company=None: "Stores - TC"
+    utils_module.get_pos_request_context = lambda *args, **kwargs: types.SimpleNamespace(
+        company=kwargs.get("company") or "Test Co",
+        warehouse="Stores - TC",
+        profile_name="POS-TEST",
+        pos_profile=AttrDict(
+            {
+                "name": "POS-TEST",
+                "company": "Test Co",
+                "warehouse": "Stores - TC",
+                "posa_allow_purchase_order": 1,
+                "payments": [{"mode_of_payment": "Cash"}],
+            }
+        ),
+        opening_shift=AttrDict({"name": "SHIFT-001"}),
+    )
+    utils_module.assert_document_permission = lambda *args, **kwargs: True
+    utils_module.assert_doctype_permission = lambda *args, **kwargs: True
     sys.modules["posawesome.posawesome.api.utils"] = utils_module
 
 
@@ -132,6 +150,10 @@ def _load_module():
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
+    # ``from . import utils`` may reuse the real package attribute when this
+    # suite runs inside the full Frappe test process; bind the intended stub
+    # explicitly so the isolated contract is order-independent.
+    module.pos_utils = sys.modules["posawesome.posawesome.api.utils"]
     return module
 
 
@@ -190,6 +212,24 @@ class TestPurchaseOrdersApi(unittest.TestCase):
         self.assertEqual(result["ITEM-001"]["source"], "last_invoice")
         self.assertEqual(result["ITEM-001"]["invoice"], "PINV-ANY-1")
         self.assertEqual(result["ITEM-001"]["supplier"], "SUP-XYZ")
+
+    def test_search_suppliers_normalizes_non_string_search_text(self):
+        captured = {}
+        original_get_list = self.module.frappe.get_list
+
+        def fake_get_list(doctype, **kwargs):
+            captured.update(kwargs)
+            return []
+
+        self.module.frappe.get_list = fake_get_list
+        try:
+            result = self.module.search_suppliers(12345, limit=500, pos_profile="POS-TEST")
+        finally:
+            self.module.frappe.get_list = original_get_list
+
+        self.assertEqual(result, [])
+        self.assertEqual(captured["or_filters"]["name"], ["like", "%12345%"])
+        self.assertEqual(captured["limit_page_length"], 100)
 
     def test_get_last_buying_rate_prefers_supplier_specific_history(self):
         self.module.frappe.db.sql_calls.clear()
@@ -365,6 +405,7 @@ class TestPurchaseOrdersApi(unittest.TestCase):
                 [{"mode_of_payment": "Cash", "amount": 120}],
                 "Test Co",
                 "2026-04-17",
+                AttrDict({"payments": [{"mode_of_payment": "Cash"}]}),
             )
         finally:
             if original_new_doc is None:

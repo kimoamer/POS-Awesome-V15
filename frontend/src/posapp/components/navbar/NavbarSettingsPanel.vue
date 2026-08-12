@@ -54,7 +54,7 @@
 							<span class="navbar-settings-panel__category-copy">
 								<span class="navbar-settings-panel__category-title">{{ section.title }}</span>
 								<span class="navbar-settings-panel__category-meta">
-									{{ __("{0} actions", [section.actions.length]) }}
+									{{ formatMessage("{0} actions", [section.actions.length]) }}
 								</span>
 							</span>
 						</button>
@@ -86,7 +86,7 @@
 							{{
 								activeAction
 									? activeSection.title
-									: __("{0} actions", [activeSection.actions.length])
+									: formatMessage("{0} actions", [activeSection.actions.length])
 							}}
 						</div>
 					</div>
@@ -107,7 +107,7 @@
 								@click="clearActiveAction"
 							>
 								<span class="mdi mdi-arrow-left" aria-hidden="true"></span>
-								{{ __("Back to {0}", [activeSection.title]) }}
+								{{ formatMessage("Back to {0}", [activeSection.title]) }}
 							</button>
 							<NavbarCashierPinForm
 								v-if="activeAction.id === 'manage-cashier-pin'"
@@ -205,13 +205,13 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue", "select-action"]);
 
-const __ = (text, args = []) => {
-	if (window.__) {
-		const nextArgs = Array.isArray(args) ? args : [args];
-		return window.__(text, ...nextArgs);
-	}
-	return text.replace(/\{(\d+)\}/g, (_, index) => `${args[index] ?? ""}`);
+const formatMessage = (text, args = []) => {
+	const nextArgs = Array.isArray(args) ? args : [args];
+	const translated = window.__ ? window.__(text) : text;
+	return String(translated).replace(/\{(\d+)\}/g, (_, index) => `${nextArgs[index] ?? ""}`);
 };
+
+const __ = (text) => (window.__ ? window.__(text) : text);
 
 const activeSectionId = ref("");
 const activeActionId = ref("");
@@ -332,8 +332,8 @@ function handleEmbeddedActionSaved() {
 }
 
 .navbar-settings-panel {
-	width: min(1040px, calc(100vw - 32px));
-	max-height: min(84vh, 760px);
+	width: min(960px, calc(100vw - 32px));
+	max-height: min(80vh, 700px);
 	border-radius: var(--pos-radius-lg, 20px) !important;
 	background: var(--pos-surface-raised, #ffffff) !important;
 	border: 1px solid var(--pos-border-light, #e2e8f0) !important;
@@ -344,7 +344,7 @@ function handleEmbeddedActionSaved() {
 }
 
 .navbar-settings-panel__header {
-	padding: 18px 24px;
+	padding: 16px 20px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -430,14 +430,14 @@ function handleEmbeddedActionSaved() {
 
 .navbar-settings-panel__workspace {
 	display: grid;
-	grid-template-columns: 270px minmax(0, 1fr);
+	grid-template-columns: 248px minmax(0, 1fr);
 	flex: 1;
 	min-height: 0;
 	overflow: hidden;
 }
 
 .navbar-settings-panel__rail {
-	padding: 18px 16px;
+	padding: 16px 14px;
 	border-right: 1px solid var(--pos-border-light, #e2e8f0);
 	background: var(--pos-surface-muted, #f8fafc);
 	display: grid;
@@ -463,7 +463,7 @@ function handleEmbeddedActionSaved() {
 	border: 1px solid var(--pos-border-light, #e2e8f0);
 	background: var(--pos-surface-raised, #ffffff);
 	border-radius: 14px;
-	padding: 12px 14px;
+	padding: 10px 12px;
 	display: flex;
 	align-items: center;
 	gap: 12px;
@@ -515,7 +515,7 @@ function handleEmbeddedActionSaved() {
 }
 
 .navbar-settings-panel__detail {
-	padding: 20px 24px;
+	padding: 18px 20px;
 	overflow-y: auto;
 	display: grid;
 	align-content: start;
@@ -526,7 +526,7 @@ function handleEmbeddedActionSaved() {
 	display: flex;
 	align-items: center;
 	gap: 16px;
-	padding: 16px 18px;
+	padding: 14px 16px;
 	border-radius: 16px;
 	border: 1px solid var(--pos-border-light, #e2e8f0);
 	background: color-mix(in srgb, var(--pos-primary, #2563eb) 4%, var(--pos-surface-muted, #f8fafc));
@@ -553,7 +553,7 @@ function handleEmbeddedActionSaved() {
 
 .navbar-settings-panel__section-block,
 .navbar-settings-panel__tip-card {
-	padding: 18px;
+	padding: 16px;
 	border-radius: 16px;
 	border: 1px solid var(--pos-border-light, #e2e8f0);
 	background: var(--pos-surface-raised, #ffffff);
@@ -624,7 +624,7 @@ function handleEmbeddedActionSaved() {
 	border: 1px solid var(--pos-border-light, #e2e8f0);
 	background: var(--pos-surface-raised, #ffffff);
 	border-radius: 14px;
-	padding: 14px 16px;
+	padding: 12px 14px;
 	display: flex;
 	align-items: center;
 	gap: 14px;

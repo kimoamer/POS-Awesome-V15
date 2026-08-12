@@ -1,5 +1,6 @@
 import { ref } from "vue";
-import { initPromise } from "../../../../offline/index";
+import { startupInitPromise } from "../../../../offline/index";
+import type { LoadItemsOptions } from "../../../stores/items/loadItemsRequest";
 
 type EventBus = {
 	emit: (_event: string, _payload?: unknown) => void;
@@ -18,14 +19,10 @@ type LoaderContext = {
 	appendCachedItemsPage?: () => Promise<ItemWithQty[]>;
 	eventBus?: EventBus;
 	ensureStorageHealth?: () => Promise<void>;
-	loadItems?: (_args: {
-		searchValue?: unknown;
-		groupFilter?: unknown;
-		limit?: number;
-	}) => Promise<unknown>;
-	get_search?: (_value: unknown) => unknown;
-	first_search?: unknown;
-	item_group?: unknown;
+	loadItems?: (_args: LoadItemsOptions) => Promise<unknown>;
+	get_search?: (_value: string) => string;
+	first_search?: string;
+	item_group?: string;
 	usesLimitSearch?: boolean;
 	limitSearchCap?: number;
 	items?: ItemWithQty[];
@@ -84,7 +81,7 @@ export function useItemsLoader() {
 			eventBus.emit("data-load-progress", { name: "items", progress: 0 });
 		}
 
-		await initPromise;
+		await startupInitPromise;
 		const ensureStorageHealth = getCtx<
 			LoaderContext["ensureStorageHealth"]
 		>("ensureStorageHealth");
@@ -95,10 +92,12 @@ export function useItemsLoader() {
 			if (typeof loadItems === "function") {
 				const get_search =
 					getCtx<LoaderContext["get_search"]>("get_search") ||
-					((v: unknown) => v);
+					((v: string) => v);
 				await loadItems({
-					searchValue: get_search(getCtx("first_search")),
-					groupFilter: getCtx("item_group"),
+					searchValue: get_search(
+						getCtx<string>("first_search") ?? "",
+					),
+					groupFilter: getCtx<string>("item_group") ?? undefined,
 					limit: getCtx<boolean>("usesLimitSearch")
 						? (getCtx<number>("limitSearchCap") ?? undefined)
 						: undefined,

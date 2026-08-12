@@ -219,6 +219,7 @@ describe("InvoiceManagement supervisor scope", () => {
 					company: "Farooq Chemicals",
 					pos_profile: "Main POS",
 					cashier: null,
+					cashier_grant: null,
 					is_supervisor: 1,
 					search: undefined,
 					currency: undefined,

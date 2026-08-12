@@ -65,7 +65,10 @@ describe("offline cache item persistence", () => {
 			},
 		]);
 
-		await saveItems([{ item_code: "ITEM-1", actual_qty: 7 }]);
+		await saveItems(
+			[{ item_code: "ITEM-1", actual_qty: 7 }],
+			"POS-A_WH-A",
+		);
 
 		expect(bulkPut).toHaveBeenCalledWith([
 			expect.objectContaining({

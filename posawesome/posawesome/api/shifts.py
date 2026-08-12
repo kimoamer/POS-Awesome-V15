@@ -8,10 +8,17 @@ import frappe
 from frappe.utils import cint, nowdate
 from frappe import _
 from .utilities import get_version
+from .utils import (
+    assert_doctype_permission,
+    assert_pos_profile_access_allowed,
+    assert_pos_profile_write_allowed,
+)
 
 
 @frappe.whitelist()
 def get_opening_dialog_data():
+    assert_doctype_permission("POS Profile", "read")
+    assert_doctype_permission("POS Opening Shift", "read")
     data = {}
 
     # Get only POS Profiles where current user is defined in POS Profile User table
@@ -58,7 +65,39 @@ def get_opening_dialog_data():
 
 @frappe.whitelist()
 def create_opening_voucher(pos_profile, company, balance_details):
-    balance_details = json.loads(balance_details)
+    profile = assert_pos_profile_write_allowed(
+        pos_profile,
+        company=company,
+        doctype="POS Opening Shift",
+        permission_type="create",
+    )
+    company = profile.company
+    assert_doctype_permission("POS Opening Shift", "submit")
+    balance_details = json.loads(balance_details) if isinstance(balance_details, str) else balance_details
+    balance_details = list(balance_details or [])
+
+    existing_shift = frappe.db.exists(
+        "POS Opening Shift",
+        {
+            "user": frappe.session.user,
+            "pos_profile": profile.name,
+            "docstatus": 1,
+            "status": "Open",
+            "pos_closing_shift": ["is", "not set"],
+        },
+    )
+    if existing_shift:
+        frappe.throw(_("An open POS shift already exists for this user and profile."))
+
+    allowed_modes = {
+        row.get("mode_of_payment")
+        for row in profile.get("payments", [])
+        if row.get("mode_of_payment")
+    }
+    for row in balance_details:
+        mode = row.get("mode_of_payment")
+        if mode and mode not in allowed_modes:
+            frappe.throw(_("Mode of Payment {0} is not allowed for this POS Profile.").format(mode))
 
     new_pos_opening = frappe.get_doc(
         {
@@ -66,13 +105,13 @@ def create_opening_voucher(pos_profile, company, balance_details):
             "period_start_date": frappe.utils.get_datetime(),
             "posting_date": frappe.utils.getdate(),
             "user": frappe.session.user,
-            "pos_profile": pos_profile,
+            "pos_profile": profile.name,
             "company": company,
-            "docstatus": 1,
         }
     )
     new_pos_opening.set("balance_details", balance_details)
-    new_pos_opening.insert(ignore_permissions=True)
+    new_pos_opening.insert()
+    new_pos_opening.submit()
 
     data = {}
     data["pos_opening_shift"] = new_pos_opening.as_dict()
@@ -81,7 +120,9 @@ def create_opening_voucher(pos_profile, company, balance_details):
 
 
 @frappe.whitelist()
-def check_opening_shift(user):
+def check_opening_shift(user=None):
+    user = frappe.session.user
+    assert_doctype_permission("POS Opening Shift", "read")
     open_vouchers = frappe.db.get_all(
         "POS Opening Shift",
         filters={
@@ -102,7 +143,7 @@ def check_opening_shift(user):
 
 
 def update_opening_shift_data(data, pos_profile):
-    data["pos_profile"] = frappe.get_doc("POS Profile", pos_profile)
+    data["pos_profile"] = assert_pos_profile_access_allowed(pos_profile)
     if data["pos_profile"].get("posa_language"):
         frappe.local.lang = data["pos_profile"].posa_language
     data["company"] = frappe.get_doc("Company", data["pos_profile"].company)

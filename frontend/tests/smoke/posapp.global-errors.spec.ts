@@ -2,6 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 
 const POS_PATH = process.env.POSA_SMOKE_PATH || "/app/posapp";
 const HAS_CONFIGURED_SMOKE_TARGET = Boolean(process.env.POSA_SMOKE_BASE_URL);
+const HAS_CONFIGURED_CREDENTIALS = Boolean(
+	process.env.POSA_SMOKE_USER && process.env.POSA_SMOKE_PASSWORD,
+);
 
 test.skip(
 	Boolean(process.env.CI) && !HAS_CONFIGURED_SMOKE_TARGET,
@@ -71,6 +74,19 @@ test("POS app smoke route has no uncaught global errors", async ({ page }) => {
 
 	await loginIfCredentialsProvided(page);
 	await page.goto(POS_PATH, { waitUntil: "domcontentloaded" });
+	const missingBenchSite = await page
+		.getByText(/does not exist/i)
+		.first()
+		.isVisible()
+		.catch(() => false);
+	test.skip(
+		missingBenchSite,
+		"The default host is not a configured Frappe site; set POSA_SMOKE_BASE_URL.",
+	);
+	test.skip(
+		/\/login(?:\?|$)/.test(page.url()) && !HAS_CONFIGURED_CREDENTIALS,
+		"The POS route requires authentication; configure POSA_SMOKE_USER and POSA_SMOKE_PASSWORD.",
+	);
 
 	await expect(page).toHaveURL(new RegExp("/app/(posapp|point-of-sale)"));
 	await expect(page.locator(".main-section").first()).toBeVisible();

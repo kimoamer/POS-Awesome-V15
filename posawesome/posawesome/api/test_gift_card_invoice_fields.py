@@ -20,7 +20,10 @@ class TestGiftCardInvoiceFieldRegistration(unittest.TestCase):
         hooks = HOOKS_PATH.read_text()
         patches = PATCHES_PATH.read_text().splitlines()
 
-        self.assertIn(PATCH_PATH, hooks)
+        # One-shot schema patches belong only in patches.txt. Registering the
+        # execute function in after_migrate would rewrite user customisations
+        # on every migration.
+        self.assertNotIn(PATCH_PATH, hooks)
         self.assertIn(PATCH_MODULE, patches)
 
 

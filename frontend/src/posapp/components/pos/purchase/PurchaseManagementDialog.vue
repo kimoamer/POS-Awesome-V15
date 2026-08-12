@@ -2,8 +2,10 @@
 	<v-dialog v-model="dialog" max-width="1160px" scrollable :fullscreen="$vuetify.display.smAndDown">
 		<v-card class="purchase-mgmt-modal rounded-2xl">
 			<!-- Header Bar -->
-			<div class="purchase-mgmt-modal__header px-5 pt-4 pb-3 d-flex align-center justify-space-between border-b">
-				<div class="d-flex align-center ga-3">
+			<div
+				class="purchase-mgmt-modal__header px-5 pt-4 pb-3 d-flex align-center justify-space-between border-b"
+			>
+				<div class="purchase-mgmt-modal__title-group">
 					<div class="purchase-mgmt-header-icon">
 						<v-icon color="white" icon="mdi-inbox-full" size="22" />
 					</div>
@@ -12,17 +14,21 @@
 							{{ __("Purchase Management") }}
 						</div>
 						<div class="text-caption text-medium-emphasis">
-							{{ __("Manage receipts, supplier bills, and payments for submitted purchase orders") }}
+							{{
+								__(
+									"Manage receipts, supplier bills, and payments for submitted purchase orders",
+								)
+							}}
 						</div>
 					</div>
 				</div>
 
-				<div class="d-flex align-center ga-2">
+				<div class="purchase-mgmt-modal__header-actions">
 					<v-btn
 						color="#00838f"
 						variant="text"
 						prepend-icon="mdi-refresh"
-						class="font-weight-bold text-none"
+						class="purchase-mgmt-refresh-btn font-weight-bold text-none"
 						:loading="loading"
 						@click="loadOrders"
 					>
@@ -33,6 +39,7 @@
 						variant="text"
 						size="small"
 						color="grey-darken-1"
+						class="purchase-mgmt-icon-btn"
 						:aria-label="__('Close')"
 						@click="dialog = false"
 					/>
@@ -41,17 +48,22 @@
 
 			<!-- Tabs Bar -->
 			<div class="purchase-mgmt-tabs border-b px-2">
-				<v-tabs
-					v-model="activeTab"
-					color="#00838f"
-					align-tabs="start"
-					class="custom-mgmt-tabs"
-				>
-					<v-tab value="active" class="font-weight-bold text-none px-6">{{ __("Active") }}</v-tab>
-					<v-tab value="to_receive" class="font-weight-bold text-none px-6">{{ __("To Receive") }}</v-tab>
-					<v-tab value="to_bill" class="font-weight-bold text-none px-6">{{ __("To Bill") }}</v-tab>
-					<v-tab value="to_pay" class="font-weight-bold text-none px-6">{{ __("To Pay") }}</v-tab>
-					<v-tab value="all" class="font-weight-bold text-none px-6">{{ __("All") }}</v-tab>
+				<v-tabs v-model="activeTab" color="#00838f" align-tabs="start" class="custom-mgmt-tabs">
+					<v-tab value="active" class="purchase-mgmt-tab font-weight-bold text-none px-6">{{
+						__("Active")
+					}}</v-tab>
+					<v-tab value="to_receive" class="purchase-mgmt-tab font-weight-bold text-none px-6">{{
+						__("To Receive")
+					}}</v-tab>
+					<v-tab value="to_bill" class="purchase-mgmt-tab font-weight-bold text-none px-6">{{
+						__("To Bill")
+					}}</v-tab>
+					<v-tab value="to_pay" class="purchase-mgmt-tab font-weight-bold text-none px-6">{{
+						__("To Pay")
+					}}</v-tab>
+					<v-tab value="all" class="purchase-mgmt-tab font-weight-bold text-none px-6">{{
+						__("All")
+					}}</v-tab>
 				</v-tabs>
 			</div>
 
@@ -198,7 +210,10 @@
 						<div class="stat-info">
 							<span class="stat-label">{{ __("To Pay") }}</span>
 							<strong class="stat-value text-slate-800">
-								{{ formatAmount(payableTotal) }} <span class="text-caption text-medium-emphasis ms-1">{{ currencySymbol(posProfile?.currency) }}</span>
+								{{ formatAmount(payableTotal) }}
+								<span class="text-caption text-medium-emphasis ms-1">{{
+									currencySymbol(posProfile?.currency)
+								}}</span>
 							</strong>
 						</div>
 					</div>
@@ -246,7 +261,9 @@
 								size="x-small"
 								variant="tonal"
 								class="font-weight-bold px-2"
-								:color="item.receipt_complete ? 'success' : item.has_receipt ? 'warning' : 'grey'"
+								:color="
+									item.receipt_complete ? 'success' : item.has_receipt ? 'warning' : 'grey'
+								"
 							>
 								{{ receiptLabel(item) }}
 							</v-chip>
@@ -257,7 +274,9 @@
 								size="x-small"
 								variant="tonal"
 								class="font-weight-bold px-2"
-								:color="item.invoice_complete ? 'primary' : item.has_invoice ? 'info' : 'grey'"
+								:color="
+									item.invoice_complete ? 'primary' : item.has_invoice ? 'info' : 'grey'
+								"
 							>
 								{{ invoiceLabel(item) }}
 							</v-chip>
@@ -310,7 +329,12 @@
 
 						<template #no-data>
 							<div class="purchase-mgmt-empty py-10 text-center">
-								<v-icon icon="mdi-inbox-outline" size="44" color="medium-emphasis" class="mb-2 opacity-60" />
+								<v-icon
+									icon="mdi-inbox-outline"
+									size="44"
+									color="medium-emphasis"
+									class="mb-2 opacity-60"
+								/>
 								<div class="text-body-2 text-medium-emphasis font-weight-medium">
 									{{ __("No data available") }}
 								</div>
@@ -319,7 +343,9 @@
 					</v-data-table>
 
 					<!-- Table Pagination Footer -->
-					<div class="purchase-table-footer px-4 py-2 border-t d-flex align-center justify-space-between flex-wrap ga-2">
+					<div
+						class="purchase-table-footer px-4 py-2 border-t d-flex align-center justify-space-between flex-wrap ga-2"
+					>
 						<div class="d-flex align-center ga-2">
 							<span class="text-caption text-medium-emphasis">{{ __("Items per page:") }}</span>
 							<v-select
@@ -353,7 +379,9 @@
 									:disabled="page <= 1"
 									@click="page--"
 								/>
-								<span class="purchase-page-chip px-2 py-1 text-caption font-weight-bold rounded">
+								<span
+									class="purchase-page-chip px-2 py-1 text-caption font-weight-bold rounded"
+								>
 									{{ page }}
 								</span>
 								<v-btn
@@ -384,7 +412,9 @@
 			<v-card class="rounded-2xl">
 				<div class="px-5 pt-4 pb-3 border-b d-flex align-center justify-space-between">
 					<div>
-						<div class="text-h6 font-weight-bold text-primary">{{ previewDoc?.name || __("Purchase Order") }}</div>
+						<div class="text-h6 font-weight-bold text-primary">
+							{{ previewDoc?.name || __("Purchase Order") }}
+						</div>
 						<div class="text-caption text-medium-emphasis">
 							{{ previewDoc?.supplier_name || previewDoc?.supplier }}
 						</div>
@@ -404,7 +434,8 @@
 						<div>
 							<span>{{ __("Payable") }}</span>
 							<strong class="text-primary">
-								{{ currencySymbol(previewDoc.currency) }} {{ formatAmount(previewDoc.payable_amount) }}
+								{{ currencySymbol(previewDoc.currency) }}
+								{{ formatAmount(previewDoc.payable_amount) }}
 							</strong>
 						</div>
 					</div>
@@ -431,14 +462,24 @@
 		<!-- Action Execution Dialog (Receipt / Bill) -->
 		<v-dialog v-model="actionDialog" max-width="940px" scrollable persistent>
 			<v-card class="purchase-action-dialog rounded-2xl">
-				<div class="purchase-action-dialog__title px-5 pt-4 pb-3 border-b d-flex align-center justify-space-between">
+				<div
+					class="purchase-action-dialog__title px-5 pt-4 pb-3 border-b d-flex align-center justify-space-between"
+				>
 					<div>
 						<div class="text-h6 font-weight-bold text-primary">{{ actionTitle }}</div>
 						<div class="text-caption text-medium-emphasis">
-							{{ actionDoc?.name }} &middot; {{ actionDoc?.supplier_name || actionDoc?.supplier }}
+							{{ actionDoc?.name }} &middot;
+							{{ actionDoc?.supplier_name || actionDoc?.supplier }}
 						</div>
 					</div>
-					<v-btn icon="mdi-close" variant="text" size="small" :disabled="!!actionLoading" @click="closeActionDialog" />
+					<v-btn
+						icon="mdi-close"
+						variant="text"
+						size="small"
+						class="purchase-mgmt-icon-btn"
+						:disabled="!!actionLoading"
+						@click="closeActionDialog"
+					/>
 				</div>
 				<v-card-text class="purchase-action-dialog__body px-5 py-4">
 					<div class="purchase-action-controls mb-4">
@@ -462,10 +503,22 @@
 								{{ formatAmount(selectedActionAmount) }}
 							</strong>
 						</div>
-						<v-btn variant="tonal" color="primary" class="font-weight-bold" prepend-icon="mdi-check-all" @click="setAllActionQty">
+						<v-btn
+							variant="tonal"
+							color="primary"
+							class="font-weight-bold"
+							prepend-icon="mdi-check-all"
+							@click="setAllActionQty"
+						>
 							{{ __("All Pending") }}
 						</v-btn>
-						<v-btn variant="text" color="error" class="font-weight-bold" prepend-icon="mdi-close-circle-outline" @click="clearActionQty">
+						<v-btn
+							variant="text"
+							color="error"
+							class="font-weight-bold"
+							prepend-icon="mdi-close-circle-outline"
+							@click="clearActionQty"
+						>
 							{{ __("Clear") }}
 						</v-btn>
 					</div>
@@ -502,8 +555,16 @@
 						</template>
 					</v-data-table>
 				</v-card-text>
-				<div class="purchase-action-dialog__footer px-5 py-3 border-t d-flex align-center justify-space-between">
-					<v-btn variant="text" color="grey-darken-1" class="font-weight-bold" :disabled="!!actionLoading" @click="closeActionDialog">
+				<div
+					class="purchase-action-dialog__footer px-5 py-3 border-t d-flex align-center justify-space-between"
+				>
+					<v-btn
+						variant="text"
+						color="grey-darken-1"
+						class="font-weight-bold"
+						:disabled="!!actionLoading"
+						@click="closeActionDialog"
+					>
 						{{ __("Cancel") }}
 					</v-btn>
 					<v-btn
@@ -526,6 +587,8 @@
 			v-model="paymentDialog"
 			:pos-profile="posProfile"
 			:order="paymentOrder"
+			:total-amount="Number(paymentOrder?.payable_amount || 0)"
+			:currency="paymentOrder?.currency || posProfile?.currency || ''"
 			@submit="handlePaymentSubmit"
 		/>
 	</v-dialog>
@@ -657,7 +720,7 @@ const actionHeaders = computed(() => [
 const receiveCount = computed(() => orders.value.filter((o) => !o.receipt_complete).length);
 const billCount = computed(() => orders.value.filter((o) => !o.invoice_complete).length);
 const payableTotal = computed(() =>
-	orders.value.reduce((total, row) => total + (Number(row.payable_amount) || 0), 0)
+	orders.value.reduce((total, row) => total + (Number(row.payable_amount) || 0), 0),
 );
 
 const actionTitle = computed(() => {
@@ -666,14 +729,14 @@ const actionTitle = computed(() => {
 });
 
 const selectedActionQty = computed(() =>
-	actionRows.value.reduce((total, row) => total + (Number(row.action_qty) || 0), 0)
+	actionRows.value.reduce((total, row) => total + (Number(row.action_qty) || 0), 0),
 );
 
 const selectedActionAmount = computed(() =>
 	actionRows.value.reduce(
 		(total, row) => total + (Number(row.action_qty) || 0) * (Number(row.rate) || 0),
-		0
-	)
+		0,
+	),
 );
 
 watch(dialog, (value) => {
@@ -767,9 +830,7 @@ async function openActionDialog(row, type) {
 			.map((item) => {
 				const qty = Number(item.qty) || 0;
 				const completedQty =
-					type === "receipt"
-						? Number(item.received_qty) || 0
-						: Number(item.billed_qty) || 0;
+					type === "receipt" ? Number(item.received_qty) || 0 : Number(item.billed_qty) || 0;
 				const pendingQty = Math.max(0, qty - completedQty);
 
 				return {
@@ -945,8 +1006,51 @@ function extractServerError(error) {
 
 <style scoped>
 .purchase-mgmt-modal {
-	background: #ffffff !important;
+	background: var(--pos-dialog-bg, #ffffff) !important;
+	color: var(--pos-text-primary, #212121);
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: min(780px, calc(100dvh - 32px));
+	max-height: calc(100dvh - 32px);
+	border: 1px solid var(--pos-border-light, rgba(0, 0, 0, 0.08));
 	overflow: hidden;
+}
+
+.purchase-mgmt-modal__header {
+	flex: 0 0 auto;
+	gap: 16px;
+	background: var(--pos-surface-raised, #ffffff);
+	border-color: var(--pos-divider, rgba(0, 0, 0, 0.06)) !important;
+}
+
+.purchase-mgmt-modal__title-group,
+.purchase-mgmt-modal__header-actions {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+
+.purchase-mgmt-modal__title-group {
+	gap: 12px;
+}
+
+.purchase-mgmt-modal__title-group > div:last-child {
+	min-width: 0;
+}
+
+.purchase-mgmt-modal__header-actions {
+	gap: 8px;
+	flex: 0 0 auto;
+}
+
+.purchase-mgmt-modal__body {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto !important;
+	overscroll-behavior: contain;
+	scrollbar-gutter: stable;
+	background: var(--pos-surface-container, #fafafa);
 }
 
 .purchase-mgmt-header-icon {
@@ -964,9 +1068,34 @@ function extractServerError(error) {
 	border-bottom: 2px solid #e2e8f0;
 }
 
+.purchase-mgmt-tabs {
+	flex: 0 0 auto;
+	background: var(--pos-surface-raised, #ffffff);
+}
+
+.purchase-mgmt-tab {
+	min-height: 48px !important;
+	color: var(--pos-text-secondary, #667085) !important;
+}
+
+.purchase-mgmt-tab:hover,
+.purchase-mgmt-tab:focus-visible {
+	background: var(--pos-action-hover-bg, #f0fafa) !important;
+	color: var(--pos-action-active-fg, #006d77) !important;
+}
+
+.purchase-mgmt-tab:active,
+.purchase-mgmt-tab.v-tab--selected {
+	background: var(--pos-action-active-bg, #e6f7f8) !important;
+	color: var(--pos-action-active-fg, #006d77) !important;
+}
+
 .purchase-filter-grid-row {
 	display: grid;
-	grid-template-columns: minmax(180px, 1.3fr) minmax(140px, 1fr) minmax(140px, 1fr) minmax(135px, 0.9fr) minmax(135px, 0.9fr) 100px;
+	grid-template-columns: minmax(180px, 1.3fr) minmax(140px, 1fr) minmax(140px, 1fr) minmax(
+			135px,
+			0.9fr
+		) minmax(135px, 0.9fr) 100px;
 	gap: 10px;
 	align-items: center;
 }
@@ -985,6 +1114,8 @@ function extractServerError(error) {
 .purchase-apply-btn {
 	height: 40px !important;
 	min-height: 40px !important;
+	background: var(--pos-primary, #007681) !important;
+	color: var(--pos-on-primary, #ffffff) !important;
 }
 
 .purchase-date-picker :deep(.dp__input) {
@@ -1005,7 +1136,7 @@ function extractServerError(error) {
 	padding: 12px 14px;
 	border: 1px solid #e2e8f0;
 	border-radius: 12px;
-	background: #ffffff;
+	background: var(--pos-surface-raised, #ffffff);
 	display: flex;
 	align-items: center;
 	gap: 12px;
@@ -1013,7 +1144,8 @@ function extractServerError(error) {
 }
 
 .stat-card:hover {
-	box-shadow: 0 3px 10px rgba(15, 23, 42, 0.05);
+	border-color: color-mix(in srgb, var(--pos-primary, #007681) 28%, var(--pos-border, #d6dde5));
+	box-shadow: 0 3px 10px var(--pos-shadow-light, rgba(15, 23, 42, 0.05));
 }
 
 .stat-icon-box {
@@ -1063,12 +1195,12 @@ function extractServerError(error) {
 .purchase-mgmt-table-wrapper {
 	border: 1px solid #e2e8f0;
 	border-radius: 12px;
-	background: #ffffff;
+	background: var(--pos-surface-raised, #ffffff);
 	overflow: hidden;
 }
 
 .purchase-mgmt-custom-table :deep(.v-table) {
-	background: #ffffff !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
 }
 
 .purchase-mgmt-custom-table :deep(th) {
@@ -1145,6 +1277,68 @@ function extractServerError(error) {
 	background: #f8fafc;
 }
 
+.purchase-mgmt-refresh-btn,
+.purchase-mgmt-icon-btn,
+.purchase-apply-btn,
+.purchase-mgmt-modal :deep(.v-btn) {
+	transition:
+		background-color 0.15s ease,
+		border-color 0.15s ease,
+		color 0.15s ease,
+		transform 0.1s ease !important;
+}
+
+.purchase-mgmt-refresh-btn {
+	min-height: 42px !important;
+	color: var(--pos-primary, #007681) !important;
+}
+
+.purchase-mgmt-refresh-btn:hover,
+.purchase-mgmt-refresh-btn:focus-visible,
+.purchase-mgmt-icon-btn:hover,
+.purchase-mgmt-icon-btn:focus-visible {
+	background: var(--pos-action-hover-bg, #f0fafa) !important;
+	color: var(--pos-action-active-fg, #006d77) !important;
+}
+
+.purchase-mgmt-refresh-btn:active,
+.purchase-mgmt-icon-btn:active {
+	background: var(--pos-action-pressed-bg, #d8f0f2) !important;
+	color: var(--pos-action-pressed-fg, #005f68) !important;
+	transform: translateY(1px);
+}
+
+.purchase-apply-btn:hover,
+.purchase-apply-btn:focus-visible {
+	background: var(--pos-primary-variant, #005f68) !important;
+	color: var(--pos-on-primary, #ffffff) !important;
+}
+
+.purchase-apply-btn:active {
+	background: color-mix(in srgb, var(--pos-primary-variant, #005f68) 88%, #000000) !important;
+	color: var(--pos-on-primary, #ffffff) !important;
+	transform: translateY(1px);
+}
+
+.purchase-mgmt-modal :deep(.v-btn__content),
+.purchase-mgmt-modal :deep(.v-btn .v-icon) {
+	position: relative;
+	z-index: 1;
+	color: inherit !important;
+	opacity: 1 !important;
+}
+
+.purchase-mgmt-modal :deep(.v-btn__overlay),
+.purchase-mgmt-modal :deep(.v-btn__underlay),
+.purchase-mgmt-modal :deep(.v-ripple__container) {
+	display: none !important;
+	opacity: 0 !important;
+}
+
+.purchase-table-footer {
+	background: var(--pos-surface-muted, #f4f7fb);
+}
+
 @media (max-width: 960px) {
 	.purchase-filter-grid-row {
 		grid-template-columns: repeat(3, 1fr);
@@ -1152,14 +1346,74 @@ function extractServerError(error) {
 	.purchase-mgmt-stat-grid {
 		grid-template-columns: repeat(2, 1fr);
 	}
+
+	.purchase-mgmt-modal {
+		height: 100dvh;
+		max-height: 100dvh;
+		border-radius: 0 !important;
+	}
 }
 
 @media (max-width: 600px) {
+	.purchase-mgmt-modal__header {
+		align-items: flex-start !important;
+		padding: 12px !important;
+	}
+
+	.purchase-mgmt-modal__title-group {
+		gap: 8px;
+	}
+
+	.purchase-mgmt-modal__title-group .text-caption {
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+
+	.purchase-mgmt-refresh-btn {
+		min-width: 44px !important;
+		width: 44px;
+		padding: 0 !important;
+	}
+
+	.purchase-mgmt-refresh-btn :deep(.v-btn__content) {
+		font-size: 0;
+		gap: 0;
+	}
+
+	.purchase-mgmt-refresh-btn :deep(.v-icon) {
+		font-size: 20px !important;
+	}
+
+	.purchase-mgmt-modal__body {
+		padding: 12px !important;
+	}
+
 	.purchase-filter-grid-row {
 		grid-template-columns: 1fr;
 	}
 	.purchase-mgmt-stat-grid {
-		grid-template-columns: 1fr;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 8px;
+	}
+
+	.stat-card {
+		padding: 10px;
+		gap: 8px;
+	}
+
+	.stat-icon-box {
+		width: 38px;
+		height: 38px;
+	}
+
+	.purchase-mgmt-table-wrapper {
+		overflow-x: auto;
+	}
+
+	.purchase-mgmt-custom-table {
+		min-width: 720px;
 	}
 }
 </style>

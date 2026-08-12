@@ -32,6 +32,7 @@
 					v-for="action in mobileActions"
 					:key="action.id"
 					type="button"
+					:data-test="`drawer-quick-action-${action.id}`"
 					class="drawer-quick-action"
 					:class="{
 						'drawer-quick-action--danger': action.tone === 'danger',
@@ -84,9 +85,7 @@ const drawerOpen = ref(props.drawer);
 const activeItem = ref(props.item);
 
 const scrimColor = computed(() => {
-	// Use an opaque background in light mode so that
-	// underlying content doesn't show through the drawer
-	return props.isDark ? true : "rgba(255,255,255,1)";
+	return props.isDark ? "rgba(0, 0, 0, 0.58)" : "rgba(15, 23, 42, 0.34)";
 });
 
 watch(
@@ -137,7 +136,7 @@ function closeDrawer() {
 <style scoped>
 .drawer-custom {
 	width: min(320px, 86vw) !important;
-	background: color-mix(in srgb, var(--pos-navbar-bg) 96%, transparent) !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
 	color: var(--pos-text-primary) !important;
 	border-inline-end: 1px solid var(--pos-border-light) !important;
 	box-shadow: 0 18px 42px rgba(15, 23, 42, 0.14) !important;
@@ -228,11 +227,46 @@ function closeDrawer() {
 }
 
 .drawer-item:hover,
+.drawer-item:focus-visible,
+.drawer-item:active,
+.drawer-item.v-list-item--active,
 .active-item {
 	background: color-mix(in srgb, var(--pos-primary) 10%, var(--pos-surface)) !important;
 	border-color: color-mix(in srgb, var(--pos-primary) 18%, var(--pos-border-light)) !important;
-	color: var(--pos-primary);
+	color: var(--pos-action-active-fg, var(--pos-primary)) !important;
 	transform: translateY(-1px);
+}
+
+.drawer-item:active,
+.drawer-item.v-list-item--active,
+.active-item {
+	background: var(--pos-action-active-bg) !important;
+}
+
+.drawer-item:hover :deep(.v-list-item__content),
+.drawer-item:hover :deep(.v-list-item-title),
+.drawer-item:hover :deep(.v-icon),
+.drawer-item:focus-visible :deep(.v-list-item__content),
+.drawer-item:focus-visible :deep(.v-list-item-title),
+.drawer-item:focus-visible :deep(.v-icon),
+.drawer-item:active :deep(.v-list-item__content),
+.drawer-item:active :deep(.v-list-item-title),
+.drawer-item:active :deep(.v-icon),
+.drawer-item.v-list-item--active :deep(.v-list-item__content),
+.drawer-item.v-list-item--active :deep(.v-list-item-title),
+.drawer-item.v-list-item--active :deep(.v-icon),
+.active-item :deep(.v-list-item__content),
+.active-item :deep(.v-list-item-title),
+.active-item :deep(.v-icon) {
+	color: inherit !important;
+	-webkit-text-fill-color: currentColor !important;
+	opacity: 1 !important;
+}
+
+.drawer-item :deep(.v-list-item__overlay),
+.drawer-item :deep(.v-list-item__underlay) {
+	background: transparent !important;
+	opacity: 0 !important;
 }
 
 .active-item .drawer-icon-shell {
@@ -272,6 +306,23 @@ function closeDrawer() {
 	border-color: color-mix(in srgb, var(--pos-primary) 24%, var(--pos-border-light));
 	background: var(--pos-hover-bg);
 	box-shadow: 0 6px 14px rgba(15, 23, 42, 0.055);
+}
+
+.drawer-quick-action:focus-visible {
+	border-color: var(--pos-primary);
+	background: var(--pos-action-hover-bg);
+}
+
+.drawer-quick-action:active {
+	transform: translateY(0);
+	border-color: color-mix(in srgb, var(--pos-primary) 34%, var(--pos-border-light));
+	background: var(--pos-action-pressed-bg);
+	color: var(--pos-action-pressed-fg);
+}
+
+.drawer-quick-action:active :is(.drawer-quick-action__title, .drawer-quick-action__subtitle, .drawer-quick-action__icon) {
+	color: inherit !important;
+	-webkit-text-fill-color: currentColor !important;
 }
 
 .drawer-quick-action--danger:hover {

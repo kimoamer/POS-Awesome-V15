@@ -427,6 +427,13 @@ export const useUpdateStore = defineStore("update", {
 			// @ts-ignore
 			const frappe = (window as any).frappe;
 			if (!frappe?.call) return;
+			const explicitRoles = Array.isArray(frappe.user_roles)
+				? frappe.user_roles
+				: null;
+			const isSystemManager =
+				frappe.session?.user === "Administrator" ||
+				explicitRoles?.includes("System Manager");
+			if (explicitRoles && !isSystemManager) return;
 			try {
 				const r = await frappe.call({
 					method: "posawesome.posawesome.api.utilities.get_remote_update_info",

@@ -9,11 +9,14 @@ import {
 	type SyncResponse,
 	type SyncScopedProfile,
 } from "./common";
+import { buildOfflineProfileScope } from "../../scope";
 
 type ItemPricesFetcher = (_args: {
 	posProfile: SyncScopedProfile;
 	watermark?: string | null;
-	offset?: number;
+	startAfter?: string | null;
+	syncUntil?: string | null;
+	limit?: number;
 	schemaVersion?: string | null;
 }) => Promise<SyncResponse>;
 
@@ -35,45 +38,64 @@ function itemPriceNames(response: SyncResponse) {
 export async function syncItemPricesResource(
 	args: ItemPricesSyncArgs,
 ): Promise<ResourceSyncResult> {
-	if (!args.watermark) {
-		await itemPriceRepository.clear();
+	const storageScope = buildOfflineProfileScope(args.posProfile);
+	let effectiveWatermark = args.watermark || null;
+	let effectiveSchemaVersion = args.schemaVersion || null;
+	let attemptedSchemaRecovery = false;
+	if (!effectiveWatermark) {
+		await itemPriceRepository.clear(storageScope);
 	}
 
-	let offset = 0;
+	let startAfter: string | null = null;
+	let syncUntil: string | null = null;
 	let finalResponse: SyncResponse = {};
 	let scopeApplied = false;
 	while (true) {
 		const response = await args.fetcher({
 			posProfile: args.posProfile,
-			watermark: args.watermark || null,
-			offset,
-			schemaVersion: args.schemaVersion,
+			watermark: effectiveWatermark,
+			startAfter,
+			syncUntil,
+			limit: 1000,
+			schemaVersion: effectiveSchemaVersion,
 		});
 		finalResponse = response;
+		syncUntil = response?.sync_until || syncUntil;
 		if (
 			!scopeApplied &&
 			Array.isArray(response?.scope?.price_lists)
 		) {
 			await itemPriceRepository.deleteOutsidePriceLists(
 				response.scope.price_lists,
+				storageScope,
 			);
 			scopeApplied = true;
 		}
 
 		if (response?.full_resync_required) {
-			await itemPriceRepository.clear();
+			await itemPriceRepository.clear(storageScope);
+			if (!attemptedSchemaRecovery) {
+				attemptedSchemaRecovery = true;
+				effectiveWatermark = null;
+				effectiveSchemaVersion = null;
+				startAfter = null;
+				syncUntil = null;
+				finalResponse = {};
+				scopeApplied = false;
+				continue;
+			}
 			await persistResourceSyncState({
 				resourceId: "item_prices",
 				status: "limited",
 				posProfile: args.posProfile,
 				response,
-				watermark: args.watermark,
+				watermark: effectiveWatermark,
 			});
 			return buildResourceSyncResult(
 				"item_prices",
 				"limited",
 				response,
-				args.watermark,
+				effectiveWatermark,
 			);
 		}
 
@@ -83,17 +105,20 @@ export async function syncItemPricesResource(
 				(row): row is OfflineItemPriceRecord =>
 					!!row?.name && !!row?.price_list && !!row?.item_code,
 			);
-		await itemPriceRepository.upsertMany(rows);
-		await itemPriceRepository.deleteByNames(itemPriceNames(response));
+		await itemPriceRepository.upsertMany(rows, storageScope);
+		await itemPriceRepository.deleteByNames(
+			itemPriceNames(response),
+			storageScope,
+		);
 
 		if (!response?.has_more) {
 			break;
 		}
-		const nextOffset = Number(response?.next_offset);
-		if (!Number.isFinite(nextOffset) || nextOffset <= offset) {
-			throw new Error("Item Price sync returned an invalid next_offset");
+		const nextCursor = String(response?.next_cursor || "").trim();
+		if (!nextCursor || nextCursor === startAfter) {
+			throw new Error("Item Price sync pagination cursor did not advance");
 		}
-		offset = nextOffset;
+		startAfter = nextCursor;
 	}
 
 	await persistResourceSyncState({
@@ -101,12 +126,12 @@ export async function syncItemPricesResource(
 		status: "fresh",
 		posProfile: args.posProfile,
 		response: finalResponse,
-		watermark: args.watermark,
+		watermark: effectiveWatermark,
 	});
 	return buildResourceSyncResult(
 		"item_prices",
 		"fresh",
 		finalResponse,
-		args.watermark,
+		effectiveWatermark,
 	);
 }

@@ -60,6 +60,7 @@ export interface PricingRule {
 }
 
 export interface RuleContext {
+	pos_profile?: string;
 	company?: string;
 	price_list?: string;
 	currency?: string;
@@ -67,6 +68,27 @@ export interface RuleContext {
 	customer_group?: string;
 	territory?: string;
 	date?: string | Date;
+}
+
+type PricingProfileLike = {
+	name?: string | null;
+	company?: string | null;
+	selling_price_list?: string | null;
+	currency?: string | null;
+};
+
+export function buildPricingRuleContext(
+	profile: PricingProfileLike | null | undefined,
+	overrides: Partial<RuleContext> = {},
+): RuleContext {
+	return {
+		pos_profile: profile?.name || "",
+		company: profile?.company || "",
+		price_list: profile?.selling_price_list || "",
+		currency: profile?.currency || "",
+		date: new Date().toISOString().slice(0, 10),
+		...overrides,
+	};
 }
 
 const benefitScore = (rule: PricingRule) => {
@@ -93,6 +115,7 @@ const compareRules = (a: PricingRule, b: PricingRule) => {
 
 const buildContextKey = (ctx: RuleContext = {}) => {
 	const payload = {
+		pos_profile: ctx.pos_profile || "",
 		company: ctx.company || "",
 		price_list: ctx.price_list || "",
 		currency: ctx.currency || "",
@@ -277,7 +300,12 @@ export const usePricingRulesStore = defineStore("pricing-rules", () => {
 			return;
 		}
 
-		if (!ctx.company || !ctx.price_list || !ctx.currency) {
+		if (
+			!ctx.pos_profile ||
+			!ctx.company ||
+			!ctx.price_list ||
+			!ctx.currency
+		) {
 			return;
 		}
 
@@ -292,6 +320,7 @@ export const usePricingRulesStore = defineStore("pricing-rules", () => {
 				const response = await (frappe.call as any)({
 					method: "posawesome.posawesome.api.pricing_rules.get_active_pricing_rules",
 					args: {
+						pos_profile: ctx.pos_profile,
 						company: ctx.company,
 						price_list: ctx.price_list,
 						currency: ctx.currency,
@@ -309,10 +338,10 @@ export const usePricingRulesStore = defineStore("pricing-rules", () => {
 					: [];
 				setSnapshot(snapshot, desiredKey);
 			} catch (error) {
-				console.error("Failed to fetch pricing rules", error);
 				if (force && requestId === latestRequestId) {
 					clearSnapshot();
 				}
+				throw error;
 			}
 		})();
 

@@ -1,5 +1,5 @@
 <template>
-	<v-dialog v-model="dialogOpen" max-width="650" persistent>
+	<v-dialog v-model="dialogOpen" max-width="650">
 		<v-card class="about-dialog-card-improved pos-themed-card">
 			<v-card-title class="about-header-improved pa-5">
 				<div class="header-content-improved">

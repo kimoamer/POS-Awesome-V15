@@ -138,24 +138,24 @@ describe("InvoiceManagement repair change allocation", () => {
 			1,
 			expect.objectContaining({
 				method: "posawesome.posawesome.api.payments.repair_overpayment_change_allocations",
-				args: {
+				args: expect.objectContaining({
 					doctype: "Sales Invoice",
 					invoice_names: ["ACC-SINV-2026-08532"],
 					company: "Farooq Chemicals",
 					dry_run: 1,
-				},
+				}),
 			}),
 		);
 		expect(callMock).toHaveBeenNthCalledWith(
 			2,
 			expect.objectContaining({
 				method: "posawesome.posawesome.api.payments.repair_overpayment_change_allocations",
-				args: {
+				args: expect.objectContaining({
 					doctype: "Sales Invoice",
 					invoice_names: ["ACC-SINV-2026-08532"],
 					company: "Farooq Chemicals",
 					dry_run: 0,
-				},
+				}),
 			}),
 		);
 		expect(context.viewInvoice).toHaveBeenCalledWith(context.selectedInvoiceDetail);

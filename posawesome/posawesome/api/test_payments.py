@@ -69,6 +69,8 @@ def _install_stubs():
     erpnext_compat = types.ModuleType("posawesome.posawesome.api.erpnext_compat")
     payment_request_module = types.ModuleType("erpnext.accounts.doctype.payment_request.payment_request")
     utilities_module = types.ModuleType("posawesome.posawesome.api.utilities")
+    employees_module = types.ModuleType("posawesome.posawesome.api.employees")
+    posa_utils_module = types.ModuleType("posawesome.posawesome.api.utils")
 
     created_docs = []
     get_all_responses = {}
@@ -88,6 +90,7 @@ def _install_stubs():
     frappe_module.db = types.SimpleNamespace(
         get_value=lambda *args, **kwargs: None,
         sql=lambda *args, **kwargs: list(sql_responses),
+        exists=lambda *args, **kwargs: True,
     )
 
     def _matches_filters(row, filters):
@@ -96,6 +99,8 @@ def _install_stubs():
 
         for key, expected in filters.items():
             actual = getattr(row, key, None)
+            if key == "pos_profile" and actual is None:
+                actual = "Main POS"
             if isinstance(expected, (list, tuple)) and len(expected) == 2:
                 operator, value = expected
                 if operator == ">" and not actual > value:
@@ -111,6 +116,7 @@ def _install_stubs():
         return [row for row in rows if _matches_filters(row, filters or {})]
 
     frappe_module.get_all = _get_all
+    frappe_module.get_list = _get_all
 
     def _make_payment_entry():
         doc = FakePaymentEntry()
@@ -150,6 +156,13 @@ def _install_stubs():
     payment_request_module.get_dummy_message = lambda *_args, **_kwargs: ""
     payment_request_module.get_existing_payment_request_amount = lambda *_args, **_kwargs: 0
     utilities_module.ensure_child_doctype = lambda *_args, **_kwargs: None
+    employees_module.verify_cashier_grant = lambda *_args, **_kwargs: True
+    posa_utils_module.assert_doctype_permission = lambda *_args, **_kwargs: True
+    posa_utils_module.assert_document_permission = lambda *_args, **_kwargs: True
+    posa_utils_module.get_pos_request_context = lambda *_args, **kwargs: types.SimpleNamespace(
+        company=kwargs.get("company") or "Test Company",
+        profile_name="Main POS",
+    )
 
     sys.modules["frappe"] = frappe_module
     sys.modules["frappe.utils"] = frappe_utils
@@ -157,6 +170,8 @@ def _install_stubs():
     sys.modules["erpnext.accounts.doctype.payment_request.payment_request"] = payment_request_module
     sys.modules["posawesome.posawesome.api.utilities"] = utilities_module
     sys.modules["posawesome.posawesome.api.erpnext_compat"] = erpnext_compat
+    sys.modules["posawesome.posawesome.api.employees"] = employees_module
+    sys.modules["posawesome.posawesome.api.utils"] = posa_utils_module
 
     return created_docs, get_all_responses, sql_responses, get_doc_responses, reconcile_calls
 
@@ -174,6 +189,7 @@ def _load_payments_module():
 class TestRedeemingCustomerCredit(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         (
             cls.created_docs,
             cls.get_all_responses,
@@ -182,13 +198,138 @@ class TestRedeemingCustomerCredit(unittest.TestCase):
             cls.reconcile_calls,
         ) = _install_stubs()
         cls.payments_module = _load_payments_module()
+        cls.payments_module.get_pos_request_context = lambda *_args, **kwargs: types.SimpleNamespace(
+            company=kwargs.get("company") or "Test Company",
+            profile_name="Main POS",
+        )
+        cls.payments_module.assert_doctype_permission = lambda *_args, **_kwargs: True
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def setUp(self):
         self.created_docs.clear()
         self.get_all_responses.clear()
         self.sql_responses.clear()
         self.get_doc_responses.clear()
+        self.get_doc_responses[("Customer", "CUST-0001")] = FakeChildRow(
+            {"name": "CUST-0001", "disabled": 0}
+        )
         self.reconcile_calls.clear()
+        self.payments_module.frappe.get_cached_doc = lambda *_args, **_kwargs: FakeChildRow(
+            {"use_customer_credit": 1}
+        )
+
+    def test_customer_credit_claim_uses_locked_server_balance(self):
+        self.get_doc_responses[("Payment Entry", "ACC-PAY-CREDIT-0001")] = FakeChildRow(
+            {
+                "name": "ACC-PAY-CREDIT-0001",
+                "docstatus": 1,
+                "company": "Test Company",
+                "party_type": "Customer",
+                "party": "CUST-0001",
+                "payment_type": "Receive",
+                "unallocated_amount": 50,
+            }
+        )
+        invoice = FakeChildRow(
+            {
+                "company": "Test Company",
+                "customer": "CUST-0001",
+                "pos_profile": "Main POS",
+                "grand_total": 100,
+                "rounded_total": 100,
+                "is_return": 0,
+            }
+        )
+        data = {
+            "redeemed_customer_credit": 30,
+            "customer_credit_dict": [
+                {
+                    "type": "Advance",
+                    "credit_origin": "ACC-PAY-CREDIT-0001",
+                    "total_credit": 999999,
+                    "credit_to_redeem": 30,
+                }
+            ],
+        }
+
+        rows = self.payments_module.validate_customer_credit_claims(invoice, data)
+
+        self.assertEqual(rows[0]["total_credit"], 50)
+        self.assertEqual(data["redeemed_customer_credit"], 30)
+
+    def test_customer_credit_claim_rejects_cross_company_source(self):
+        self.get_doc_responses[("Payment Entry", "ACC-PAY-OTHER-0001")] = FakeChildRow(
+            {
+                "name": "ACC-PAY-OTHER-0001",
+                "docstatus": 1,
+                "company": "Other Company",
+                "party_type": "Customer",
+                "party": "CUST-0001",
+                "payment_type": "Receive",
+                "unallocated_amount": 50,
+            }
+        )
+        invoice = FakeChildRow(
+            {
+                "company": "Test Company",
+                "customer": "CUST-0001",
+                "pos_profile": "Main POS",
+                "grand_total": 100,
+                "is_return": 0,
+            }
+        )
+        data = {
+            "redeemed_customer_credit": 30,
+            "customer_credit_dict": [
+                {
+                    "type": "Advance",
+                    "credit_origin": "ACC-PAY-OTHER-0001",
+                    "credit_to_redeem": 30,
+                }
+            ],
+        }
+
+        with self.assertRaisesRegex(Exception, "no longer available"):
+            self.payments_module.validate_customer_credit_claims(invoice, data)
+
+    def test_customer_credit_claim_rejects_mismatched_total(self):
+        self.get_doc_responses[("Payment Entry", "ACC-PAY-CREDIT-0002")] = FakeChildRow(
+            {
+                "name": "ACC-PAY-CREDIT-0002",
+                "docstatus": 1,
+                "company": "Test Company",
+                "party_type": "Customer",
+                "party": "CUST-0001",
+                "payment_type": "Receive",
+                "unallocated_amount": 50,
+            }
+        )
+        invoice = FakeChildRow(
+            {
+                "company": "Test Company",
+                "customer": "CUST-0001",
+                "pos_profile": "Main POS",
+                "grand_total": 100,
+                "is_return": 0,
+            }
+        )
+        data = {
+            "redeemed_customer_credit": 50,
+            "customer_credit_dict": [
+                {
+                    "type": "Advance",
+                    "credit_origin": "ACC-PAY-CREDIT-0002",
+                    "credit_to_redeem": 20,
+                }
+            ],
+        }
+
+        with self.assertRaisesRegex(Exception, "does not match"):
+            self.payments_module.validate_customer_credit_claims(invoice, data)
 
     def test_advance_credit_overpayment_keeps_full_received_amount_and_allocates_only_due(self):
         invoice_doc = types.SimpleNamespace(
@@ -361,6 +502,7 @@ class TestRedeemingCustomerCredit(unittest.TestCase):
 
         result = self.payments_module.repair_overpayment_change_allocations(
             invoice_names=["ACC-SINV-2026-08532"],
+            company="Farooq Chemicals",
             dry_run=1,
         )
 
@@ -420,6 +562,7 @@ class TestRedeemingCustomerCredit(unittest.TestCase):
 
         result = self.payments_module.repair_overpayment_change_allocations(
             invoice_names=["ACC-SINV-2026-08532"],
+            company="Farooq Chemicals",
             dry_run=0,
         )
 
@@ -487,6 +630,7 @@ class TestRedeemingCustomerCredit(unittest.TestCase):
         result = self.payments_module.repair_overpayment_change_allocations(
             invoice_names=["ACC-PINV-2026-00011"],
             doctype="POS Invoice",
+            company="Farooq Chemicals",
             dry_run=1,
         )
 
@@ -556,6 +700,7 @@ class TestRedeemingCustomerCredit(unittest.TestCase):
 
         result = self.payments_module.repair_overpayment_change_allocations(
             invoice_names=["ACC-SINV-2026-08540"],
+            company="Farooq Chemicals",
             dry_run=1,
         )
 
@@ -622,6 +767,7 @@ class TestRedeemingCustomerCredit(unittest.TestCase):
 
         result = self.payments_module.repair_overpayment_change_allocations(
             invoice_names=["ACC-SINV-2026-08541"],
+            company="Farooq Chemicals",
             dry_run=1,
         )
 
@@ -690,6 +836,7 @@ class TestRedeemingCustomerCredit(unittest.TestCase):
 
         result = self.payments_module.repair_overpayment_change_allocations(
             invoice_names=["ACC-SINV-2026-08542"],
+            company="Farooq Chemicals",
             dry_run=1,
         )
 

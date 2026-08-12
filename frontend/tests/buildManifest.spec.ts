@@ -40,6 +40,12 @@ describe("build manifest helpers", () => {
 				fileName: "materialdesignicons-webfont-ICONS.woff2",
 				source: "font",
 			},
+			"materialdesignicons-webfont-LEGACY.ttf": {
+				type: "asset",
+				name: "materialdesignicons-webfont.ttf",
+				fileName: "materialdesignicons-webfont-LEGACY.ttf",
+				source: "font",
+			},
 			"roboto-latin-400-normal-TEXT.woff": {
 				type: "asset",
 				name: "roboto-latin-400-normal.woff",
@@ -54,7 +60,10 @@ describe("build manifest helpers", () => {
 				loader: "/assets/posawesome/dist/js/loader-XYZ123.js?v=build-2000",
 				posawesome:
 					"/assets/posawesome/dist/js/posawesome-AAA999.js?v=build-2000",
-				css: "/assets/posawesome/dist/js/style-Z9Z9.css?v=build-2000",
+				css: "/assets/posawesome/dist/js/posawesome.css?v=build-2000",
+				styles: [
+					"/assets/posawesome/dist/js/style-Z9Z9.css?v=build-2000",
+				],
 				offlineIndex:
 					"/assets/posawesome/dist/js/offline/index-AbCd1234.js",
 				fonts: [
@@ -65,6 +74,41 @@ describe("build manifest helpers", () => {
 		expect(payload.assets.fonts).not.toContain(
 			"/assets/posawesome/dist/js/roboto-latin-400-normal-TEXT.woff",
 		);
+		expect(payload.assets.fonts).not.toContain(
+			"/assets/posawesome/dist/js/materialdesignicons-webfont-LEGACY.ttf",
+		);
+	});
+
+	it("publishes every stylesheet attached to the POS entry when CSS is split", () => {
+		const payload = buildVersionPayload("split-1", {
+			"posawesome-ENTRY.js": {
+				type: "chunk",
+				name: "posawesome",
+				fileName: "posawesome-ENTRY.js",
+				imports: ["vuetify-UI.js"],
+				viteMetadata: {
+					importedCss: new Set([
+						"posawesome-SHELL.css",
+						"vendor-BASE.css",
+					]),
+				},
+			},
+			"vuetify-UI.js": {
+				type: "chunk",
+				name: "vuetify",
+				fileName: "vuetify-UI.js",
+				imports: [],
+				viteMetadata: {
+					importedCss: new Set(["vuetify-UI.css"]),
+				},
+			},
+		});
+
+		expect(payload.assets.styles).toEqual([
+			"/assets/posawesome/dist/js/posawesome-SHELL.css?v=split-1",
+			"/assets/posawesome/dist/js/vendor-BASE.css?v=split-1",
+			"/assets/posawesome/dist/js/vuetify-UI.css?v=split-1",
+		]);
 	});
 
 	it("falls back to legacy shell paths + cache-busts when bundle lookup fails", () => {
@@ -79,6 +123,9 @@ describe("build manifest helpers", () => {
 		expect(payload.assets.css).toBe(
 			"/assets/posawesome/dist/js/posawesome.css?v=build%20with%20spaces",
 		);
+		expect(payload.assets.styles).toEqual([
+			"/assets/posawesome/dist/js/posawesome.css?v=build%20with%20spaces",
+		]);
 		expect(payload.assets.fonts).toEqual([]);
 	});
 });

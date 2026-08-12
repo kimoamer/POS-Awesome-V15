@@ -7,16 +7,13 @@ describe("Payment Responsive Dialogs Contract", () => {
 	it("renders dialog shell and close button per viewport mode", () => {
 		const wrapper = mount(PaymentDialogs, {
 			props: {
-				modelValue: true,
-				title: "Test Dialog",
+				customDaysDialog: true,
+				invoiceDoc: {},
 				viewportMode: "phone",
-			},
-			slots: {
-				default: '<div class="dialog-body">Body Content</div>',
 			},
 		});
 
-		expect(wrapper.text()).toContain("Test Dialog");
+		expect(wrapper.text()).toContain("Custom Due Days");
 		expect(wrapper.find(".payment-dialog--phone").exists()).toBe(true);
 		expect(wrapper.find(".payment-dialog__close").exists()).toBe(true);
 	});

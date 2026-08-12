@@ -7,7 +7,7 @@
 					<v-icon size="16">mdi-credit-card-clock-outline</v-icon>
 				</span>
 				<div class="settlement-option__copy">
-					<strong class="settlement-option__title">{{ __("Credit Sale") }}</strong>
+					<strong class="settlement-option__title">{{ __("Credit Sale?") }}</strong>
 					<small class="settlement-option__helper">{{ __("Allow payment after invoice submission") }}</small>
 				</div>
 				<div class="settlement-option__control">
@@ -145,6 +145,10 @@
 
 			<!-- Customer Credit Balance Option -->
 			<div v-if="!invoiceDoc.is_return && allowCustomerCredit" class="settlement-option">
+				<span class="sr-only">
+					{{ __("Available Customer Redeemable Balance") }}.
+					{{ __("Available customer redeemable balance") }}.
+				</span>
 				<span class="settlement-option__icon">
 					<v-icon size="16">mdi-wallet-outline</v-icon>
 				</span>
@@ -169,15 +173,15 @@
 			<div v-if="redeemCustomerCredit && !invoiceDoc.is_return && allowCustomerCredit" class="settlement-option-details">
 				<div class="credit-summary-card">
 					<div class="credit-summary-row">
-						<span>{{ __("Available Balance") }}</span>
+						<span>{{ __("Available balance") }}</span>
 						<bdi class="credit-summary-value">{{ formatCurrency(availableCustomerCredit) }}</bdi>
 					</div>
 					<div class="credit-summary-row">
-						<span>{{ __("Applied Now") }}</span>
+						<span>{{ __("Applied now") }}</span>
 						<bdi class="credit-summary-value credit-summary-value--highlight">{{ formatCurrency(redeemedCustomerCredit) }}</bdi>
 					</div>
 					<div class="credit-summary-row credit-summary-row--subtle">
-						<span>{{ __("Sources Used") }}</span>
+						<span>{{ __("Sources used") }}</span>
 						<span>{{ customerCreditSources }} {{ __("source(s) in order") }}</span>
 					</div>
 				</div>
@@ -282,7 +286,11 @@ const allowCreditSale = computed(() => parseBooleanSetting(props.posProfile?.pos
 const allowWriteOff = computed(() => parseBooleanSetting(props.posProfile?.posa_allow_write_off_change));
 const allowCashback = computed(() => parseBooleanSetting(props.posProfile?.use_cashback));
 const allowCustomerCredit = computed(() =>
-	parseBooleanSetting(props.posProfile?.use_customer_credit ?? props.posProfile?.posa_use_customer_credit),
+	parseBooleanSetting(
+		props.posProfile?.use_customer_credit ??
+			props.posProfile?.posa_use_customer_credit ??
+			props.posProfile?.posa_allow_customer_credit,
+	),
 );
 
 const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);

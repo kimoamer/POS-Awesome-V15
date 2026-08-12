@@ -25,6 +25,24 @@ type BootCriticalSyncArgs = {
 	fetcher: BootCriticalFetcher;
 };
 
+async function fetchWithSchemaRecovery(args: BootCriticalSyncArgs) {
+	let effectiveArgs = args;
+	let response = await args.fetcher({
+		posProfile: args.posProfile,
+		watermark: args.watermark,
+		schemaVersion: args.schemaVersion,
+	});
+	if (response?.full_resync_required) {
+		effectiveArgs = { ...args, watermark: null, schemaVersion: null };
+		response = await args.fetcher({
+			posProfile: args.posProfile,
+			watermark: null,
+			schemaVersion: null,
+		});
+	}
+	return { response, effectiveArgs };
+}
+
 function findChange(response: SyncResponse, key: string) {
 	return (response?.changes || []).find((entry) => entry?.key === key) || null;
 }
@@ -48,11 +66,7 @@ async function finalizeState(
 export async function syncBootstrapConfigResource(
 	args: BootCriticalSyncArgs,
 ): Promise<ResourceSyncResult> {
-	const response = await args.fetcher({
-		posProfile: args.posProfile,
-		watermark: args.watermark,
-		schemaVersion: args.schemaVersion,
-	});
+	const { response, effectiveArgs } = await fetchWithSchemaRecovery(args);
 
 	if (response?.full_resync_required) {
 		refreshSnapshotFromSync({
@@ -61,7 +75,7 @@ export async function syncBootstrapConfigResource(
 				taxInclusive: null,
 			},
 		});
-		return finalizeState("bootstrap_config", "limited", args, response);
+		return finalizeState("bootstrap_config", "limited", effectiveArgs, response);
 	}
 
 	const bootstrapChange = findChange(response, "bootstrap_config");
@@ -86,17 +100,13 @@ export async function syncBootstrapConfigResource(
 		});
 	}
 
-	return finalizeState("bootstrap_config", "fresh", args, response);
+	return finalizeState("bootstrap_config", "fresh", effectiveArgs, response);
 }
 
 export async function syncPriceListMetaResource(
 	args: BootCriticalSyncArgs,
 ): Promise<ResourceSyncResult> {
-	const response = await args.fetcher({
-		posProfile: args.posProfile,
-		watermark: args.watermark,
-		schemaVersion: args.schemaVersion,
-	});
+	const { response, effectiveArgs } = await fetchWithSchemaRecovery(args);
 
 	if (response?.full_resync_required) {
 		refreshSnapshotFromSync({
@@ -105,7 +115,7 @@ export async function syncPriceListMetaResource(
 				priceListMetaReady: false,
 			},
 		});
-		return finalizeState("price_list_meta", "limited", args, response);
+		return finalizeState("price_list_meta", "limited", effectiveArgs, response);
 	}
 
 	const priceListChange = findChange(response, "price_list_meta");
@@ -119,5 +129,5 @@ export async function syncPriceListMetaResource(
 		});
 	}
 
-	return finalizeState("price_list_meta", "fresh", args, response);
+	return finalizeState("price_list_meta", "fresh", effectiveArgs, response);
 }

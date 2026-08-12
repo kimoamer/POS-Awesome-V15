@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canEditRate, canEditItemDiscount } from "../src/posapp/composables/pos/items/useItemPermissions";
+import { canEditRate } from "../src/posapp/composables/pos/items/useItemPermissions";
 
 describe("Pass 6.9 — Cart Item Mobile Actions & Permissions", () => {
 	it("allows rate edit when POS Profile enables rate edit and item is not locked", () => {

@@ -1,6 +1,7 @@
 import { ref, type Ref } from "vue";
 import { isOffline, getStoredCustomer } from "../../../../offline/index";
-import { useCustomersStore } from "../../../stores/customersStore.js";
+import { useCustomersStore } from "../../../stores/customersStore";
+import { buildOfflineProfileScope } from "../../../../offline/scope";
 
 declare const frappe: any;
 declare const __: (_text: string, _args?: any[]) => string;
@@ -11,6 +12,7 @@ type PosPayDataArgs = {
 	customerName: Ref<string>;
 	partyType?: Ref<string>;
 	paymentType?: Ref<string>;
+	posOpeningShift?: Ref<string>;
 	eventBus: { emit: (_event: string, _payload?: unknown) => void };
 	currencySymbol: (_currency: string) => string;
 	formatCurrency: (_value: number) => string;
@@ -26,6 +28,7 @@ export function usePosPayData({
 	customerName,
 	partyType,
 	paymentType,
+	posOpeningShift,
 	eventBus,
 	currencySymbol,
 	formatCurrency,
@@ -145,6 +148,7 @@ export function usePosPayData({
 					company: company.value,
 					currency: posProfile.value?.currency || null,
 					include_all_currencies: true,
+					pos_profile: posProfile.value?.name,
 				},
 			);
 
@@ -208,6 +212,7 @@ export function usePosPayData({
 				"posawesome.posawesome.api.m_pesa.get_mpesa_draft_payments",
 				{
 					company: company.value,
+					pos_profile: posProfile.value?.name,
 					mode_of_payment: null,
 					full_name: mpesa_search_name.value || null,
 					mobile_no: mpesa_search_mobile.value || null,
@@ -259,7 +264,8 @@ export function usePosPayData({
 					party_type: resolvedPartyType,
 					company: company.value,
 					currency: posProfile.value.currency,
-					pos_profile: posProfileSearch || null,
+					pos_profile: posProfileSearch || posProfile.value?.name || null,
+					opening_shift: posOpeningShift?.value || null,
 				},
 				freeze: true,
 				freeze_message: __("Reconciling Payments"),
@@ -335,7 +341,10 @@ export function usePosPayData({
 
 		if (isOffline()) {
 			try {
-				const cached = await getStoredCustomer(customer);
+				const cached = await getStoredCustomer(
+					customer,
+					buildOfflineProfileScope(posProfile.value),
+				);
 				if (cached) {
 					customer_info.value = { ...cached };
 					set_mpesa_search_params();
@@ -354,6 +363,8 @@ export function usePosPayData({
 				args: {
 					customer,
 					company: company.value || null,
+					pos_profile: posProfile.value?.name,
+					pos_opening_shift: posOpeningShift?.value || null,
 				},
 			});
 			if (r.message && !r.exc) {
@@ -380,11 +391,14 @@ export function usePosPayData({
 
 	async function get_pos_profiles() {
 		try {
-			const r = await frappe.call("frappe.client.get_list", {
-				doctype: "POS Profile",
-				fields: ["name"],
-				limit_page_length: 100,
-			});
+			const r = await frappe.call(
+				"posawesome.posawesome.api.payment_entry.get_available_pos_profiles",
+				{
+					company: company.value,
+					currency: posProfile.value?.currency,
+					pos_profile: posProfile.value?.name,
+				},
+			);
 			pos_profiles_list.value = r.message || [];
 		} catch (e) {
 			console.error("Failed to fetch POS profiles", e);

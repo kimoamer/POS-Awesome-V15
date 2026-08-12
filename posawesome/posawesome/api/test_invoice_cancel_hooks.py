@@ -52,6 +52,7 @@ def _install_invoice_api_stubs():
     )
 
     frappe_utils_module.add_days = lambda date, days: date
+    frappe_utils_module.cint = lambda value=0: int(value or 0)
     frappe_utils_module.flt = lambda value, precision=None: float(value or 0)
     frappe_utils_module.get_url_to_form = lambda doctype, name: f"/app/{doctype}/{name}"
     frappe_module.utils = frappe_utils_module
@@ -86,6 +87,13 @@ def _load_invoice_api_module():
 
 
 class TestInvoiceCancelHooks(unittest.TestCase):
+    def setUp(self):
+        self._orig_sys_modules = sys.modules.copy()
+
+    def tearDown(self):
+        sys.modules.clear()
+        sys.modules.update(self._orig_sys_modules)
+
     def test_sales_invoice_cancel_hook_restores_gift_cards(self):
         hooks = HOOKS_PATH.read_text()
 

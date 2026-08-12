@@ -113,6 +113,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
+import { useUIStore } from "../../../stores/uiStore";
 
 declare const frappe: any;
 declare const __: (_str: string, _args?: any[]) => string;
@@ -120,6 +121,12 @@ declare const __: (_str: string, _args?: any[]) => string;
 const props = defineProps<{
 	modelValue: boolean;
 }>();
+const uiStore = useUIStore();
+
+const posScopeArgs = () => ({
+	pos_profile: uiStore.posProfile?.name,
+	pos_opening_shift: uiStore.posOpeningShift?.name,
+});
 
 const emit = defineEmits<{
 	(e: "update:modelValue", val: boolean): void;
@@ -166,6 +173,7 @@ const searchDocuments = async () => {
 			args: {
 				source_type: activeTab.value,
 				search_term: searchTerm.value,
+				...posScopeArgs(),
 			},
 		});
 		documents.value = Array.isArray(message) ? message : [];
@@ -189,6 +197,7 @@ const selectDocument = async (doc: any) => {
 	if (!method) return;
 
 	const args: Record<string, any> = { name: doc.name };
+	Object.assign(args, posScopeArgs());
 	if (activeTab.value === "BOM") {
 		args.bom = doc.name;
 		args.for_qty = bomForQty.value;

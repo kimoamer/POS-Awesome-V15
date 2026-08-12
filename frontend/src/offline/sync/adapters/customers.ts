@@ -8,6 +8,7 @@ import {
 	setCustomerStorage,
 } from "../../customers";
 import { getSyncResourceState } from "../syncState";
+import { buildOfflineProfileScope } from "../../scope";
 import {
 	buildResourceSyncResult,
 	buildScopeSignature,
@@ -23,6 +24,7 @@ type CustomersFetcher = (_args: {
 	posProfile: SyncScopedProfile;
 	watermark?: string | null;
 	startAfter?: string | null;
+	syncUntil?: string | null;
 	limit?: number | null;
 	schemaVersion?: string | null;
 }) => Promise<SyncResponse>;
@@ -95,16 +97,19 @@ async function fetchAndStoreCustomerPages({
 	watermark,
 	schemaVersion,
 	fetcher,
+	storageScope,
 }: {
 	posProfile: SyncScopedProfile;
 	watermark?: string | null;
 	schemaVersion?: string | null;
 	fetcher: CustomersFetcher;
+	storageScope: string;
 }) {
 	let startAfter: string | null = null;
 	let latestWatermark: string | null = watermark || null;
 	let schemaVersionSeen: string | null = schemaVersion || null;
 	let lastResponse: SyncResponse = {};
+	let syncUntil: string | null = null;
 	const deletedNamesSeen = new Set<string>();
 
 	while (true) {
@@ -112,10 +117,12 @@ async function fetchAndStoreCustomerPages({
 			posProfile,
 			watermark,
 			startAfter,
+			syncUntil,
 			limit: CUSTOMER_SYNC_PAGE_SIZE,
 			schemaVersion,
 		});
 		lastResponse = response || {};
+		syncUntil = response?.sync_until || syncUntil;
 
 		if (response?.full_resync_required || !response?.has_more) {
 			if (response?.full_resync_required) {
@@ -125,7 +132,7 @@ async function fetchAndStoreCustomerPages({
 
 		const changedCustomers = extractChangedCustomers(response);
 		if (changedCustomers.length) {
-			await setCustomerStorage(changedCustomers);
+			await setCustomerStorage(changedCustomers, storageScope);
 		}
 
 		const deletedCustomerNames = extractDeletedCustomerNames(
@@ -138,7 +145,10 @@ async function fetchAndStoreCustomerPages({
 			return true;
 		});
 		if (deletedCustomerNames.length) {
-			await deleteCustomerStorageByNames(deletedCustomerNames);
+			await deleteCustomerStorageByNames(
+				deletedCustomerNames,
+				storageScope,
+			);
 		}
 
 		latestWatermark = laterWatermark(
@@ -152,9 +162,10 @@ async function fetchAndStoreCustomerPages({
 			break;
 		}
 
-		const nextStartAfter = getLastCustomerCursor(response);
+		const nextStartAfter =
+			response?.next_cursor || getLastCustomerCursor(response);
 		if (!nextStartAfter || nextStartAfter === startAfter) {
-			break;
+			throw new Error("Customer sync pagination cursor did not advance");
 		}
 		startAfter = nextStartAfter;
 	}
@@ -166,6 +177,7 @@ async function fetchAndStoreCustomerPages({
 		has_more: false,
 		next_watermark: latestWatermark,
 		schema_version: schemaVersionSeen,
+		sync_until: syncUntil,
 	};
 }
 
@@ -174,9 +186,10 @@ export async function syncCustomersResource(
 ): Promise<ResourceSyncResult> {
 	const scopeChanged = await hasCustomerScopeChanged(args.posProfile);
 	let effectiveWatermark = scopeChanged ? null : args.watermark;
+	const storageScope = buildOfflineProfileScope(args.posProfile);
 
 	if (scopeChanged) {
-		await clearCustomerStorage();
+		await clearCustomerStorage(storageScope);
 	}
 
 	let response = await fetchAndStoreCustomerPages({
@@ -184,18 +197,20 @@ export async function syncCustomersResource(
 		watermark: effectiveWatermark,
 		schemaVersion: args.schemaVersion,
 		fetcher: args.fetcher,
+		storageScope,
 	});
 
 	if (response?.full_resync_required) {
 		effectiveWatermark = null;
 		if (!scopeChanged) {
-			await clearCustomerStorage();
+			await clearCustomerStorage(storageScope);
 		}
 		response = await fetchAndStoreCustomerPages({
 			posProfile: args.posProfile,
 			watermark: effectiveWatermark,
 			schemaVersion: null,
 			fetcher: args.fetcher,
+			storageScope,
 		});
 	}
 
@@ -215,7 +230,7 @@ export async function syncCustomersResource(
 		);
 	}
 
-	const customersCount = await getCustomerStorageCount();
+	const customersCount = await getCustomerStorageCount(storageScope);
 	refreshSnapshotFromSync({
 		posProfile: args.posProfile,
 		cacheState: {

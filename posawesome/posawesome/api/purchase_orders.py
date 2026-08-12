@@ -5,7 +5,7 @@ import json
 
 import frappe
 from frappe import _
-from frappe.utils import cint, flt, nowdate, getdate
+from frappe.utils import cint, cstr, flt, getdate, nowdate
 from erpnext.accounts.party import get_party_account
 
 
@@ -13,30 +13,75 @@ from . import utils as pos_utils
 
 
 def _resolve_pos_profile(pos_profile):
-    if isinstance(pos_profile, dict):
-        return pos_profile
-
-    if isinstance(pos_profile, str):
-        raw_value = pos_profile.strip()
-        if raw_value:
-            try:
-                decoded = json.loads(raw_value)
-            except Exception:
-                decoded = raw_value
-
-            if isinstance(decoded, dict):
-                return decoded
-            if isinstance(decoded, str) and decoded:
-                return frappe.get_doc("POS Profile", decoded).as_dict()
-
-    profile = pos_utils.get_active_pos_profile()
-    if not profile:
-        frappe.throw(_("POS Profile is required to create purchase documents."))
+    profile, _serialized = pos_utils._ensure_pos_profile(pos_profile)
     return profile
 
 
-def _assert_pos_write_allowed(profile, company=None):
-    return pos_utils.assert_pos_profile_write_allowed(profile, company=company)
+def _assert_pos_write_allowed(
+    profile,
+    company=None,
+    doctype=None,
+    permission_type="create",
+):
+    return pos_utils.assert_pos_profile_write_allowed(
+        profile,
+        company=company,
+        doctype=doctype,
+        permission_type=permission_type,
+    )
+
+
+def _purchase_context(
+    pos_profile,
+    *,
+    company=None,
+    opening_shift=None,
+    doctype="Purchase Order",
+    permission_type="read",
+    require_open_shift=True,
+):
+    return pos_utils.get_pos_request_context(
+        pos_profile,
+        company=company,
+        action_flag="posa_allow_purchase_order",
+        doctype=doctype,
+        permission_type=permission_type,
+        require_open_shift=require_open_shift,
+        opening_shift=opening_shift,
+    )
+
+
+def _assert_document(doc, permission_type="read"):
+    pos_utils.assert_document_permission(doc, permission_type)
+
+
+def _validate_warehouse(company, warehouse):
+    if not warehouse:
+        return None
+    warehouse_company = frappe.db.get_value(
+        "Warehouse",
+        warehouse,
+        ["company", "is_group", "disabled"],
+        as_dict=True,
+    )
+    if not warehouse_company:
+        frappe.throw(_("Warehouse {0} was not found.").format(warehouse))
+    if (
+        warehouse_company.get("company") != company
+        or cint(warehouse_company.get("is_group"))
+        or cint(warehouse_company.get("disabled"))
+    ):
+        frappe.throw(_("Warehouse {0} is not available for this POS Profile.").format(warehouse))
+    pos_utils.assert_doctype_permission("Warehouse", "read")
+    return warehouse
+
+
+def _allowed_payment_modes(profile):
+    return {
+        row.get("mode_of_payment")
+        for row in (profile.get("payments") or [])
+        if row.get("mode_of_payment")
+    }
 
 
 def _ensure_allowed(profile, flag, label):
@@ -227,8 +272,8 @@ def _upsert_item_price(item_code, price_list, rate, uom=None, buying=False, sell
     existing = frappe.db.get_value("Item Price", filters, "name")
     if existing:
         doc = frappe.get_doc("Item Price", existing)
+        _assert_document(doc, "write")
         doc.price_list_rate = rate
-        doc.flags.ignore_permissions = True
         doc.save()
         return doc.name
 
@@ -243,7 +288,6 @@ def _upsert_item_price(item_code, price_list, rate, uom=None, buying=False, sell
             "uom": uom,
         }
     )
-    doc.flags.ignore_permissions = True
     doc.insert()
     return doc.name
 
@@ -518,8 +562,6 @@ def _create_purchase_receipt(po_doc, payload, default_warehouse, transaction_dat
     if not receipt.items:
         frappe.throw(_("No items to receive. Please enter received quantities."))
 
-    receipt.flags.ignore_permissions = True
-    frappe.flags.ignore_account_permission = True
     receipt.insert()
     receipt.submit()
     return receipt.name
@@ -528,8 +570,14 @@ def _create_purchase_receipt(po_doc, payload, default_warehouse, transaction_dat
 @frappe.whitelist()
 def create_supplier(data):
     payload = json.loads(data) if isinstance(data, str) else data
-    profile = _resolve_pos_profile(payload.get("pos_profile"))
-    _assert_pos_write_allowed(profile, company=payload.get("company"))
+    context = _purchase_context(
+        payload.get("pos_profile"),
+        company=payload.get("company"),
+        opening_shift=payload.get("posa_pos_opening_shift"),
+        doctype="Supplier",
+        permission_type="create",
+    )
+    profile = context.pos_profile
     _ensure_allowed(profile, "posa_allow_create_purchase_suppliers", _("Create suppliers"))
 
     supplier_name = payload.get("supplier_name") or payload.get("supplier")
@@ -556,15 +604,22 @@ def create_supplier(data):
             "email_id": payload.get("email_id"),
         }
     )
-    supplier.flags.ignore_permissions = True
     supplier.insert()
     return supplier.as_dict()
 
 
 @frappe.whitelist()
-def search_suppliers(search_text=None, limit=20):
+def search_suppliers(search_text=None, limit=20, pos_profile=None, pos_opening_shift=None):
+    _purchase_context(
+        pos_profile,
+        opening_shift=pos_opening_shift,
+        doctype="Supplier",
+        permission_type="read",
+    )
     filters = {"disabled": 0}
     or_filters = None
+    search_text = cstr(search_text or "").strip()[:140]
+    limit = max(1, min(cint(limit or 20), 100))
     if search_text:
         like_value = f"%{search_text}%"
         or_filters = {
@@ -572,7 +627,7 @@ def search_suppliers(search_text=None, limit=20):
             "supplier_name": ["like", like_value],
         }
 
-    suppliers = frappe.get_all(
+    suppliers = frappe.get_list(
         "Supplier",
         filters=filters,
         or_filters=or_filters,
@@ -584,18 +639,26 @@ def search_suppliers(search_text=None, limit=20):
 
 
 @frappe.whitelist()
-def get_buying_price_list():
+def get_buying_price_list(pos_profile=None, pos_opening_shift=None):
+    _purchase_context(pos_profile, opening_shift=pos_opening_shift)
     return _resolve_buying_price_list()
 
 
 @frappe.whitelist()
-def get_supplier_info(supplier):
+def get_supplier_info(supplier, pos_profile=None, pos_opening_shift=None):
     """Get supplier details including the effective buying price list."""
+    _purchase_context(
+        pos_profile,
+        opening_shift=pos_opening_shift,
+        doctype="Supplier",
+        permission_type="read",
+    )
     supplier = _resolve_supplier(supplier)
     if not supplier:
         frappe.throw(_("Supplier not found."))
 
     supplier_doc = frappe.get_doc("Supplier", supplier)
+    _assert_document(supplier_doc, "read")
     buying_price_list = _resolve_supplier_buying_price_list(supplier)
 
     price_list_currency = None
@@ -613,8 +676,22 @@ def get_supplier_info(supplier):
 
 
 @frappe.whitelist()
-def get_last_buying_rate(supplier, item_codes, company=None):
+def get_last_buying_rate(
+    supplier,
+    item_codes,
+    company=None,
+    pos_profile=None,
+    pos_opening_shift=None,
+):
     """Get the last buying rate for items from supplier price lists or recent Purchase Invoices."""
+    context = _purchase_context(
+        pos_profile,
+        company=company,
+        opening_shift=pos_opening_shift,
+        doctype="Purchase Invoice",
+        permission_type="read",
+    )
+    company = context.company
     if isinstance(item_codes, str):
         try:
             item_codes = json.loads(item_codes)
@@ -718,9 +795,16 @@ def get_last_buying_rate(supplier, item_codes, company=None):
 @frappe.whitelist()
 def create_purchase_item(data):
     payload = json.loads(data) if isinstance(data, str) else data
-    profile = _resolve_pos_profile(payload.get("pos_profile"))
-    _assert_pos_write_allowed(profile, company=payload.get("company"))
+    context = _purchase_context(
+        payload.get("pos_profile"),
+        company=payload.get("company"),
+        opening_shift=payload.get("posa_pos_opening_shift"),
+        doctype="Item",
+        permission_type="create",
+    )
+    profile = context.pos_profile
     _ensure_allowed(profile, "posa_allow_create_purchase_items", _("Create items"))
+    pos_utils.assert_doctype_permission("Item Price", "create")
 
     item_code = payload.get("item_code") or payload.get("item_name")
     item_name = payload.get("item_name") or item_code
@@ -759,12 +843,10 @@ def create_purchase_item(data):
     if barcode:
         item_doc.append("barcodes", {"barcode": barcode})
 
-    item_doc.flags.ignore_permissions = True
-    item_doc.flags.ignore_mandatory = True
     item_doc.insert()
 
-    selling_price_list = payload.get("selling_price_list") or profile.get("selling_price_list")
-    buying_price_list = payload.get("buying_price_list") or _resolve_buying_price_list()
+    selling_price_list = profile.get("selling_price_list")
+    buying_price_list = _resolve_buying_price_list()
 
     selling_price = payload.get("selling_price")
     buying_price = payload.get("buying_price")
@@ -805,7 +887,7 @@ def _get_mode_of_payment_account(mode, company):
     return account
 
 
-def _create_payment_entry(reference_doc, payments, company, transaction_date):
+def _create_payment_entry(reference_doc, payments, company, transaction_date, profile):
     if not payments:
         return []
 
@@ -814,6 +896,8 @@ def _create_payment_entry(reference_doc, payments, company, transaction_date):
     reference_docs = [doc for doc in reference_docs if doc]
     if not reference_docs:
         return []
+
+    allowed_modes = _allowed_payment_modes(profile)
 
     party_doc = reference_docs[0]
     payable_references = []
@@ -833,12 +917,19 @@ def _create_payment_entry(reference_doc, payments, company, transaction_date):
             }
         )
 
+    requested_total = sum(max(flt(pay.get("amount")), 0) for pay in payments)
+    payable_total = sum(reference["outstanding_amount"] for reference in payable_references)
+    if requested_total - payable_total > 0.01:
+        frappe.throw(_("Purchase payments cannot exceed the payable amount."))
+
     for pay in payments:
         amount = flt(pay.get("amount"))
         mode = pay.get("mode_of_payment")
 
         if amount <= 0:
             continue
+        if not mode or mode not in allowed_modes:
+            frappe.throw(_("Mode of Payment {0} is not allowed for this POS Profile.").format(mode or ""))
 
         paid_from_account = _get_mode_of_payment_account(mode, company)
 
@@ -880,7 +971,6 @@ def _create_payment_entry(reference_doc, payments, company, transaction_date):
                 },
             )
 
-        pe.flags.ignore_permissions = True
         pe.insert()
         pe.submit()
         created_payments.append(pe.name)
@@ -901,6 +991,7 @@ def _get_purchase_order_doc(payload, company):
         frappe.throw(_("Purchase Order {0} was not found.").format(po_name))
 
     po_doc = frappe.get_doc("Purchase Order", po_name)
+    _assert_document(po_doc, "write")
     if cint(po_doc.docstatus) != 0:
         frappe.throw(_("Only draft Purchase Orders can be updated from POS."))
     if company and po_doc.company and po_doc.company != company:
@@ -918,6 +1009,7 @@ def _get_submitted_purchase_order_doc(payload, company):
         frappe.throw(_("Purchase Order {0} was not found.").format(po_name))
 
     po_doc = frappe.get_doc("Purchase Order", po_name)
+    _assert_document(po_doc, "write")
     if company and po_doc.company and po_doc.company != company:
         frappe.throw(_("Purchase Order {0} does not belong to company {1}.").format(po_name, company))
 
@@ -974,7 +1066,15 @@ def _set_purchase_order_items(po_doc, items, warehouse, schedule_date):
         frappe.throw(_("Purchase order requires at least one item with quantity."))
 
 
-def _run_purchase_order_followup_flow(po_doc, payload, company, warehouse, transaction_date, receive_now):
+def _run_purchase_order_followup_flow(
+    po_doc,
+    payload,
+    company,
+    warehouse,
+    transaction_date,
+    receive_now,
+    profile,
+):
     progress = _get_purchase_order_progress(po_doc)
 
     receipt_name = None
@@ -997,7 +1097,7 @@ def _run_purchase_order_followup_flow(po_doc, payload, company, warehouse, trans
     payments = payload.get("payments")
     if payments:
         ref_doc = frappe.get_doc("Purchase Invoice", invoice_name) if invoice_name else po_doc
-        _create_payment_entry(ref_doc, payments, company, transaction_date)
+        _create_payment_entry(ref_doc, payments, company, transaction_date, profile)
 
     return {
         "purchase_order": po_doc.name,
@@ -1010,15 +1110,30 @@ def _run_purchase_order_followup_flow(po_doc, payload, company, warehouse, trans
 def create_purchase_order(data):
 
     payload = json.loads(data) if isinstance(data, str) else data
-    profile = _resolve_pos_profile(payload.get("pos_profile"))
-    company = payload.get("company") or profile.get("company") or frappe.defaults.get_default("company")
-    _assert_pos_write_allowed(profile, company=company)
-    _ensure_allowed(profile, "posa_allow_purchase_order", _("Purchase orders"))
+    context = _purchase_context(
+        payload.get("pos_profile"),
+        company=payload.get("company"),
+        opening_shift=payload.get("posa_pos_opening_shift"),
+        doctype="Purchase Order",
+        permission_type="write" if _get_purchase_order_name(payload) else "create",
+    )
+    profile = context.pos_profile
+    company = context.company
 
     submit_order = cint(payload.get("submit", 1))
+    if submit_order:
+        pos_utils.assert_doctype_permission("Purchase Order", "submit")
     receive_now = cint(payload.get("receive")) if submit_order else 0
     if receive_now:
         _ensure_allowed(profile, "posa_allow_purchase_receipt", _("Receive stock"))
+        pos_utils.assert_doctype_permission("Purchase Receipt", "create")
+        pos_utils.assert_doctype_permission("Purchase Receipt", "submit")
+    if cint(payload.get("create_invoice", 0)):
+        pos_utils.assert_doctype_permission("Purchase Invoice", "create")
+        pos_utils.assert_doctype_permission("Purchase Invoice", "submit")
+    if payload.get("payments"):
+        pos_utils.assert_doctype_permission("Payment Entry", "create")
+        pos_utils.assert_doctype_permission("Payment Entry", "submit")
 
     supplier_input = payload.get("supplier")
     if not supplier_input:
@@ -1031,7 +1146,10 @@ def create_purchase_order(data):
     if not company:
         frappe.throw(_("Company is required."))
 
-    warehouse = payload.get("warehouse") or profile.get("warehouse") or pos_utils.get_default_warehouse(company)
+    warehouse = _validate_warehouse(
+        company,
+        payload.get("warehouse") or context.warehouse or pos_utils._get_default_warehouse(company),
+    )
     transaction_date = _normalize_date_for_backend(payload.get("transaction_date")) or nowdate()
     schedule_date = _normalize_date_for_backend(payload.get("schedule_date"), fallback=transaction_date)
 
@@ -1050,6 +1168,7 @@ def create_purchase_order(data):
             warehouse or submitted_po_doc.get("set_warehouse"),
             transaction_date,
             receive_now,
+            profile,
         )
 
     # Get supplier currency (NEW CODE)
@@ -1060,7 +1179,7 @@ def create_purchase_order(data):
         supplier_currency = frappe.get_value("Company", company, "default_currency")
 
     # Resolve buying price list: prefer supplier-specific, then payload override, then default
-    buying_price_list = payload.get("buying_price_list") or _resolve_supplier_buying_price_list(supplier)
+    buying_price_list = _resolve_supplier_buying_price_list(supplier)
     price_list_currency = frappe.get_value("Price List", buying_price_list, "currency")
 
     # If currencies don't match, try to find a matching one
@@ -1087,14 +1206,13 @@ def create_purchase_order(data):
         po_doc.set_warehouse = warehouse
 
     _set_purchase_order_items(po_doc, items, warehouse, schedule_date)
-
-    po_doc.flags.ignore_permissions = True
-    frappe.flags.ignore_account_permission = True
+    if not cint(profile.get("posa_allow_user_to_edit_rate")):
+        for item in po_doc.get("items") or []:
+            item.rate = None
+            item.price_list_rate = None
+    po_doc.set_missing_values()
+    po_doc.calculate_taxes_and_totals()
     po_doc.save()
-
-    # Intentional partial persistence: keep the draft PO before submit/receipt/invoice/payment
-    # work so the operator does not lose it if any downstream step fails.
-    frappe.db.commit()
 
     if not submit_order:
         return {
@@ -1105,12 +1223,22 @@ def create_purchase_order(data):
     try:
         po_doc.submit()
 
-        return _run_purchase_order_followup_flow(po_doc, payload, company, warehouse, transaction_date, receive_now)
+        return _run_purchase_order_followup_flow(
+            po_doc,
+            payload,
+            company,
+            warehouse,
+            transaction_date,
+            receive_now,
+            profile,
+        )
     except Exception as err:
         frappe.db.rollback()
         frappe.log_error(frappe.get_traceback(), "POS Awesome PO Submit Flow Failed")
         frappe.throw(
-            _("Purchase Order {0} has been saved as Draft. Error: {1}").format(po_doc.name, str(err))
+            _("Purchase Order could not be completed. No partial documents were kept. Error: {0}").format(
+                str(err)
+            )
         )
 
 
@@ -1125,10 +1253,13 @@ def search_draft_purchase_orders(
     to_date=None,
     limit=50,
 ):
-    profile = _resolve_pos_profile(pos_profile)
-    company = company or profile.get("company") or frappe.defaults.get_default("company")
-    _assert_pos_write_allowed(profile, company=company)
-    _ensure_allowed(profile, "posa_allow_purchase_order", _("Purchase orders"))
+    context = _purchase_context(
+        pos_profile,
+        company=company,
+        doctype="Purchase Order",
+        permission_type="read",
+    )
+    company = context.company
 
     filters, or_filters, limit_page_length = _build_po_search_filters(
         company=company,
@@ -1141,7 +1272,7 @@ def search_draft_purchase_orders(
         base_filters={"docstatus": 0},
     )
 
-    return frappe.get_all(
+    return frappe.get_list(
         "Purchase Order",
         filters=filters,
         or_filters=or_filters,
@@ -1176,10 +1307,13 @@ def search_purchase_management_orders(
     status_filter=None,
     limit=50,
 ):
-    profile = _resolve_pos_profile(pos_profile)
-    company = company or profile.get("company") or frappe.defaults.get_default("company")
-    _assert_pos_write_allowed(profile, company=company)
-    _ensure_allowed(profile, "posa_allow_purchase_order", _("Purchase orders"))
+    context = _purchase_context(
+        pos_profile,
+        company=company,
+        doctype="Purchase Order",
+        permission_type="read",
+    )
+    company = context.company
 
     filters, or_filters, limit_page_length = _build_po_search_filters(
         company=company,
@@ -1195,7 +1329,7 @@ def search_purchase_management_orders(
         },
     )
 
-    orders = frappe.get_all(
+    orders = frappe.get_list(
         "Purchase Order",
         filters=filters,
         or_filters=or_filters,
@@ -1297,15 +1431,19 @@ def _attach_purchase_item_options(doc, source_doc=None):
 
 @frappe.whitelist()
 def get_draft_purchase_order(purchase_order, pos_profile=None, company=None):
-    profile = _resolve_pos_profile(pos_profile)
-    company = company or profile.get("company") or frappe.defaults.get_default("company")
-    _assert_pos_write_allowed(profile, company=company)
-    _ensure_allowed(profile, "posa_allow_purchase_order", _("Purchase orders"))
+    context = _purchase_context(
+        pos_profile,
+        company=company,
+        doctype="Purchase Order",
+        permission_type="read",
+    )
+    company = context.company
 
     if not purchase_order or not frappe.db.exists("Purchase Order", purchase_order):
         frappe.throw(_("Purchase Order {0} was not found.").format(purchase_order))
 
     po_doc = frappe.get_doc("Purchase Order", purchase_order)
+    _assert_document(po_doc, "read")
     if cint(po_doc.docstatus) != 0:
         frappe.throw(_("Only draft Purchase Orders can be loaded."))
     if company and po_doc.company and po_doc.company != company:
@@ -1319,15 +1457,19 @@ def get_draft_purchase_order(purchase_order, pos_profile=None, company=None):
 
 @frappe.whitelist()
 def get_purchase_management_order(purchase_order, pos_profile=None, company=None):
-    profile = _resolve_pos_profile(pos_profile)
-    company = company or profile.get("company") or frappe.defaults.get_default("company")
-    _assert_pos_write_allowed(profile, company=company)
-    _ensure_allowed(profile, "posa_allow_purchase_order", _("Purchase orders"))
+    context = _purchase_context(
+        pos_profile,
+        company=company,
+        doctype="Purchase Order",
+        permission_type="read",
+    )
+    company = context.company
 
     if not purchase_order or not frappe.db.exists("Purchase Order", purchase_order):
         frappe.throw(_("Purchase Order {0} was not found.").format(purchase_order))
 
     po_doc = frappe.get_doc("Purchase Order", purchase_order)
+    _assert_document(po_doc, "read")
     if cint(po_doc.docstatus) != 1:
         frappe.throw(_("Only submitted Purchase Orders can be managed."))
     if company and po_doc.company and po_doc.company != company:
@@ -1377,10 +1519,15 @@ def get_purchase_management_order(purchase_order, pos_profile=None, company=None
 @frappe.whitelist()
 def process_purchase_management_action(data):
     payload = json.loads(data) if isinstance(data, str) else data
-    profile = _resolve_pos_profile(payload.get("pos_profile"))
-    company = payload.get("company") or profile.get("company") or frappe.defaults.get_default("company")
-    _assert_pos_write_allowed(profile, company=company)
-    _ensure_allowed(profile, "posa_allow_purchase_order", _("Purchase orders"))
+    context = _purchase_context(
+        payload.get("pos_profile"),
+        company=payload.get("company"),
+        opening_shift=payload.get("posa_pos_opening_shift"),
+        doctype="Purchase Order",
+        permission_type="write",
+    )
+    profile = context.pos_profile
+    company = context.company
 
     action = str(payload.get("action") or "").strip().lower()
     if action not in {"receipt", "invoice", "receipt_and_invoice", "payment"}:
@@ -1391,16 +1538,28 @@ def process_purchase_management_action(data):
         frappe.throw(_("Purchase Order {0} was not found.").format(po_name))
 
     po_doc = frappe.get_doc("Purchase Order", po_name)
+    _assert_document(po_doc, "write")
     if cint(po_doc.docstatus) != 1:
         frappe.throw(_("Only submitted Purchase Orders can be managed."))
     if company and po_doc.company and po_doc.company != company:
         frappe.throw(_("Purchase Order {0} does not belong to company {1}.").format(po_name, company))
 
-    warehouse = payload.get("warehouse") or po_doc.get("set_warehouse") or profile.get("warehouse")
+    warehouse = _validate_warehouse(
+        company,
+        payload.get("warehouse") or po_doc.get("set_warehouse") or context.warehouse,
+    )
     transaction_date = _normalize_date_for_backend(payload.get("transaction_date")) or nowdate()
 
     if action in {"receipt", "receipt_and_invoice"}:
         _ensure_allowed(profile, "posa_allow_purchase_receipt", _("Receive stock"))
+        pos_utils.assert_doctype_permission("Purchase Receipt", "create")
+        pos_utils.assert_doctype_permission("Purchase Receipt", "submit")
+    if action in {"invoice", "receipt_and_invoice"}:
+        pos_utils.assert_doctype_permission("Purchase Invoice", "create")
+        pos_utils.assert_doctype_permission("Purchase Invoice", "submit")
+    if action == "payment":
+        pos_utils.assert_doctype_permission("Payment Entry", "create")
+        pos_utils.assert_doctype_permission("Payment Entry", "submit")
 
     try:
         if action == "payment":
@@ -1435,7 +1594,13 @@ def process_purchase_management_action(data):
                         frappe.format_value(payable_amount, {"fieldtype": "Currency"})
                     )
                 )
-            payment_entries = _create_payment_entry(ref_docs, capped_payments, company, transaction_date)
+            payment_entries = _create_payment_entry(
+                ref_docs,
+                capped_payments,
+                company,
+                transaction_date,
+                profile,
+            )
             payment_references = [
                 {"doctype": ref_doc.doctype, "name": ref_doc.name}
                 for ref_doc in ref_docs
@@ -1458,6 +1623,7 @@ def process_purchase_management_action(data):
             warehouse,
             transaction_date,
             cint(followup_payload.get("receive")),
+            profile,
         )
         return result
     except Exception:
@@ -1467,9 +1633,22 @@ def process_purchase_management_action(data):
 
 
 @frappe.whitelist()
-def search_items(search_text=None, limit=20):
+def search_items(search_text=None, limit=20, pos_profile=None, pos_opening_shift=None):
+    context = _purchase_context(
+        pos_profile,
+        opening_shift=pos_opening_shift,
+        doctype="Item",
+        permission_type="read",
+    )
     filters = {"disabled": 0}
+    from posawesome.posawesome.api.item_processing.details import _allowed_item_groups
+
+    allowed_groups = _allowed_item_groups(context.pos_profile)
+    if allowed_groups:
+        filters["item_group"] = ["in", sorted(allowed_groups)]
     or_filters = None
+    search_text = cstr(search_text or "").strip()[:140]
+    limit = max(1, min(cint(limit or 20), 100))
     if search_text:
         like_value = f"%{search_text}%"
         or_filters = {
@@ -1477,7 +1656,7 @@ def search_items(search_text=None, limit=20):
             "item_name": ["like", like_value],
         }
 
-    items = frappe.get_all(
+    items = frappe.get_list(
         "Item",
         filters=filters,
         or_filters=or_filters,
@@ -1583,8 +1762,6 @@ def _create_purchase_invoice(po_doc, payload, default_warehouse, transaction_dat
     if not invoice.items:
         frappe.throw(_("No items to invoice. Please ensure there are items on the Purchase Order."))
 
-    invoice.flags.ignore_permissions = True
-    frappe.flags.ignore_account_permission = True
     invoice.insert()
     invoice.submit()
     return invoice.name

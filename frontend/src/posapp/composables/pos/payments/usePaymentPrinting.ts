@@ -187,7 +187,7 @@ export function usePaymentPrinting(options: PaymentPrintingOptions) {
 					return;
 				} catch (error) {
 					console.warn("QZ Tray print failed", error);
-					if (confirmDocumentPrintFallback(error, { raw: useRawPrint })) {
+					if (await confirmDocumentPrintFallback(error, { raw: useRawPrint })) {
 						silentPrint(url, printOptions);
 					}
 					return;
@@ -195,7 +195,7 @@ export function usePaymentPrinting(options: PaymentPrintingOptions) {
 			}
 			if (useRawPrint) {
 				const offlineError = new Error("Raw printing is not available while the POS is offline.");
-				if (confirmDocumentPrintFallback(offlineError, { raw: true, offline: true })) {
+				if (await confirmDocumentPrintFallback(offlineError, { raw: true, offline: true })) {
 					silentPrint(url, printOptions);
 				}
 				return;

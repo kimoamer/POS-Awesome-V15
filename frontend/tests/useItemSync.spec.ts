@@ -190,17 +190,11 @@ describe("useItemSync", () => {
 		expect(updateItemsDetails).not.toHaveBeenCalled();
 	});
 
-	it("shares one document visibility listener across sync instances", () => {
+	it("does not create a competing timer or visibility sync owner", () => {
 		vi.useFakeTimers();
-		const listeners = new Map<string, EventListener>();
-		const addEventListener = vi.fn((event: string, listener: EventListener) => {
-			listeners.set(event, listener);
-		});
-		const removeEventListener = vi.fn((event: string, listener: EventListener) => {
-			if (listeners.get(event) === listener) {
-				listeners.delete(event);
-			}
-		});
+		const addEventListener = vi.fn();
+		const removeEventListener = vi.fn();
+		const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
 		vi.stubGlobal("document", {
 			hidden: false,
 			addEventListener,
@@ -223,13 +217,11 @@ describe("useItemSync", () => {
 		first.startBackgroundSyncScheduler();
 		second.startBackgroundSyncScheduler();
 
-		expect(addEventListener).toHaveBeenCalledTimes(1);
-		expect(addEventListener).toHaveBeenCalledWith("visibilitychange", expect.any(Function));
+		expect(addEventListener).not.toHaveBeenCalled();
+		expect(setIntervalSpy).not.toHaveBeenCalled();
 
 		first.stopBackgroundSyncScheduler();
-		expect(removeEventListener).not.toHaveBeenCalled();
-
 		second.stopBackgroundSyncScheduler();
-		expect(removeEventListener).toHaveBeenCalledTimes(1);
+		expect(removeEventListener).not.toHaveBeenCalled();
 	});
 });

@@ -1,21 +1,21 @@
 <template>
 	<div v-if="invoice_doc" class="invoice-totals-list">
-		<div class="invoice-total-row">
+		<div class="invoice-total-row" data-label="Net Total">
 			<span class="invoice-total-row__label">{{ __("Net Total") }}</span>
 			<bdi class="invoice-total-row__value">{{ displayMoney(invoice_doc.net_total) }}</bdi>
 		</div>
 
-		<div class="invoice-total-row">
+		<div class="invoice-total-row" data-label="Tax and Charges">
 			<span class="invoice-total-row__label">{{ __("Tax and Charges") }}</span>
 			<bdi class="invoice-total-row__value">{{ displayMoney(invoice_doc.total_taxes_and_charges) }}</bdi>
 		</div>
 
-		<div class="invoice-total-row">
+		<div class="invoice-total-row" data-label="Total Amount">
 			<span class="invoice-total-row__label">{{ __("Total Amount") }}</span>
 			<bdi class="invoice-total-row__value">{{ displayMoney(invoice_doc.total) }}</bdi>
 		</div>
 
-		<div class="invoice-total-row">
+		<div class="invoice-total-row" data-label="Item / Rate Discounts">
 			<span class="invoice-total-row__label">
 				{{ __("Item / Rate Discounts") }}
 				<v-tooltip location="top" max-width="320" open-on-click open-on-hover :text="discountHelpText">
@@ -35,12 +35,17 @@
 			<bdi class="invoice-total-row__value">{{ displayMoney(itemDiscountTotal) }}</bdi>
 		</div>
 
-		<div class="invoice-total-row">
+		<div class="invoice-total-row" data-label="Additional Discount">
 			<span class="invoice-total-row__label">{{ __("Additional Discount") }}</span>
 			<bdi class="invoice-total-row__value">{{ displayMoney(invoice_doc.discount_amount) }}</bdi>
 		</div>
 
-		<div class="invoice-total-row invoice-total-row--grand">
+		<div class="invoice-total-row" data-label="Total Discount">
+			<span class="invoice-total-row__label">{{ __("Total Discount") }}</span>
+			<bdi class="invoice-total-row__value">{{ displayMoney(totalDiscount) }}</bdi>
+		</div>
+
+		<div class="invoice-total-row invoice-total-row--grand" data-label="Grand Total">
 			<span class="invoice-total-row__label">{{ __("Grand Total") }}</span>
 			<bdi class="invoice-total-row__value">{{ displayMoney(invoice_doc.grand_total) }}</bdi>
 		</div>
@@ -86,6 +91,13 @@ const discountHelpText = computed(
 	() =>
 		`${__("Item and rate discounts are already included in item rates and Net Total.")} ${__("Additional Discount is the separate invoice-level discount.")}`,
 );
+
+const totalDiscount = computed(() => {
+	const itemDiscount = Number(props.itemDiscountTotal || 0);
+	const additionalDiscount = Number(props.invoice_doc?.discount_amount || 0);
+	return (Number.isFinite(itemDiscount) ? itemDiscount : 0) +
+		(Number.isFinite(additionalDiscount) ? additionalDiscount : 0);
+});
 </script>
 
 <style scoped>

@@ -24,7 +24,8 @@ type LastInvoiceRate = {
 type LastInvoiceRatesMap = Record<string, LastInvoiceRate>;
 
 interface UseLastInvoiceRateContext {
-	pos_profile?: MaybeRefLike<{ company?: string } | null>;
+	pos_profile?: MaybeRefLike<{ name?: string; company?: string } | null>;
+	pos_opening_shift?: MaybeRefLike<string | null>;
 	customer?: MaybeRefLike<any>;
 	displayedItems?: MaybeRefLike<Array<{ item_code?: string }>>;
 	show_last_invoice_rate?: MaybeRefLike<boolean>;
@@ -47,6 +48,7 @@ const unwrapValue = <T>(source: MaybeRefLike<T> | undefined): T | undefined => {
 export function useLastInvoiceRate(context: UseLastInvoiceRateContext = {}) {
 	const {
 		pos_profile, // reactive ref or object
+		pos_opening_shift,
 		customer, // reactive ref or getter
 		displayedItems, // reactive ref or getter
 		show_last_invoice_rate, // reactive ref
@@ -106,6 +108,8 @@ export function useLastInvoiceRate(context: UseLastInvoiceRateContext = {}) {
 					customer: activeCustomer,
 					item_codes: missingCodes,
 					company: company,
+					pos_profile: profile?.name || null,
+					pos_opening_shift: unwrapValue(pos_opening_shift) || null,
 				},
 			});
 

@@ -63,6 +63,8 @@
 			:table-classes="tableClasses"
 			:table-density="tableDensity"
 			:header-props="dynamicHeaderProps"
+			:height="virtualScrollConfig.height"
+			:item-height="virtualScrollConfig.itemHeight"
 			:empty-state-title="emptyStateTitle"
 			:empty-state-subtitle="emptyStateSubtitle"
 			:empty-state-icon="emptyStateIcon"
@@ -227,7 +229,9 @@ const getStoredInvoiceItemsView = (): "list" | "table" => {
 	try {
 		const stored = localStorage.getItem(`posa_invoice_items_view:${profileName}`);
 		if (stored === "table" || stored === "list") return stored;
-	} catch (e) {}
+	} catch {
+		// Storage can be unavailable in hardened/private browser contexts.
+	}
 	return "list";
 };
 
@@ -238,7 +242,9 @@ const setInvoiceItemsView = (view: "list" | "table") => {
 	const profileName = props.pos_profile?.name || "default";
 	try {
 		localStorage.setItem(`posa_invoice_items_view:${profileName}`, view);
-	} catch (e) {}
+	} catch {
+		// Keep the in-memory preference when persistence is unavailable.
+	}
 };
 
 watch(
@@ -297,7 +303,9 @@ const filteredItems = computed(() => {
 
 const invoice_doc = computed(() => invoiceStore.invoiceDoc || {});
 const hasItemSearch = computed(() => !!props.itemSearch?.trim());
-const emptyStateIcon = computed(() => (hasItemSearch.value ? "mdi-cart-search" : "mdi-cart-outline"));
+const emptyStateIcon = computed(() =>
+	hasItemSearch.value ? "mdi-cart-arrow-right" : "mdi-cart-outline",
+);
 const emptyStateTitle = computed(() =>
 	hasItemSearch.value ? __("No matching items in cart") : __("No items in cart"),
 );
@@ -321,7 +329,6 @@ const {
 	containerStyles,
 	containerClasses,
 	tableClasses,
-	expandedContentClasses,
 	tableDensity,
 	containerHeight,
 	isStackedRows,
@@ -351,26 +358,6 @@ const openItemDetails = (item: any) => {
 const dynamicHeaderProps = computed(() => ({
 	class: `responsive-header container-${breakpoint.value}`,
 }));
-
-const cartTableHeaders = computed(() =>
-	responsiveHeaders.value.map((header: any) => {
-		if (header?.key !== "actions") {
-			return header;
-		}
-
-		return {
-			...header,
-			title: "",
-			headerProps: {
-				...(header.headerProps || {}),
-				"aria-label": __("Actions"),
-				class: ["cart-table-header-cell--action", header.headerProps?.class]
-					.filter(Boolean)
-					.join(" "),
-			},
-		};
-	}),
-);
 
 const INVOICE_ACTIONS_COLUMN_WIDTH = 96;
 
@@ -466,6 +453,7 @@ const virtualScrollConfig = computed(() => {
 	const height = containerHeight.value || 600;
 
 	return {
+		height: Math.max(240, height),
 		itemHeight: cartRowHeight.value,
 		itemsPerPage: Math.max(20, Math.ceil(height / cartRowHeight.value) + 5),
 		bufferSize: itemCount > 1000 ? 20 : itemCount > 500 ? 15 : 10,
@@ -487,11 +475,6 @@ const getSerialOptions = (item: any) => {
 		return item.filtered_serial_no_data;
 	}
 	return Array.isArray(item?.serial_no_data) ? item.serial_no_data : [];
-};
-
-const handleExpandedUpdate = (val: any[]) => {
-	const mappedValues = val.map((v) => (typeof v === "object" ? v.posa_row_id : v));
-	emit("update:expanded", mappedValues);
 };
 
 const handleQtyChange = (item: any, event: any) => {
@@ -574,24 +557,8 @@ const handleDiscountAmountUpdate = (item: any, newDiscount: any) => {
 	props.calcPrices(item, newDiscount, { target: { id: "discount_amount" } });
 };
 
-const handleRowClick = (event: any, item: any, toggleExpand: any, internalItem: any) => {
-	if (toggleExpand) {
-		toggleExpand(internalItem);
-	}
-};
-
-const handleToggleExpand = (internalItem: any, toggleExpand: any) => {
-	if (toggleExpand) {
-		toggleExpand(internalItem);
-	}
-};
-
 const focusItemField = (index: number, field: CartShortcutField, options?: CartFieldFocusOptions) => {
 	return focusCartItemField(tableContainer.value, index, field, options);
-};
-
-const isItemExpanded = (itemId: any) => {
-	return props.expanded?.includes(itemId);
 };
 
 // Drag and Drop delegation

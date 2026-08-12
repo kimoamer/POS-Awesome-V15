@@ -4,6 +4,7 @@ import pathlib
 import sys
 import types
 import unittest
+from datetime import datetime
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 sys.path.insert(
@@ -36,7 +37,7 @@ def _install_stubs():
         {
             "name": name,
             "customer_groups": [{"customer_group": "Retail"}],
-            "modified": "2026-04-09T10:02:00",
+            "modified": datetime(2026, 4, 9, 10, 2),
         }
     )
 
@@ -67,10 +68,17 @@ def _install_stubs():
     customers_module = types.ModuleType("posawesome.posawesome.api.customers")
     customers_module.get_customer_groups = lambda pos_profile: ["Retail"]
 
-    def fake_get_customer_names(pos_profile, limit=None, offset=None, start_after=None, modified_after=None):
+    def fake_get_customer_names(
+        pos_profile,
+        limit=None,
+        offset=None,
+        start_after=None,
+        modified_after=None,
+        modified_before=None,
+    ):
         decoded_profile = json.loads(pos_profile)
         profile_id = decoded_profile.get("name") if isinstance(decoded_profile, dict) else None
-        return [
+        rows = [
             {
                 "name": "CUST-001",
                 "customer_name": "Alpha Customer",
@@ -93,7 +101,10 @@ def _install_stubs():
                 "modified": "2026-04-09T10:06:00",
                 "pos_profile_id": profile_id,
             },
-        ][:limit]
+        ]
+        if start_after:
+            rows = [row for row in rows if row["name"] > start_after]
+        return rows[:limit]
 
     customers_module.get_customer_names = fake_get_customer_names
     sys.modules["posawesome.posawesome.api.customers"] = customers_module
@@ -116,13 +127,20 @@ def _load_common_module():
 class TestOfflineSyncCustomers(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         _install_stubs()
         cls.module = _load_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def test_sync_customers_returns_delta_changes_and_disabled_deletes(self):
         response = self.module.sync_customers(
             pos_profile="POS-TEST",
             watermark="2026-04-09T09:59:00",
+            sync_until="2026-04-09T10:07:00",
             limit=5,
         )
 
@@ -152,6 +170,7 @@ class TestOfflineSyncCustomers(unittest.TestCase):
             ["customer::CUST-001", "customer::CUST-002"],
         )
         self.assertTrue(response["has_more"])
+        self.assertEqual(response["next_cursor"], "CUST-002")
         self.assertEqual(response["deleted"], [])
         self.assertEqual(response["next_watermark"], "2026-04-09T10:05:00")
         self.assertEqual(response["schema_version"], self.module.SYNC_SCHEMA_VERSION)
@@ -167,6 +186,15 @@ class TestOfflineSyncCustomers(unittest.TestCase):
 
         self.assertEqual(response["changes"][0]["key"], "customer::CUST-001")
         self.assertEqual(response["changes"][0]["data"]["pos_profile_id"], "POS-TEST")
+
+    def test_sync_customers_serializes_datetime_values_in_pos_profile(self):
+        response = self.module.sync_customers(
+            pos_profile="POS-TEST",
+            watermark=None,
+            limit=1,
+        )
+
+        self.assertEqual(response["changes"][0]["key"], "customer::CUST-001")
 
     def test_common_module_normalize_timestamp_matches_customers_behavior(self):
         common = _load_common_module()

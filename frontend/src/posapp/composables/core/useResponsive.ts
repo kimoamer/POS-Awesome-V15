@@ -1,128 +1,283 @@
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import {
+	computed,
+	onBeforeUnmount,
+	onMounted,
+	ref,
+	type ComputedRef,
+	type Ref,
+} from "vue";
 
-export function useResponsive() {
-	const windowWidth = ref(window.innerWidth);
-	const windowHeight = ref(window.innerHeight);
-	const baseWidth = ref(1440);
-	const baseHeight = ref(900);
+export const POS_VIEWPORT_BREAKPOINTS = Object.freeze({
+	phone: 600,
+	tabletPortrait: 900,
+	desktop: 1200,
+});
 
-	const isPhone = computed(() => windowWidth.value < 768);
-	const isTablet = computed(
-		() => windowWidth.value >= 768 && windowWidth.value < 1200,
-	);
-	const isDesktop = computed(() => windowWidth.value >= 1200);
-	const isCompact = computed(() => windowWidth.value < 1200);
-	const isShortViewport = computed(() => windowHeight.value < 760);
+export type PosViewportMode =
+	| "phone"
+	| "tablet-portrait"
+	| "tablet-landscape"
+	| "desktop";
+export type PosDensityMode = "counter" | "touch" | "compact";
+export type PosInputModality = "mouse" | "touch";
 
-	const widthScale = computed(() => windowWidth.value / baseWidth.value);
-	const heightScale = computed(() => windowHeight.value / baseHeight.value);
-	const averageScale = computed(
-		() => (widthScale.value + heightScale.value) / 2,
-	);
+export function resolveViewportMode(width: number): PosViewportMode {
+	if (width < POS_VIEWPORT_BREAKPOINTS.phone) return "phone";
+	if (width < POS_VIEWPORT_BREAKPOINTS.tabletPortrait) {
+		return "tablet-portrait";
+	}
+	if (width < POS_VIEWPORT_BREAKPOINTS.desktop) {
+		return "tablet-landscape";
+	}
+	return "desktop";
+}
 
-	const dynamicSpacing = computed(() => {
-		const baseSpacing = {
-			xs: 4,
-			sm: 8,
-			md: 16,
-			lg: 24,
-			xl: 32,
-		};
+export function resolveDensityMode({
+	width,
+	coarsePointer,
+	preference,
+}: {
+	width: number;
+	coarsePointer: boolean;
+	preference?: PosDensityMode | null;
+}): PosDensityMode {
+	if (preference) return preference;
+	if (coarsePointer) return "touch";
+	if (width < POS_VIEWPORT_BREAKPOINTS.desktop) return "compact";
+	return "counter";
+}
 
-		return {
-			xs: Math.max(2, Math.round(baseSpacing.xs * averageScale.value)),
-			sm: Math.max(4, Math.round(baseSpacing.sm * averageScale.value)),
-			md: Math.max(8, Math.round(baseSpacing.md * averageScale.value)),
-			lg: Math.max(12, Math.round(baseSpacing.lg * averageScale.value)),
-			xl: Math.max(16, Math.round(baseSpacing.xl * averageScale.value)),
-		};
+const hasWindow = typeof window !== "undefined";
+const windowWidth = ref(hasWindow ? window.innerWidth : 1280);
+const windowHeight = ref(hasWindow ? window.innerHeight : 900);
+const coarsePointer = ref(
+	hasWindow ? window.matchMedia?.("(pointer: coarse)")?.matches || false : false,
+);
+const reducedMotion = ref(
+	hasWindow
+		? window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ||
+			false
+		: false,
+);
+const densityPreference = ref<PosDensityMode | null>(null);
+const baseWidth = ref(1440);
+const baseHeight = ref(900);
+
+let consumerCount = 0;
+let listening = false;
+let resizeRafId: number | null = null;
+let coarseQuery: MediaQueryList | null = null;
+let motionQuery: MediaQueryList | null = null;
+
+function readDensityPreference() {
+	if (!hasWindow) return null;
+	try {
+		const stored = localStorage.getItem("posa_density_mode");
+		return stored === "counter" || stored === "touch" || stored === "compact"
+			? stored
+			: null;
+	} catch {
+		return null;
+	}
+}
+
+densityPreference.value = readDensityPreference();
+
+function updateViewport() {
+	if (!hasWindow) return;
+	windowWidth.value = window.innerWidth;
+	windowHeight.value = window.innerHeight;
+	coarsePointer.value = coarseQuery?.matches || false;
+	reducedMotion.value = motionQuery?.matches || false;
+	applyResponsiveAttributes();
+}
+
+function applyResponsiveAttributes() {
+	if (!hasWindow) return;
+	const mode = resolveViewportMode(windowWidth.value);
+	const density = resolveDensityMode({
+		width: windowWidth.value,
+		coarsePointer: coarsePointer.value,
+		preference: densityPreference.value,
 	});
+	document.documentElement.dataset.posViewport = mode;
+	document.documentElement.dataset.posDensity = density;
+	document.documentElement.dataset.posInput = coarsePointer.value
+		? "touch"
+		: "mouse";
+}
 
-	const responsiveStyles = computed(() => {
-		let cardHeightVh;
-		if (isPhone.value) {
-			cardHeightVh = isShortViewport.value ? 56 : 62;
-		} else if (isTablet.value) {
-			cardHeightVh = isShortViewport.value ? 58 : 64;
-		} else {
-			cardHeightVh = Math.round(60 * heightScale.value);
-		}
-
-		cardHeightVh = Math.max(42, Math.min(cardHeightVh, 72));
-		let containerHeightVh = 70;
-		if (isPhone.value) {
-			containerHeightVh = isShortViewport.value ? 66 : 74;
-		} else if (isTablet.value) {
-			containerHeightVh = isShortViewport.value ? 64 : 72;
-		} else if (windowHeight.value <= 800) {
-			containerHeightVh = 58;
-		} else if (windowHeight.value <= 960) {
-			containerHeightVh = 64;
-		}
-
-		let bottomSafeSpace = 24;
-		if (windowWidth.value < 600) {
-			bottomSafeSpace = isShortViewport.value ? 176 : 196;
-		} else if (windowWidth.value < 1200) {
-			bottomSafeSpace = isShortViewport.value ? 112 : 132;
-		}
-
-		return {
-			"--dynamic-xs": `${dynamicSpacing.value.xs}px`,
-			"--dynamic-sm": `${dynamicSpacing.value.sm}px`,
-			"--dynamic-md": `${dynamicSpacing.value.md}px`,
-			"--dynamic-lg": `${dynamicSpacing.value.lg}px`,
-			"--dynamic-xl": `${dynamicSpacing.value.xl}px`,
-			"--container-height": `${containerHeightVh}vh`,
-			"--card-height": `${cardHeightVh}vh`,
-			"--bottom-safe-space": `${bottomSafeSpace}px`,
-			"--viewport-height": `${windowHeight.value}px`,
-			"--font-scale": averageScale.value.toFixed(2),
-		};
+function scheduleViewportUpdate() {
+	if (!hasWindow) return;
+	if (resizeRafId !== null) window.cancelAnimationFrame(resizeRafId);
+	resizeRafId = window.requestAnimationFrame(() => {
+		resizeRafId = null;
+		updateViewport();
 	});
+}
 
-	let resizeRafId: number | null = null;
+function startResponsiveRuntime() {
+	if (!hasWindow || listening) return;
+	listening = true;
+	coarseQuery = window.matchMedia?.("(pointer: coarse)") || null;
+	motionQuery =
+		window.matchMedia?.("(prefers-reduced-motion: reduce)") || null;
+	window.addEventListener("resize", scheduleViewportUpdate, { passive: true });
+	coarseQuery?.addEventListener?.("change", scheduleViewportUpdate);
+	motionQuery?.addEventListener?.("change", scheduleViewportUpdate);
+	updateViewport();
+}
 
-	const handleResize = () => {
-		// Debounce with requestAnimationFrame for better performance
-		if (resizeRafId) {
-			cancelAnimationFrame(resizeRafId);
-		}
+function stopResponsiveRuntime() {
+	if (!hasWindow || !listening) return;
+	listening = false;
+	window.removeEventListener("resize", scheduleViewportUpdate);
+	coarseQuery?.removeEventListener?.("change", scheduleViewportUpdate);
+	motionQuery?.removeEventListener?.("change", scheduleViewportUpdate);
+	coarseQuery = null;
+	motionQuery = null;
+	if (resizeRafId !== null) {
+		window.cancelAnimationFrame(resizeRafId);
+		resizeRafId = null;
+	}
+}
 
-		resizeRafId = requestAnimationFrame(() => {
-			windowWidth.value = window.innerWidth;
-			windowHeight.value = window.innerHeight;
-			resizeRafId = null;
-		});
-	};
+const viewportMode = computed(() => resolveViewportMode(windowWidth.value));
+const isPhone = computed(() => viewportMode.value === "phone");
+const isTablet = computed(() =>
+	["tablet-portrait", "tablet-landscape"].includes(viewportMode.value),
+);
+const isDesktop = computed(() => viewportMode.value === "desktop");
+const isCompact = computed(() => !isDesktop.value);
+const isShortViewport = computed(() => windowHeight.value < 760);
+const inputModality = computed<PosInputModality>(() =>
+	coarsePointer.value ? "touch" : "mouse",
+);
+const densityMode = computed(() =>
+	resolveDensityMode({
+		width: windowWidth.value,
+		coarsePointer: coarsePointer.value,
+		preference: densityPreference.value,
+	}),
+);
 
-	onMounted(() => {
-		handleResize();
-		window.addEventListener("resize", handleResize);
-	});
+const widthScale = computed(() => windowWidth.value / baseWidth.value);
+const heightScale = computed(() => windowHeight.value / baseHeight.value);
+const averageScale = computed(() =>
+	Math.max(0.85, Math.min(1.1, (widthScale.value + heightScale.value) / 2)),
+);
 
-	onBeforeUnmount(() => {
-		window.removeEventListener("resize", handleResize);
-		if (resizeRafId) {
-			cancelAnimationFrame(resizeRafId);
-			resizeRafId = null;
-		}
-	});
-
+const dynamicSpacing = computed(() => {
+	const multiplier =
+		densityMode.value === "compact"
+			? 0.75
+			: densityMode.value === "touch"
+				? 1.1
+				: 1;
+	const scale = averageScale.value * multiplier;
 	return {
-		windowWidth,
-		windowHeight,
-		baseWidth,
-		baseHeight,
-		isPhone,
-		isTablet,
-		isDesktop,
-		isCompact,
-		isShortViewport,
-		widthScale,
-		heightScale,
-		averageScale,
-		dynamicSpacing,
-		responsiveStyles,
+		xs: Math.max(4, Math.round(4 * scale)),
+		sm: Math.max(6, Math.round(8 * scale)),
+		md: Math.max(10, Math.round(16 * scale)),
+		lg: Math.max(14, Math.round(24 * scale)),
+		xl: Math.max(20, Math.round(32 * scale)),
 	};
+});
+
+const responsiveStyles = computed(() => {
+	const bottomSafeSpace = isPhone.value
+		? isShortViewport.value
+			? 176
+			: 196
+		: isTablet.value
+			? isShortViewport.value
+				? 112
+				: 132
+			: 24;
+	return {
+		"--dynamic-xs": `${dynamicSpacing.value.xs}px`,
+		"--dynamic-sm": `${dynamicSpacing.value.sm}px`,
+		"--dynamic-md": `${dynamicSpacing.value.md}px`,
+		"--dynamic-lg": `${dynamicSpacing.value.lg}px`,
+		"--dynamic-xl": `${dynamicSpacing.value.xl}px`,
+		"--container-height": "100%",
+		"--card-height": "100%",
+		"--bottom-safe-space": `${bottomSafeSpace}px`,
+		"--viewport-height": `${windowHeight.value}px`,
+		"--font-scale": averageScale.value.toFixed(2),
+		"--pos-control-min-height":
+			densityMode.value === "touch" ? "48px" : "44px",
+	};
+});
+
+export function setDensityPreference(preference: PosDensityMode | null) {
+	densityPreference.value = preference;
+	applyResponsiveAttributes();
+	if (!hasWindow) return;
+	try {
+		if (preference) localStorage.setItem("posa_density_mode", preference);
+		else localStorage.removeItem("posa_density_mode");
+	} catch {
+		// Storage can be unavailable in privacy-restricted browser contexts.
+	}
+}
+
+export type ResponsiveRuntime = {
+	windowWidth: Ref<number>;
+	windowHeight: Ref<number>;
+	baseWidth: Ref<number>;
+	baseHeight: Ref<number>;
+	viewportMode: ComputedRef<PosViewportMode>;
+	isPhone: ComputedRef<boolean>;
+	isTablet: ComputedRef<boolean>;
+	isDesktop: ComputedRef<boolean>;
+	isCompact: ComputedRef<boolean>;
+	isShortViewport: ComputedRef<boolean>;
+	coarsePointer: Ref<boolean>;
+	reducedMotion: Ref<boolean>;
+	inputModality: ComputedRef<PosInputModality>;
+	densityMode: ComputedRef<PosDensityMode>;
+	densityPreference: Ref<PosDensityMode | null>;
+	widthScale: ComputedRef<number>;
+	heightScale: ComputedRef<number>;
+	averageScale: ComputedRef<number>;
+	dynamicSpacing: ComputedRef<Record<string, number>>;
+	responsiveStyles: ComputedRef<Record<string, string>>;
+	setDensityPreference: typeof setDensityPreference;
+};
+
+const runtime: ResponsiveRuntime = {
+	windowWidth,
+	windowHeight,
+	baseWidth,
+	baseHeight,
+	viewportMode,
+	isPhone,
+	isTablet,
+	isDesktop,
+	isCompact,
+	isShortViewport,
+	coarsePointer,
+	reducedMotion,
+	inputModality,
+	densityMode,
+	densityPreference,
+	widthScale,
+	heightScale,
+	averageScale,
+	dynamicSpacing,
+	responsiveStyles,
+	setDensityPreference,
+};
+
+export function useResponsive(): ResponsiveRuntime {
+	onMounted(() => {
+		consumerCount += 1;
+		startResponsiveRuntime();
+	});
+	onBeforeUnmount(() => {
+		consumerCount = Math.max(0, consumerCount - 1);
+		if (consumerCount === 0) stopResponsiveRuntime();
+	});
+	return runtime;
 }

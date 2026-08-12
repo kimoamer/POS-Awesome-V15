@@ -1,7 +1,8 @@
 const CACHE_PREFIX = "posawesome-cache-";
 const VERSION_URL = "/assets/posawesome/dist/js/version.json";
 const DEFAULT_CACHE_VERSION = "default";
-const MAX_CACHE_ITEMS = 1000;
+const MAX_RUNTIME_CACHE_ITEMS = 350;
+const MAX_IMAGE_CACHE_ITEMS = 250;
 
 const STATIC_PRECACHE_URLS = [
 	"/app/posapp",
@@ -32,11 +33,17 @@ function getPrecacheUrls(version, assets = {}) {
 	const fontAssets = Array.isArray(assets.fonts)
 		? assets.fonts.filter((url) => typeof url === "string" && url.trim())
 		: [];
+	const styleAssets = Array.isArray(assets.styles)
+		? assets.styles.filter((url) => typeof url === "string" && url.trim())
+		: [];
 	return [
 		pickAssetUrl(assets, "loader", "/assets/posawesome/dist/js/loader.js", version),
 		pickAssetUrl(assets, "css", "/assets/posawesome/dist/js/posawesome.css", version),
+		...styleAssets,
 		pickAssetUrl(assets, "posawesome", "/assets/posawesome/dist/js/posawesome.js", version),
 		pickAssetUrl(assets, "offlineIndex", "/assets/posawesome/dist/js/offline/index.js", version),
+		buildVersionedAssetUrl("/assets/posawesome/dist/js/posapp/workers/itemWorker.js", version),
+		buildVersionedAssetUrl("/assets/posawesome/dist/js/libs/dexie.min.js", version),
 		...fontAssets,
 		...STATIC_PRECACHE_URLS,
 	];
@@ -49,25 +56,37 @@ let currentAssets = {};
 
 async function precacheUrls(cacheName, version, assets = {}) {
 	const cache = await caches.open(cacheName);
-	await Promise.all(
-		getPrecacheUrls(version, assets).map(async (url) => {
-			try {
-				const resp = await fetch(url);
-				if (resp && resp.ok) {
-					await cache.put(url, resp.clone());
+	const urls = getPrecacheUrls(version, assets);
+	try {
+		const responses = await Promise.all(
+			urls.map(async (url) => {
+				const response = await fetch(url);
+				if (!response || !response.ok) {
+					throw new Error(`Precache request failed (${response?.status || 0}): ${url}`);
 				}
-			} catch (err) {
-				console.warn("SW install failed to fetch", url, err);
-			}
-		}),
-	);
-	await enforceCacheLimit(cache);
+				return { url, response };
+			}),
+		);
+		await Promise.all(responses.map(({ url, response }) => cache.put(url, response.clone())));
+	} catch (error) {
+		await caches.delete(cacheName);
+		throw error;
+	}
 	return cache;
+}
+
+function cacheFamilyNames(activeCacheName) {
+	return new Set([activeCacheName, `${activeCacheName}-runtime`, `${activeCacheName}-images`]);
 }
 
 async function cleanupObsoleteCaches(activeCacheName) {
 	const keys = await caches.keys();
-	await Promise.all(keys.filter((key) => key !== activeCacheName).map((key) => caches.delete(key)));
+	const activeNames = cacheFamilyNames(activeCacheName);
+	await Promise.all(
+		keys
+			.filter((key) => key.startsWith(CACHE_PREFIX) && !activeNames.has(key))
+			.map((key) => caches.delete(key)),
+	);
 }
 
 function postVersionMessage(target) {
@@ -171,14 +190,44 @@ async function getCacheName(forceRefresh = false, resolvedMetadata = null) {
 	return cacheNameInFlight;
 }
 
-async function enforceCacheLimit(cache) {
+async function enforceCacheLimit(cache, maxItems = MAX_RUNTIME_CACHE_ITEMS) {
 	const keys = await cache.keys();
-	if (keys.length > MAX_CACHE_ITEMS) {
-		const excess = keys.length - MAX_CACHE_ITEMS;
+	if (keys.length > maxItems) {
+		const excess = keys.length - maxItems;
 		for (let i = 0; i < excess; i++) {
 			await cache.delete(keys[i]);
 		}
 	}
+}
+
+async function cacheFirst(request, cacheName) {
+	const cache = await caches.open(cacheName);
+	const cached = await cache.match(request);
+	if (cached) return cached;
+	const response = await fetch(request);
+	if (response?.ok && response.status === 200) {
+		await cache.put(request, response.clone());
+	}
+	return response;
+}
+
+async function staleWhileRevalidate(request, cacheName, maxItems) {
+	const cache = await caches.open(cacheName);
+	const cached = await cache.match(request);
+	const network = fetch(request)
+		.then(async (response) => {
+			if (response?.ok && response.status === 200) {
+				await cache.put(request, response.clone());
+				await enforceCacheLimit(cache, maxItems);
+			}
+			return response;
+		})
+		.catch(() => null);
+	if (cached) {
+		void network;
+		return cached;
+	}
+	return (await network) || Response.error();
 }
 
 async function refreshCacheVersion(target) {
@@ -201,17 +250,17 @@ async function forceUnregisterServiceWorker() {
 	currentVersion = null;
 	currentAssets = {};
 	const keys = await caches.keys();
-	await Promise.all(keys.map((key) => caches.delete(key)));
+	await Promise.all(keys.filter((key) => key.startsWith(CACHE_PREFIX)).map((key) => caches.delete(key)));
 	await self.registration.unregister();
 }
 
 self.addEventListener("install", (event) => {
-	self.skipWaiting();
 	event.waitUntil(
 		(async () => {
 			const metadata = await resolveBuildMetadata();
 			const cacheName = await getCacheName(false, metadata);
 			await precacheUrls(cacheName, metadata.version, metadata.assets);
+			await self.skipWaiting();
 		})(),
 	);
 });
@@ -223,12 +272,19 @@ self.addEventListener("activate", (event) => {
 			const activeCacheName = await getCacheName(false, metadata);
 			await precacheUrls(activeCacheName, metadata.version, metadata.assets);
 			await cleanupObsoleteCaches(activeCacheName);
-			const cache = await caches.open(activeCacheName);
-			await enforceCacheLimit(cache);
 			await self.clients.claim();
 			const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
 			clients.forEach(postVersionMessage);
 		})(),
+	);
+});
+
+self.addEventListener("sync", (event) => {
+	if (event.tag !== "posawesome-outbox-sync") return;
+	event.waitUntil(
+		self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+			clients.forEach((client) => client.postMessage({ type: "POSAWESOME_REPLAY_OUTBOX" }));
+		}),
 	);
 });
 
@@ -240,12 +296,10 @@ self.addEventListener("fetch", (event) => {
 
 	if (event.request.url.includes("socket.io")) return;
 
-	const assetDestinations = ["style", "script", "worker", "font", "image"];
-	const isAssetRequest = assetDestinations.includes(event.request.destination);
 	const isPosawesomeAsset = url.pathname.startsWith("/assets/posawesome/");
 	const isNavigation = event.request.mode === "navigate";
 
-	if (!isNavigation && !isAssetRequest && !isPosawesomeAsset) {
+	if (!isNavigation && !isPosawesomeAsset) {
 		return;
 	}
 
@@ -280,40 +334,26 @@ self.addEventListener("fetch", (event) => {
 	event.respondWith(
 		(async () => {
 			const cacheName = await getCacheName();
-			const hasVersionQuery = url.searchParams.has("v");
+			const isImage = event.request.destination === "image";
+			const isImmutable =
+				/[-.][A-Za-z0-9_-]{8,}\.(?:js|css|woff2?|ttf|eot|png|svg|webp)$/i.test(url.pathname) ||
+				url.searchParams.has("v");
 			try {
-				const response = await fetch(event.request);
-				const cacheableTypes = ["basic", "default", "cors"];
-				if (
-					response &&
-					response.ok &&
-					response.status === 200 &&
-					cacheableTypes.includes(response.type)
-				) {
-					try {
-						const cache = await caches.open(cacheName);
-						await cache.put(event.request, response.clone());
-						await enforceCacheLimit(cache);
-					} catch (cacheError) {
-						console.warn("SW cache put failed", cacheError);
-					}
+				if (isImage) {
+					return await staleWhileRevalidate(
+						event.request,
+						`${cacheName}-images`,
+						MAX_IMAGE_CACHE_ITEMS,
+					);
 				}
-				return response;
+				if (isImmutable) return await cacheFirst(event.request, cacheName);
+				return await staleWhileRevalidate(
+					event.request,
+					`${cacheName}-runtime`,
+					MAX_RUNTIME_CACHE_ITEMS,
+				);
 			} catch (networkError) {
-				const cached = await caches.match(event.request);
-				if (cached) {
-					return cached;
-				}
-
-				if (!hasVersionQuery) {
-					const fallback = await caches.match(event.request, {
-						ignoreSearch: true,
-					});
-					if (fallback) {
-						return fallback;
-					}
-				}
-				return Response.error();
+				return (await caches.match(event.request, { ignoreSearch: true })) || Response.error();
 			}
 		})(),
 	);

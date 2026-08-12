@@ -54,8 +54,14 @@ def _load_module():
 class TestOfflineSyncInvoices(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         _install_stubs()
         cls.module = _load_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def test_submit_invoice_outbox_entry_returns_acknowledgement(self):
         response = self.module.submit_invoice_outbox_entry(

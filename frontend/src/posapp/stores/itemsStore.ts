@@ -8,6 +8,8 @@ import { ref, computed, watch } from "vue";
 import type { Item, POSProfile } from "../types/models";
 import itemService from "../services/itemService";
 import { refreshBootstrapSnapshotFromCacheState } from "../../offline/index";
+import { buildOfflineProfileScope } from "../../offline/scope";
+import { useSyncCoordinator } from "../../offline/sync/useSyncCoordinator";
 
 // Composables
 import { useItemsCache } from "../composables/pos/items/store/useItemsCache";
@@ -173,7 +175,6 @@ export const useItemsStore = defineStore("items", () => {
 		primeItemDetailsCache,
 		cancelBackgroundSync,
 		refreshModifiedItems: syncRefreshModifiedItems,
-		backgroundSyncItems: syncBackgroundSyncItems,
 	} = useItemsSync();
 
 	const {
@@ -252,9 +253,7 @@ export const useItemsStore = defineStore("items", () => {
 	};
 
 	const getCacheScope = () => {
-		const profileName = posProfile.value?.name || "no_profile";
-		const warehouse = posProfile.value?.warehouse || "no_warehouse";
-		return `${profileName}_${warehouse}`;
+		return buildOfflineProfileScope(posProfile.value);
 	};
 
 	const getStorageScope = () => getCacheScope();
@@ -522,7 +521,7 @@ export const useItemsStore = defineStore("items", () => {
 				limit: resolveHotCatalogLimit(),
 				days: HOT_CATALOG_DAYS,
 				include_description: 0,
-				include_image: 0,
+				include_image: 1,
 				item_groups: getProfileItemGroups(),
 			});
 			if (requestToken !== hotCatalogRequestToken) {
@@ -659,6 +658,10 @@ export const useItemsStore = defineStore("items", () => {
 		posProfile.value = profile;
 		customer.value = cust;
 		customerPriceList.value = priceList;
+		const activateStockScope = await getOfflineFn("setActiveStockScope");
+		if (typeof activateStockScope === "function") {
+			activateStockScope(profile);
+		}
 
 		await loadItemGroups(posProfile.value);
 		await assessCacheHealth();
@@ -745,33 +748,20 @@ export const useItemsStore = defineStore("items", () => {
 		}
 	};
 
-	const triggerBackgroundSync = (options: any = {}) => {
+	const triggerBackgroundSync = async (_options: any = {}) => {
 		if (!shouldPersistItems()) return;
 		if (backgroundSyncState.value.running) return;
 
-		syncBackgroundSyncItems(
-			options,
-			posProfile.value,
-			activePriceList.value,
-			getStorageScope(),
-			shouldPersistItems(),
-			resolvePageSize,
-			setItems,
-			async () => {
-				await updateCachedPaginationFromStorage(
-					items.value.length,
-					totalItemCount,
-					posProfile.value,
-					shouldUseIndexedSearch(),
-					limitSearchEnabled.value,
-				);
-			},
-			totalItemCount,
-			itemsLoaded,
-			items,
-		).catch((error) => {
+		backgroundSyncState.value.running = true;
+		isBackgroundLoading.value = true;
+		try {
+			await useSyncCoordinator().runTrigger("timer");
+		} catch (error) {
 			console.error("Failed to trigger background sync:", error);
-		});
+		} finally {
+			backgroundSyncState.value.running = false;
+			isBackgroundLoading.value = false;
+		}
 	};
 
 	const loadItems = async (options: LoadItemsOptions = {}) => {

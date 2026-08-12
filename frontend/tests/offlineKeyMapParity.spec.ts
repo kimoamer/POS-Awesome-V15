@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, expect, it } from "vitest";
 import "fake-indexeddb/auto";
 import { readFileSync } from "node:fs";

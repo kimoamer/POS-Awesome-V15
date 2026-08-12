@@ -49,7 +49,9 @@ export function usePaymentUiCapabilities(params: PaymentUiCapabilitiesParams) {
 	});
 
 	const showRedemptionSection = computed(() => {
-		return showLoyaltyRedemption.value;
+		return (
+			showLoyaltyRedemption.value || showCustomerCreditRedemption.value
+		);
 	});
 
 	// Settlement Capabilities

@@ -1,6 +1,10 @@
 import frappe
 from frappe import _
 from frappe.utils import getdate, nowdate
+from posawesome.posawesome.api.utils import (
+    assert_document_permission,
+    get_pos_request_context,
+)
 
 from .permissions import (
     ensure_cancel_allowed,
@@ -26,12 +30,29 @@ from .validation import (
 )
 
 
-def _enforce_shift_access(pos_opening_shift):
-    shift_user = frappe.db.get_value("POS Opening Shift", pos_opening_shift, "user")
-    if not shift_user:
-        frappe.throw(_("POS Opening Shift not found."))
-    if shift_user != frappe.session.user and not is_manager():
+def _authorize_shift_read(pos_opening_shift):
+    """Authorize own-shift reads and explicit manager cross-shift review."""
+
+    shift = frappe.get_doc("POS Opening Shift", pos_opening_shift)
+    assert_document_permission(shift, "read")
+    if shift.user == frappe.session.user:
+        get_pos_request_context(
+            shift.pos_profile,
+            company=shift.company,
+            doctype="POS Cash Movement",
+            permission_type="read",
+            require_open_shift=True,
+            opening_shift=shift.name,
+        )
+        return shift
+
+    if not is_manager():
         frappe.throw(_("You are not allowed to access this shift."))
+    profile_doc = get_pos_profile(shift.pos_profile)
+    assert_document_permission(profile_doc, "read")
+    if profile_doc.company != shift.company:
+        frappe.throw(_("POS Opening Shift company does not match its profile."))
+    return shift
 
 
 def _create_cash_movement(payload, movement_type):
@@ -43,6 +64,15 @@ def _create_cash_movement(payload, movement_type):
     profile_doc = get_pos_profile(profile_name)
 
     validate_company_consistency(opening_shift, profile_doc)
+    context = get_pos_request_context(
+        profile_doc.name,
+        company=profile_doc.company,
+        doctype="POS Cash Movement",
+        permission_type="create",
+        require_open_shift=True,
+        opening_shift=opening_shift.name,
+    )
+    profile_doc = context.pos_profile
     ensure_feature_enabled(profile_doc)
     ensure_movement_allowed(profile_doc, movement_type)
 
@@ -82,7 +112,6 @@ def _create_cash_movement(payload, movement_type):
             "client_request_id": data.get("client_request_id"),
         }
     )
-    movement_doc.flags.ignore_permissions = True
     movement_doc.insert()
     # The backing Journal Entry is created atomically inside the document's
     # on_submit hook, so insert + JE + submit either all succeed or all roll
@@ -100,7 +129,13 @@ def get_cash_movement_context(pos_profile=None, pos_opening_shift=None):
     if not profile_name:
         frappe.throw(_("POS Profile is required."))
 
-    profile_doc = get_pos_profile(profile_name)
+    profile_doc = get_pos_request_context(
+        profile_name,
+        doctype="POS Cash Movement",
+        permission_type="read",
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    ).pos_profile
     allowed_expense_accounts = extract_allowed_accounts(profile_doc.get("posa_allowed_expense_accounts"))
     allowed_source_accounts = extract_allowed_accounts(profile_doc.get("posa_allowed_source_accounts"))
     default_source_account = None
@@ -154,7 +189,7 @@ def get_shift_cash_movements(
     limit_start=0,
     limit_page_length=50,
 ):
-    _enforce_shift_access(pos_opening_shift)
+    _authorize_shift_read(pos_opening_shift)
     return get_shift_movements(
         pos_opening_shift=pos_opening_shift,
         movement_type=movement_type,
@@ -167,7 +202,7 @@ def get_shift_cash_movements(
 
 @frappe.whitelist()
 def get_submitted_expenses(pos_opening_shift, limit_start=0, limit_page_length=50):
-    _enforce_shift_access(pos_opening_shift)
+    _authorize_shift_read(pos_opening_shift)
     return query_submitted_expenses(
         pos_opening_shift=pos_opening_shift,
         limit_start=limit_start,
@@ -178,6 +213,7 @@ def get_submitted_expenses(pos_opening_shift, limit_start=0, limit_page_length=5
 @frappe.whitelist()
 def cancel_cash_movement(name):
     movement_doc = frappe.get_doc("POS Cash Movement", name)
+    assert_document_permission(movement_doc, "cancel")
     ensure_owner_or_manager(movement_doc)
     if movement_doc.docstatus != 1:
         frappe.throw(_("Only submitted cash movements can be cancelled."))
@@ -186,7 +222,6 @@ def cancel_cash_movement(name):
     ensure_feature_enabled(profile_doc)
     ensure_cancel_allowed(profile_doc)
 
-    movement_doc.flags.ignore_permissions = True
     movement_doc.cancel()
     return {"name": movement_doc.name, "docstatus": movement_doc.docstatus}
 
@@ -194,6 +229,7 @@ def cancel_cash_movement(name):
 @frappe.whitelist()
 def delete_cash_movement(name):
     movement_doc = frappe.get_doc("POS Cash Movement", name)
+    assert_document_permission(movement_doc, "delete")
     ensure_owner_or_manager(movement_doc)
     if movement_doc.docstatus != 2:
         frappe.throw(_("Only cancelled cash movements can be deleted."))
@@ -202,13 +238,14 @@ def delete_cash_movement(name):
     ensure_feature_enabled(profile_doc)
     ensure_delete_allowed(profile_doc)
 
-    movement_doc.delete(ignore_permissions=True)
+    movement_doc.delete()
     return {"deleted": name}
 
 
 @frappe.whitelist()
 def duplicate_cash_movement(name, posting_date=None):
     movement_doc = frappe.get_doc("POS Cash Movement", name)
+    assert_document_permission(movement_doc, "read")
     ensure_owner_or_manager(movement_doc)
     if movement_doc.docstatus not in (1, 2):
         frappe.throw(_("Only submitted or cancelled cash movements can be duplicated."))

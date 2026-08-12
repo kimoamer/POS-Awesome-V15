@@ -3,21 +3,19 @@ import json
 import frappe
 
 from posawesome.posawesome.api.invoice_processing.utils import (
-    get_available_currencies,
+    _get_available_currencies,
+    _get_price_list_currency,
     get_latest_rate,
-    get_price_list_currency,
 )
 from posawesome.posawesome.api.offline_sync.common import (
+    SYNC_SCHEMA_VERSION,
     _build_response,
     _max_timestamp,
     _normalize_timestamp,
     _resolve_profile,
+    _resolve_sync_until,
 )
-from posawesome.posawesome.api.payment_processing.utils import (
-    get_mode_of_payment_accounts,
-)
-
-SYNC_SCHEMA_VERSION = "2026-04-09"
+from posawesome.posawesome.api.payment_processing.utils import _get_mode_of_payment_accounts
 
 
 def _coerce_limit(value, default=200, maximum=1000):
@@ -26,14 +24,6 @@ def _coerce_limit(value, default=200, maximum=1000):
     except (TypeError, ValueError):
         resolved = default
     return max(1, min(resolved, maximum))
-
-
-def _coerce_offset(value):
-    try:
-        resolved = int(value or 0)
-    except (TypeError, ValueError):
-        resolved = 0
-    return max(0, resolved)
 
 
 def _should_include(modified, watermark):
@@ -74,7 +64,7 @@ def _get_payment_currencies(profile):
         for row in (profile.get("payments") or [])
         if str(row.get("mode_of_payment") or "").strip()
     ]
-    mapping = get_mode_of_payment_accounts(profile.get("company"), payment_methods) or {}
+    mapping = _get_mode_of_payment_accounts(profile.get("company"), payment_methods) or {}
     currencies = []
     for value in mapping.values():
         if isinstance(value, dict):
@@ -107,13 +97,13 @@ def _discover_pairs(profile, enabled_currencies):
     for row in price_list_rows:
         currency = str(row.get("currency") or "").strip()
         if not currency and row.get("name"):
-            currency = str(get_price_list_currency(row.get("name")) or "").strip()
+            currency = str(_get_price_list_currency(row.get("name")) or "").strip()
         if currency:
             price_list_currencies.append(currency)
 
     selected_price_list = profile.get("selling_price_list")
     if selected_price_list:
-        selected_currency = str(get_price_list_currency(selected_price_list) or "").strip()
+        selected_currency = str(_get_price_list_currency(selected_price_list) or "").strip()
         if selected_currency:
             price_list_currencies.append(selected_currency)
 
@@ -124,9 +114,7 @@ def _discover_pairs(profile, enabled_currencies):
     )
     invoice_currencies.extend(_get_payment_currencies(profile))
     invoice_currencies = [currency for currency in dict.fromkeys(invoice_currencies) if currency]
-    price_list_currencies = [
-        currency for currency in dict.fromkeys(price_list_currencies) if currency
-    ]
+    price_list_currencies = [currency for currency in dict.fromkeys(price_list_currencies) if currency]
 
     pairs = []
     for price_list_currency in price_list_currencies:
@@ -146,7 +134,7 @@ def _normalize_pairs(currency_pairs, profile, enabled_currencies):
     return _discover_pairs(profile, enabled_currencies), False
 
 
-def _get_exchange_rows(resolved_pairs):
+def _get_exchange_rows(resolved_pairs, sync_until=None):
     if not resolved_pairs:
         return {}
     pair_set = set(resolved_pairs)
@@ -156,6 +144,7 @@ def _get_exchange_rows(resolved_pairs):
             filters={
                 "from_currency": ["in", sorted({pair[0] for pair in pair_set})],
                 "to_currency": ["in", sorted({pair[1] for pair in pair_set})],
+                "modified": ["<=", sync_until] if sync_until else ["is", "set"],
             },
             fields=[
                 "name",
@@ -184,8 +173,10 @@ def sync_currency_scope(
     watermark=None,
     currency_pairs=None,
     offset=0,
+    start_after=None,
     limit=200,
     schema_version=None,
+    sync_until=None,
 ):
     if schema_version and schema_version != SYNC_SCHEMA_VERSION:
         return _build_response(full_resync_required=True)
@@ -195,7 +186,7 @@ def sync_currency_scope(
         frappe.throw("pos_profile is required")
 
     resolved_limit = _coerce_limit(limit)
-    resolved_offset = _coerce_offset(offset)
+    resolved_sync_until = _resolve_sync_until(sync_until)
     currency_rows = (
         frappe.get_all(
             "Currency",
@@ -210,68 +201,66 @@ def sync_currency_scope(
     available_currency_payload = [{"name": row.get("name")} for row in enabled_rows if row.get("name")]
     if not available_currency_payload:
         available_currency_payload = [
-            {"name": row.get("name")} for row in (get_available_currencies() or []) if row.get("name")
+            {"name": row.get("name")} for row in (_get_available_currencies() or []) if row.get("name")
         ]
 
-    changes = []
+    feed = {}
     if _should_include(enabled_modified, watermark):
-        changes.append(
-            {
-                "key": "currency_options",
-                "modified": enabled_modified,
-                "data": available_currency_payload,
-            }
-        )
+        feed["currency_options"] = {
+            "key": "currency_options",
+            "modified": enabled_modified,
+            "data": available_currency_payload,
+        }
 
     enabled_currencies = [
-        str(row.get("name") or "").strip()
-        for row in enabled_rows
-        if str(row.get("name") or "").strip()
+        str(row.get("name") or "").strip() for row in enabled_rows if str(row.get("name") or "").strip()
     ]
-    resolved_pairs, explicit_pairs = _normalize_pairs(
+    resolved_pairs, _explicit_pairs = _normalize_pairs(
         currency_pairs,
         profile,
         enabled_currencies,
     )
-    exchange_rows_by_pair = _get_exchange_rows(resolved_pairs)
-    pair_modifications = []
+    exchange_rows_by_pair = _get_exchange_rows(
+        resolved_pairs,
+        sync_until=resolved_sync_until,
+    )
     for from_currency, to_currency in resolved_pairs:
         exchange_rows = exchange_rows_by_pair.get((from_currency, to_currency), [])
         pair_modified = _max_timestamp([row.get("modified") for row in exchange_rows])
-        pair_modifications.append(pair_modified)
         for row in exchange_rows:
-            if explicit_pairs and not _should_include(row.get("modified"), watermark):
+            if not _should_include(row.get("modified"), watermark):
                 continue
             if not row.get("name"):
                 continue
-            changes.append(
-                {
-                    "key": f"currency_rate::{row.get('name')}",
-                    "modified": row.get("modified"),
-                    "data": dict(row),
-                }
-            )
-        if explicit_pairs and not _should_include(pair_modified, watermark):
+            key = f"currency_rate::{row.get('name')}"
+            feed[key] = {
+                "key": key,
+                "modified": row.get("modified"),
+                "data": dict(row),
+            }
+        if not _should_include(pair_modified, watermark):
             continue
         exchange_rate, rate_date = get_latest_rate(from_currency, to_currency)
-        changes.append(
-            {
-                "key": f"exchange_rate::{from_currency}::{to_currency}",
-                "modified": pair_modified,
-                "data": {
-                    "from_currency": from_currency,
-                    "to_currency": to_currency,
-                    "exchange_rate": exchange_rate,
-                    "date": rate_date,
-                },
-            }
-        )
+        key = f"exchange_rate::{from_currency}::{to_currency}"
+        feed[key] = {
+            "key": key,
+            "modified": pair_modified,
+            "data": {
+                "from_currency": from_currency,
+                "to_currency": to_currency,
+                "exchange_rate": exchange_rate,
+                "date": rate_date,
+            },
+        }
 
-    deleted = [
-        {"key": f"currency::{row.get('name')}"}
+    deleted_feed = {
+        f"currency::{row.get('name')}": {
+            "key": f"currency::{row.get('name')}",
+            "modified": row.get("modified"),
+        }
         for row in currency_rows
         if not row.get("enabled") and row.get("name") and _should_include(row.get("modified"), watermark)
-    ]
+    }
     deleted_rate_rows = []
     if watermark:
         deleted_rate_rows = (
@@ -279,36 +268,40 @@ def sync_currency_scope(
                 "Deleted Document",
                 filters={
                     "deleted_doctype": "Currency Exchange",
-                    "creation": [">", watermark],
+                    "creation": ["between", [watermark, resolved_sync_until]],
                 },
                 fields=["deleted_name", "creation"],
                 order_by="creation asc, deleted_name asc",
             )
             or []
         )
-        deleted.extend(
-            {
-                "key": f"currency_rate::{row.get('deleted_name')}",
-            }
-            for row in deleted_rate_rows
-            if row.get("deleted_name")
-        )
+        for row in deleted_rate_rows:
+            if not row.get("deleted_name"):
+                continue
+            key = f"currency_rate::{row.get('deleted_name')}"
+            deleted_feed[key] = {"key": key, "modified": row.get("creation")}
 
-    has_more = len(changes) > resolved_offset + resolved_limit
-    changes = changes[resolved_offset : resolved_offset + resolved_limit]
-
-    next_watermark = None
-    if not has_more:
-        next_watermark = _max_timestamp(
-            enabled_modified,
-            pair_modifications,
-            [row.get("creation") for row in deleted_rate_rows],
-        )
+    all_keys = sorted(set(feed) | set(deleted_feed))
+    if start_after:
+        all_keys = [key for key in all_keys if key > start_after]
+    has_more = len(all_keys) > resolved_limit
+    page_keys = all_keys[:resolved_limit]
+    changes = [feed[key] for key in page_keys if key in feed]
+    deleted = [{"key": deleted_feed[key]["key"]} for key in page_keys if key in deleted_feed]
     response = _build_response(
         changes=changes,
         deleted=deleted,
-        next_watermark=next_watermark,
+        next_watermark=(
+            _max_timestamp(
+                watermark,
+                [row.get("modified") for row in changes],
+                [deleted_feed[key].get("modified") for key in page_keys if key in deleted_feed],
+            )
+            if has_more
+            else resolved_sync_until
+        ),
+        next_cursor=page_keys[-1] if has_more and page_keys else None,
+        sync_until=resolved_sync_until,
         has_more=has_more,
     )
-    response["next_offset"] = resolved_offset + len(changes) if has_more else None
     return response

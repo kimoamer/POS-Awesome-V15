@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
 // @ts-ignore
-import PaymentSettlementOptions from "../src/posapp/components/pos/payments/PaymentSettlementOptions.vue";
+import PaymentSettlementOptions from "../src/posapp/components/pos/payments/PaymentOptions.vue";
 
 describe("Payment Settlement Options Contract", () => {
 	it("renders settlement option rows and emits get-available-credit event on credit toggle", async () => {
@@ -14,6 +14,6 @@ describe("Payment Settlement Options Contract", () => {
 		});
 
 		expect(wrapper.text()).toContain("Credit Sale");
-		expect(wrapper.text()).toContain("Use Customer Credit");
+		expect(wrapper.text()).toContain("Use Customer Balance");
 	});
 });

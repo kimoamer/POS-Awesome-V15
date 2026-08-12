@@ -40,7 +40,7 @@ export type BootRecoveryDecision =
 export type BuildMetadata = {
 	version?: string;
 	buildVersion?: string;
-	assets?: Record<string, string>;
+	assets?: Record<string, string | string[]>;
 };
 
 export type BootAssetResult =

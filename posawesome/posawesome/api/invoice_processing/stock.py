@@ -2,7 +2,10 @@ import frappe
 from frappe.utils import cint, flt, cstr, getdate, nowdate
 from frappe import _
 from erpnext.stock.doctype.batch.batch import get_batch_qty
-from posawesome.posawesome.api.items import get_bulk_stock_availability, get_stock_availability
+from posawesome.posawesome.api.item_processing.stock import (
+    _get_bulk_stock_availability,
+    get_stock_availability,
+)
 from posawesome.posawesome.api.invoice_processing.utils import _sanitize_item_name
 
 
@@ -138,7 +141,7 @@ def _collect_stock_errors(items, pos_profile=None, include_warnings=False):
         return []
 
     items_to_check = list(grouped_items.values())
-    stock_map = get_bulk_stock_availability(items_to_check)
+    stock_map = _get_bulk_stock_availability(items_to_check)
 
     for d in items_to_check:
         item_code = d.get("item_code")
@@ -372,13 +375,7 @@ def _strip_client_freebies_from_payload(payload):
 
         auto_marker = row.get("auto_free_source")
         is_free = cint(row.get("is_free_item"))
-        pricing_rule_marker = (
-            row.get("source_rule")
-            or row.get("pricing_rule")
-            or row.get("pricing_rules")
-        )
-
-        if auto_marker or (is_free and pricing_rule_marker):
+        if auto_marker or is_free or cint(row.get("posa_is_offer")):
             modified = True
             continue
 

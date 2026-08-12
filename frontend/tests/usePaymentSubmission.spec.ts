@@ -1149,6 +1149,7 @@ describe("usePaymentSubmission", () => {
 					loyalty_program: "Retail Loyalty",
 				}),
 			}),
+			expect.objectContaining({ name: "Main POS" }),
 		);
 
 		(offlineModule.isOffline as any).mockReturnValue(false);

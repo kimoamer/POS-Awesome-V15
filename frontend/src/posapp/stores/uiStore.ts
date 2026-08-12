@@ -59,6 +59,9 @@ export const useUIStore = defineStore("ui", () => {
   const ordersDialog = ref(false);
   const ordersData = ref<any[]>([]);
 
+  const returnsDialog = ref(false);
+  const returnsCompany = ref<string>("");
+
   const setActiveView = (view: string) => {
     activeView.value = view;
   };
@@ -131,6 +134,16 @@ export const useUIStore = defineStore("ui", () => {
 
   const closeOrders = () => {
     ordersDialog.value = false;
+  };
+
+  const openReturns = (company?: string) => {
+    returnsCompany.value = String(company || posProfile.value?.company || "");
+    returnsDialog.value = true;
+  };
+
+  const closeReturns = () => {
+    returnsDialog.value = false;
+    returnsCompany.value = "";
   };
 
   function setLoading(active: boolean, text: string = "Loading...") {
@@ -314,6 +327,10 @@ export const useUIStore = defineStore("ui", () => {
     ordersData,
     openOrders,
     closeOrders,
+    returnsDialog,
+    returnsCompany,
+    openReturns,
+    closeReturns,
     posProfile,
     stockSettings,
     companyDoc,

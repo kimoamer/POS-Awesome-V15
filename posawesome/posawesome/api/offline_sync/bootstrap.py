@@ -1,7 +1,8 @@
 import frappe
 
-from posawesome.posawesome.api.invoice_processing.utils import get_price_list_currency
+from posawesome.posawesome.api.invoice_processing.utils import _get_price_list_currency
 from posawesome.posawesome.api.offline_sync.common import (
+    SYNC_SCHEMA_VERSION,
     _build_response,
     _max_timestamp,
     _normalize_timestamp,
@@ -11,9 +12,6 @@ from posawesome.posawesome.api.utilities import (
     get_pos_profile_tax_inclusive,
     get_selling_price_lists,
 )
-
-SYNC_SCHEMA_VERSION = "2026-04-09"
-
 
 def _coerce_limit(value, default=100, maximum=1000):
     try:
@@ -98,7 +96,7 @@ def sync_bootstrap_config(
                     "price_lists": price_lists,
                     "selected_price_list": selected_price_list,
                     "price_list_currency": (
-                        get_price_list_currency(selected_price_list) if selected_price_list else None
+                        _get_price_list_currency(selected_price_list) if selected_price_list else None
                     ),
                 },
             }

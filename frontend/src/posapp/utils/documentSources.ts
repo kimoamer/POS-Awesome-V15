@@ -65,6 +65,7 @@ type FetchSourceOptions = {
 	resolveSupervisorProfileScope?: (() => string | null) | null;
 	resolveCashierProfileScope?: (() => string | null) | null;
 	resolveCashierScope?: (() => string | null) | null;
+	cashierGrant?: string | null;
 	search?: string;
 };
 
@@ -72,6 +73,7 @@ type LoadSourceOptions = {
 	source: CommercialDocumentSourceKey;
 	record: DocumentSourceRecord;
 	posProfile: any;
+	posOpeningShift?: any;
 	currentInvoiceDoctype?: string;
 	invoiceStore: any;
 	uiStore?: any;
@@ -84,6 +86,8 @@ type PrepareFlowOptions = {
 	source: CommercialDocumentSourceKey;
 	record: DocumentSourceRecord;
 	currentInvoiceDoctype?: string;
+	posProfile?: any;
+	posOpeningShift?: any;
 };
 
 type CommitFlowOptions = {
@@ -91,6 +95,8 @@ type CommitFlowOptions = {
 	source: CommercialDocumentSourceKey;
 	record: DocumentSourceRecord;
 	payload?: Record<string, any> | null;
+	posProfile?: any;
+	posOpeningShift?: any;
 };
 
 const DOCUMENT_SOURCE_OPTIONS: DocumentSourceOption[] = [
@@ -386,6 +392,7 @@ export async function fetchDocumentSourceRecords(
 		resolveSupervisorProfileScope = null,
 		resolveCashierProfileScope = null,
 		resolveCashierScope = null,
+		cashierGrant = null,
 		search = "",
 	} = options;
 
@@ -412,6 +419,7 @@ export async function fetchDocumentSourceRecords(
 					? resolveCashierScope()
 					: null,
 			is_supervisor: isSupervisorScope ? 1 : 0,
+			cashier_grant: cashierGrant,
 			search: search || undefined,
 			include_draft: 1,
 			include_submitted: 1,
@@ -425,8 +433,14 @@ export async function fetchDocumentSourceRecords(
 export async function prepareDocumentFlowAction(
 	options: PrepareFlowOptions,
 ): Promise<PreparedDocumentFlow | null> {
-	const { action, source, record, currentInvoiceDoctype = "Sales Invoice" } =
-		options;
+	const {
+		action,
+		source,
+		record,
+		currentInvoiceDoctype = "Sales Invoice",
+		posProfile,
+		posOpeningShift,
+	} = options;
 
 	if (!record?.name) {
 		return null;
@@ -442,6 +456,8 @@ export async function prepareDocumentFlowAction(
 				getSourceDoctypeForKey(source, currentInvoiceDoctype),
 			source_name: record.name,
 			target_invoice_doctype: currentInvoiceDoctype,
+			pos_profile: posProfile?.name,
+			pos_opening_shift: posOpeningShift?.name || posOpeningShift,
 		},
 	});
 
@@ -462,7 +478,7 @@ export async function prepareDocumentFlowAction(
 export async function commitDocumentFlowAction(
 	options: CommitFlowOptions,
 ): Promise<any> {
-	const { action, source, record, payload = null } = options;
+	const { action, source, record, payload = null, posProfile, posOpeningShift } = options;
 	if (!record?.name) {
 		return null;
 	}
@@ -474,6 +490,8 @@ export async function commitDocumentFlowAction(
 			source_doctype: record?.source_doctype || record?.doctype || getSourceDoctypeForKey(source),
 			source_name: record.name,
 			payload: payload ? JSON.stringify(payload) : null,
+			pos_profile: posProfile?.name,
+			pos_opening_shift: posOpeningShift?.name || posOpeningShift,
 		},
 	});
 	return message || null;
@@ -486,6 +504,7 @@ export async function loadDocumentSourceRecord(
 		source,
 		record,
 		posProfile,
+		posOpeningShift,
 		currentInvoiceDoctype = "Sales Invoice",
 		invoiceStore,
 		uiStore,
@@ -528,6 +547,8 @@ export async function loadDocumentSourceRecord(
 			source,
 			record,
 			currentInvoiceDoctype,
+			posProfile,
+			posOpeningShift,
 		});
 		loadedRecord = prepared?.prepared_doc || null;
 		if (prepared && typeof invoiceStore.triggerLoadFlow === "function") {

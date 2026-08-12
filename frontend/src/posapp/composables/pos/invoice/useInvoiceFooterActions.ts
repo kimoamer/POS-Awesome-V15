@@ -72,7 +72,9 @@ export function useInvoiceFooterActions(options: InvoiceFooterActionOptions) {
 				key: "return",
 				label: __("Sales Return"),
 				icon: "mdi-backup-restore",
-				visible: parseBooleanSetting(profile?.posa_allow_return),
+				visible: parseBooleanSetting(
+					profile?.posa_allow_return ?? profile?.posa_allow_returns,
+				),
 				loading: returnsLoading,
 			},
 			{
@@ -86,7 +88,9 @@ export function useInvoiceFooterActions(options: InvoiceFooterActionOptions) {
 				key: "customer-display",
 				label: __("Customer Screen"),
 				icon: "mdi-monitor",
-				visible: parseBooleanSetting(profile?.posa_enable_customer_display),
+				visible: parseBooleanSetting(
+					profile?.posa_enable_customer_display ?? profile?.posa_allow_customer_display,
+				),
 				loading: customerDisplayLoading,
 			},
 			{

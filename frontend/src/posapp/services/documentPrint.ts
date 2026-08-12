@@ -5,6 +5,7 @@ import {
 	shouldUseRawDocumentPrinting,
 	type RawDocumentPrintOptions,
 } from "./rawDocumentPrint";
+import { useDialogStore } from "../stores/dialogStore";
 
 export { shouldUseRawDocumentPrinting } from "./rawDocumentPrint";
 
@@ -50,7 +51,7 @@ export function getQzPrintErrorMessage(error: unknown) {
 	return translate("Unknown QZ Tray printing error.");
 }
 
-export function confirmDocumentPrintFallback(
+export async function confirmDocumentPrintFallback(
 	error: unknown,
 	options: { raw?: boolean; offline?: boolean } = {},
 ) {
@@ -60,6 +61,11 @@ export function confirmDocumentPrintFallback(
 		: options.raw
 			? translate("Raw/QZ printing failed.")
 			: translate("QZ Tray printing failed.");
-	const message = `${title}\n\n${translate("Reason")}: ${reason}\n\n${translate("Do you want to print using the browser fallback instead?")}`;
-	return window.confirm(message);
+	return useDialogStore().confirm({
+		title,
+		message: `${translate("Reason")}: ${reason}\n\n${translate("Do you want to print using the browser fallback instead?")}`,
+		confirmLabel: translate("Use browser print"),
+		cancelLabel: translate("Cancel"),
+		color: "warning",
+	});
 }

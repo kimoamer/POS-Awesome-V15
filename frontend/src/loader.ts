@@ -14,7 +14,10 @@ const POSAPP_BASE_PATH = "/app/posapp";
 const VERSION_ENDPOINT = "/assets/posawesome/dist/js/version.json";
 const CSS_URL = "/assets/posawesome/dist/js/posawesome.css";
 const CSS_LINK_ID = "posa-posapp-css";
+const CSS_LINK_SELECTOR = `link#${CSS_LINK_ID}, link[data-posawesome-stylesheet="true"]`;
 const OFFLINE_INDEX_URL = "/assets/posawesome/dist/js/offline/index.js";
+const POSAWESOME_CACHE_PREFIX = "posawesome-cache-";
+const POSAWESOME_SERVICE_WORKER_PATH = "/sw.js";
 
 const getBundlePath = (version: string) =>
 	`/assets/posawesome/dist/js/posawesome.js?v=${encodeURIComponent(version)}`;
@@ -136,7 +139,24 @@ function resolveBuildAssetUrl(
 	return buildVersionedAssetUrl(fallbackPath, version);
 }
 
-function ensureStylesheetLoaded(
+export function resolveBuildStylesheetUrls(
+	payload: BuildMetadata | null,
+	version: string | null = null,
+) {
+	const configuredStyles = payload?.assets?.styles;
+	if (Array.isArray(configuredStyles)) {
+		const styles = configuredStyles
+			.filter((value): value is string => typeof value === "string")
+			.map((value) => value.trim())
+			.filter(Boolean);
+		if (styles.length) {
+			return Array.from(new Set(styles));
+		}
+	}
+	return [resolveBuildAssetUrl(payload, "css", CSS_URL, version)];
+}
+
+function ensureStylesheetsLoaded(
 	metadata: BuildMetadata | null,
 	version: string | null,
 ) {
@@ -145,22 +165,31 @@ function ensureStylesheetLoaded(
 	}
 
 	const requestedVersion = version || "";
-	const href = resolveBuildAssetUrl(metadata, "css", CSS_URL, version);
-	const existingLink = document.getElementById(CSS_LINK_ID);
+	const hrefs = resolveBuildStylesheetUrls(metadata, version);
+	const existingLinks = Array.from(
+		document.querySelectorAll<HTMLLinkElement>(CSS_LINK_SELECTOR),
+	);
 	if (
-		existingLink &&
-		existingLink.getAttribute("data-build-version") === requestedVersion
+		existingLinks.length === hrefs.length &&
+		existingLinks.every(
+			(link, index) =>
+				link.getAttribute("data-build-version") === requestedVersion &&
+				link.getAttribute("href") === hrefs[index],
+		)
 	) {
 		return;
 	}
 
-	existingLink?.remove();
-	const link = document.createElement("link");
-	link.id = CSS_LINK_ID;
-	link.rel = "stylesheet";
-	link.href = href;
-	link.setAttribute("data-build-version", requestedVersion);
-	document.head.appendChild(link);
+	existingLinks.forEach((link) => link.remove());
+	hrefs.forEach((href, index) => {
+		const link = document.createElement("link");
+		link.id = index === 0 ? CSS_LINK_ID : `${CSS_LINK_ID}-${index}`;
+		link.rel = "stylesheet";
+		link.href = href;
+		link.setAttribute("data-posawesome-stylesheet", "true");
+		link.setAttribute("data-build-version", requestedVersion);
+		document.head.appendChild(link);
+	});
 }
 
 export async function importPosAwesomeBundle(
@@ -228,7 +257,7 @@ async function loadPosAssets(
 	metadata: BuildMetadata | null,
 ): Promise<BootAssetResult> {
 	const buildVersion = extractBuildVersion(metadata);
-	ensureStylesheetLoaded(metadata, buildVersion);
+	ensureStylesheetsLoaded(metadata, buildVersion);
 	if (
 		window.__posawesomeBundlePromise &&
 		typeof window.__posawesomeBundlePromise.then === "function" &&
@@ -248,8 +277,22 @@ async function performAssetRecovery() {
 			navigator.serviceWorker &&
 			typeof navigator.serviceWorker.getRegistrations === "function"
 		) {
-			const registrations =
-				await navigator.serviceWorker.getRegistrations();
+			const registrations = (
+				await navigator.serviceWorker.getRegistrations()
+			).filter((registration) => {
+				const workers = [
+					registration.active,
+					registration.waiting,
+					registration.installing,
+				].filter(Boolean) as ServiceWorker[];
+				return workers.some((worker) => {
+					try {
+						return new URL(worker.scriptURL).pathname === POSAWESOME_SERVICE_WORKER_PATH;
+					} catch {
+						return false;
+					}
+				});
+			});
 			await Promise.all(
 				registrations.map(async (registration) => {
 					registration.active?.postMessage({
@@ -275,7 +318,11 @@ async function performAssetRecovery() {
 	try {
 		if (typeof caches !== "undefined") {
 			const cacheKeys = await caches.keys();
-			await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+			await Promise.all(
+				cacheKeys
+					.filter((key) => key.startsWith(POSAWESOME_CACHE_PREFIX))
+					.map((key) => caches.delete(key)),
+			);
 		}
 	} catch (err) {
 		console.warn("POS App recovery failed during Cache API cleanup", err);
@@ -330,11 +377,6 @@ async function mountShell({
 
 function setupDeskPageChrome(pageRef?: any) {
 	$("div.navbar-fixed-top").find(".container").css("padding", "0");
-	if (!document.getElementById("posa-vuetify-css")) {
-		$("head").append(
-			"<link id='posa-vuetify-css' href='/assets/posawesome/node_modules/vuetify/dist/vuetify.min.css' rel='stylesheet'>",
-		);
-	}
 
 	if (
 		!pageRef ||

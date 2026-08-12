@@ -25,7 +25,7 @@ import {
 	isOffline,
 } from "../../offline/index";
 import { useSyncCoordinator } from "../../offline/sync/useSyncCoordinator";
-import { useToastStore } from "./toastStore.js";
+import { useToastStore } from "./toastStore";
 
 export const useSyncStore = defineStore("sync", {
 	state: () => ({

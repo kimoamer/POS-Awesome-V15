@@ -46,6 +46,7 @@ def _install_stubs():
     sales_invoice_module = types.ModuleType("erpnext.accounts.doctype.sales_invoice.sales_invoice")
     accounts_utils_module = types.ModuleType("erpnext.accounts.utils")
     payment_utils_module = types.ModuleType("posawesome.posawesome.api.payment_processing.utils")
+    posa_utils_module = types.ModuleType("posawesome.posawesome.api.utils")
 
     created_entries = []
     reconcile_calls = []
@@ -100,12 +101,14 @@ def _install_stubs():
     )
     payment_utils_module.get_party_account = lambda *_args, **_kwargs: "Debtors - TC"
     payment_utils_module.get_bank_cash_account = lambda *_args, **_kwargs: {"account": "Cash"}
+    posa_utils_module.assert_doctype_permission = lambda *_args, **_kwargs: True
 
     sys.modules["frappe"] = frappe_module
     sys.modules["frappe.utils"] = frappe_utils
     sys.modules["erpnext.accounts.doctype.sales_invoice.sales_invoice"] = sales_invoice_module
     sys.modules["erpnext.accounts.utils"] = accounts_utils_module
     sys.modules["posawesome.posawesome.api.payment_processing.utils"] = payment_utils_module
+    sys.modules["posawesome.posawesome.api.utils"] = posa_utils_module
 
     return created_entries, reconcile_calls
 
@@ -146,9 +149,15 @@ class FakeInvoiceDoc:
 class TestCreateChangePaymentEntries(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         cls.created_entries, cls.reconcile_calls = _install_stubs()
         _install_package_stubs()
         cls.module = _load_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def setUp(self):
         self.created_entries.clear()

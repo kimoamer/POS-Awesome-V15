@@ -1,7 +1,7 @@
 import {
 	isScanCandidate,
 	sanitizeClipboardText,
-} from "../../../../utils/keyboardScan.js";
+} from "../../../../utils/keyboardScan";
 
 export interface ClipboardScanClassification {
 	sanitizedText: string;

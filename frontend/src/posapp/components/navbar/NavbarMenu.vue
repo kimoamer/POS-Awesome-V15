@@ -197,7 +197,7 @@
 	</v-menu>
 
 	<!-- Language Selection Dialog -->
-	<v-dialog v-model="showLanguageDialog" max-width="400" persistent>
+	<v-dialog v-model="showLanguageDialog" max-width="400">
 		<v-card class="pos-themed-card">
 			<v-card-title class="text-h6 d-flex align-center">
 				<v-icon start color="primary" class="mr-2">mdi-translate</v-icon>

@@ -17,7 +17,7 @@ def _install_stubs():
 
     payments_state = {"credits": []}
 
-    def _get_available_credit(customer, company):
+    def _get_available_credit(customer, company, **_kwargs):
         return list(payments_state["credits"])
 
     payments_module.get_available_credit = _get_available_credit
@@ -40,8 +40,14 @@ def _load_stored_value_module():
 class TestStoredValueApi(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         cls.payments_state = _install_stubs()
         cls.module = _load_stored_value_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def setUp(self):
         self.payments_state["credits"] = []

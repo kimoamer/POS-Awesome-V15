@@ -60,14 +60,15 @@ function buildItemDoc(itemData: Partial<Item>) {
 }
 
 const itemService = {
-	getItemGroups(): Promise<ApiEnvelope<ItemGroup[]>> {
+	getItemGroups(posProfile: string): Promise<ApiEnvelope<ItemGroup[]>> {
 		return api.callEnvelope(
 			"posawesome.posawesome.api.items.get_items_groups",
+			{ pos_profile: posProfile },
 		);
 	},
 
-	async getItemGroupsData(): Promise<ItemGroup[]> {
-		return unwrapApiResult(await this.getItemGroups());
+	async getItemGroupsData(posProfile: string): Promise<ItemGroup[]> {
+		return unwrapApiResult(await this.getItemGroups(posProfile));
 	},
 
 	getItems(
@@ -138,15 +139,15 @@ const itemService = {
 		return unwrapApiResult(await this.getItemsFromBarcode(args));
 	},
 
-	getItemBrand(itemCode: string): Promise<ApiEnvelope<string>> {
+	getItemBrand(itemCode: string, posProfile: string): Promise<ApiEnvelope<string>> {
 		return api.callEnvelope(
 			"posawesome.posawesome.api.items.get_item_brand",
-			{ item_code: itemCode },
+			{ item_code: itemCode, pos_profile: posProfile },
 		);
 	},
 
-	async getItemBrandData(itemCode: string): Promise<string> {
-		return unwrapApiResult(await this.getItemBrand(itemCode));
+	async getItemBrandData(itemCode: string, posProfile: string): Promise<string> {
+		return unwrapApiResult(await this.getItemBrand(itemCode, posProfile));
 	},
 
 	getUOMs(): Promise<ApiEnvelope<{ name: string }[]>> {

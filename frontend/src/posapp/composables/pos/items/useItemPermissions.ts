@@ -24,7 +24,12 @@ export function isPricingLocked(item: any, isReturnInvoice?: boolean): boolean {
 }
 
 export function canEditRate(posProfile: any, item: any, isReturnInvoice?: boolean): boolean {
-	if (!parseBooleanSetting(posProfile?.posa_allow_user_to_edit_rate)) return false;
+	const configuredPermission = posProfile?.posa_allow_user_to_edit_rate;
+	// Older POS Profiles predate this flag and historically allowed rate edits.
+	// Preserve that behaviour while respecting an explicit 0/false setting.
+	if (configuredPermission !== undefined && configuredPermission !== null && !parseBooleanSetting(configuredPermission)) {
+		return false;
+	}
 	return !isPricingLocked(item, isReturnInvoice);
 }
 
@@ -44,7 +49,7 @@ export function canOverrideItemName(posProfile: any, item: any): boolean {
 	return !item.posa_is_replace;
 }
 
-export function canEditQty(item: any, isReturnInvoice?: boolean): boolean {
+export function canEditQty(item: any, _isReturnInvoice?: boolean): boolean {
 	if (!item) return false;
 	if (isLockedPromotionLine(item) || item.posa_is_replace) return false;
 	return true;

@@ -10,7 +10,6 @@ describe("Compact Mobile & Tablet Sale Footer Integration", () => {
 		const pinia = createPinia();
 		setActivePinia(pinia);
 		const uiStore = useUIStore();
-		const invoiceStore = useInvoiceStore();
 		const eventBus = { on: () => {}, off: () => {}, emit: () => {} };
 
 		const wrapper = mount(Pos, {
@@ -97,12 +96,22 @@ describe("Compact Mobile & Tablet Sale Footer Integration", () => {
 		expect(pill.text()).toBe("0");
 
 		// Set itemsCount to 3
-		invoiceStore.itemsCount = 3;
+		invoiceStore.setItems([
+			{ posa_row_id: "1", item_code: "ITEM-1", qty: 1 },
+			{ posa_row_id: "2", item_code: "ITEM-2", qty: 1 },
+			{ posa_row_id: "3", item_code: "ITEM-3", qty: 1 },
+		] as any);
 		await wrapper.vm.$nextTick();
 		expect(pill.text()).toBe("3");
 
 		// Set itemsCount to 120 (shows 99+)
-		invoiceStore.itemsCount = 120;
+		invoiceStore.setItems(
+			Array.from({ length: 120 }, (_, index) => ({
+				posa_row_id: String(index + 1),
+				item_code: `ITEM-${index + 1}`,
+				qty: 1,
+			})) as any,
+		);
 		await wrapper.vm.$nextTick();
 		expect(pill.text()).toBe("99+");
 	});

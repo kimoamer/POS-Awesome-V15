@@ -32,6 +32,8 @@
 				:diff_label="diff_label"
 				:currency="invoice_doc?.currency"
 				:format-money="formatPaymentMoney"
+				:gift-card-applied-amount="giftCardAppliedAmount"
+				:gift-card-code="giftCardCode || giftCardRedemptions[0]?.gift_card_code || ''"
 				@show-paid-amount="showPaidAmount"
 				@show-diff-payment="showDiffPayment"
 				@show-paid-change="showPaidChange"
@@ -362,11 +364,11 @@ import PaymentScreenHeader from "./payments/PaymentScreenHeader.vue";
 import PaymentSectionShell from "./payments/PaymentSectionShell.vue";
 
 // Stores
-import { useInvoiceStore } from "../../stores/invoiceStore.js";
-import { useCustomersStore } from "../../stores/customersStore.js";
-import { useUIStore } from "../../stores/uiStore.js";
-import { useToastStore } from "../../stores/toastStore.js";
-import { useSyncStore } from "../../stores/syncStore.ts";
+import { useInvoiceStore } from "../../stores/invoiceStore";
+import { useCustomersStore } from "../../stores/customersStore";
+import { useUIStore } from "../../stores/uiStore";
+import { useToastStore } from "../../stores/toastStore";
+import { useSyncStore } from "../../stores/syncStore";
 import { useSocketStore } from "../../stores/socketStore";
 import { useEmployeeStore } from "../../stores/employeeStore";
 
@@ -385,6 +387,7 @@ import {
 	getCachedGiftCardSnapshot,
 	saveGiftCardSnapshot,
 } from "../../../offline/index";
+import { buildOfflineProfileScope } from "../../../offline/scope";
 import GiftCardDialog from "./wallet/GiftCardDialog.vue";
 import {
 	applyPreferredPaymentAmount,
@@ -399,6 +402,7 @@ import { resolvePaymentPrintFormat } from "../../utils/paymentPrintFormat";
 import { parseBooleanSetting } from "../../utils/stock";
 import { toCompanyCurrency } from "../../utils/erpnextCurrency";
 import { focusFirstKeyboardTarget } from "../../utils/keyboardNavigation";
+import appEventBus from "../../bus";
 
 // Components
 import PaymentSummary from "./payments/PaymentSummary.vue";
@@ -428,7 +432,7 @@ const props = defineProps({
 });
 
 const { proxy } = getCurrentInstance();
-const eventBus = proxy.eventBus;
+const eventBus = proxy?.eventBus || appEventBus;
 const __ = window.__;
 const frappe = window.frappe;
 
@@ -703,8 +707,7 @@ const paymentCalculations = usePaymentCalculations({
 	formatCurrency: (val, _curr) => formatCurrency(val, currency_precision.value),
 });
 
-const { diff_payment, total_payments, total_payments_display, diff_payment_display, diff_label, change_due } =
-	paymentCalculations;
+const { diff_payment, total_payments, diff_label } = paymentCalculations;
 
 const {
 	phone_dialog,
@@ -800,6 +803,7 @@ const {
 	stores: {
 		toastStore,
 		invoiceStore,
+		uiStore,
 	},
 	eventBus: eventBus,
 });
@@ -965,7 +969,7 @@ const checkGiftCardBalance = async () => {
 			method: "posawesome.posawesome.api.gift_cards.check_gift_card_balance",
 			args: {
 				gift_card_code: giftCardCode.value,
-				company: pos_profile.value.company,
+				pos_profile: pos_profile.value.name,
 			},
 		});
 		const card = response?.message || {};
@@ -982,6 +986,12 @@ const checkGiftCardBalance = async () => {
 };
 
 const applyGiftCardRedemption = async () => {
+	if (isOffline()) {
+		giftCardError.value = __(
+			"Gift cards require an online balance reservation and cannot be redeemed offline.",
+		);
+		return;
+	}
 	if (!giftCardBalance.value || !giftCardStatus.value) {
 		await checkGiftCardBalance();
 		if (!giftCardBalance.value || giftCardError.value) {
@@ -1011,6 +1021,7 @@ const applyGiftCardRedemption = async () => {
 			gift_card_code: giftCardCode.value,
 			amount: nextAmount,
 			cashier: currentCashier.value?.user || null,
+			cashier_grant: currentCashier.value?.cashier_grant || null,
 		},
 	];
 	rebalancePreferredPaymentCoverage(nextAmount);
@@ -1031,6 +1042,7 @@ const issueGiftCard = async () => {
 			args: {
 				pos_profile: pos_profile.value?.name,
 				cashier: currentCashier.value?.user,
+				cashier_grant: currentCashier.value?.cashier_grant,
 				company: pos_profile.value?.company,
 				initial_amount: flt(giftCardAmount.value || 0, currency_precision.value),
 				gift_card_code: giftCardCode.value || null,
@@ -1061,6 +1073,7 @@ const topUpGiftCard = async () => {
 			args: {
 				pos_profile: pos_profile.value?.name,
 				cashier: currentCashier.value?.user,
+				cashier_grant: currentCashier.value?.cashier_grant,
 				gift_card_code: giftCardCode.value,
 				amount: flt(giftCardAmount.value || 0, currency_precision.value),
 			},
@@ -1731,7 +1744,10 @@ const refreshPaymentCustomerInfo = async (doc) => {
 		return;
 	}
 
-	const cachedCustomer = await getStoredCustomer(customer);
+	const cachedCustomer = await getStoredCustomer(
+		customer,
+		buildOfflineProfileScope(pos_profile.value),
+	);
 	if (cachedCustomer?.name) {
 		applyPaymentCustomerInfo(cachedCustomer, customer);
 	}
@@ -1746,6 +1762,8 @@ const refreshPaymentCustomerInfo = async (doc) => {
 			args: {
 				customer,
 				company: pos_profile.value?.company || doc.company || null,
+				pos_profile: pos_profile.value?.name,
+				pos_opening_shift: uiStore.posOpeningShift?.name,
 			},
 		});
 		if (result?.message && !result.exc) {

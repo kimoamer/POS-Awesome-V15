@@ -12,6 +12,7 @@ import { parseBooleanSetting } from "../../../utils/stock";
 import { resolvePosDocumentDoctype } from "../../../utils/posDocumentMode";
 import { toCompanyCurrency } from "../../../utils/erpnextCurrency";
 import { shouldApplyReturnRefundCap } from "../../../utils/paymentInitialization";
+import { posDebug } from "../../../utils/debug";
 
 declare const frappe: any;
 declare const __: (_str: string, _args?: any[]) => string;
@@ -914,7 +915,10 @@ export function usePaymentSubmission(options: PaymentSubmissionOptions) {
 				);
 			}
 			try {
-				await saveOfflineInvoice({ data, invoice: submissionDoc });
+				await saveOfflineInvoice(
+					{ data, invoice: submissionDoc },
+					profile,
+				);
 				stores?.syncStore?.updatePendingCount();
 				stores?.toastStore?.show({
 					title: __("Invoice saved offline"),
@@ -1118,7 +1122,7 @@ export function usePaymentSubmission(options: PaymentSubmissionOptions) {
 			const submittedItems = Array.isArray(submittedDocument.items)
 				? submittedDocument.items
 				: [];
-			updateLocalStock(submittedItems);
+			updateLocalStock(submittedItems, profile);
 			stockCoordinator.applyInvoiceConsumption(submittedItems, {
 				source: "invoice",
 			});
@@ -1233,7 +1237,7 @@ export function usePaymentSubmission(options: PaymentSubmissionOptions) {
 					});
 				}
 				// Retry
-				console.log("Retrying submission with fixed payment amounts");
+				posDebug("payment", "retrying submission with normalized payment amounts");
 				return new Promise((resolve) =>
 					setTimeout(
 						() => resolve(submitInvoice(print, callbacks)),

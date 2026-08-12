@@ -3,12 +3,14 @@ import { syncOfflineCustomers } from "./customers";
 import { reduceCacheUsage } from "./cache";
 import { ensureOfflineInvoiceRequest } from "./idempotency";
 import {
+	clearInvoiceOutboxEntries,
+	deleteInvoiceOutboxEntryByIndex,
 	enqueueInvoiceOutboxEntry,
 	getInvoiceOutboxMode,
 	syncInvoiceOutboxResource,
 	shouldWriteInvoiceOutbox,
 } from "./invoiceOutbox";
-import { updateLocalStock } from "./stock";
+import { getLocalStockCache, updateLocalStock } from "./stock";
 import {
 	claimRetryableQueueEntries,
 	clearWriteQueueEntries,
@@ -85,7 +87,7 @@ export function validateStockForOfflineInvoice(
 		stockSettings?.allow_negative_stock,
 	);
 
-	const stockCache = memory.local_stock_cache || {};
+	const stockCache = getLocalStockCache(posProfile);
 	const invalidItems: AnyRecord[] = [];
 	const requestedByItem = new Map<string, AnyRecord>();
 
@@ -211,21 +213,31 @@ function prepareOfflineInvoiceEntry(entry: AnyRecord) {
 	return cleanEntry;
 }
 
-export async function saveOfflineInvoice(entry: AnyRecord) {
+export async function saveOfflineInvoice(
+	entry: AnyRecord,
+	stockScopeInput: AnyRecord | string | null =
+		memory.pos_opening_storage?.pos_profile || null,
+) {
 	const cleanEntry = prepareOfflineInvoiceEntry(entry);
-	if (shouldWriteInvoiceOutbox()) {
-		await enqueueInvoiceOutboxEntry(cleanEntry);
+	const outboxMode = getInvoiceOutboxMode();
+	let createdEntry: AnyRecord;
+	if (outboxMode === "coordinator") {
+		createdEntry = await enqueueInvoiceOutboxEntry(cleanEntry);
+	} else {
+		if (shouldWriteInvoiceOutbox()) {
+			await enqueueInvoiceOutboxEntry(cleanEntry);
+		}
+		createdEntry = await enqueueWriteQueueEntry(
+			INVOICE_ENTITY,
+			cleanEntry,
+		);
 	}
-	const createdEntry = await enqueueWriteQueueEntry(
-		INVOICE_ENTITY,
-		cleanEntry,
-	);
 
 	if (
 		entry.invoice?.items &&
 		shouldValidateOfflineInvoiceStock(entry.invoice)
 	) {
-		updateLocalStock(entry.invoice.items);
+		updateLocalStock(entry.invoice.items, stockScopeInput);
 	}
 
 	return createdEntry;
@@ -236,10 +248,18 @@ export function getOfflineInvoices() {
 }
 
 export async function clearOfflineInvoices() {
+	if (getInvoiceOutboxMode() === "coordinator") {
+		await clearInvoiceOutboxEntries();
+		return;
+	}
 	await clearWriteQueueEntries(INVOICE_ENTITY);
 }
 
 export async function deleteOfflineInvoice(index: number) {
+	if (getInvoiceOutboxMode() === "coordinator") {
+		await deleteInvoiceOutboxEntryByIndex(index);
+		return;
+	}
 	await deleteWriteQueueEntryByIndex(INVOICE_ENTITY, index);
 }
 
@@ -320,7 +340,7 @@ export async function syncOfflineInvoices() {
 		}
 
 		let synced = 0;
-		let drafted = 0;
+		const drafted = 0;
 
 		for (const entry of claimedEntries) {
 			const queuedInvoice = entry.payload;
@@ -339,33 +359,13 @@ export async function syncOfflineInvoices() {
 					entry.last_attempt_at,
 				);
 			} catch (error) {
-				console.error(
-					"Failed to submit invoice, saving as draft",
+				console.error("Failed to submit queued invoice", error);
+				await markWriteQueueEntryFailed(
+					INVOICE_ENTITY,
+					Number(entry.queue_id),
 					error,
+					entry.last_attempt_at,
 				);
-				try {
-					await frappe.call({
-						method: "posawesome.posawesome.api.invoices.update_invoice",
-						args: { data: queuedInvoice.invoice },
-					});
-					drafted += 1;
-					await markWriteQueueEntrySynced(
-						INVOICE_ENTITY,
-						Number(entry.queue_id),
-						entry.last_attempt_at,
-					);
-				} catch (draftError) {
-					console.error(
-						"Failed to save invoice as draft",
-						draftError,
-					);
-					await markWriteQueueEntryFailed(
-						INVOICE_ENTITY,
-						Number(entry.queue_id),
-						draftError,
-						entry.last_attempt_at,
-					);
-				}
 			}
 		}
 

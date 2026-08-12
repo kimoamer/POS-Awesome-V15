@@ -304,6 +304,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useUIStore } from "@/posapp/stores/uiStore";
 import { useEmployeeStore } from "@/posapp/stores/employeeStore";
 import { createReportFormatters } from "@/posapp/composables/useReportFormatters";
+import { posDebug } from "@/posapp/utils/debug";
 import {
 	createEmptyDashboard,
 	mergeDashboardPayload,
@@ -1372,45 +1373,44 @@ function progressFromQuantity(quantity: number) {
 }
 
 function logDashboardRequest() {
-	console.groupCollapsed(`${DASHBOARD_LOG_PREFIX} fetch:start`);
-	console.info("scope", dashboardScope.value);
-	console.info("profile_filter", selectedProfileFilter.value || null);
-	console.info("report_month", selectedReportMonth.value || null);
-	console.info("pos_profile", profileName.value || null);
-	console.info("threshold_override", configuredLowStockThreshold.value ?? null);
-	console.info("fast_moving_page", fastMovingPage.value);
-	console.info("fast_moving_page_size", fastMovingPageSize.value);
-	console.info("fast_moving_search", fastMovingSearch.value || null);
-	console.groupEnd();
+	posDebug("reports", "fetch:start", {
+		scope: dashboardScope.value,
+		profileFilter: selectedProfileFilter.value || null,
+		reportMonth: selectedReportMonth.value || null,
+		posProfile: profileName.value || null,
+		thresholdOverride: configuredLowStockThreshold.value ?? null,
+		fastMovingPage: fastMovingPage.value,
+		fastMovingPageSize: fastMovingPageSize.value,
+		fastMovingSearch: fastMovingSearch.value || null,
+	});
 }
 
 function logDashboardResponse(response: DashboardResponse) {
-	console.groupCollapsed(`${DASHBOARD_LOG_PREFIX} fetch:success`);
-	console.info("enabled", response.enabled);
-	console.info("disabled_reason", response.disabled_reason || null);
-	console.info("global_enabled", response.global_enabled ?? null);
-	console.info("scope", response.scope || null);
-	console.info("allow_all_profiles", response.allow_all_profiles ?? null);
-	console.info("selected_profiles", response.selected_profiles || []);
-	console.info("available_profiles_count", response.available_profiles?.length || 0);
-	console.info("profit_method", response.sales_overview?.profit_method || null);
-	console.info("payment_method_count", response.payment_method_report?.method_wise?.length || 0);
-	console.info("discount_cashier_count", response.discount_void_return_report?.cashier_wise?.length || 0);
-	console.info("customer_top_count", response.customer_report?.top_customers?.length || 0);
-	console.info("staff_cashier_count", response.staff_performance_report?.cashier_wise?.length || 0);
-	console.info("profit_item_count", response.profitability_report?.item_wise?.length || 0);
-	console.info("branch_count", response.branch_location_report?.location_wise?.length || 0);
-	console.info("tax_head_count", response.tax_charges_report?.tax_heads?.length || 0);
-	console.info("item_sales_count", response.item_sales_report?.items?.length || 0);
-	console.info("category_report_count", response.category_brand_variant_report?.category_wise?.length || 0);
-	console.info("inventory_status_total_items", response.inventory_status_report?.summary?.total_items || 0);
-	console.info("stock_movement_count", response.stock_movement_report?.summary?.movement_count || 0);
-	console.info(
-		"reorder_suggestion_count",
-		response.reorder_purchase_suggestions?.summary?.suggestion_count || 0,
-	);
-	console.info("fast_moving_pagination", response.inventory_insights?.fast_moving_pagination || null);
-	console.groupEnd();
+	posDebug("reports", "fetch:success", {
+		enabled: response.enabled,
+		disabledReason: response.disabled_reason || null,
+		globalEnabled: response.global_enabled ?? null,
+		scope: response.scope || null,
+		allowAllProfiles: response.allow_all_profiles ?? null,
+		selectedProfiles: response.selected_profiles || [],
+		availableProfilesCount: response.available_profiles?.length || 0,
+		profitMethod: response.sales_overview?.profit_method || null,
+		paymentMethodCount: response.payment_method_report?.method_wise?.length || 0,
+		discountCashierCount: response.discount_void_return_report?.cashier_wise?.length || 0,
+		customerTopCount: response.customer_report?.top_customers?.length || 0,
+		staffCashierCount: response.staff_performance_report?.cashier_wise?.length || 0,
+		profitItemCount: response.profitability_report?.item_wise?.length || 0,
+		branchCount: response.branch_location_report?.location_wise?.length || 0,
+		taxHeadCount: response.tax_charges_report?.tax_heads?.length || 0,
+		itemSalesCount: response.item_sales_report?.items?.length || 0,
+		categoryReportCount: response.category_brand_variant_report?.category_wise?.length || 0,
+		inventoryStatusTotalItems: response.inventory_status_report?.summary?.total_items || 0,
+		stockMovementCount: response.stock_movement_report?.summary?.movement_count || 0,
+		reorderSuggestionCount:
+			response.reorder_purchase_suggestions?.summary?.suggestion_count || 0,
+		fastMovingPagination:
+			response.inventory_insights?.fast_moving_pagination || null,
+	});
 }
 
 function logDashboardError(error: any) {

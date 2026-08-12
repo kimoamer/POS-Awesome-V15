@@ -1,5 +1,6 @@
-import { ref, onUnmounted } from "vue";
+import { ref } from "vue";
 import { checkDbHealth } from "../../../../offline/index";
+import { posDebug } from "../../../utils/debug";
 
 declare const __: (_text: string) => string;
 declare const frappe: any;
@@ -7,7 +8,7 @@ declare const frappe: any;
 /**
  * useItemStorageSafety Composable
  *
- * Manages storage health checks (IndexedDB/LocalStorage) and the background item worker.
+ * Manages storage health checks (IndexedDB/LocalStorage).
  * Ensuring storage is available before attempting heavy operations prevents crashes.
  */
 export function useItemStorageSafety() {
@@ -46,13 +47,6 @@ export function useItemStorageSafety() {
 		console.error("Marking storage as unavailable", args);
 		storageAvailable.value = false;
 
-		// Terminate worker to prevent it from trying to access broken DB
-		if (itemWorker.value) {
-			console.log("Terminating item worker due to storage failure");
-			itemWorker.value.terminate();
-			itemWorker.value = null;
-		}
-
 		if (window.frappe) {
 			frappe.show_alert({
 				message: __(
@@ -64,7 +58,9 @@ export function useItemStorageSafety() {
 	}
 
 	/**
-	 * Starts the background item worker if storage is available.
+	 * Kept as a compatibility hook for the selector initialization contract.
+	 * Offline persistence owns the sole IndexedDB worker for the whole app;
+	 * mounting a selector must not create a competing database connection.
 	 */
 	function startItemWorker() {
 		if (!storageAvailable.value) {
@@ -72,52 +68,11 @@ export function useItemStorageSafety() {
 			return;
 		}
 
-		if (itemWorker.value) {
-			// Already running
-			return;
-		}
-
-		try {
-			// Correct path to the worker file
-			const workerUrl =
-				"/assets/posawesome/dist/js/posapp/workers/itemWorker.js";
-
-			try {
-				// Try initializing with classic type first (better compatibility)
-				itemWorker.value = new Worker(workerUrl, { type: "classic" });
-			} catch {
-				// Fallback to module type
-				itemWorker.value = new Worker(workerUrl, { type: "module" });
-			}
-
-			itemWorker.value.onmessage = (e: MessageEvent) => {
-				// Handle generic worker messages if needed
-				// Most worker comms might be request/response based, handled by specific managers
-				// or just fire-and-forget syncs.
-				if (e.data && e.data.type === "error") {
-					console.error("Item worker error:", e.data.payload);
-				}
-			};
-
-			itemWorker.value.onerror = (e: ErrorEvent) => {
-				console.error("Item worker system error:", e);
-				// If the worker crashes, we might not want to kill the whole storage flag
-				// unless it's a persistent DB error.
-			};
-
-			console.log("Item Worker started");
-		} catch (e: unknown) {
-			console.error("Failed to start item worker", e);
-		}
+		posDebug(
+			"item-storage",
+			"persistence worker is owned by offline runtime",
+		);
 	}
-
-	// Cleanup on unmount
-	onUnmounted(() => {
-		if (itemWorker.value) {
-			itemWorker.value.terminate();
-			itemWorker.value = null;
-		}
-	});
 
 	return {
 		// State

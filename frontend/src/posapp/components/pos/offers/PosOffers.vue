@@ -116,11 +116,18 @@
 
 <script>
 import format from "../../../format";
-import { useCustomersStore } from "../../../stores/customersStore.js";
-import { useUIStore } from "../../../stores/uiStore.js";
-import { useToastStore } from "../../../stores/toastStore.js";
+import { useCustomersStore } from "../../../stores/customersStore";
+import { useUIStore } from "../../../stores/uiStore";
+import { useToastStore } from "../../../stores/toastStore";
 import { storeToRefs } from "pinia";
+const translate = (value) =>
+	(typeof window !== "undefined" && (window.__ || window.frappe?._)
+		? (window.__ || window.frappe._)(value)
+		: value);
 export default {
+	inject: {
+		eventBus: { default: null },
+	},
 	mixins: [format],
 	setup() {
 		const customersStore = useCustomersStore();
@@ -138,15 +145,16 @@ export default {
 		pos_offers: [],
 		allItems: [],
 		groupItemCache: {},
+		busHandlers: {},
 		discount_percentage_offer_name: null,
 		itemsPerPage: 1000,
 		expanded: [],
 		singleExpand: true,
 		items_headers: [
-			{ title: __("Name"), value: "name", align: "start" },
-			{ title: __("Apply On"), value: "apply_on", align: "start" },
-			{ title: __("Offer"), value: "offer", align: "start" },
-			{ title: __("Applied"), value: "offer_applied", align: "start" },
+			{ title: translate("Name"), value: "name", align: "start" },
+			{ title: translate("Apply On"), value: "apply_on", align: "start" },
+			{ title: translate("Offer"), value: "offer", align: "start" },
+			{ title: translate("Applied"), value: "offer_applied", align: "start" },
 		],
 	}),
 
@@ -418,15 +426,29 @@ export default {
 			});
 		});
 		*/
-		this.eventBus.on("update_pos_offers", (data) => {
+		this.busHandlers.updatePosOffers = (data) => {
 			this.updatePosOffers(data);
-		});
-		this.eventBus.on("update_discount_percentage_offer_name", (data) => {
+		};
+		this.busHandlers.updateDiscountOfferName = (data) => {
 			this.discount_percentage_offer_name = data.value;
-		});
-		this.eventBus.on("set_all_items", (data) => {
+		};
+		this.busHandlers.setAllItems = (data) => {
 			this.allItems = data;
-		});
+		};
+		this.eventBus?.on?.("update_pos_offers", this.busHandlers.updatePosOffers);
+		this.eventBus?.on?.(
+			"update_discount_percentage_offer_name",
+			this.busHandlers.updateDiscountOfferName,
+		);
+		this.eventBus?.on?.("set_all_items", this.busHandlers.setAllItems);
+	},
+	beforeUnmount() {
+		this.eventBus?.off?.("update_pos_offers", this.busHandlers.updatePosOffers);
+		this.eventBus?.off?.(
+			"update_discount_percentage_offer_name",
+			this.busHandlers.updateDiscountOfferName,
+		);
+		this.eventBus?.off?.("set_all_items", this.busHandlers.setAllItems);
 	},
 };
 </script>

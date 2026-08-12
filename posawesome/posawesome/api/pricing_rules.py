@@ -14,6 +14,7 @@ from frappe import _
 from frappe.query_builder import DocType
 from frappe.query_builder.functions import Coalesce
 from frappe.utils import cint, flt, getdate, nowdate
+from posawesome.posawesome.api.utils import assert_doctype_permission, get_pos_request_context
 
 
 # ---------------------------------------------------------------------------
@@ -29,6 +30,40 @@ def _parse_params(params, kwargs):
         data = frappe._dict(kwargs)
 
     return frappe._dict({k: data.get(k) for k in data})
+
+
+def _authorize_pricing_context(ctx):
+    profile_name = ctx.get("pos_profile")
+    if not profile_name:
+        frappe.throw(_("POS Profile is required"))
+    context = get_pos_request_context(profile_name, company=ctx.get("company"))
+    profile = context.pos_profile
+    assert_doctype_permission("Pricing Rule", "read")
+    assert_doctype_permission("Item", "read")
+
+    allowed_price_lists = {profile.get("selling_price_list")}
+    customer = ctx.get("customer")
+    if customer:
+        assert_doctype_permission("Customer", "read")
+        customer_price_list = frappe.db.get_value("Customer", customer, "default_price_list")
+        if customer_price_list:
+            allowed_price_lists.add(customer_price_list)
+    requested_price_list = ctx.get("price_list") or profile.get("selling_price_list")
+    if requested_price_list not in allowed_price_lists:
+        frappe.throw(_("Price List is outside the active POS Profile"), frappe.PermissionError)
+
+    profile_currency = profile.get("currency") or frappe.get_cached_value(
+        "Company", context.company, "default_currency"
+    )
+    requested_currency = ctx.get("currency") or profile_currency
+    if requested_currency != profile_currency and not cint(profile.get("posa_allow_multi_currency")):
+        frappe.throw(_("Multi-currency pricing is disabled for this POS Profile"))
+
+    ctx.company = context.company
+    ctx.price_list = requested_price_list
+    ctx.currency = requested_currency
+    ctx.pos_profile = context.profile_name
+    return ctx, context
 
 
 def _coerce_date(value: str | None) -> str:
@@ -180,6 +215,7 @@ def get_active_pricing_rules(params: dict | None = None, **kwargs):
     """Return active selling pricing rules for the POS context."""
 
     ctx = _parse_params(params, kwargs)
+    ctx, _context = _authorize_pricing_context(ctx)
     if not ctx.get("company"):
         frappe.throw(_("Company is required"))
     if not ctx.get("price_list"):
@@ -407,6 +443,7 @@ def reconcile_line_prices(cart_payload: dict | str | None = None):
     ctx = frappe._dict(cart.get("context") or {})
     if not ctx:
         frappe.throw(_("Context is required"))
+    ctx, _context = _authorize_pricing_context(ctx)
 
     lines = cart.get("lines") or []
 

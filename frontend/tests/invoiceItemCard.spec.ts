@@ -1,14 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-	canEditRate,
-	canEditItemDiscount,
-	canChangePriceListRate,
-	canOverrideItemName,
-	canEditQty,
-	canChangeUom,
-	canRemoveItem,
-} from "../src/posapp/composables/pos/items/useItemPermissions";
+import { canEditRate } from "../src/posapp/composables/pos/items/useItemPermissions";
 
 describe("InvoiceItemCard rate inline editing permission contract", () => {
 	const allowedProfile = {

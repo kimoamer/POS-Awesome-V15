@@ -132,7 +132,7 @@ def create_payment_entry(
         pe.base_received_amount = flt(received_amount * conversion_rate, precision)
 
     if submit:
-        pe.insert(ignore_permissions=True)
+        pe.insert()
         pe.submit()
 
     return pe

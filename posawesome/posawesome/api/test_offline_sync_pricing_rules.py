@@ -84,12 +84,35 @@ def _install_stubs():
                 rows = [row for row in rows if row["disable"] == filters["disable"]]
             modified_filter = filters.get("modified")
             if modified_filter:
-                rows = [row for row in rows if row["modified"] > modified_filter[1]]
-            start = kwargs.get("start") or 0
+                if modified_filter[0] == "between":
+                    rows = [
+                        row
+                        for row in rows
+                        if modified_filter[1][0]
+                        <= row["modified"]
+                        <= modified_filter[1][1]
+                    ]
+                elif modified_filter[0] == "<=":
+                    rows = [
+                        row
+                        for row in rows
+                        if row["modified"] <= modified_filter[1]
+                    ]
+                else:
+                    rows = [
+                        row
+                        for row in rows
+                        if row["modified"] > modified_filter[1]
+                    ]
+            name_filter = filters.get("name")
+            if name_filter:
+                rows = [row for row in rows if row["name"] > name_filter[1]]
+            rows.sort(key=lambda row: row["name"])
             limit = kwargs.get("limit_page_length") or len(rows)
-            return rows[start : start + limit]
+            return rows[:limit]
         if doctype == "Deleted Document":
-            return [
+            filters = kwargs.get("filters") or {}
+            rows = [
                 AttrDict(
                     {
                         "deleted_name": "RULE-DELETED",
@@ -97,6 +120,14 @@ def _install_stubs():
                     }
                 )
             ]
+            name_filter = filters.get("deleted_name")
+            if name_filter:
+                rows = [
+                    row
+                    for row in rows
+                    if row["deleted_name"] > name_filter[1]
+                ]
+            return rows[: kwargs.get("limit_page_length") or len(rows)]
         return []
 
     frappe_module.get_all = fake_get_all
@@ -148,8 +179,14 @@ def _load_module():
 class TestOfflineSyncPricingRules(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         _install_stubs()
         cls.module = _load_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def test_syncs_customer_and_group_rules_without_current_customer_filtering(self):
         response = self.module.sync_pricing_rules(
@@ -160,21 +197,22 @@ class TestOfflineSyncPricingRules(unittest.TestCase):
 
         self.assertEqual(
             [row["data"]["name"] for row in response["changes"]],
-            ["RULE-GROUP", "RULE-CUSTOMER"],
+            ["RULE-CUSTOMER", "RULE-GROUP"],
         )
-        self.assertEqual(response["changes"][0]["data"]["item_group"], "Products")
-        self.assertEqual(response["changes"][1]["data"]["item_code"], "ITEM-001")
-        self.assertEqual(response["changes"][1]["data"]["customer"], "CUST-001")
+        self.assertEqual(response["changes"][0]["data"]["item_code"], "ITEM-001")
+        self.assertEqual(response["changes"][0]["data"]["customer"], "CUST-001")
+        self.assertEqual(response["changes"][1]["data"]["item_group"], "Products")
         self.assertEqual(response["deleted"], [])
 
     def test_returns_parent_rule_name_for_atomic_target_replacement(self):
         response = self.module.sync_pricing_rules(
             pos_profile="POS-TEST",
             watermark="2026-05-31T00:00:00",
+            sync_until="2026-06-01T11:03:00",
             limit=10,
         )
 
-        group_change = response["changes"][0]
+        group_change = response["changes"][1]
         self.assertEqual(group_change["data"]["rule_name"], "RULE-GROUP")
         self.assertEqual(group_change["data"]["target_type"], "item_group")
         self.assertEqual(group_change["data"]["target_value"], "Products")
@@ -187,6 +225,26 @@ class TestOfflineSyncPricingRules(unittest.TestCase):
             ],
         )
         self.assertEqual(response["next_watermark"], "2026-06-01T11:03:00")
+
+    def test_paginates_rules_by_name_with_one_snapshot_boundary(self):
+        first = self.module.sync_pricing_rules(
+            pos_profile="POS-TEST",
+            watermark=None,
+            sync_until="2026-06-01T11:05:00",
+            limit=1,
+        )
+        second = self.module.sync_pricing_rules(
+            pos_profile="POS-TEST",
+            watermark=None,
+            start_after=first["next_cursor"],
+            sync_until=first["sync_until"],
+            limit=1,
+        )
+
+        self.assertTrue(first["has_more"])
+        self.assertEqual(first["next_cursor"], "RULE-CUSTOMER")
+        self.assertFalse(second["has_more"])
+        self.assertEqual(second["next_watermark"], "2026-06-01T11:05:00")
 
 
 if __name__ == "__main__":

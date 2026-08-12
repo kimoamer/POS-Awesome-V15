@@ -108,9 +108,11 @@ export function useItemRateInfo(context: UseItemRateInfoContext = {}) {
 			});
 		}
 
-		// Fallback: Check general item sale rates (item.last_sale_rate, item.last_invoice_rate, item.rate, item.standard_rate)
+		// Only explicit historic sale fields may represent a last invoice rate.
+		// Item/standard rates are current catalogue prices and must not be labelled
+		// as a customer's historic sale.
 		const fallbackSale = parseFiniteNumber(
-			item?.last_sale_rate ?? item?.last_invoice_rate ?? item?.rate ?? item?.standard_rate
+			item?.last_sale_rate ?? item?.last_invoice_rate,
 		);
 		if (fallbackSale !== null && fallbackSale > 0) {
 			return buildEntry({
@@ -203,23 +205,6 @@ export function useItemRateInfo(context: UseItemRateInfoContext = {}) {
 			});
 		}
 
-		const valuationRate = parseFiniteNumber(item?.valuation_rate);
-		if (valuationRate !== null && valuationRate > 0) {
-			return buildEntry({
-				key: "cost",
-				rowLabel: "Cost",
-				visible: isSupervisor(),
-				available: true,
-				rate: valuationRate,
-				currency: profileCurrency,
-				uom: item?.stock_uom || null,
-				source: "Valuation Rate",
-				sourceKey: "valuation_rate",
-				date: null,
-				meta: null,
-			});
-		}
-
 		const standardRate = parseFiniteNumber(item?.standard_rate);
 		if (standardRate !== null && standardRate > 0) {
 			return buildEntry({
@@ -232,6 +217,23 @@ export function useItemRateInfo(context: UseItemRateInfoContext = {}) {
 				uom: item?.purchase_uom || item?.stock_uom || null,
 				source: "Standard Rate",
 				sourceKey: "standard_rate",
+				date: null,
+				meta: null,
+			});
+		}
+
+		const valuationRate = parseFiniteNumber(item?.valuation_rate);
+		if (valuationRate !== null && valuationRate > 0) {
+			return buildEntry({
+				key: "cost",
+				rowLabel: "Cost",
+				visible: isSupervisor(),
+				available: true,
+				rate: valuationRate,
+				currency: profileCurrency,
+				uom: item?.stock_uom || null,
+				source: "Valuation Rate",
+				sourceKey: "valuation_rate",
 				date: null,
 				meta: null,
 			});

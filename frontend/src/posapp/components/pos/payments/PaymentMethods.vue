@@ -1,7 +1,11 @@
 <template>
-	<div class="payment-methods-container">
+	<div :class="['payment-methods-container', `payment-methods-container--${viewportMode}`]">
 		<!-- Compact Contextual Allocation Strip for Multiple Methods Only -->
-		<div v-if="showSplitAllocationContext" class="payment-allocation-context" :class="allocationStatusClass">
+		<div
+			v-if="showSplitAllocationContext"
+			class="payment-allocation-context"
+			:class="allocationStatusClass"
+		>
 			<span class="payment-allocation-context__text">
 				{{ __("Allocated") }} <strong>{{ renderMoney(totalPaid) }}</strong>
 				<span class="payment-allocation-context__separator">·</span>
@@ -17,7 +21,7 @@
 				class="payment-method-card"
 				:class="[
 					getPaymentMethodClasses(payment),
-					{ 'payment-method-card--collapsed': !isCardExpanded(payment) }
+					{ 'payment-method-card--collapsed': !isCardExpanded(payment) },
 				]"
 			>
 				<header
@@ -30,11 +34,17 @@
 							<v-icon size="16">{{ getPaymentMethodIcon(payment) }}</v-icon>
 						</span>
 						<strong class="payment-method-card__title">{{ payment.mode_of_payment }}</strong>
-						<span v-if="payment.default === 1" class="payment-method-card__badge payment-method-card__badge--default">
+						<span
+							v-if="payment.default === 1"
+							class="payment-method-card__badge payment-method-card__badge--default"
+						>
 							<v-icon start size="10">mdi-star-outline</v-icon>
 							{{ __("Default") }}
 						</span>
-						<span v-if="isReturn" class="payment-method-card__badge payment-method-card__badge--refund">
+						<span
+							v-if="isReturn"
+							class="payment-method-card__badge payment-method-card__badge--refund"
+						>
 							<v-icon start size="10">mdi-cash-refund</v-icon>
 							{{ __("Refund") }}
 						</span>
@@ -43,12 +53,15 @@
 					<div v-if="payments.length > 1" class="payment-method-card__header-meta">
 						<span
 							class="payment-method-card__amount-badge"
-							:class="{ 'payment-method-card__amount-badge--active': Math.abs(Number(payment.amount || 0)) > 0 }"
+							:class="{
+								'payment-method-card__amount-badge--active':
+									Math.abs(Number(payment.amount || 0)) > 0,
+							}"
 						>
 							{{ renderMoney(payment.amount || 0) }}
 						</span>
 						<v-icon size="18" class="payment-method-card__chevron">
-							{{ isCardExpanded(payment) ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
+							{{ isCardExpanded(payment) ? "mdi-chevron-up" : "mdi-chevron-down" }}
 						</v-icon>
 					</div>
 				</header>
@@ -63,8 +76,12 @@
 									density="compact"
 									variant="outlined"
 									:color="isReturn ? 'error' : 'primary'"
-									:placeholder="__('Amount')"
-									:class="['sleek-field pos-themed-input', isReturn ? 'pos-themed-input--refund' : '']"
+									:label="__('Amount')"
+									:aria-label="__('Amount')"
+									:class="[
+										'sleek-field pos-themed-input',
+										isReturn ? 'pos-themed-input--refund' : '',
+									]"
 									hide-details
 									:model-value="payment.amount"
 									type="number"
@@ -72,15 +89,17 @@
 									:disabled="loading"
 									:readonly="isGiftCardPayment(payment)"
 									:prefix="currencySymbol(currency)"
-									@update:model-value="$emit('update-amount', payment, $event)"
-									@input="$emit('update-amount', payment, $event.target ? $event.target.value : $event)"
-									@change="$emit('update-amount', payment, $event)"
+									@update:model-value="emit('update-amount', payment, $event)"
+									@change="emit('update-amount', payment, $event)"
 									:rules="[isNumber]"
-									@focus="$emit('set-rest-amount', payment, isReturn)"
+									@focus="emit('set-rest-amount', payment, isReturn)"
 									@keydown.enter="blurTarget"
 									@keydown.esc="blurTarget"
 								>
-									<template v-slot:append-inner v-if="payment.amount > 0 && !isGiftCardPayment(payment) && !loading">
+									<template
+										v-slot:append-inner
+										v-if="payment.amount > 0 && !isGiftCardPayment(payment) && !loading"
+									>
 										<v-btn
 											icon
 											variant="text"
@@ -98,20 +117,34 @@
 							<div class="payment-method-card__primary-action">
 								<!-- Unified Icon Action on All Viewports -->
 								<v-btn
-									icon
 									color="primary"
 									variant="tonal"
-									class="payment-use-remaining-btn"
+									class="payment-use-remaining-btn payment-method-action-btn"
 									data-pos-keyboard-target="payment-action"
 									:data-test="`payment-method-action-${payment.mode_of_payment}`"
-									:aria-label="isGiftCardPayment(payment) ? __('Redeem / Scan') : __('Set Remaining')"
-									:title="isGiftCardPayment(payment) ? __('Redeem / Scan') : __('Set Remaining')"
+									:aria-label="
+										isGiftCardPayment(payment) ? __('Redeem / Scan') : __('Set Remaining')
+									"
+									:title="
+										isGiftCardPayment(payment) ? __('Redeem / Scan') : __('Set Remaining')
+									"
 									:disabled="loading"
 									@click.stop="handlePrimaryAction(payment)"
 								>
 									<v-icon size="18">
-										{{ isGiftCardPayment(payment) ? "mdi-qrcode-scan" : "mdi-calculator-variant-outline" }}
+										{{
+											isGiftCardPayment(payment)
+												? "mdi-qrcode-scan"
+												: "mdi-calculator-variant-outline"
+										}}
 									</v-icon>
+									<span class="payment-method-action-btn__label">
+										{{
+											isGiftCardPayment(payment)
+												? __("Redeem / Scan")
+												: __("Set Remaining")
+										}}
+									</span>
 								</v-btn>
 							</div>
 						</div>
@@ -136,7 +169,7 @@
 									class="payment-denominations__btn"
 									data-pos-keyboard-target="payment-denomination"
 									:disabled="loading"
-									@click="$emit('set-denomination', payment, d)"
+									@click="emit('set-denomination', payment, d)"
 								>
 									{{ d }}
 								</v-btn>
@@ -149,10 +182,10 @@
 								block
 								color="success"
 								variant="tonal"
-								class="payment-method-action-btn"
+								class="payment-method-action-btn payment-method-action-btn--success"
 								data-pos-keyboard-target="payment-action"
 								:disabled="loading"
-								@click="$emit('mpesa-dialog', payment)"
+								@click="emit('mpesa-dialog', payment)"
 							>
 								<v-icon start size="16">mdi-download-circle-outline</v-icon>
 								{{ __("Get Payments") }}
@@ -171,7 +204,7 @@
 								class="payment-method-action-btn"
 								data-pos-keyboard-target="payment-action"
 								:disabled="loading"
-								@click="$emit('request-payment', payment)"
+								@click="emit('request-payment', payment)"
 							>
 								<v-icon start size="16">mdi-cellphone-arrow-down</v-icon>
 								{{ __("Request Payment") }}
@@ -201,9 +234,7 @@
 import { computed, ref, watch } from "vue";
 
 const __ = (s) =>
-	typeof window !== "undefined" && (window.__ || window.frappe?._)
-		? (window.__ || window.frappe._)(s)
-		: s;
+	typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s;
 
 const props = defineProps({
 	payments: {
@@ -457,7 +488,7 @@ const clearPaymentAmount = (payment) => {
 }
 
 .payment-method-card__header--clickable:hover {
-	opacity: 0.9;
+	background: var(--pos-action-hover-bg, #eef8f9);
 }
 
 .payment-method-card__header-meta {
@@ -537,19 +568,27 @@ const clearPaymentAmount = (payment) => {
 
 .payment-method-card__main {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) 40px;
+	grid-template-columns: minmax(0, 1fr) minmax(132px, 150px);
 	gap: var(--payment-space-2, 8px);
 	align-items: center;
 	width: 100%;
 }
 
-:deep(.payment-shell--tablet-landscape) .payment-method-card__main,
-:deep(.payment-shell--tablet-portrait) .payment-method-card__main {
-	grid-template-columns: minmax(0, 1fr) 42px;
+.payment-methods-container--tablet-landscape .payment-method-card__main {
+	grid-template-columns: minmax(0, 1fr) minmax(120px, 136px);
 }
 
-:deep(.payment-shell--phone) .payment-method-card__main {
+.payment-methods-container--tablet-portrait .payment-method-card__main,
+.payment-methods-container--phone .payment-method-card__main {
 	grid-template-columns: minmax(0, 1fr) 44px;
+}
+
+.payment-method-card__body {
+	margin-top: var(--payment-space-2, 8px);
+}
+
+.payment-method-card__primary-action {
+	min-width: 0;
 }
 
 .payment-method-card__amount {
@@ -586,27 +625,27 @@ const clearPaymentAmount = (payment) => {
 }
 
 .payment-use-remaining-btn {
-	width: 40px !important;
-	min-width: 40px !important;
+	width: 100% !important;
+	min-width: 0 !important;
 	height: 40px !important;
 	min-height: 40px !important;
 	align-self: stretch;
+	padding-inline: 10px !important;
 	border-radius: var(--payment-radius-sm, 8px) !important;
 }
 
-:deep(.payment-shell--tablet-landscape) .payment-use-remaining-btn,
-:deep(.payment-shell--tablet-portrait) .payment-use-remaining-btn {
-	width: 42px !important;
-	min-width: 42px !important;
+.payment-methods-container--tablet-landscape .payment-use-remaining-btn {
 	height: 42px !important;
 	min-height: 42px !important;
 }
 
-:deep(.payment-shell--phone) .payment-use-remaining-btn {
+.payment-methods-container--tablet-portrait .payment-use-remaining-btn,
+.payment-methods-container--phone .payment-use-remaining-btn {
 	width: 44px !important;
 	min-width: 44px !important;
 	height: 44px !important;
 	min-height: 44px !important;
+	padding: 0 !important;
 }
 
 .payment-method-action-btn {
@@ -615,6 +654,42 @@ const clearPaymentAmount = (payment) => {
 	font-weight: 700;
 	text-transform: none;
 	letter-spacing: 0.01em;
+}
+
+.payment-method-action-btn__label {
+	margin-inline-start: 6px;
+	white-space: nowrap;
+}
+
+.payment-methods-container--tablet-portrait .payment-method-action-btn__label,
+.payment-methods-container--phone .payment-method-action-btn__label {
+	display: none;
+}
+
+.payment-method-action-btn:hover,
+.payment-method-action-btn:focus-visible {
+	background: var(--pos-action-hover-bg, #eaf6f7) !important;
+	color: var(--pos-action-active-fg, #006d77) !important;
+}
+
+.payment-method-action-btn:active {
+	background: var(--pos-action-pressed-bg, #d8f0f2) !important;
+	color: var(--pos-action-pressed-fg, #005f68) !important;
+	transform: translateY(1px);
+}
+
+.payment-method-action-btn :deep(.v-btn__content),
+.payment-method-action-btn :deep(.v-icon),
+.payment-denominations__btn :deep(.v-btn__content) {
+	position: relative;
+	z-index: 1;
+	color: inherit !important;
+	opacity: 1 !important;
+}
+
+.payment-method-action-btn :deep(.v-ripple__container),
+.payment-denominations__btn :deep(.v-ripple__container) {
+	display: none !important;
 }
 
 /* Quick Denominations */
@@ -648,7 +723,7 @@ const clearPaymentAmount = (payment) => {
 	font-variant-numeric: tabular-nums;
 }
 
-:deep(.payment-shell--phone) .payment-denominations__btn {
+.payment-methods-container--phone .payment-denominations__btn {
 	min-height: 40px;
 }
 

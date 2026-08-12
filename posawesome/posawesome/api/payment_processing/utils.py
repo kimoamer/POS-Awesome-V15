@@ -1,5 +1,33 @@
 import frappe
 from erpnext.accounts.doctype.journal_entry.journal_entry import get_default_bank_cash_account
+from posawesome.posawesome.api.utils import assert_document_permission, get_pos_request_context
+
+
+def _payment_utility_context(pos_profile, company, pos_opening_shift=None, permission_type="read"):
+    context = get_pos_request_context(
+        pos_profile,
+        company=company,
+        doctype="Payment Entry",
+        permission_type=permission_type,
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
+    profile = context.pos_profile
+    if not (
+        profile.get("posa_allow_make_new_payments")
+        or profile.get("posa_allow_reconcile_payments")
+        or profile.get("posa_allow_mpesa_reconcile_payments")
+    ):
+        frappe.throw("This POS Profile does not allow payment operations.", frappe.PermissionError)
+    return context
+
+
+def _allowed_modes(profile):
+    return {
+        row.get("mode_of_payment")
+        for row in (profile.get("payments") or [])
+        if row.get("mode_of_payment")
+    }
 
 
 def get_party_account(party_type, party, company):
@@ -74,8 +102,17 @@ def set_paid_amount_and_received_amount(
 
 
 @frappe.whitelist()
-def get_available_accounts_for_mop(company, mode_of_payment):
+def get_available_accounts_for_mop(
+    company,
+    mode_of_payment,
+    pos_profile=None,
+    pos_opening_shift=None,
+):
     """Get all bank/cash accounts available for a given mode of payment."""
+    context = _payment_utility_context(pos_profile, company, pos_opening_shift)
+    company = context.company
+    if mode_of_payment not in _allowed_modes(context.pos_profile):
+        frappe.throw("Mode of Payment is outside this POS Profile", frappe.PermissionError)
     default_account = get_bank_cash_account(company, mode_of_payment)
     if not default_account:
         return []
@@ -98,8 +135,7 @@ def get_available_accounts_for_mop(company, mode_of_payment):
     return accounts
 
 
-@frappe.whitelist()
-def get_mode_of_payment_accounts(company, mode_of_payments):
+def _get_mode_of_payment_accounts(company, mode_of_payments):
     import json
 
     if isinstance(mode_of_payments, str):
@@ -118,7 +154,40 @@ def get_mode_of_payment_accounts(company, mode_of_payments):
 
 
 @frappe.whitelist()
-def get_party_account_info(party_type, party, company):
+def get_mode_of_payment_accounts(
+    company,
+    mode_of_payments,
+    pos_profile=None,
+    pos_opening_shift=None,
+):
+    context = _payment_utility_context(pos_profile, company, pos_opening_shift)
+    company = context.company
+    if isinstance(mode_of_payments, str):
+        import json
+
+        mode_of_payments = json.loads(mode_of_payments)
+    allowed = _allowed_modes(context.pos_profile)
+    requested = list(dict.fromkeys(mode_of_payments or []))
+    if any(mode not in allowed for mode in requested):
+        frappe.throw("Mode of Payment is outside this POS Profile", frappe.PermissionError)
+    return _get_mode_of_payment_accounts(company, requested)
+
+
+@frappe.whitelist()
+def get_party_account_info(
+    party_type,
+    party,
+    company,
+    pos_profile=None,
+    pos_opening_shift=None,
+):
+    context = _payment_utility_context(pos_profile, company, pos_opening_shift)
+    company = context.company
+    if party_type not in {"Customer", "Supplier"}:
+        frappe.throw("Unsupported party type")
+    if not frappe.db.exists(party_type, party):
+        frappe.throw("Party was not found")
+    assert_document_permission(frappe.get_doc(party_type, party), "read")
     account = get_party_account(party_type, party, company)
     if not account:
         return None

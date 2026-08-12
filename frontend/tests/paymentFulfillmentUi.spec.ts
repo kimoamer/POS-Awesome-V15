@@ -10,6 +10,8 @@ describe("Payment Order & Fulfillment Contract", () => {
 		const wrapper = mount(PaymentAdditionalInfo, {
 			props: {
 				invoiceDoc: { posa_delivery_date: "2026-07-27" },
+				posProfile: { posa_allow_sales_order: 1 },
+				invoiceType: "Order",
 				addresses: [{ name: "ADDR-1", address_title: "Home", display_title: "Home" }],
 			},
 		});
@@ -44,6 +46,7 @@ describe("Payment Order & Fulfillment Contract", () => {
 		const wrapper = mount(PaymentPurchaseOrder, {
 			props: {
 				invoiceDoc: { po_no: "PO-100", po_date: "2026-07-27" },
+				posProfile: { posa_allow_customer_purchase_order: 1 },
 			},
 		});
 

@@ -188,9 +188,13 @@ describe("Navbar supervisor access", () => {
 		(wrapper.vm as any).drawer = true;
 		await nextTick();
 
-		expect(wrapper.get('[data-test="drawer-footer-action"]').text()).toContain("Settings");
+		const drawer = wrapper.getComponent({ name: "NavbarDrawer" });
+		const settingsAction = (drawer.props("mobileActions") as any[]).find(
+			(action) => action.id === "settings",
+		);
+		expect(settingsAction?.text).toContain("Settings");
 
-		await wrapper.get('[data-test="drawer-footer-action"]').trigger("click");
+		drawer.vm.$emit("mobile-action", "settings", settingsAction);
 		await nextTick();
 
 		expect((wrapper.vm as any).drawer).toBe(false);

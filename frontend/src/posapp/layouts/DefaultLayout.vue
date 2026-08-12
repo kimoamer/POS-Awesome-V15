@@ -2,6 +2,7 @@
 	<v-app class="container1 posapp pos-theme-root" :class="rtlClasses">
 		<AppLoadingOverlay :visible="globalLoading" />
 		<UpdatePrompt />
+		<ConfirmDialog />
 		<v-main class="main-content">
 			<ClosingDialog />
 			<Navbar
@@ -87,16 +88,17 @@ import Navbar from "../components/Navbar.vue";
 import ClosingDialog from "../components/pos/shell/ClosingDialog.vue";
 import AppLoadingOverlay from "../components/ui/LoadingOverlay.vue";
 import UpdatePrompt from "../components/ui/UpdatePrompt.vue";
-import { useLoading } from "../composables/core/useLoading.js";
+import ConfirmDialog from "../components/ui/ConfirmDialog.vue";
+import { useLoading } from "../composables/core/useLoading";
 import { usePosShift } from "../composables/pos/shared/usePosShift";
-import { loadingState, initLoadingSources, setSourceProgress, markSourceLoaded } from "../utils/loading.js";
-import { useCustomersStore } from "../stores/customersStore.js";
-import { useSyncStore } from "../stores/syncStore.js";
-import { useToastStore } from "../stores/toastStore.js";
-import { useUIStore } from "../stores/uiStore.js";
-import { useUpdateStore } from "../stores/updateStore.js";
-import { useItemsStore } from "../stores/itemsStore.js";
-import { usePricingRulesStore } from "../stores/pricingRulesStore";
+import { loadingState, initLoadingSources, setSourceProgress, markSourceLoaded } from "../utils/loading";
+import { useCustomersStore } from "../stores/customersStore";
+import { useSyncStore } from "../stores/syncStore";
+import { useToastStore } from "../stores/toastStore";
+import { useUIStore } from "../stores/uiStore";
+import { useUpdateStore } from "../stores/updateStore";
+import { useItemsStore } from "../stores/itemsStore";
+import { buildPricingRuleContext, usePricingRulesStore } from "../stores/pricingRulesStore";
 import { useOfflineSyncStore } from "../stores/offlineSyncStore";
 import { storeToRefs } from "pinia";
 import {
@@ -111,9 +113,10 @@ import {
 	checkDbHealth,
 	queueHealthCheck,
 	purgeOldQueueEntries,
-	initPromise,
+	startupInitPromise,
 	memoryInitPromise,
 	ensureOfflineQueueReady,
+	ensureInvoiceOutboxReady,
 	toggleManualOffline,
 	isManualOffline as getIsManualOffline,
 	syncOfflineInvoices,
@@ -127,8 +130,7 @@ import {
 	listSyncResourceStates,
 	setTaxInclusiveSetting,
 } from "../../offline/index";
-import { SyncCoordinator } from "../../offline/sync/SyncCoordinator";
-import { createOfflineSyncRuntime } from "../../offline/sync/runtime";
+import { OFFLINE_SYNC_SCHEMA_VERSION } from "../../offline/sync/schemaVersion";
 import {
 	buildOfflineSyncProfile,
 	filterSupportedOfflineSyncResources,
@@ -147,7 +149,10 @@ import { useUpdateChecks } from "../composables/runtime/useUpdateChecks";
 import { useCustomerReadiness } from "../composables/runtime/useCustomerReadiness";
 import { useQueueMetrics } from "../composables/runtime/useQueueMetrics";
 import { ensureItemsReady } from "../modules/items/itemLoadingCoordinator";
-import authService from "../services/authService.js";
+import authService from "../services/authService";
+import { hydrateRuntimeCapabilityContext } from "../services/capabilities";
+import { useDialogStore } from "../stores/dialogStore";
+import { createPosApplicationRuntime } from "../services/applicationRuntime";
 import { getValidCachedOpeningForCurrentUser } from "../utils/openingCache";
 import { formatBootstrapWarning, shouldShowBootstrapBanner } from "../utils/bootstrapWarnings";
 import { listenForBootstrapSnapshotUpdates } from "../utils/bootstrapRuntimeEvents";
@@ -155,22 +160,6 @@ import {
 	resolveBootstrapWarningUiState,
 	shouldLiftBootstrapWarningStartupGate,
 } from "../utils/bootstrapWarningVisibility";
-
-/**
- * Frappe Desk UI selectors to hide in POS view.
- */
-const FRAPPE_NAV_SELECTORS = [
-	".body-sidebar-container",
-	".body-sidebar",
-	".desk-sidebar",
-	".app-sidebar",
-	".layout-side-section",
-	".page-head",
-	".navbar.navbar-default.navbar-fixed-top",
-	".sidebar-overlay",
-];
-
-const FRAPPE_NAV_SELECTOR_STRING = FRAPPE_NAV_SELECTORS.join(", ");
 
 // Composable setup
 const { rtlClasses } = useRtl();
@@ -184,7 +173,6 @@ const instance = getCurrentInstance();
 const $theme = instance?.proxy?.$theme || { toggle: () => {}, isDark: false }; // Fallback
 const __ = instance?.proxy?.__ || ((value) => value);
 const BUILD_VERSION = typeof __BUILD_VERSION__ !== "undefined" ? __BUILD_VERSION__ : null;
-const OFFLINE_SYNC_SCHEMA_VERSION = "2026-07-08";
 const OFFLINE_SYNC_TIMER_INTERVAL_MS = 60_000;
 const PRODUCT_SYNC_SETTLE_TIMEOUT_MS = 120_000;
 const PRODUCT_SYNC_SETTLE_POLL_MS = 250;
@@ -219,6 +207,7 @@ const toastStore = useToastStore();
 const uiStore = useUIStore();
 const updateStore = useUpdateStore();
 const pricingRulesStore = usePricingRulesStore();
+const dialogStore = useDialogStore();
 
 // UI Store State
 const { posProfile, lastInvoiceId, posOpeningShift } = storeToRefs(uiStore);
@@ -231,20 +220,18 @@ const {
 	loadProgress: itemsLoadProgress,
 } = storeToRefs(itemsStore);
 const supportedOfflineSyncResources = filterSupportedOfflineSyncResources(getSyncResourceDefinitions());
-const syncCoordinator = new SyncCoordinator({
-	concurrency: 1,
+const applicationRuntime = createPosApplicationRuntime({
 	resources: supportedOfflineSyncResources,
 	runResource: async (resource, trigger) => runOfflineSyncResource(resource, trigger),
-	onStateChange: (states) => {
+	onSyncStateChange: (states) => {
 		offlineSyncStore.setResourceStates(filterSupportedOfflineSyncStates(states));
 	},
-});
-const offlineSyncRuntime = createOfflineSyncRuntime({
 	canSync: canRunOfflineSync,
 	canRunTimerSync: canRunTimerOfflineSync,
-	runTrigger: (trigger) => syncCoordinator.runTrigger(trigger),
 	timerIntervalMs: OFFLINE_SYNC_TIMER_INTERVAL_MS,
 });
+const syncCoordinator = applicationRuntime.coordinator;
+const offlineSyncRuntime = applicationRuntime.sync;
 
 // State
 // const posProfile = ref({}); // Migrated to UI Store
@@ -283,12 +270,11 @@ const bootstrapStatus = ref(getBootstrapSnapshotStatus());
 const bootstrapLimitedMode = ref(getBootstrapLimitedMode());
 const bootstrapSnackbarVisible = ref(false);
 const confirmedBootstrapDecisionKey = ref("");
+const pendingBootstrapDecisionKey = ref("");
 const initialBootstrapSyncSettled = ref(false);
 const startupBootstrapWarningsReady = ref(false);
 const startupOfflineWarmupInFlight = ref(false);
 const startupOfflineWarmupKey = ref("");
-let _sidebarObserver = null;
-let _navPollTimer = null;
 let removeBootstrapSnapshotListener = null;
 let cacheCapacityWarningShown = false;
 
@@ -447,20 +433,30 @@ function evaluateBootstrapSnapshot(options = {}) {
 		continueOffline: confirmedBootstrapDecisionKey.value === decisionKey,
 	});
 
-	if (decision.requiresConfirmation && allowPrompt) {
-		const confirmed = window.confirm(buildBootstrapConfirmationMessage(validation));
-
-		if (confirmed) {
-			confirmedBootstrapDecisionKey.value = decisionKey;
-			decision = resolveBootstrapRuntimeState(validation, {
-				continueOffline: true,
+	if (decision.requiresConfirmation && allowPrompt && pendingBootstrapDecisionKey.value !== decisionKey) {
+		pendingBootstrapDecisionKey.value = decisionKey;
+		void dialogStore
+			.confirm({
+				title: __("Offline data needs attention"),
+				message: buildBootstrapConfirmationMessage(validation),
+				confirmLabel: __("Continue offline"),
+				cancelLabel: __("Retry sync"),
+				color: "warning",
+				persistent: true,
+			})
+			.then((confirmed) => {
+				pendingBootstrapDecisionKey.value = "";
+				if (confirmed) {
+					confirmedBootstrapDecisionKey.value = decisionKey;
+					const continuedDecision = resolveBootstrapRuntimeState(validation, {
+						continueOffline: true,
+					});
+					persistBootstrapRuntime(validation, continuedDecision);
+					return;
+				}
+				confirmedBootstrapDecisionKey.value = "";
+				void triggerOperatorRefreshSync({ includeBootSync: true });
 			});
-		} else {
-			confirmedBootstrapDecisionKey.value = "";
-			persistBootstrapRuntime(validation, decision);
-			window.location.reload();
-			return decision;
-		}
 	} else if (validation.mode !== "confirmation_required") {
 		confirmedBootstrapDecisionKey.value = "";
 	}
@@ -474,13 +470,7 @@ function getOfflineSyncProfile() {
 }
 
 function buildDefaultPricingRulesContext() {
-	const profile = getCurrentBootstrapProfile();
-	return {
-		company: profile?.company || null,
-		price_list: profile?.selling_price_list || null,
-		currency: profile?.currency || null,
-		date: new Date().toISOString().slice(0, 10),
-	};
+	return buildPricingRuleContext(getCurrentBootstrapProfile());
 }
 
 async function refreshOfflinePricingRules(options = {}) {
@@ -489,7 +479,7 @@ async function refreshOfflinePricingRules(options = {}) {
 	}
 
 	const context = buildDefaultPricingRulesContext();
-	if (!context.company || !context.price_list || !context.currency) {
+	if (!context.pos_profile || !context.company || !context.price_list || !context.currency) {
 		return false;
 	}
 
@@ -721,10 +711,7 @@ const bootstrapWarningUiState = computed(() =>
 		warningTooltip: bootstrapWarningTooltip.value,
 		capabilitySummaries: bootstrapCapabilitySummaries.value,
 		onlineReady:
-			networkOnline.value &&
-			serverOnline.value &&
-			!serverConnecting.value &&
-			!getIsManualOffline(),
+			networkOnline.value && serverOnline.value && !serverConnecting.value && !getIsManualOffline(),
 	}),
 );
 const visibleBootstrapWarningActive = computed(() => bootstrapWarningUiState.value.active);
@@ -766,6 +753,18 @@ watch(
 );
 
 watch(
+	() => [posProfile.value, posOpeningShift.value, networkOnline.value, manualOffline.value],
+	([profile, openingShift, isNetworkOnline, isManualOffline]) => {
+		hydrateRuntimeCapabilityContext({
+			posProfile: profile || null,
+			hasOpeningShift: Boolean(openingShift?.name),
+			networkOnline: Boolean(isNetworkOnline) && !isManualOffline,
+		});
+	},
+	{ deep: true, immediate: true },
+);
+
+watch(
 	posProfile,
 	(profile) => {
 		ensureStartupItemsReady(profile);
@@ -785,13 +784,7 @@ watch(
 		posProfile.value?.selling_price_list || null,
 		posProfile.value?.currency || null,
 	],
-	([
-		isInitialSyncSettled,
-		areWarningsReady,
-		isNetworkOnline,
-		isServerOnline,
-		isServerConnecting,
-	]) => {
+	([isInitialSyncSettled, areWarningsReady, isNetworkOnline, isServerOnline, isServerConnecting]) => {
 		if (
 			isInitialSyncSettled &&
 			areWarningsReady &&
@@ -883,12 +876,10 @@ watch(
 
 // Lifecycle Hooks
 onMounted(() => {
-	pollForFrappeNav();
 	removeBootstrapSnapshotListener = listenForBootstrapSnapshotUpdates(() => {
 		evaluateBootstrapSnapshot({ allowPrompt: false });
 	});
 
-	window.addEventListener("resize", adjust_frappe_sidebar_offset);
 	// initLoadingSources move to setup to catch early store readiness
 	initializeData();
 	bootSync.start();
@@ -916,37 +907,9 @@ onBeforeUnmount(() => {
 		eventBus.off("print_last_invoice");
 		eventBus.off("sync_invoices");
 	}
-
-	window.removeEventListener("resize", adjust_frappe_sidebar_offset);
-
-	if (_navPollTimer) {
-		clearTimeout(_navPollTimer);
-		_navPollTimer = null;
-	}
-
-	if (_sidebarObserver) {
-		_sidebarObserver.disconnect();
-		_sidebarObserver = null;
-	}
 });
 
 // Methods
-const pollForFrappeNav = (maxAttempts = 50, interval = 100) => {
-	let attempts = 0;
-	const checkAndRemove = () => {
-		attempts++;
-		const hasSidebar = FRAPPE_NAV_SELECTORS.some((sel) => document.querySelector(sel));
-
-		if (hasSidebar || attempts >= maxAttempts) {
-			remove_frappe_nav();
-			setup_sidebar_observer();
-		} else {
-			_navPollTimer = setTimeout(checkAndRemove, interval);
-		}
-	};
-	checkAndRemove();
-};
-
 const notifyCacheCapacityIfActionable = (usage = {}) => {
 	const pendingInvoices = getPendingOfflineInvoiceCount();
 	const pendingCashMovements = getPendingOfflineCashMovementCount();
@@ -960,21 +923,22 @@ const notifyCacheCapacityIfActionable = (usage = {}) => {
 	toastStore.show({
 		title: __("Local cache usage is high"),
 		detail: offlineNow
-			? __(
-					"Reconnect online to sync {0} pending local record(s). Cache usage is {1}%.",
-					[pendingTotal, Math.round(usage.percentage || 0)],
-				)
-			: __(
-					"Sync {0} pending local record(s). Cache usage is {1}%.",
-					[pendingTotal, Math.round(usage.percentage || 0)],
-				),
+			? __("Reconnect online to sync {0} pending local record(s). Cache usage is {1}%.", [
+					pendingTotal,
+					Math.round(usage.percentage || 0),
+				])
+			: __("Sync {0} pending local record(s). Cache usage is {1}%.", [
+					pendingTotal,
+					Math.round(usage.percentage || 0),
+				]),
 		color: "warning",
 	});
 };
 
 const initializeData = async () => {
-	await initPromise;
+	await startupInitPromise;
 	await ensureOfflineQueueReady();
+	await ensureInvoiceOutboxReady();
 	await hydrateOfflineSyncResourceStates();
 	checkDbHealth().catch(() => {});
 	// Offline-first bootstrap: hydrate register state from IndexedDB before server checks.
@@ -989,7 +953,12 @@ const initializeData = async () => {
 	if (queueHealthCheck()) {
 		const pruned = purgeOldQueueEntries();
 		if (pruned > 0) {
-			alert("Old synced offline queue entries were pruned.");
+			toastStore.show({
+				title: __("Offline queue cleaned"),
+				detail: __("{0} old synced queue entries were removed.", [pruned]),
+				color: "info",
+				key: "offline-queue-pruned",
+			});
 		}
 	}
 
@@ -1197,48 +1166,6 @@ const refreshTaxInclusiveSetting = async () => {
 
 const handleUpdateAfterDelete = () => {
 	// Handle update after delete
-};
-
-const remove_frappe_nav = () => {
-	FRAPPE_NAV_SELECTORS.forEach((selector) => {
-		const elements = document.querySelectorAll(selector);
-		elements.forEach((el) => el.remove());
-	});
-
-	document.documentElement.style.setProperty("--posa-desk-sidebar-width", "0px");
-};
-
-const setup_sidebar_observer = () => {
-	if (_sidebarObserver) {
-		_sidebarObserver.disconnect();
-	}
-
-	const observer = new MutationObserver((mutations) => {
-		for (const mutation of mutations) {
-			for (const node of mutation.addedNodes) {
-				if (node.nodeType === Node.ELEMENT_NODE) {
-					if (
-						node.matches(FRAPPE_NAV_SELECTOR_STRING) ||
-						node.querySelector(FRAPPE_NAV_SELECTOR_STRING)
-					) {
-						remove_frappe_nav();
-						return;
-					}
-				}
-			}
-		}
-	});
-
-	observer.observe(document.body, {
-		childList: true,
-		subtree: true,
-	});
-
-	_sidebarObserver = observer;
-};
-
-const adjust_frappe_sidebar_offset = () => {
-	document.documentElement.style.setProperty("--posa-desk-sidebar-width", "0px");
 };
 </script>
 

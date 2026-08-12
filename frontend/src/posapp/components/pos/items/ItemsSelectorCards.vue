@@ -20,7 +20,7 @@
 		</div>
 		<div v-else-if="displayedItems.length === 0" class="items-empty-state">
 			<div class="items-empty-state__icon">
-				<v-icon size="34">mdi-package-search-outline</v-icon>
+				<v-icon size="34">mdi-package-variant-closed</v-icon>
 			</div>
 			<div class="items-empty-state__title">
 				{{ noItemsTitle }}
@@ -73,6 +73,7 @@
 					:format-number="formatNumber"
 					:rate-precision="ratePrecision"
 					:is-negative="isNegative"
+					:show-media="showMedia"
 					:style="{
 						width: cardColumnWidth + 'px',
 						height: cardRowHeight + 'px',
@@ -121,6 +122,7 @@ const props = defineProps({
 	formatNumber: { type: Function, required: true },
 	ratePrecision: { type: Function, required: true },
 	isNegative: { type: Function, required: true },
+	showMedia: { type: Boolean, default: true },
 	noItemsTitle: { type: String, default: "" },
 	noItemsSubtitle: { type: String, default: "" },
 	clearSearchLabel: { type: String, default: "" },

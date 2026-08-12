@@ -99,13 +99,21 @@
 </template>
 
 <script>
-import { useCustomersStore } from "../../../stores/customersStore.js";
-import { useToastStore } from "../../../stores/toastStore.js";
-import { useUIStore } from "../../../stores/uiStore.js";
+import { useCustomersStore } from "../../../stores/customersStore";
+import { useToastStore } from "../../../stores/toastStore";
+import { useUIStore } from "../../../stores/uiStore";
 import { storeToRefs } from "pinia";
 import { getCachedCoupons, saveCoupons } from "../../../../offline/index";
 
+const translate = (value) =>
+	(typeof window !== "undefined" && (window.__ || window.frappe?._)
+		? (window.__ || window.frappe._)(value)
+		: value);
+
 export default {
+	inject: {
+		eventBus: { default: null },
+	},
 	setup() {
 		const customersStore = useCustomersStore();
 		const toastStore = useToastStore();
@@ -120,6 +128,7 @@ export default {
 		loadingGiftCoupons: false,
 		giftCouponError: null,
 		announcement: "",
+		busHandlers: {},
 		pos_profile: "",
 		customer: "",
 		posa_coupons: [],
@@ -127,10 +136,10 @@ export default {
 		itemsPerPage: 1000,
 		singleExpand: true,
 		items_headers: [
-			{ title: __("Coupon"), value: "coupon_code", align: "start" },
-			{ title: __("Type"), value: "type", align: "start" },
-			{ title: __("Offer"), value: "pos_offer", align: "start" },
-			{ title: __("Applied"), value: "applied", align: "start" },
+			{ title: translate("Coupon"), value: "coupon_code", align: "start" },
+			{ title: translate("Type"), value: "type", align: "start" },
+			{ title: translate("Offer"), value: "pos_offer", align: "start" },
+			{ title: translate("Applied"), value: "applied", align: "start" },
 		],
 	}),
 
@@ -203,6 +212,7 @@ export default {
 					coupon: normalizedCoupon,
 					customer: vm.customer,
 					company: vm.pos_profile.company,
+					pos_profile: vm.pos_profile.name,
 				},
 				callback: function (r) {
 					vm.validating = false;
@@ -247,6 +257,7 @@ export default {
 				args: {
 					customer: vm.customer,
 					company: vm.pos_profile.company,
+					pos_profile: vm.pos_profile.name,
 				},
 				callback: function (r) {
 					vm.loadingGiftCoupons = false;
@@ -371,12 +382,18 @@ export default {
 			});
 		});
 		*/
-		this.eventBus.on("update_pos_coupons", (data) => {
+		this.busHandlers.updatePosCoupons = (data) => {
 			this.updatePosCoupons(data);
-		});
-		this.eventBus.on("set_pos_coupons", (data) => {
+		};
+		this.busHandlers.setPosCoupons = (data) => {
 			this.posa_coupons = data;
-		});
+		};
+		this.eventBus?.on?.("update_pos_coupons", this.busHandlers.updatePosCoupons);
+		this.eventBus?.on?.("set_pos_coupons", this.busHandlers.setPosCoupons);
+	},
+	beforeUnmount() {
+		this.eventBus?.off?.("update_pos_coupons", this.busHandlers.updatePosCoupons);
+		this.eventBus?.off?.("set_pos_coupons", this.busHandlers.setPosCoupons);
 	},
 };
 </script>

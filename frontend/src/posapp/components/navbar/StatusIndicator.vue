@@ -177,7 +177,7 @@ const statusText = computed(() => {
 	const hostType = props.isIpHost ? "Local/IP Host" : "Domain Host";
 
 	if (props.serverConnecting) {
-		return __(`Connecting to server... (${hostType}: ${hostname})`);
+		return __(`Checking connection... (${hostType}: ${hostname})`);
 	}
 
 	if (!props.networkOnline) {
@@ -185,11 +185,11 @@ const statusText = computed(() => {
 	}
 
 	if (props.isIpHost) {
-		return __(`Connected to ${hostname}`);
+		return __(`Online (${hostname})`);
 	}
 
 	if (props.serverOnline) {
-		return __(`Connected to Server (${hostname})`);
+		return __(`Online (${hostname})`);
 	}
 
 	return __(`Server Offline (${hostname})`);

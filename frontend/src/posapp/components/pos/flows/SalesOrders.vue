@@ -139,8 +139,8 @@
 <script>
 import { computed } from "vue";
 import format from "../../../format";
-import { useUIStore } from "../../../stores/uiStore.js";
-import { useInvoiceStore } from "../../../stores/invoiceStore.js";
+import { useUIStore } from "../../../stores/uiStore";
+import { useInvoiceStore } from "../../../stores/invoiceStore";
 import { storeToRefs } from "pinia";
 import { useResponsive } from "../../../composables/core/useResponsive";
 import { useTheme } from "../../../composables/core/useTheme";
@@ -255,6 +255,9 @@ export default {
 						order_name: this.order_name,
 						company: this.pos_profile.company,
 						currency: this.pos_profile.currency,
+						pos_profile: this.pos_profile.name,
+						pos_opening_shift:
+							this.uiStore.posOpeningShift?.name || this.uiStore.posOpeningShift,
 					},
 				});
 
@@ -279,7 +282,8 @@ export default {
 				await loadDocumentSourceRecord({
 					source: "order",
 					record: this.selected[0],
-					posProfile: this.pos_profile,
+						posProfile: this.pos_profile,
+						posOpeningShift: this.uiStore.posOpeningShift,
 					invoiceStore: this.invoiceStore,
 					uiStore: {
 						closeDrafts: () => {},

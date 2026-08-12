@@ -1,8 +1,8 @@
 <template>
-	<div class="cache-usage-section mx-1">
-		<div class="d-flex align-center mb-2">
+	<div class="cache-usage-section">
+		<div class="cache-usage-heading">
 			<div
-				class="cache-meter-container mr-3"
+				class="cache-meter-container"
 				role="button"
 				tabindex="0"
 				:aria-busy="cacheUsageLoading"
@@ -22,36 +22,38 @@
 					<v-icon size="16" color="info">mdi-database-clock</v-icon>
 				</v-progress-circular>
 			</div>
-			<div class="cache-tooltip-title mb-0">
-				{{ __("Cache Usage") }}
+			<div>
+				<div class="cache-tooltip-title">{{ __("Cache Usage") }}</div>
+				<div class="cache-tooltip-subtitle">{{ __("Offline data stored on this device") }}</div>
 			</div>
 		</div>
 
 		<div class="cache-tooltip-content">
-			<div class="cache-tooltip-section-title mb-1">{{ __("Usage") }}</div>
-			<div class="cache-tooltip-bar mb-2">
+			<div class="cache-usage-label-row">
+				<div class="cache-tooltip-section-title">{{ __("Usage") }}</div>
+				<strong class="cache-usage-value"><bdi>{{ cacheUsage }}%</bdi></strong>
+			</div>
+			<div class="cache-tooltip-bar">
 				<div class="cache-bar-bg">
 					<div
 						class="cache-bar-fill"
 						:style="{ width: cacheUsage + '%', background: cacheBarGradient }"
 					>
-						<span class="cache-bar-label-inside">{{ cacheUsage }}%</span>
 					</div>
-					<span class="cache-bar-max">100%</span>
 				</div>
 			</div>
 			<div v-if="!cacheUsageLoading">
-				<div class="cache-tooltip-section-title mb-1">{{ __("Breakdown") }}</div>
+				<div class="cache-tooltip-section-title cache-breakdown-title">{{ __("Breakdown") }}</div>
 				<div class="cache-tooltip-detail">
-					<v-icon size="14" color="info" class="mr-1">mdi-database-clock</v-icon
-					>{{ __("Total Size") }}: <b>{{ formatBytes(cacheUsageDetails.total) }}</b>
+					<span><v-icon size="15" color="info">mdi-database-clock</v-icon>{{ __("Total Size") }}</span>
+					<b>{{ formatBytes(cacheUsageDetails.total) }}</b>
 				</div>
 				<div class="cache-tooltip-detail">
-					<v-icon size="14" color="info" class="mr-1">mdi-database</v-icon>{{ __("IndexedDB") }}:
+					<span><v-icon size="15" color="info">mdi-database</v-icon>{{ __("IndexedDB") }}</span>
 					<b>{{ formatBytes(cacheUsageDetails.indexedDB) }}</b>
 				</div>
 				<div class="cache-tooltip-detail">
-					<v-icon size="14" color="info" class="mr-1">mdi-folder</v-icon>{{ __("localStorage") }}:
+					<span><v-icon size="15" color="info">mdi-folder</v-icon>{{ __("localStorage") }}</span>
 					<b>{{ formatBytes(cacheUsageDetails.localStorage) }}</b>
 				</div>
 			</div>
@@ -153,9 +155,16 @@ function formatBytes(bytes: number) {
 <style scoped>
 /* Cache Usage Meter Styling */
 .cache-usage-section {
+	display: grid;
+	gap: 12px;
+	width: 100%;
+	margin: 0;
+}
+
+.cache-usage-heading {
 	display: flex;
 	align-items: center;
-	margin: 0 8px;
+	gap: 10px;
 }
 
 .cache-meter-container {
@@ -176,21 +185,50 @@ function formatBytes(bytes: number) {
 }
 
 .cache-tooltip-content {
-	padding: 12px;
-	min-width: 200px;
+	display: grid;
+	gap: 8px;
+	padding: 0;
+	min-width: 0;
 }
 
 .cache-tooltip-title {
 	font-weight: 600;
 	font-size: 14px;
-	margin-bottom: 8px;
-	/* Removed hardcoded color */
+	color: var(--pos-text-primary);
+}
+
+.cache-tooltip-subtitle {
+	margin-top: 2px;
+	font-size: 11px;
+	color: var(--pos-text-secondary);
+}
+
+.cache-usage-label-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.cache-usage-value {
+	font-size: 12px;
+	color: var(--pos-primary);
 }
 
 .cache-tooltip-detail {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
 	font-size: 12px;
-	margin-bottom: 8px;
 	line-height: 1.5;
+}
+
+.cache-tooltip-detail > span {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--pos-text-secondary);
 }
 
 .cache-tooltip-action {
@@ -201,18 +239,14 @@ function formatBytes(bytes: number) {
 	margin-top: 8px;
 }
 .cache-tooltip-bar {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	margin-bottom: 4px;
+	display: block;
 }
 .cache-bar-bg {
-	width: 80px;
+	width: 100%;
 	height: 8px;
-	background: #e3f2fd;
+	background: var(--pos-surface-muted);
 	border-radius: 4px;
 	overflow: hidden;
-	margin-right: 6px;
 }
 .cache-bar-fill {
 	height: 100%;
@@ -232,6 +266,9 @@ function formatBytes(bytes: number) {
 	align-items: center;
 	margin-bottom: 4px;
 }
+.cache-breakdown-title {
+	margin-top: 2px;
+}
 .cache-tooltip-tip {
 	/* Removed hardcoded color */
 	font-size: 12px;
@@ -247,8 +284,6 @@ function formatBytes(bytes: number) {
 .cache-tooltip-section-title {
 	font-weight: 600;
 	font-size: 13px;
-	margin-bottom: 4px;
-	/* Removed hardcoded color */
 	opacity: 0.85;
 }
 </style>

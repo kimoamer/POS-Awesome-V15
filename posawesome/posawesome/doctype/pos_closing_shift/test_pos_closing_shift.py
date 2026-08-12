@@ -50,6 +50,15 @@ class DummyClosingShiftDoc:
 
 
 class TestPOSClosingShift(unittest.TestCase):
+    def setUp(self):
+        self._overview_context = patch.object(
+            overview,
+            "get_pos_request_context",
+            return_value=SimpleNamespace(pos_profile=SimpleNamespace(name="POS-PROFILE-1")),
+        )
+        self._overview_context.start()
+        self.addCleanup(self._overview_context.stop)
+
     def _make_doc(self, data):
         doc = Mock()
         doc.get.side_effect = lambda key, default=None: data.get(key, default)

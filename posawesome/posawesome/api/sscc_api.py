@@ -3,9 +3,13 @@
 
 """SSCC-18 shipping label generation using ERPNext Naming Series for atomic serials."""
 
+import re
+
 import frappe
 from frappe import _
 from frappe.model.naming import make_autoname
+
+from posawesome.posawesome.api.utils import get_pos_request_context
 
 
 def _calculate_sscc_check_digit(data: str) -> int:
@@ -24,7 +28,13 @@ def _format_sscc_human(sscc: str) -> str:
 
 
 @frappe.whitelist()
-def get_next_sscc_serials(company_prefix: str = "1234567", extension_digit: str = "0", count: int = 1):
+def get_next_sscc_serials(
+    company_prefix: str,
+    extension_digit: str = "0",
+    count: int = 1,
+    pos_profile=None,
+    pos_opening_shift=None,
+):
     """Generate SSCC-18 serial numbers using atomic Naming Series counter.
 
     Args:
@@ -35,18 +45,35 @@ def get_next_sscc_serials(company_prefix: str = "1234567", extension_digit: str 
     Returns:
         List of dicts with keys: sscc18, human_readable, serial_ref.
     """
-    if extension_digit not in "0123456789":
+    context = get_pos_request_context(
+        pos_profile,
+        doctype="Item",
+        permission_type="read",
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
+    company_prefix = str(company_prefix or "").strip()
+    extension_digit = str(extension_digit or "")
+    if not company_prefix.isdigit() or not 6 <= len(company_prefix) <= 10:
+        frappe.throw(_("GS1 Company Prefix must contain between 6 and 10 digits."))
+    if len(extension_digit) != 1 or extension_digit not in "0123456789":
         frappe.throw(_("Extension digit must be 0-9"))
-    count = max(1, min(100, int(count or 1)))
+    count = int(count or 1)
+    if count < 1 or count > 100:
+        frappe.throw(_("Between 1 and 100 SSCC codes can be generated at once."))
 
-    series = f"SSCC-{company_prefix}-.#####"
+    company_slug = re.sub(r"[^A-Za-z0-9]+", "-", context.company or "POS").strip("-")[:40]
+    series = f"SSCC-{company_slug}-{company_prefix}-.##########"
+    serial_width = 16 - len(company_prefix)
 
     serials = []
     for _ in range(count):
         name = make_autoname(series)
         serial_ref = int(name.split("-")[-1] or "0")
 
-        padded = str(serial_ref).zfill(9)
+        if serial_ref >= 10**serial_width:
+            frappe.throw(_("The SSCC serial range for this company prefix is exhausted."))
+        padded = str(serial_ref).zfill(serial_width)
         body = f"{extension_digit}{company_prefix}{padded}"
         check = _calculate_sscc_check_digit(body)
         sscc18 = f"{body}{check}"

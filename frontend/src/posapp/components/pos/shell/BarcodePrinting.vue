@@ -1,18 +1,18 @@
 <template>
 	<div class="barcode-page h-100 d-flex flex-column bg-background overflow-hidden">
 		<!-- Header -->
-		<div class="barcode-header border-b px-4 py-2 bg-surface d-flex align-center justify-space-between flex-wrap ga-2 flex-shrink-0">
-			<div class="d-flex align-center ga-2">
+		<div class="barcode-header">
+			<div class="barcode-header__identity">
 				<div class="purchase-header-icon-box">
 					<v-icon icon="mdi-barcode-scan" color="primary" size="20" />
 				</div>
-				<span class="text-h6 font-weight-bold text-primary mb-0">
+				<span class="barcode-header__title">
 					{{ __("Barcode Label Printing") }}
 				</span>
 			</div>
 
-			<div class="d-flex align-center ga-2 flex-wrap">
-				<v-btn-toggle v-model="viewMode" mandatory density="compact" color="primary" variant="outlined" divided class="rounded-lg">
+			<div class="barcode-header__actions">
+				<v-btn-toggle v-model="viewMode" mandatory density="compact" color="primary" variant="outlined" divided class="barcode-view-toggle rounded-lg">
 					<v-btn value="labels" size="small" class="text-none font-weight-bold">
 						<v-icon start size="16">mdi-format-list-bulleted</v-icon>
 						<span>{{ __("Labels") }}</span>
@@ -28,7 +28,7 @@
 					color="primary"
 					variant="elevated"
 					size="small"
-					class="font-weight-bold text-none rounded-lg"
+					class="barcode-toolbar-button font-weight-bold text-none rounded-lg"
 					prepend-icon="mdi-plus-box-outline"
 					@click="itemsSelectorDialog = true"
 				>
@@ -43,7 +43,7 @@
 							variant="outlined"
 							color="primary"
 							size="small"
-							class="font-weight-bold border-primary text-none"
+							class="barcode-toolbar-button font-weight-bold border-primary text-none"
 							append-icon="mdi-chevron-down"
 						>
 							{{ __("More") }}
@@ -89,7 +89,7 @@
 					color="error"
 					size="small"
 					prepend-icon="mdi-delete-outline"
-					class="font-weight-bold border-error text-none"
+					class="barcode-toolbar-button font-weight-bold border-error text-none"
 					@click="clearAll"
 				>
 					{{ __("Clear Queue") }}
@@ -105,8 +105,8 @@
 					<!-- Queue Column (Left) -->
 					<section class="barcode-queue-column">
 						<header class="barcode-queue-header">
-							<div class="d-flex align-center ga-3">
-								<h3 class="text-subtitle-1 font-weight-bold text-primary mb-0 d-flex align-center ga-2">
+							<div class="barcode-queue-heading">
+								<h3 class="barcode-queue-title">
 									<v-icon size="20">mdi-tray-full</v-icon>
 									{{ __("LABELS QUEUE") }} (<bdi>{{ items.length }}</bdi>)
 								</h3>
@@ -121,7 +121,7 @@
 									{{ __("Add Items") }}
 								</v-btn>
 							</div>
-							<span class="text-caption text-medium-emphasis">
+							<span class="barcode-label-count">
 								{{ __("Total Labels") }}: <strong class="text-primary">{{ totalLabelsCount }}</strong>
 							</span>
 						</header>
@@ -247,7 +247,7 @@
 						<div class="barcode-settings-scroll">
 						<!-- PRINT SETUP CARD -->
 						<v-card class="barcode-settings-card border rounded-lg pos-themed-card" flat>
-							<h4 class="text-subtitle-2 font-weight-bold text-primary mb-3 d-flex align-center ga-2">
+							<h4 class="barcode-settings-heading">
 								<v-icon size="18">mdi-printer-settings</v-icon>
 								{{ __("PRINT SETUP") }}
 							</h4>
@@ -329,7 +329,7 @@
 
 						<!-- CONTENT OPTIONS CARD -->
 						<v-card class="barcode-settings-card border rounded-lg pos-themed-card" flat>
-							<h4 class="text-subtitle-2 font-weight-bold text-primary mb-3 d-flex align-center ga-2">
+							<h4 class="barcode-settings-heading">
 								<v-icon size="18">mdi-checkbox-multiple-marked-outline</v-icon>
 								{{ __("CONTENT OPTIONS") }}
 							</h4>
@@ -371,16 +371,16 @@
 								<v-icon start size="16">mdi-eye-outline</v-icon>
 								{{ __("Preview Labels") }}
 							</v-btn>
-							<div class="d-flex ga-2">
-								<v-btn color="secondary" class="flex-grow-1 font-weight-bold text-none" height="38" @click="downloadPdf(items)" :disabled="!items.length">
+							<div class="barcode-output-actions__row">
+								<v-btn color="secondary" class="barcode-output-button font-weight-bold text-none" height="40" @click="downloadPdf(items)" :disabled="!items.length">
 									<v-icon start size="16">mdi-file-pdf-box</v-icon>
 									{{ __("PDF") }}
 								</v-btn>
-								<v-btn color="primary" class="flex-grow-1 font-weight-bold text-none" height="38" @click="printLabels(items)" :disabled="!items.length">
+								<v-btn color="primary" class="barcode-output-button font-weight-bold text-none" height="40" @click="printLabels(items)" :disabled="!items.length">
 									<v-icon start size="16">mdi-printer</v-icon>
 									{{ __("Print") }}
 								</v-btn>
-								<v-btn color="deep-purple-accent-3" class="flex-grow-1 font-weight-bold text-none" height="38" @click="thermalPrint" :disabled="!items.length || !qzThermalAvailable" :loading="thermalPrinting">
+								<v-btn color="deep-purple-accent-3" class="barcode-output-button font-weight-bold text-none" height="40" @click="thermalPrint" :disabled="!items.length || !qzThermalAvailable" :loading="thermalPrinting">
 									<v-icon start size="16">mdi-fire</v-icon>
 									{{ __("Thermal") }}
 								</v-btn>
@@ -956,7 +956,7 @@ import { useItemsStore } from "../../../stores/itemsStore";
 import { useUIStore } from "../../../stores/uiStore";
 import { useToastStore } from "../../../stores/toastStore";
 import { useBarcodePrintQueue } from "../../../composables/pos/items/useBarcodePrintQueue";
-import { useBarcodePrintOutput, PAGE_FORMAT_PRESETS, validateBarcodeItem, getBarcodeTypeLabel } from "../../../composables/pos/items/useBarcodePrintOutput";
+import { useBarcodePrintOutput, PAGE_FORMAT_PRESETS } from "../../../composables/pos/items/useBarcodePrintOutput";
 import { useScaleBarcodeSettings } from "../../../composables/pos/items/useScaleBarcodeSettings";
 import { useLabelDesigner } from "../../../composables/pos/items/useLabelDesigner";
 import { useSsccGenerator } from "../../../composables/pos/items/useSsccGenerator";
@@ -976,7 +976,6 @@ const scaleSettings = useScaleBarcodeSettings();
 
 const {
 	items,
-	editingQtyValue,
 	addItemDialog,
 	addItemQty,
 	pendingAddItem,
@@ -986,22 +985,16 @@ const {
 	clearAll,
 	incrementQty,
 	decrementQty,
-	openQtyEdit,
-	closeQtyEdit,
 	onAddItem,
 	confirmAddItem,
 	closeAddItemDialog,
 	onPendingUomChange,
 	onPendingScaleGramsInput,
 	syncPendingScaleBarcode,
-	onItemScaleGramsChange,
 	onItemUomChange,
 	getItemUomOptions,
-	getAvailableBarcodes,
-	selectBarcode,
 		variableDataDialog,
 		variableDataItem,
-		openVariableDataDialog,
 		closeVariableDataDialog,
 		warehouseOptions,
 		warehouseLoading,
@@ -1370,6 +1363,8 @@ const onSaveTemplate = async () => {
 				label_size: pageFormat.value,
 				layout_json: layoutJson,
 				description: saveTemplateDescription.value.trim(),
+				pos_profile: uiStore.posProfile?.name,
+				pos_opening_shift: uiStore.posOpeningShift?.name,
 			},
 			silent: true,
 		});
@@ -1493,19 +1488,6 @@ const onExportCsv = () => {
 };
 
 const { shouldShowScaleGramsInput } = scaleSettings;
-
-const headers = computed(() => [
-	{ title: __("Item Code"), key: "item_code", width: "13%" },
-	{ title: __("Item Name"), key: "item_name", width: "17%" },
-	{ title: __("UOM"), key: "uom", width: "10%" },
-	{ title: __("Price"), key: "price", width: "10%" },
-	{ title: __("Barcode"), key: "barcode", width: "20%" },
-	{ title: __("Weight (g)"), key: "grams", width: "10%" },
-	{ title: __("Location"), key: "warehouseLocation", width: "10%" },
-	{ title: __("Quantity"), key: "qty", align: "center" as const, width: "10%" },
-	{ title: "", key: "variableData", align: "center" as const, sortable: false, width: "5%" },
-	{ title: "", key: "actions", align: "center" as const, sortable: false, width: "5%" },
-]);
 
 watch(
 	() => uiStore.posProfile,
@@ -1678,6 +1660,54 @@ onUnmounted(() => {
 
 .barcode-header {
 	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 12px;
+	min-height: 64px;
+	padding: 10px 16px;
+	background: var(--pos-surface-raised, #ffffff);
+	border-bottom: 1px solid var(--pos-border-light, #e2e8f0);
+}
+
+.barcode-header__identity,
+.barcode-header__actions,
+.barcode-queue-heading,
+.barcode-settings-heading,
+.barcode-output-actions__row {
+	display: flex;
+	align-items: center;
+}
+
+.barcode-header__identity {
+	min-width: 0;
+	gap: 9px;
+}
+
+.barcode-header__title {
+	font-size: clamp(17px, 1.2vw, 21px);
+	font-weight: 750;
+	line-height: 1.25;
+	color: var(--pos-primary, rgb(var(--v-theme-primary)));
+	white-space: nowrap;
+}
+
+.barcode-header__actions {
+	justify-content: flex-end;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.barcode-view-toggle,
+.barcode-toolbar-button {
+	min-height: 40px !important;
+}
+
+.barcode-header :deep(.v-btn__content),
+.barcode-queue-header :deep(.v-btn__content),
+.barcode-settings-heading {
+	gap: 7px;
 }
 
 .barcode-labels-workspace,
@@ -1704,14 +1734,14 @@ onUnmounted(() => {
 	width: 100%;
 	min-width: 0;
 	min-height: 0;
-	padding: 14px;
+	padding: 14px 16px;
 	overflow: hidden;
 }
 
 .barcode-labels-content {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(330px, 380px);
-	gap: 14px;
+	grid-template-columns: minmax(0, 1fr) minmax(350px, 410px);
+	gap: 16px;
 	width: 100%;
 	height: 100%;
 	min-width: 0;
@@ -1728,13 +1758,41 @@ onUnmounted(() => {
 }
 
 .barcode-queue-header {
-	min-height: 42px;
+	min-height: 48px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding-inline: 4px;
+	gap: 14px;
+	padding-inline: 6px;
 	padding-block: 6px;
 	flex-shrink: 0;
+}
+
+.barcode-queue-heading {
+	min-width: 0;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.barcode-queue-title {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	margin: 0;
+	font-size: 15px;
+	font-weight: 750;
+	line-height: 1.25;
+	color: var(--pos-primary, rgb(var(--v-theme-primary)));
+	white-space: nowrap;
+}
+
+.barcode-label-count {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 12px;
+	color: var(--pos-text-secondary, #64748b);
+	white-space: nowrap;
 }
 
 .barcode-items-queue-list {
@@ -1749,11 +1807,12 @@ onUnmounted(() => {
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	padding: 48px 24px;
+	padding: 36px 24px;
 	text-align: center;
 	border: 2px dashed var(--pos-border-light, #e0e0e0);
-	border-radius: 12px;
+	border-radius: 16px;
 	color: var(--pos-text-muted, #9e9e9e);
+	background: color-mix(in srgb, var(--pos-surface-muted, #f8fafc) 72%, transparent);
 }
 
 .barcode-settings-column {
@@ -1771,8 +1830,20 @@ onUnmounted(() => {
 }
 
 .barcode-settings-card {
-	padding: 12px !important;
-	margin-bottom: 10px !important;
+	padding: 14px !important;
+	margin-bottom: 12px !important;
+	border-color: var(--pos-border-light, #e2e8f0) !important;
+	border-radius: 14px !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
+}
+
+.barcode-settings-heading {
+	gap: 7px;
+	margin: 0 0 12px;
+	font-size: 14px;
+	font-weight: 750;
+	line-height: 1.3;
+	color: var(--pos-primary, rgb(var(--v-theme-primary)));
 }
 
 .barcode-settings-label {
@@ -1807,6 +1878,19 @@ onUnmounted(() => {
 	border-top: 1px solid var(--pos-border-light, #e0e0e0);
 	background: var(--pos-surface, #fff);
 	flex-shrink: 0;
+}
+
+.barcode-output-actions__row {
+	gap: 8px;
+}
+
+.barcode-output-button {
+	flex: 1 1 0;
+	min-width: 0 !important;
+}
+
+.barcode-output-actions :deep(.v-btn__content) {
+	gap: 6px;
 }
 
 .barcode-item-actions-footer {
@@ -1873,6 +1957,31 @@ onUnmounted(() => {
 }
 
 @media (max-width: 959px) {
+	.barcode-header {
+		align-items: stretch;
+	}
+
+	.barcode-header__identity,
+	.barcode-header__actions {
+		width: 100%;
+	}
+
+	.barcode-header__actions {
+		justify-content: flex-start;
+		overflow-x: auto;
+		flex-wrap: nowrap;
+		padding-bottom: 2px;
+	}
+
+	.barcode-labels-content {
+		grid-template-columns: minmax(0, 1fr);
+		overflow-y: auto;
+	}
+
+	.barcode-settings-column {
+		overflow: visible;
+	}
+
 	.barcode-labels-workspace {
 		display: flex;
 		flex-direction: column;

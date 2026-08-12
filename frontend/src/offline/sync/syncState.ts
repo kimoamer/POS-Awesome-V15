@@ -1,5 +1,6 @@
 import { db, safeBulkPut } from "../db";
 import type { SyncResourceId, SyncResourceState } from "./types";
+import { buildOfflineTenantScope } from "../scope";
 
 const SYNC_STATE_KEY_PREFIX = "posa_sync_state::";
 
@@ -9,7 +10,7 @@ type StoredSyncStateRow = {
 };
 
 export function buildSyncStateStorageKey(resourceId: SyncResourceId) {
-	return `${SYNC_STATE_KEY_PREFIX}${resourceId}`;
+	return `${SYNC_STATE_KEY_PREFIX}${buildOfflineTenantScope()}::${resourceId}`;
 }
 
 function cloneSyncState(
@@ -85,9 +86,11 @@ export async function getSyncResourceState(
 }
 
 export async function listSyncResourceStates(): Promise<SyncResourceState[]> {
+	const tenantPrefix = `${SYNC_STATE_KEY_PREFIX}${buildOfflineTenantScope()}::`;
 	const rows = ((await db.table("sync_state").toArray()) ||
 		[]) as StoredSyncStateRow[];
 	return rows
+		.filter((row) => String(row?.key || "").startsWith(tenantPrefix))
 		.map((row) => cloneSyncState(row?.value))
 		.filter((row): row is SyncResourceState => !!row?.resourceId)
 		.sort((left, right) => left.resourceId.localeCompare(right.resourceId));

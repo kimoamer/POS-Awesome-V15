@@ -14,6 +14,7 @@ import {
 	type SyncResponse,
 	type SyncScopedProfile,
 } from "./common";
+import { buildOfflineProfileScope } from "../../scope";
 
 type CurrencyPair = {
 	from_currency: string;
@@ -24,7 +25,9 @@ type CurrencyMatrixFetcher = (_args: {
 	posProfile: SyncScopedProfile;
 	currencyPairs?: CurrencyPair[];
 	watermark?: string | null;
-	offset?: number;
+	startAfter?: string | null;
+	syncUntil?: string | null;
+	limit?: number;
 	schemaVersion?: string | null;
 }) => Promise<SyncResponse>;
 
@@ -39,26 +42,46 @@ type CurrencyMatrixSyncArgs = {
 export async function syncCurrencyMatrixResource(
 	args: CurrencyMatrixSyncArgs,
 ): Promise<ResourceSyncResult> {
-	if (!args.watermark) {
-		await currencyRateRepository.clear();
+	const storageScope = buildOfflineProfileScope(args.posProfile);
+	let effectiveWatermark = args.watermark || null;
+	let effectiveSchemaVersion = args.schemaVersion || null;
+	let attemptedSchemaRecovery = false;
+	if (!effectiveWatermark) {
+		await currencyRateRepository.clear(storageScope);
 	}
 
 	let currencyOptionsCount: number | undefined;
 	let exchangeRateCount = 0;
-	let offset = 0;
+	let startAfter: string | null = null;
+	let syncUntil: string | null = null;
 	let finalResponse: SyncResponse = {};
 
 	while (true) {
 		const response = await args.fetcher({
 			posProfile: args.posProfile,
 			currencyPairs: args.currencyPairs || [],
-			watermark: args.watermark || null,
-			offset,
-			schemaVersion: args.schemaVersion,
+			watermark: effectiveWatermark,
+			startAfter,
+			syncUntil,
+			limit: 1000,
+			schemaVersion: effectiveSchemaVersion,
 		});
 		finalResponse = response;
+		syncUntil = response?.sync_until || syncUntil;
 
 		if (response?.full_resync_required) {
+			if (!attemptedSchemaRecovery) {
+				attemptedSchemaRecovery = true;
+				effectiveWatermark = null;
+				effectiveSchemaVersion = null;
+				startAfter = null;
+				syncUntil = null;
+				finalResponse = {};
+				currencyOptionsCount = undefined;
+				exchangeRateCount = 0;
+				await currencyRateRepository.clear(storageScope);
+				continue;
+			}
 			refreshSnapshotFromSync({
 				posProfile: args.posProfile,
 				cacheState: {
@@ -71,13 +94,13 @@ export async function syncCurrencyMatrixResource(
 				status: "limited",
 				posProfile: args.posProfile,
 				response,
-				watermark: args.watermark,
+				watermark: effectiveWatermark,
 			});
 			return buildResourceSyncResult(
 				"currency_matrix",
 				"limited",
 				response,
-				args.watermark,
+				effectiveWatermark,
 			);
 		}
 
@@ -100,7 +123,7 @@ export async function syncCurrencyMatrixResource(
 							profile_name: args.posProfile.name,
 							company: args.posProfile.company || "",
 						} as OfflineCurrencyRateRecord,
-					]);
+					], storageScope);
 				}
 				continue;
 			}
@@ -121,16 +144,19 @@ export async function syncCurrencyMatrixResource(
 			.filter((key) => key.startsWith("currency_rate::"))
 			.map((key) => key.slice("currency_rate::".length))
 			.filter(Boolean);
-		await currencyRateRepository.deleteByNames(deletedRateNames);
+		await currencyRateRepository.deleteByNames(
+			deletedRateNames,
+			storageScope,
+		);
 
 		if (!response?.has_more) {
 			break;
 		}
-		const nextOffset = Number(response?.next_offset);
-		if (!Number.isFinite(nextOffset) || nextOffset <= offset) {
-			throw new Error("Currency matrix sync returned an invalid next_offset");
+		const nextCursor = String(response?.next_cursor || "").trim();
+		if (!nextCursor || nextCursor === startAfter) {
+			throw new Error("Currency matrix sync pagination cursor did not advance");
 		}
-		offset = nextOffset;
+		startAfter = nextCursor;
 	}
 
 	if (
@@ -153,12 +179,12 @@ export async function syncCurrencyMatrixResource(
 		status: "fresh",
 		posProfile: args.posProfile,
 		response: finalResponse,
-		watermark: args.watermark,
+		watermark: effectiveWatermark,
 	});
 	return buildResourceSyncResult(
 		"currency_matrix",
 		"fresh",
 		finalResponse,
-		args.watermark,
+		effectiveWatermark,
 	);
 }

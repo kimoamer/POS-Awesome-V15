@@ -1,8 +1,16 @@
-import { checkDbHealth, db, initPromise, memory } from "./db";
+import {
+	checkDbHealth,
+	db,
+	hydrateMemoryKeys,
+	memory,
+	PENDING_OFFLINE_QUEUE_KEYS,
+	startupInitPromise,
+} from "./db";
 import {
 	ensureOfflineInvoiceRequest,
 	ensurePaymentClientRequestId,
 } from "./idempotency";
+import { buildOfflineTenantScope } from "./scope";
 
 type AnyRecord = Record<string, any>;
 
@@ -22,6 +30,7 @@ export type OfflineQueueStatus =
 export interface OfflineQueueEntry {
 	queue_id?: number;
 	entity_type: OfflineEntityType;
+	owner_scope: string;
 	resource?: OfflineEntityType;
 	payload: AnyRecord;
 	created_at: string;
@@ -36,6 +45,9 @@ export interface OfflineQueueEntry {
 const WRITE_QUEUE_TABLE = "write_queue";
 const MAX_RETRY_COUNT = 5;
 const SYNCING_LEASE_MS = 5 * 60 * 1000;
+const INITIAL_RETRY_DELAY_MS = 5_000;
+const MAX_RETRY_DELAY_MS = 5 * 60 * 1_000;
+const CLAIM_BATCH_SIZE = 50;
 
 const ENTITY_MEMORY_KEYS: Record<OfflineEntityType, string> = {
 	invoice: "offline_invoices",
@@ -68,6 +80,19 @@ const RETRYABLE_STATUSES = new Set<OfflineQueueStatus>([
 ]);
 
 let queueReadyPromise: Promise<void> | null = null;
+let queueStorageReadyPromise: Promise<void> | null = null;
+
+function ensureQueueStorageReady() {
+	if (!queueStorageReadyPromise) {
+		queueStorageReadyPromise = startupInitPromise
+			.then(() => hydrateMemoryKeys(PENDING_OFFLINE_QUEUE_KEYS))
+			.catch((error) => {
+				queueStorageReadyPromise = null;
+				throw error;
+			});
+	}
+	return queueStorageReadyPromise;
+}
 
 const nowIso = () => new Date().toISOString();
 
@@ -98,6 +123,19 @@ function hashString(value: string): string {
 
 function getMemoryKey(entityType: OfflineEntityType) {
 	return ENTITY_MEMORY_KEYS[entityType];
+}
+
+function getQueueOwnerScope() {
+	return buildOfflineTenantScope();
+}
+
+function computeNextAttemptAt(retryCount: number) {
+	const exponentialDelay = Math.min(
+		MAX_RETRY_DELAY_MS,
+		INITIAL_RETRY_DELAY_MS * 2 ** Math.max(0, retryCount - 1),
+	);
+	const jitter = Math.floor(exponentialDelay * 0.2 * Math.random());
+	return new Date(Date.now() + exponentialDelay + jitter).toISOString();
 }
 
 function isActiveStatus(status: OfflineQueueStatus) {
@@ -249,6 +287,7 @@ function buildCoalescedQueueEntry(
 		status: "pending",
 		retry_count: 0,
 		last_attempt_at: null,
+		next_attempt_at: null,
 		last_error: null,
 	};
 }
@@ -282,7 +321,7 @@ async function clearLegacyQueueStorage(memoryKey: string) {
 }
 
 async function ensureQueueDbReady() {
-	await initPromise;
+	await ensureQueueStorageReady();
 	await checkDbHealth();
 	if (!db.isOpen()) {
 		await db.open();
@@ -300,8 +339,8 @@ export async function getQueueEntries(
 
 	const rows = (await db
 		.table(WRITE_QUEUE_TABLE)
-		.where("entity_type")
-		.equals(entityType)
+		.where("[owner_scope+entity_type]")
+		.equals([getQueueOwnerScope(), entityType])
 		.sortBy("created_at")) as OfflineQueueEntry[];
 
 	return rows.filter((row) => {
@@ -316,6 +355,12 @@ export async function getQueueEntries(
 }
 
 export async function refreshQueueMemory(entityType: OfflineEntityType) {
+	if (
+		entityType === "invoice" &&
+		memory.invoice_outbox_mode === "coordinator"
+	) {
+		return;
+	}
 	const entries = await getQueueEntries(entityType);
 	memory[getMemoryKey(entityType)] = entries.map((entry) =>
 		toPublicSnapshot(entry),
@@ -331,17 +376,18 @@ export async function refreshAllQueueMemory() {
 async function enqueueWriteQueueEntryInternal(
 	entityType: OfflineEntityType,
 	payload: AnyRecord,
-	options: { idempotencyKey?: string } = {},
+	options: { idempotencyKey?: string; ownerScope?: string } = {},
 ) {
 	const normalizedPayload = normalizePayload(entityType, payload);
 	const idempotencyKey =
 		options.idempotencyKey || deriveIdempotencyKey(entityType, normalizedPayload);
+	const ownerScope = options.ownerScope || getQueueOwnerScope();
 
 	const table = db.table(WRITE_QUEUE_TABLE);
 	const queuedEntry = await db.transaction("rw", table, async () => {
 		const existing = (await table
-			.where("idempotency_key")
-			.equals(idempotencyKey)
+			.where("[owner_scope+idempotency_key]")
+			.equals([ownerScope, idempotencyKey])
 			.first()) as OfflineQueueEntry | undefined;
 
 		if (existing) {
@@ -358,6 +404,7 @@ async function enqueueWriteQueueEntryInternal(
 
 		const entry: OfflineQueueEntry = {
 			entity_type: entityType,
+			owner_scope: ownerScope,
 			resource: entityType,
 			payload: normalizedPayload,
 			created_at: nowIso(),
@@ -391,7 +438,11 @@ export async function deleteWriteQueueEntry(
 	queueId: number,
 ) {
 	await ensureOfflineQueueReady();
-	await db.table(WRITE_QUEUE_TABLE).delete(queueId);
+	const table = db.table(WRITE_QUEUE_TABLE);
+	const row = (await table.get(queueId)) as OfflineQueueEntry | undefined;
+	if (row?.owner_scope === getQueueOwnerScope()) {
+		await table.delete(queueId);
+	}
 	await refreshQueueMemory(entityType);
 }
 
@@ -435,12 +486,21 @@ export async function claimRetryableQueueEntries(entityType: OfflineEntityType) 
 
 	await db.transaction("rw", table, async () => {
 		const entries = (await table
-			.where("entity_type")
-			.equals(entityType)
+			.where("[owner_scope+entity_type]")
+			.equals([getQueueOwnerScope(), entityType])
 			.sortBy("created_at")) as OfflineQueueEntry[];
 
 		for (const entry of entries) {
+			if (claimed.length >= CLAIM_BATCH_SIZE) {
+				break;
+			}
 			if (!isRetryableStatus(entry.status)) {
+				continue;
+			}
+			if (
+				entry.next_attempt_at &&
+				Date.parse(entry.next_attempt_at) > Date.now()
+			) {
 				continue;
 			}
 
@@ -483,6 +543,7 @@ async function updateClaimedQueueEntry(
 
 		if (
 			current.entity_type !== entityType ||
+			current.owner_scope !== getQueueOwnerScope() ||
 			current.status !== "syncing" ||
 			current.last_attempt_at !== (expectedLastAttemptAt ?? null)
 		) {
@@ -543,7 +604,10 @@ export async function markWriteQueueEntryFailed(
 				status: nextStatus,
 				retry_count: nextRetryCount,
 				last_attempt_at: nowIso(),
-				next_attempt_at: null,
+				next_attempt_at:
+					nextStatus === "dead_letter"
+						? null
+						: computeNextAttemptAt(nextRetryCount),
 				last_error: toErrorMessage(error),
 			};
 		},
@@ -559,8 +623,8 @@ export async function updateQueuedPayloads(
 
 	await db.transaction("rw", table, async () => {
 		const entries = (await table
-			.where("entity_type")
-			.equals(entityType)
+			.where("[owner_scope+entity_type]")
+			.equals([getQueueOwnerScope(), entityType])
 			.sortBy("created_at")) as OfflineQueueEntry[];
 
 		for (const entry of entries) {
@@ -588,7 +652,26 @@ export async function migrateLegacyOfflineQueues() {
 
 		if (legacyEntries.length) {
 			for (const legacyEntry of legacyEntries) {
-				await enqueueWriteQueueEntryInternal(config.entityType, legacyEntry);
+				const runtime = globalThis as typeof globalThis & {
+					frappe?: { session?: { user?: string } };
+				};
+				const sessionUser = runtime.frappe?.session?.user || "";
+				const payloadUser = String(
+					legacyEntry?.invoice?.owner ||
+						legacyEntry?.args?.payload?.user ||
+						legacyEntry?.payload?.user ||
+						"",
+				).trim();
+				await enqueueWriteQueueEntryInternal(
+					config.entityType,
+					legacyEntry,
+					{
+						ownerScope:
+							payloadUser && payloadUser === sessionUser
+								? getQueueOwnerScope()
+								: "legacy::unclaimed",
+					},
+				);
 			}
 		}
 

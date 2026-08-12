@@ -4,6 +4,7 @@ import {
 	setCustomerStorage,
 	saveStoredValueSnapshot,
 } from "../../../../offline/index";
+import { buildOfflineProfileScope } from "../../../../offline/scope";
 import {
 	fromCompanyCurrency,
 	getCompanyCurrency,
@@ -25,7 +26,8 @@ export async function fetch_customer_details(context: any) {
 		const requestedCustomer = customer;
 
 		context.customer_info = {};
-		const cachedCustomer = await getStoredCustomer(customer);
+		const customerScope = buildOfflineProfileScope(context?.pos_profile);
+		const cachedCustomer = await getStoredCustomer(customer, customerScope);
 		if (
 			cachedCustomer &&
 			typeof context.customer === "string" &&
@@ -43,6 +45,9 @@ export async function fetch_customer_details(context: any) {
 					context?.company?.name ||
 					context?.company ||
 					null,
+				pos_profile: context?.pos_profile?.name,
+				pos_opening_shift:
+					context?.pos_opening_shift?.name || context?.pos_opening_shift,
 			},
 		});
 
@@ -52,7 +57,7 @@ export async function fetch_customer_details(context: any) {
 			context.customer.trim() === requestedCustomer
 		) {
 			context.customer_info = r.message;
-			await setCustomerStorage([r.message]);
+			await setCustomerStorage([r.message], customerScope);
 			if (context?.pos_profile?.company) {
 				const totalCredit = Number(r.message?.stored_value_balance || 0);
 				saveStoredValueSnapshot(

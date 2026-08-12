@@ -1,5 +1,6 @@
 import importlib.util
 import pathlib
+import json
 import sys
 import types
 import unittest
@@ -18,6 +19,9 @@ class FakeProfile:
     def get(self, key, default=None):
         return getattr(self, key, default)
 
+    def as_dict(self):
+        return dict(self.__dict__)
+
 
 def _install_frappe_stub():
     frappe_module = types.ModuleType("frappe")
@@ -27,7 +31,14 @@ def _install_frappe_stub():
         raise Exception(message)
 
     def exists(doctype, name):
-        return doctype == "POS Profile" and name in profiles
+        if doctype == "POS Profile":
+            return name in profiles
+        if doctype == "POS Profile User" and isinstance(name, dict):
+            return (
+                name.get("parent") in profiles
+                and name.get("user") == "cashier@example.com"
+            )
+        return False
 
     def get_cached_doc(doctype, name):
         if doctype == "POS Profile" and name in profiles:
@@ -35,6 +46,7 @@ def _install_frappe_stub():
         raise Exception(f"{doctype} {name} not found")
 
     frappe_module._ = lambda text: text
+    frappe_module.as_json = lambda value: json.dumps(value)
     frappe_module.throw = throw
     frappe_module.whitelist = lambda *args, **kwargs: (lambda fn: fn)
     frappe_module.session = types.SimpleNamespace(user="cashier@example.com")
@@ -119,6 +131,24 @@ class TestPosProfileWriteAuthorization(unittest.TestCase):
 
         self.assertEqual(profile.name, "POS-1")
         self.assertEqual(profile.company, "Test Co")
+
+    def test_unassigned_user_cannot_read_the_profile(self):
+        self.frappe.session.user = "other@example.com"
+
+        with self.assertRaisesRegex(Exception, "is not assigned"):
+            self.utils.assert_pos_profile_access_allowed("POS-1")
+
+    def test_client_profile_fields_are_replaced_by_server_values(self):
+        profile, _serialized = self.utils._ensure_pos_profile(
+            {
+                "name": "POS-1",
+                "company": "Forged Co",
+                "warehouse": "Forged Warehouse",
+            }
+        )
+
+        self.assertEqual(profile["company"], "Test Co")
+        self.assertNotIn("warehouse", profile)
 
 
 if __name__ == "__main__":

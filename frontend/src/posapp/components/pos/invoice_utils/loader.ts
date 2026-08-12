@@ -5,6 +5,7 @@ import {
 } from "../../../../offline/index";
 import { useDiscounts } from "../../../composables/pos/shared/useDiscounts";
 import { resolvePosDocumentDoctype } from "../../../utils/posDocumentMode";
+import { posDebug } from "../../../utils/debug";
 import { resolvePricingRuleName } from "./pricing_rule_names";
 
 declare const __: (_text: string, _args?: any[]) => string;
@@ -107,7 +108,13 @@ export async function fetch_customer_balance(context: any) {
 		// Online mode: fetch from server and cache the result
 		const r = await frappe.call({
 			method: "posawesome.posawesome.api.customer.get_customer_balance",
-			args: { customer: context.customer, company: context.pos_profile?.company },
+			args: {
+				customer: context.customer,
+				company: context.pos_profile?.company,
+				pos_profile: context.pos_profile?.name,
+				pos_opening_shift:
+					context.pos_opening_shift?.name || context.pos_opening_shift,
+			},
 		});
 
 		const balance = r?.message?.balance || 0;
@@ -351,7 +358,7 @@ export async function load_invoice(
 		docDiscountAmount = -Math.abs(docDiscountAmount);
 	}
 	if (docIsReturn) {
-		console.log("[POSA][Returns] Loader discount sync", {
+		posDebug("returns", "loader discount sync", {
 			usePercentageDiscount,
 			docDiscountAmount,
 			docDiscountPercentage,

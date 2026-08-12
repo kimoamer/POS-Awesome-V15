@@ -74,7 +74,10 @@ export function usePurchaseOrder(options: {
 		try {
 			const { message } = await frappe.call({
 				method: "posawesome.posawesome.api.purchase_orders.get_supplier_info",
-				args: { supplier: supplierName },
+				args: {
+					supplier: supplierName,
+					pos_profile: posProfile.value?.name || null,
+				},
 			});
 			if (message) {
 				supplierPriceList.value = message.buying_price_list || null;
@@ -136,7 +139,9 @@ export function usePurchaseOrder(options: {
 						args: {
 							item_code: item.item_code,
 							price_list: activePriceList,
-							uom: uom,
+								uom: uom,
+								pos_profile: posProfile.value?.name || null,
+								transaction_type: "buying",
 						},
 					});
 					if (message !== undefined && message !== null && message > 0) {
@@ -192,7 +197,9 @@ export function usePurchaseOrder(options: {
 					args: {
 						item_code: item.item_code,
 						price_list: priceList,
-						uom: value,
+							uom: value,
+							pos_profile: posProfile.value?.name || null,
+							transaction_type: "buying",
 					},
 				});
 

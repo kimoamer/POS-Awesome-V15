@@ -4,13 +4,16 @@
 		:class="rtlClasses"
 		:style="[responsiveStyles, layoutStyleOverrides, rtlStyles]"
 	>
-		<Drafts></Drafts>
-		<InvoiceManagement></InvoiceManagement>
-		<SalesOrders></SalesOrders>
-		<Returns></Returns>
-		<NewAddress></NewAddress>
-		<MpesaPayments :viewport-mode="paymentViewportMode"></MpesaPayments>
-		<Variants></Variants>
+		<Drafts v-if="draftsDialog" />
+		<InvoiceManagement v-if="invoiceManagementDialog" />
+		<SalesOrders v-if="ordersDialog" />
+		<Returns v-if="returnsDialog" />
+		<NewAddress v-if="newAddressDialog" />
+		<MpesaPayments
+			v-if="mpesaDialog"
+			:viewport-mode="paymentViewportMode"
+		/>
+		<Variants v-if="variantsDialog" />
 		<OpeningDialog
 			v-if="dialog"
 			:dialog="dialog"
@@ -18,7 +21,7 @@
 			@register="handleRegisterPosData"
 		></OpeningDialog>
 		<v-dialog
-			v-if="usePaymentDialog"
+			v-if="usePaymentDialog && paymentDialogOpen"
 			v-model="paymentDialogOpen"
 			:retain-focus="false"
 			content-class="posa-payment-dialog-overlay"
@@ -66,7 +69,15 @@
 				v-if="!useCompactPosSwitcher && ['items', 'offers', 'coupons'].includes(activeView)"
 				class="pos-workspace-splitter"
 				:class="{ 'pos-workspace-splitter--active': isResizingWorkspace }"
-				@mousedown="startWorkspaceResize"
+				role="separator"
+				tabindex="0"
+				aria-orientation="vertical"
+				:aria-label="__('Resize product and cart panels')"
+				:aria-valuenow="Math.round(desktopCartRatio * 100)"
+				aria-valuemin="28"
+				aria-valuemax="60"
+				@pointerdown="startWorkspaceResize"
+				@keydown="handleWorkspaceResizeKeydown"
 				@dblclick="resetWorkspaceSplit"
 				:title="__('Drag to resize panels (Double-click to reset)')"
 			>
@@ -80,14 +91,12 @@
 				data-pos-region="cart"
 			>
 				<div v-if="useCompactPosSwitcher" class="compact-cart-header">
-					<button
-						type="button"
+					<PosIconButton
 						class="compact-cart-header__back"
-						:aria-label="__('Back to products')"
+						:label="__('Back to products')"
+						:icon="isRtl ? 'mdi-arrow-right' : 'mdi-arrow-left'"
 						@click="setSelectorView('items')"
-					>
-						<v-icon :icon="isRtl ? 'mdi-arrow-right' : 'mdi-arrow-left'" size="18" />
-					</button>
+					/>
 					<div class="compact-cart-header__title">
 						<strong>{{ __("Cart") }}</strong>
 						<span>{{ itemsCount }} {{ itemsCount === 1 ? __("item") : __("items") }}</span>
@@ -221,27 +230,42 @@
 <script>
 import ItemsSelector from "../items/ItemsSelector.vue";
 import Invoice from "../Invoice.vue";
-import OpeningDialog from "../shift/OpeningDialog.vue";
-import Payments from "../Payments.vue";
-import Drafts from "../flows/Drafts.vue";
-import InvoiceManagement from "../flows/InvoiceManagement.vue";
-import SalesOrders from "../flows/SalesOrders.vue";
-import NewAddress from "../customer/NewAddress.vue";
-import Variants from "../items/Variants.vue";
-import Returns from "../flows/Returns.vue";
-import MpesaPayments from "../payments/Mpesa-Payments.vue";
-import { inject, ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from "vue";
+import {
+	inject,
+	ref,
+	onMounted,
+	onBeforeUnmount,
+	computed,
+	watch,
+	nextTick,
+	defineAsyncComponent,
+} from "vue";
 import { usePosShift } from "../../../composables/pos/shared/usePosShift";
 import { useOffers } from "../../../composables/pos/shared/useOffers";
 // Import the cache cleanup function
 import { clearExpiredCustomerBalances } from "../../../../offline/index";
 import { useResponsive } from "../../../composables/core/useResponsive";
 import { useRtl } from "../../../composables/core/useRtl";
-import { useUIStore } from "../../../stores/uiStore.js";
-import { useInvoiceStore } from "../../../stores/invoiceStore.js";
-import { useItemsStore } from "../../../stores/itemsStore.js";
+import { useUIStore } from "../../../stores/uiStore";
+import { useInvoiceStore } from "../../../stores/invoiceStore";
+import { useItemsStore } from "../../../stores/itemsStore";
 import { storeToRefs } from "pinia";
 import { useCustomerDisplayPublisher } from "../../../composables/pos/shared/useCustomerDisplayPublisher";
+import PosIconButton from "../../ui/PosIconButton.vue";
+
+const OpeningDialog = defineAsyncComponent(() => import("../shift/OpeningDialog.vue"));
+const Payments = defineAsyncComponent(() => import("../Payments.vue"));
+const Drafts = defineAsyncComponent(() => import("../flows/Drafts.vue"));
+const InvoiceManagement = defineAsyncComponent(
+	() => import("../flows/InvoiceManagement.vue"),
+);
+const SalesOrders = defineAsyncComponent(() => import("../flows/SalesOrders.vue"));
+const NewAddress = defineAsyncComponent(() => import("../customer/NewAddress.vue"));
+const Variants = defineAsyncComponent(() => import("../items/Variants.vue"));
+const Returns = defineAsyncComponent(() => import("../flows/Returns.vue"));
+const MpesaPayments = defineAsyncComponent(
+	() => import("../payments/Mpesa-Payments.vue"),
+);
 
 export default {
 	setup() {
@@ -252,40 +276,61 @@ export default {
 		const mobileDock = ref(null);
 		const workspaceRoot = ref(null);
 		const isResizingWorkspace = ref(false);
-		const storedCartWidthKey = "posa_desktop_cart_width";
+		const storedCartWidthKey = "posa_desktop_cart_ratio";
+		const legacyStoredCartWidthKey = "posa_desktop_cart_width";
 
-		const getStoredCartWidth = () => {
+		const getStoredCartRatio = () => {
 			try {
 				const stored = localStorage.getItem(storedCartWidthKey);
 				if (stored) {
 					const parsed = parseFloat(stored);
-					if (Number.isFinite(parsed) && parsed >= 320 && parsed <= 900) {
+					if (Number.isFinite(parsed) && parsed >= 0.28 && parsed <= 0.6) {
 						return parsed;
 					}
 				}
-			} catch (e) {}
-			return 420;
+				const legacy = parseFloat(
+					localStorage.getItem(legacyStoredCartWidthKey) || "",
+				);
+				if (Number.isFinite(legacy) && legacy >= 320) {
+					return Math.max(0.28, Math.min(0.6, legacy / 1440));
+				}
+			} catch {
+				// Fall back to the profile default when storage is unavailable.
+			}
+			return 0.38;
 		};
 
-		const desktopCartWidth = ref(getStoredCartWidth());
+		const desktopCartRatio = ref(getStoredCartRatio());
 
 		const workspaceCustomStyles = computed(() => {
 			if (useCompactPosSwitcher.value) return {};
 			return {
-				"--pos-cart-width": `${desktopCartWidth.value}px`,
+				"--pos-cart-width": `${(desktopCartRatio.value * 100).toFixed(2)}%`,
 			};
 		});
+		const persistWorkspaceSplit = () => {
+			try {
+				localStorage.setItem(
+					storedCartWidthKey,
+					desktopCartRatio.value.toFixed(4),
+				);
+				localStorage.removeItem(legacyStoredCartWidthKey);
+			} catch {
+				// Resizing remains functional even when persistence is unavailable.
+			}
+		};
 
 		let animationFrameId = null;
 
 		const startWorkspaceResize = (event) => {
-			if (event.button !== 0) return;
+			if (event.button !== 0 && event.pointerType !== "touch") return;
 			event.preventDefault();
+			event.currentTarget?.setPointerCapture?.(event.pointerId);
 			isResizingWorkspace.value = true;
 			document.body.style.cursor = "col-resize";
 			document.body.style.userSelect = "none";
 
-			const onMouseMove = (moveEvent) => {
+			const onPointerMove = (moveEvent) => {
 				if (!workspaceRoot.value) return;
 				const rect = workspaceRoot.value.getBoundingClientRect();
 				const totalWidth = rect.width;
@@ -299,41 +344,53 @@ export default {
 				}
 
 				const minWidth = 360;
-				const maxWidth = Math.floor(totalWidth * 0.65);
-				const clampedWidth = Math.max(minWidth, Math.min(maxWidth, Math.round(newCartWidth)));
+				const maxWidth = totalWidth * 0.6;
+				const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newCartWidth));
 
 				if (animationFrameId) cancelAnimationFrame(animationFrameId);
 				animationFrameId = requestAnimationFrame(() => {
-					desktopCartWidth.value = clampedWidth;
+					desktopCartRatio.value = clampedWidth / totalWidth;
 				});
 			};
 
-			const onMouseUp = () => {
+			const onPointerUp = () => {
 				isResizingWorkspace.value = false;
 				document.body.style.cursor = "";
 				document.body.style.userSelect = "";
-				window.removeEventListener("mousemove", onMouseMove);
-				window.removeEventListener("mouseup", onMouseUp);
-
-				try {
-					localStorage.setItem(storedCartWidthKey, desktopCartWidth.value.toString());
-				} catch (e) {}
+				window.removeEventListener("pointermove", onPointerMove);
+				window.removeEventListener("pointerup", onPointerUp);
+				window.removeEventListener("pointercancel", onPointerUp);
+				persistWorkspaceSplit();
 			};
 
-			window.addEventListener("mousemove", onMouseMove);
-			window.addEventListener("mouseup", onMouseUp);
+			window.addEventListener("pointermove", onPointerMove);
+			window.addEventListener("pointerup", onPointerUp);
+			window.addEventListener("pointercancel", onPointerUp);
+		};
+
+		const handleWorkspaceResizeKeydown = (event) => {
+			if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+				return;
+			}
+			event.preventDefault();
+			if (event.key === "Home") desktopCartRatio.value = 0.28;
+			else if (event.key === "End") desktopCartRatio.value = 0.6;
+			else {
+				const visualDirection = event.key === "ArrowRight" ? 1 : -1;
+				const cartDirection = rtl.isRtl?.value
+					? visualDirection
+					: -visualDirection;
+				desktopCartRatio.value = Math.max(
+					0.28,
+					Math.min(0.6, desktopCartRatio.value + cartDirection * 0.02),
+				);
+			}
+			persistWorkspaceSplit();
 		};
 
 		const resetWorkspaceSplit = () => {
-			if (!workspaceRoot.value) {
-				desktopCartWidth.value = 420;
-				return;
-			}
-			const totalWidth = workspaceRoot.value.getBoundingClientRect().width;
-			desktopCartWidth.value = Math.max(340, Math.round(totalWidth * 0.4));
-			try {
-				localStorage.setItem(storedCartWidthKey, desktopCartWidth.value.toString());
-			} catch (e) {}
+			desktopCartRatio.value = 0.38;
+			persistWorkspaceSplit();
 		};
 		const responsive = useResponsive();
 		const rtl = useRtl();
@@ -344,8 +401,37 @@ export default {
 		const uiStore = useUIStore();
 		const invoiceStore = useInvoiceStore();
 		const itemsStore = useItemsStore();
-		const __ = window.__;
-		const { activeView, posProfile, paymentDialogOpen } = storeToRefs(uiStore);
+		const translate =
+			typeof window.__ === "function" ? window.__ : (value) => value;
+		const responsiveBridge = {};
+		Object.defineProperties(responsiveBridge, {
+			windowWidth: {
+				get: () => responsive.windowWidth.value,
+				set: (value) => {
+					responsive.windowWidth.value = Number(value) || 0;
+				},
+				enumerable: true,
+			},
+			windowHeight: {
+				get: () => responsive.windowHeight.value,
+				set: (value) => {
+					responsive.windowHeight.value = Number(value) || 0;
+				},
+				enumerable: true,
+			},
+		});
+		const {
+			activeView,
+			posProfile,
+			paymentDialogOpen,
+			draftsDialog,
+			invoiceManagementDialog,
+			ordersDialog,
+			returnsDialog,
+			newAddressDialog,
+			mpesaDialog,
+			variantsDialog,
+		} = storeToRefs(uiStore);
 		const {
 			invoiceDoc,
 			itemsCount,
@@ -355,15 +441,9 @@ export default {
 			additionalDiscount,
 			additionalDiscountPercentage,
 		} = storeToRefs(invoiceStore);
-		const usePaymentDialog = computed(() => responsive.windowWidth.value >= 1200);
-		const paymentViewportMode = computed(() => {
-			const width = responsive.windowWidth.value;
-			if (width < 600) return "phone";
-			if (width < 900) return "tablet-portrait";
-			if (width < 1200) return "tablet-landscape";
-			return "desktop";
-		});
-		const useCompactPosSwitcher = computed(() => responsive.windowWidth.value < 1200);
+		const usePaymentDialog = computed(() => responsive.isDesktop.value);
+		const paymentViewportMode = computed(() => responsive.viewportMode.value);
+		const useCompactPosSwitcher = computed(() => responsive.isCompact.value);
 		const compactPanel = ref("selector");
 		const activeDockAction = computed(() => {
 			if (compactPanel.value === "invoice") {
@@ -379,7 +459,10 @@ export default {
 		});
 		const isPhone = computed(() => responsive.isPhone.value);
 		const showBottomDock = computed(
-			() => !dialog.value && responsive.windowWidth.value < 1200 && activeView.value !== "payment",
+			() =>
+				!dialog.value &&
+				responsive.isCompact.value &&
+				activeView.value !== "payment",
 		);
 		const bottomDockHeight = ref(0);
 		let mobileDockObserver = null;
@@ -415,12 +498,12 @@ export default {
 		});
 		const formattedDiscountTotal = computed(() => {
 			const symbol = getCurrencySymbol(activeCurrency.value);
-			return `${symbol}${formatCompactNumber(discountTotal.value || 0)} ${__("discount")}`.trim();
+			return `${symbol}${formatCompactNumber(discountTotal.value || 0)} ${translate("discount")}`.trim();
 		});
 		const cartMetaLabel = computed(() => {
 			const qty = formatCompactNumber(totalQty.value || 0);
 			const itemCount = formatCompactNumber(itemsCount.value || 0);
-			return `${itemCount} ${__("lines")} | ${qty} ${__("qty")}`;
+			return `${itemCount} ${translate("lines")} | ${qty} ${translate("qty")}`;
 		});
 
 		const discountPercentageOfferName = computed(
@@ -713,7 +796,7 @@ export default {
 			uiStore,
 			invoiceStore,
 			itemsStore,
-			__,
+			responsive: responsiveBridge,
 			invoiceDoc,
 			itemsCount,
 			totalQty,
@@ -726,6 +809,13 @@ export default {
 			additionalDiscountPercentageDisplay,
 			activeView,
 			paymentDialogOpen,
+			draftsDialog,
+			invoiceManagementDialog,
+			ordersDialog,
+			returnsDialog,
+			newAddressDialog,
+			mpesaDialog,
+			variantsDialog,
 			isPhone,
 			usePaymentDialog,
 			paymentViewportMode,
@@ -758,7 +848,9 @@ export default {
 			workspaceRoot,
 			workspaceCustomStyles,
 			isResizingWorkspace,
+			desktopCartRatio,
 			startWorkspaceResize,
+			handleWorkspaceResizeKeydown,
 			resetWorkspaceSplit,
 		};
 	},
@@ -779,24 +871,12 @@ export default {
 		Variants,
 		MpesaPayments,
 		SalesOrders,
+		PosIconButton,
 	},
 
 	methods: {
 		create_opening_voucher() {
 			this.dialog = true;
-		},
-		get_pos_setting() {
-			frappe.db.get_doc("POS Settings", undefined).then((_doc) => {
-				// Update store directly instead of emitting event
-				// If Payments.vue or others need this, they should watch uiStore.posSettings
-				// For now, we assume uiStore.setStockSettings or similar is sufficient,
-				// or we add a new generic settings store.
-				// However, the original code used eventBus.emit("set_pos_settings", doc);
-				// We'll attach it to uiStore if a suitable method exists, or just log for now as
-				// clean separation implies components fetch what they need or use a centralized config store.
-				// Assuming uiStore handles global config:
-				// this.uiStore.setPosSettings(doc); // We might need to implement this if it doesn't exist
-			});
 		},
 		// handleAddItem removed as ItemsSelector handles pos addition internally
 		handleRegisterPosData(data) {
@@ -815,7 +895,6 @@ export default {
 	mounted: function () {
 		this.$nextTick(function () {
 			this.check_opening_entry();
-			this.get_pos_setting();
 
 			// Watch store for updates
 			this.$watch(
@@ -912,11 +991,18 @@ export default {
 	z-index: 10;
 	transition: background-color 0.15s ease;
 	user-select: none;
+	touch-action: none;
+	outline: none;
 }
 
 .pos-workspace-splitter:hover,
+.pos-workspace-splitter:focus-visible,
 .pos-workspace-splitter--active {
 	background: var(--pos-primary, #2563eb) !important;
+}
+
+.pos-workspace-splitter:focus-visible {
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--pos-primary, #2563eb) 30%, transparent);
 }
 
 .pos-workspace-splitter__handle {

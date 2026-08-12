@@ -2,7 +2,10 @@ import {
 	getSyncResourceDefinitions,
 	getSyncResourcesForTrigger,
 } from "./resourceRegistry";
-import { setSyncResourceState } from "./syncState";
+import {
+	getSyncResourceState,
+	setSyncResourceState,
+} from "./syncState";
 import type {
 	SyncLifecycleState,
 	SyncResourceDefinition,
@@ -60,6 +63,8 @@ const PRIORITY_ORDER: SyncResourceDefinition["priority"][] = [
 	"warm",
 	"lazy",
 ];
+
+const CROSS_TAB_SYNC_LOCK = "posawesome:offline-sync:v2";
 
 function nowIso() {
 	return new Date().toISOString();
@@ -120,6 +125,8 @@ export class SyncCoordinator {
 	private readonly maxBackoffMs: number;
 
 	private readonly inFlightTriggers = new Map<SyncTrigger, Promise<void>>();
+
+	private triggerQueue: Promise<void> = Promise.resolve();
 
 	private readonly resourceStates = new Map<SyncResourceId, SyncResourceState>();
 
@@ -188,8 +195,9 @@ export class SyncCoordinator {
 
 	/**
 	 * Runs all resources that subscribe to `trigger`, in priority order.
-	 * If a run for the same trigger is already in flight, returns the existing Promise
-	 * instead of starting a second one.
+	 * If a run for the same trigger is already queued or in flight, returns the
+	 * existing Promise. Different triggers are serialized through one queue so
+	 * resource adapters never write the same offline snapshot concurrently.
 	 *
 	 * @param trigger - The event that initiated this sync pass.
 	 */
@@ -199,13 +207,41 @@ export class SyncCoordinator {
 			return inFlight;
 		}
 
-		const runPromise = this.executeTrigger(trigger)
+		const runPromise = this.triggerQueue
+			.catch(() => undefined)
+			.then(() => this.executeTriggerWithCrossTabLock(trigger))
 			.then(() => undefined)
 			.finally(() => {
 			this.inFlightTriggers.delete(trigger);
 			});
 		this.inFlightTriggers.set(trigger, runPromise);
+		this.triggerQueue = runPromise;
 		return runPromise;
+	}
+
+	private async executeTriggerWithCrossTabLock(trigger: SyncTrigger) {
+		const lockManager = (globalThis.navigator as Navigator & {
+			locks?: {
+				request: (
+					name: string,
+					options: { mode: "exclusive"; ifAvailable: boolean },
+					callback: (lock: unknown | null) => Promise<void>,
+				) => Promise<void>;
+			};
+		})?.locks;
+
+		if (!lockManager?.request) {
+			return this.executeTrigger(trigger);
+		}
+
+		return lockManager.request(
+			CROSS_TAB_SYNC_LOCK,
+			{ mode: "exclusive", ifAvailable: true },
+			async (lock) => {
+				if (!lock) return;
+				await this.executeTrigger(trigger);
+			},
+		);
 	}
 
 	private async executeTrigger(trigger: SyncTrigger) {
@@ -371,8 +407,10 @@ export class SyncCoordinator {
 
 		try {
 			const runResult = await this.runResource(resource, trigger);
+			const persistedRunState = await getSyncResourceState(resource.id);
 			const resolvedStatus = runResult?.status || "fresh";
 			const nextState = await this.updateResourceState(resource.id, {
+				...(persistedRunState || {}),
 				...runResult,
 				status: resolvedStatus,
 				lastSyncedAt:

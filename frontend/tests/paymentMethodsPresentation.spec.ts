@@ -43,7 +43,7 @@ describe("PaymentMethods Presentation & Emits Contract", () => {
 		expect(wrapper.text()).toContain("Remaining");
 	});
 
-	it("emits set-full-amount with payment and isReturn when Set Remaining button clicked", async () => {
+	it("emits set-rest-amount with payment and isReturn when Set Remaining button clicked", async () => {
 		const wrapper = mount(PaymentMethods, {
 			props: {
 				payments: singlePayment,
@@ -56,7 +56,7 @@ describe("PaymentMethods Presentation & Emits Contract", () => {
 		const primaryBtn = wrapper.find(".payment-method-action-btn");
 		await primaryBtn.trigger("click");
 
-		const emitted = wrapper.emitted("set-full-amount");
+		const emitted = wrapper.emitted("set-rest-amount");
 		expect(emitted).toBeTruthy();
 		expect(emitted![0]).toEqual([singlePayment[0], false]);
 	});

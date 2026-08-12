@@ -24,11 +24,20 @@ type PaymentMethodSyncArgs = {
 export async function syncPaymentMethodCurrenciesResource(
 	args: PaymentMethodSyncArgs,
 ): Promise<ResourceSyncResult> {
-	const response = await args.fetcher({
+	let effectiveWatermark = args.watermark || null;
+	let response = await args.fetcher({
 		posProfile: args.posProfile,
-		watermark: args.watermark,
+		watermark: effectiveWatermark,
 		schemaVersion: args.schemaVersion,
 	});
+	if (response?.full_resync_required) {
+		effectiveWatermark = null;
+		response = await args.fetcher({
+			posProfile: args.posProfile,
+			watermark: null,
+			schemaVersion: null,
+		});
+	}
 
 	if (response?.full_resync_required) {
 		refreshSnapshotFromSync({
@@ -42,13 +51,13 @@ export async function syncPaymentMethodCurrenciesResource(
 			status: "limited",
 			posProfile: args.posProfile,
 			response,
-			watermark: args.watermark,
+			watermark: effectiveWatermark,
 		});
 		return buildResourceSyncResult(
 			"payment_method_currencies",
 			"limited",
 			response,
-			args.watermark,
+			effectiveWatermark,
 		);
 	}
 
@@ -71,12 +80,12 @@ export async function syncPaymentMethodCurrenciesResource(
 		status: "fresh",
 		posProfile: args.posProfile,
 		response,
-		watermark: args.watermark,
+		watermark: effectiveWatermark,
 	});
 	return buildResourceSyncResult(
 		"payment_method_currencies",
 		"fresh",
 		response,
-		args.watermark,
+		effectiveWatermark,
 	);
 }

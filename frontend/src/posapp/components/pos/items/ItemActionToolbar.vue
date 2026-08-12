@@ -39,7 +39,6 @@
 					class="category-chip"
 					:class="{ 'category-chip--active': isCategoryActive(category.value) }"
 					:aria-pressed="isCategoryActive(category.value)"
-					:title="category.label"
 					@click="selectCategory(category.value)"
 				>
 					<span class="category-chip__surface">
@@ -501,6 +500,9 @@ onBeforeUnmount(() => {
 }
 
 .category-chip {
+	--v-hover-opacity: 0;
+	--v-focus-opacity: 0;
+	--v-activated-opacity: 0;
 	flex: 0 0 auto;
 	max-inline-size: 168px;
 	padding: 3px !important;
@@ -513,6 +515,15 @@ onBeforeUnmount(() => {
 
 .category-chip :deep(.v-btn__content) {
 	min-inline-size: 0;
+	color: inherit !important;
+	opacity: 1 !important;
+}
+
+.category-chip:hover :deep(.v-btn__overlay),
+.category-chip:focus-visible :deep(.v-btn__overlay),
+.category-chip--active :deep(.v-btn__overlay) {
+	background: transparent !important;
+	opacity: 0 !important;
 }
 
 .category-chip__surface {
@@ -539,6 +550,17 @@ onBeforeUnmount(() => {
 	border-color: color-mix(in srgb, var(--pos-primary) 24%, var(--pos-border-light));
 	background: color-mix(in srgb, var(--pos-primary-container) 54%, var(--pos-surface-raised));
 	color: var(--pos-primary);
+}
+
+.category-chip:hover :deep(.v-btn__content),
+.category-chip:focus-visible :deep(.v-btn__content),
+.category-chip:hover .category-chip__label,
+.category-chip:focus-visible .category-chip__label,
+.category-chip:hover .category-chip__icon,
+.category-chip:focus-visible .category-chip__icon {
+	color: var(--pos-primary) !important;
+	-webkit-text-fill-color: var(--pos-primary) !important;
+	opacity: 1 !important;
 }
 
 .category-chip--active .category-chip__surface {
@@ -623,12 +645,43 @@ onBeforeUnmount(() => {
 }
 
 .view-toggle-btn__item.v-btn--active {
-	background: color-mix(in srgb, var(--pos-primary-container) 78%, transparent) !important;
-	color: var(--pos-primary) !important;
+	background-color: var(--pos-action-active-bg, #e6f7f8) !important;
+	color: var(--pos-action-active-fg, #006d77) !important;
+	box-shadow: inset 0 0 0 1px rgba(0, 109, 119, 0.18);
+}
+
+.view-toggle-btn__item.v-btn--active :deep(.v-btn__overlay) {
+	opacity: 0 !important;
+	background: transparent !important;
+}
+
+.view-toggle-btn__item.v-btn--active :deep(.v-btn__content),
+.view-toggle-btn__item.v-btn--active :deep(.v-icon) {
+	color: inherit !important;
+	opacity: 1 !important;
+}
+
+.view-toggle-btn__item:hover:not(.v-btn--active),
+.view-toggle-btn__item:focus-visible:not(.v-btn--active) {
+	background-color: var(--pos-action-hover-bg, #f0fafa) !important;
+	color: var(--pos-action-active-fg, #006d77) !important;
+}
+
+.view-toggle-btn__item:hover :deep(.v-btn__content),
+.view-toggle-btn__item:hover :deep(.v-icon),
+.view-toggle-btn__item:focus-visible :deep(.v-btn__content),
+.view-toggle-btn__item:focus-visible :deep(.v-icon) {
+	color: inherit !important;
+	opacity: 1 !important;
 }
 
 .filter-action-btn {
+	--v-hover-opacity: 0;
+	--v-focus-opacity: 0;
+	--v-activated-opacity: 0;
+	--v-pressed-opacity: 0;
 	position: relative;
+	isolation: isolate;
 	block-size: 40px !important;
 	min-block-size: 40px !important;
 	min-inline-size: 84px !important;
@@ -644,6 +697,14 @@ onBeforeUnmount(() => {
 	overflow: visible !important;
 }
 
+.filter-action-btn :deep(.v-ripple__container),
+.filter-action-btn :deep(.v-ripple__animation) {
+	display: none !important;
+	opacity: 0 !important;
+	animation: none !important;
+	transition: none !important;
+}
+
 .filter-action-btn--offers {
 	color: color-mix(in srgb, var(--pos-primary) 82%, #5b21b6) !important;
 }
@@ -653,9 +714,51 @@ onBeforeUnmount(() => {
 }
 
 .filter-action-btn:hover,
-.filter-action-btn:focus-visible {
+.filter-action-btn:focus-visible,
+.filter-action-btn:active {
 	background: color-mix(in srgb, currentColor 8%, var(--pos-surface-raised)) !important;
 	border-color: color-mix(in srgb, currentColor 30%, var(--pos-border-light)) !important;
+}
+
+.filter-action-btn:active {
+	background: color-mix(in srgb, currentColor 16%, var(--pos-surface-raised)) !important;
+	color: inherit !important;
+	filter: none !important;
+	transform: translateY(1px);
+}
+
+.filter-action-btn:hover :deep(.v-btn__overlay),
+.filter-action-btn:hover :deep(.v-btn__underlay),
+.filter-action-btn:focus-visible :deep(.v-btn__overlay),
+.filter-action-btn:focus-visible :deep(.v-btn__underlay),
+.filter-action-btn:active :deep(.v-btn__overlay),
+.filter-action-btn:active :deep(.v-btn__underlay) {
+	background: transparent !important;
+	opacity: 0 !important;
+}
+
+.filter-action-btn:hover :deep(.v-btn__content),
+.filter-action-btn:focus-visible :deep(.v-btn__content),
+.filter-action-btn:active :deep(.v-btn__content),
+.filter-action-btn:hover :deep(.v-icon),
+.filter-action-btn:focus-visible :deep(.v-icon),
+.filter-action-btn:active :deep(.v-icon),
+.filter-action-btn:hover .filter-action-btn__label,
+.filter-action-btn:focus-visible .filter-action-btn__label,
+.filter-action-btn:active .filter-action-btn__label {
+	position: relative;
+	z-index: 2;
+	color: inherit !important;
+	-webkit-text-fill-color: currentColor !important;
+	opacity: 1 !important;
+}
+
+.filter-action-btn--offers:active {
+	color: color-mix(in srgb, var(--pos-primary) 82%, #5b21b6) !important;
+}
+
+.filter-action-btn--coupons:active {
+	color: var(--pos-accent) !important;
 }
 
 .filter-action-btn__label {

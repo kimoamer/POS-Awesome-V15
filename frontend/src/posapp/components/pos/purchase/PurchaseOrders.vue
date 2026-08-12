@@ -1,5 +1,9 @@
 <template>
-	<div class="purchase-orders-page pa-0 h-100">
+	<div
+		ref="pageRoot"
+		class="purchase-orders-page pa-0 h-100"
+		:class="{ 'purchase-orders-page--compact': !isDesktop }"
+	>
 		<!-- Tablet & Mobile Tab Switcher (< 1200px) -->
 		<div class="purchase-workspace-tabs">
 			<div class="mobile-pane-toggle-wrapper">
@@ -23,7 +27,14 @@
 			</div>
 		</div>
 
-		<div class="purchase-workspace" :class="{ 'has-bottom-bar': !isDesktop && activeMobileTab === 'browse' && purchaseItems.length > 0 }" :style="workspaceStyle">
+		<div
+			ref="workspaceRoot"
+			class="purchase-workspace"
+			:class="{
+				'has-bottom-bar': !isDesktop && activeMobileTab === 'browse' && purchaseItems.length > 0,
+			}"
+			:style="workspaceStyle"
+		>
 			<!-- Left Pane: Item Selector (Product Browser) -->
 			<section
 				v-show="isDesktop || activeMobileTab === 'browse'"
@@ -36,10 +47,18 @@
 			<div
 				v-show="isDesktop"
 				class="purchase-workspace-splitter"
-				@mousedown="startResizing"
-				@touchstart.passive="startResizing"
+				:class="{ 'purchase-workspace-splitter--active': isResizing }"
+				role="separator"
+				tabindex="0"
+				aria-orientation="vertical"
+				:aria-label="__('Resize product browser and purchase order panels')"
+				:aria-valuenow="Math.round(splitRatio)"
+				aria-valuemin="25"
+				aria-valuemax="70"
+				@pointerdown="startResizing"
+				@keydown="handleSplitterKeydown"
 				@dblclick="resetSplitRatio"
-				title="Drag to resize | Double click to reset"
+				:title="__('Drag to resize panels (Double-click to reset)')"
 			>
 				<div class="purchase-splitter__handle"></div>
 			</div>
@@ -51,13 +70,13 @@
 			>
 				<v-card class="h-100 d-flex flex-column pos-themed-card purchase-order-card" flat>
 					<!-- Fixed Header Bar & Order Details (Supplier, Warehouse, Dates, Switches) -->
-					<div class="purchase-order-header-fixed px-4 pt-3 pb-2 border-b">
-						<div class="d-flex align-center justify-space-between ga-2 mb-3">
-							<div class="d-flex align-center ga-2 flex-wrap">
+					<div class="purchase-order-header-fixed">
+						<div class="purchase-title-row">
+							<div class="purchase-title-group">
 								<div class="purchase-header-icon-box">
 									<v-icon icon="mdi-file-document-edit-outline" color="primary" />
 								</div>
-								<span class="text-h6 font-weight-bold text-primary">
+								<span class="purchase-order-title">
 									{{ purchaseOrderName || __("New Purchase Order") }}
 								</span>
 								<v-chip
@@ -85,7 +104,7 @@
 								color="error"
 								size="small"
 								prepend-icon="mdi-delete-outline"
-								class="font-weight-bold border-error"
+								class="purchase-clear-button font-weight-bold border-error"
 								@click="clearPurchaseForm"
 							>
 								{{ __("Clear") }}
@@ -113,7 +132,7 @@
 						/>
 
 						<!-- Ultra Compact Pinned Items Strip -->
-						<div class="purchase-items-compact-bar px-4 py-1 d-flex align-center ga-1 border-t text-primary">
+						<div class="purchase-items-compact-bar">
 							<v-icon size="16" color="primary">mdi-cart-outline</v-icon>
 							<span class="font-weight-bold text-caption text-primary">
 								{{ __("Items") }} (<bdi>{{ purchaseItems.length }}</bdi>)
@@ -169,21 +188,21 @@
 					</div>
 
 					<!-- Compact Fixed Summary Strip (Directly above actions footer) -->
-					<div class="purchase-summary-strip px-4 py-2 border-t">
-						<div class="d-flex align-center justify-space-between text-body-2 ga-3">
-							<div class="d-flex align-center ga-1">
-								<span class="text-medium-emphasis font-weight-medium">{{ __("Items:") }}</span>
-								<strong class="text-primary font-weight-bold"><bdi>{{ purchaseItems.length }}</bdi></strong>
+					<div class="purchase-summary-strip">
+						<div class="purchase-summary-grid">
+							<div class="purchase-summary-item">
+								<span class="purchase-summary-label">{{ __("Items") }}</span>
+								<strong class="purchase-summary-value"><bdi>{{ purchaseItems.length }}</bdi></strong>
 							</div>
 
-							<div class="d-flex align-center ga-1">
-								<span class="text-medium-emphasis font-weight-medium">{{ __("Total Qty:") }}</span>
-								<strong class="text-primary font-weight-bold"><bdi>{{ formatNumber(totalQty) }}</bdi></strong>
+							<div class="purchase-summary-item">
+								<span class="purchase-summary-label">{{ __("Total Qty") }}</span>
+								<strong class="purchase-summary-value"><bdi>{{ formatNumber(totalQty) }}</bdi></strong>
 							</div>
 
-							<div class="d-flex align-center ga-1">
-								<span class="text-medium-emphasis font-weight-bold">{{ __("Grand Total:") }}</span>
-								<strong class="text-subtitle-1 font-weight-bold text-success">
+							<div class="purchase-summary-item purchase-summary-item--total">
+								<span class="purchase-summary-label">{{ __("Grand Total") }}</span>
+								<strong class="purchase-summary-value purchase-summary-value--total">
 									<bdi>{{ currencySymbol(priceListCurrency || supplierCurrency) }}</bdi>
 									<bdi>{{ formatCurrency(totalAmount) }}</bdi>
 								</strong>
@@ -192,9 +211,9 @@
 					</div>
 
 					<!-- Footer Actions Bar -->
-					<div class="purchase-order-actions pa-3 border-t">
-						<div class="d-flex align-center justify-space-between flex-wrap ga-2 w-100">
-							<div class="d-flex align-center ga-2 flex-wrap">
+					<div class="purchase-order-actions">
+						<div class="purchase-actions-layout">
+							<div class="purchase-actions-group">
 								<!-- Options Menu (Drafts & Purchase Management) -->
 								<v-menu location="top start" offset="6">
 									<template #activator="{ props: menuProps }">
@@ -240,7 +259,7 @@
 								</v-btn>
 							</div>
 
-							<div class="d-flex align-center ga-2 flex-wrap">
+							<div class="purchase-actions-group purchase-actions-group--primary">
 								<v-btn
 									variant="outlined"
 									color="primary"
@@ -356,7 +375,7 @@
 		/>
 
 		<!-- Clear Confirmation Dialog (App UI Popup) -->
-		<v-dialog v-model="clearConfirmDialog" max-width="440" persistent>
+		<v-dialog v-model="clearConfirmDialog" max-width="440">
 			<v-card class="rounded-xl pa-2">
 				<v-card-title class="d-flex align-center ga-2 pt-3 px-4">
 					<v-avatar color="warning" size="36" variant="tonal">
@@ -395,7 +414,7 @@
 
 <script>
 import format, { normalizeDateForBackend } from "../../../format";
-import { useUIStore } from "../../../stores/uiStore.js";
+import { useUIStore } from "../../../stores/uiStore";
 import { getOpeningStorage } from "../../../../offline/index";
 import { useItemsStore } from "../../../stores/itemsStore";
 import { useToastStore } from "../../../stores/toastStore";
@@ -434,11 +453,14 @@ export default {
 		const pos_profile = ref({});
 		const receiveNow = ref(false);
 
-		const windowWidth = ref(typeof window !== "undefined" ? window.innerWidth : 1200);
-		const isDesktop = computed(() => windowWidth.value >= 1200);
+		const pageRoot = ref(null);
+		const workspaceWidth = ref(typeof window !== "undefined" ? window.innerWidth : 1200);
+		const isDesktop = computed(() => workspaceWidth.value >= 1200);
+		let workspaceResizeObserver = null;
 
 		const handleResize = () => {
-			windowWidth.value = window.innerWidth;
+			workspaceWidth.value =
+				pageRoot.value?.getBoundingClientRect?.().width || window.innerWidth;
 		};
 
 		// Splitter Resizing State & Methods
@@ -446,6 +468,8 @@ export default {
 		const DEFAULT_RATIO = 43; // 43% browser, 57% order
 		const splitRatio = ref(DEFAULT_RATIO);
 		const isResizing = ref(false);
+		const workspaceRoot = ref(null);
+		let resizeCleanup = null;
 
 		// Load saved split ratio from localStorage
 		try {
@@ -467,50 +491,80 @@ export default {
 			};
 		});
 
-		const startResizing = (e) => {
-			e.preventDefault();
+		const persistSplitRatio = () => {
+			try {
+				localStorage.setItem(STORAGE_KEY, splitRatio.value.toString());
+			} catch (err) {
+				console.warn("Could not save split ratio to localStorage", err);
+			}
+		};
+
+		const getSplitBounds = () => {
+			const width = workspaceRoot.value?.getBoundingClientRect?.().width || 0;
+			if (!width) return { min: 25, max: 70 };
+			const min = Math.max(25, (440 / width) * 100);
+			const max = Math.min(70, ((width - 620) / width) * 100);
+			return max >= min ? { min, max } : { min: 25, max: 70 };
+		};
+
+		const clampSplitRatio = (value) => {
+			const bounds = getSplitBounds();
+			return Math.max(bounds.min, Math.min(bounds.max, value));
+		};
+
+		const startResizing = (event) => {
+			if (event.button !== 0 && event.pointerType !== "touch") return;
+			event.preventDefault();
+			event.currentTarget?.setPointerCapture?.(event.pointerId);
+			resizeCleanup?.();
 			isResizing.value = true;
 			document.body.style.cursor = "col-resize";
 			document.body.style.userSelect = "none";
 
-			const onMouseMove = (moveEvent) => {
+			const onPointerMove = (moveEvent) => {
 				if (!isResizing.value) return;
-				const clientX = moveEvent.touches ? moveEvent.touches[0].clientX : moveEvent.clientX;
-				const containerWidth = window.innerWidth;
-				if (containerWidth <= 0) return;
-
-				let newRatio = (clientX / containerWidth) * 100;
-
-				// Min width constraints: Product Browser min 440px, Purchase Order min 650px
-				const minBrowserRatio = (440 / containerWidth) * 100;
-				const maxBrowserRatio = ((containerWidth - 650) / containerWidth) * 100;
-
-				newRatio = Math.max(minBrowserRatio, Math.min(maxBrowserRatio, newRatio));
-				splitRatio.value = Math.round(newRatio * 10) / 10;
+				const root = workspaceRoot.value;
+				const rect = root?.getBoundingClientRect?.();
+				if (!rect?.width) return;
+				const isRtl = getComputedStyle(root).direction === "rtl";
+				const browserWidth = isRtl
+					? rect.right - moveEvent.clientX
+					: moveEvent.clientX - rect.left;
+				const nextRatio = (browserWidth / rect.width) * 100;
+				splitRatio.value = Math.round(clampSplitRatio(nextRatio) * 10) / 10;
 			};
 
 			const stopResizing = () => {
-				if (!isResizing.value) return;
 				isResizing.value = false;
 				document.body.style.cursor = "";
 				document.body.style.userSelect = "";
-
-				window.removeEventListener("mousemove", onMouseMove);
-				window.removeEventListener("mouseup", stopResizing);
-				window.removeEventListener("touchmove", onMouseMove);
-				window.removeEventListener("touchend", stopResizing);
-
-				try {
-					localStorage.setItem(STORAGE_KEY, splitRatio.value.toString());
-				} catch (err) {
-					console.warn("Could not save split ratio to localStorage", err);
-				}
+				window.removeEventListener("pointermove", onPointerMove);
+				window.removeEventListener("pointerup", stopResizing);
+				window.removeEventListener("pointercancel", stopResizing);
+				persistSplitRatio();
+				resizeCleanup = null;
 			};
 
-			window.addEventListener("mousemove", onMouseMove);
-			window.addEventListener("mouseup", stopResizing);
-			window.addEventListener("touchmove", onMouseMove, { passive: true });
-			window.addEventListener("touchend", stopResizing);
+			resizeCleanup = stopResizing;
+			window.addEventListener("pointermove", onPointerMove);
+			window.addEventListener("pointerup", stopResizing);
+			window.addEventListener("pointercancel", stopResizing);
+		};
+
+		const handleSplitterKeydown = (event) => {
+			if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+			event.preventDefault();
+			const bounds = getSplitBounds();
+			if (event.key === "Home") splitRatio.value = bounds.min;
+			else if (event.key === "End") splitRatio.value = bounds.max;
+			else {
+				const isRtl = getComputedStyle(workspaceRoot.value).direction === "rtl";
+				const physicalDelta = event.key === "ArrowRight" ? 2 : -2;
+				splitRatio.value = clampSplitRatio(
+					splitRatio.value + (isRtl ? -physicalDelta : physicalDelta),
+				);
+			}
+			persistSplitRatio();
 		};
 
 		const resetSplitRatio = () => {
@@ -589,7 +643,12 @@ export default {
 			try {
 				const { message } = await frappe.call({
 					method: "posawesome.posawesome.api.purchase_orders.search_suppliers",
-					args: { search_text: searchText, limit: 20 },
+						args: {
+							search_text: searchText,
+							limit: 20,
+							pos_profile: pos_profile.value?.name || null,
+							pos_opening_shift: uiStore.posOpeningShift?.name || null,
+						},
 				});
 				supplierOptions.value = Array.isArray(message) ? message : [];
 				if (supplier.value) {
@@ -713,9 +772,10 @@ export default {
 				schedule_date: normalizeDateForBackend(scheduleDate.value),
 				submit: submit ? 1 : 0,
 				receive: submit && receiveNow.value ? 1 : 0,
-				create_invoice: submit && createInvoice.value ? 1 : 0,
-				pos_profile: pos_profile.value,
-				payments: submit ? payments.value : [],
+					create_invoice: submit && createInvoice.value ? 1 : 0,
+					pos_profile: pos_profile.value,
+					posa_pos_opening_shift: uiStore.posOpeningShift?.name || null,
+					payments: submit ? payments.value : [],
 				items: purchaseItems.value.map((item) => ({
 					item_code: item.item_code,
 					item_name: item.item_name,
@@ -880,6 +940,14 @@ export default {
 		};
 
 		onMounted(async () => {
+			handleResize();
+			if (typeof ResizeObserver !== "undefined" && pageRoot.value) {
+				workspaceResizeObserver = new ResizeObserver((entries) => {
+					const width = entries[0]?.contentRect?.width;
+					if (Number.isFinite(width) && width > 0) workspaceWidth.value = width;
+				});
+				workspaceResizeObserver.observe(pageRoot.value);
+			}
 			const cachedData = getOpeningStorage();
 			if (cachedData?.pos_profile) pos_profile.value = cachedData.pos_profile;
 
@@ -907,9 +975,13 @@ export default {
 			});
 
 			try {
-				const { message } = await frappe.call({
-					method: "posawesome.posawesome.api.purchase_orders.get_buying_price_list",
-				});
+					const { message } = await frappe.call({
+						method: "posawesome.posawesome.api.purchase_orders.get_buying_price_list",
+						args: {
+							pos_profile: pos_profile.value?.name || null,
+							pos_opening_shift: uiStore.posOpeningShift?.name || null,
+						},
+					});
 				if (message) await itemsStore.updatePriceList(message);
 			} catch (e) {
 				console.error("Failed price list load", e);
@@ -921,6 +993,9 @@ export default {
 		});
 
 		onBeforeUnmount(() => {
+			resizeCleanup?.();
+			workspaceResizeObserver?.disconnect?.();
+			workspaceResizeObserver = null;
 			window.removeEventListener("resize", handleResize);
 			eventBus?.emit?.("update_buying_price_list", null);
 			if (pos_profile.value?.selling_price_list)
@@ -928,10 +1003,14 @@ export default {
 		});
 
 		return {
+			pageRoot,
 			activeMobileTab,
 			isDesktop,
 			workspaceStyle,
+			workspaceRoot,
+			isResizing,
 			startResizing,
+			handleSplitterKeydown,
 			resetSplitRatio,
 			loadedSubmittedOrder,
 			pos_profile,
@@ -1061,7 +1140,7 @@ export default {
 /* ===== DESKTOP WORKSPACE (>= 1200px) ===== */
 .purchase-workspace {
 	display: grid;
-	grid-template-columns: minmax(440px, var(--purchase-browser-width, 43%)) 10px minmax(620px, 1fr);
+	grid-template-columns: minmax(440px, var(--purchase-browser-width, 43%)) 10px minmax(650px, 1fr);
 	width: 100%;
 	height: 100%;
 	min-height: 0;
@@ -1142,20 +1221,31 @@ export default {
 }
 
 .purchase-workspace-splitter:hover::before,
-.purchase-workspace-splitter:active::before {
+.purchase-workspace-splitter:active::before,
+.purchase-workspace-splitter--active::before,
+.purchase-workspace-splitter:focus-visible::before {
 	background-color: rgb(var(--v-theme-primary));
 }
 
 .purchase-workspace-splitter:hover .purchase-splitter__handle,
-.purchase-workspace-splitter:active .purchase-splitter__handle {
+.purchase-workspace-splitter:active .purchase-splitter__handle,
+.purchase-workspace-splitter--active .purchase-splitter__handle,
+.purchase-workspace-splitter:focus-visible .purchase-splitter__handle {
 	border-color: rgb(var(--v-theme-primary));
 	background: rgb(var(--v-theme-primary));
 	box-shadow: 0 2px 6px rgba(var(--v-theme-primary), 0.3);
 }
 
 .purchase-workspace-splitter:hover .purchase-splitter__handle::after,
-.purchase-workspace-splitter:active .purchase-splitter__handle::after {
+.purchase-workspace-splitter:active .purchase-splitter__handle::after,
+.purchase-workspace-splitter--active .purchase-splitter__handle::after,
+.purchase-workspace-splitter:focus-visible .purchase-splitter__handle::after {
 	color: #ffffff;
+}
+
+.purchase-workspace-splitter:focus-visible {
+	outline: 3px solid color-mix(in srgb, rgb(var(--v-theme-primary)) 35%, transparent);
+	outline-offset: 2px;
 }
 
 /* ===== PURCHASE ORDER PANE ===== */
@@ -1165,7 +1255,7 @@ export default {
 	height: 100%;
 	min-height: 0;
 	overflow: hidden;
-	background: #ffffff;
+	background: var(--pos-surface-raised, #ffffff);
 	container-type: inline-size;
 }
 
@@ -1176,14 +1266,51 @@ export default {
 	min-height: 0 !important;
 	display: flex !important;
 	flex-direction: column !important;
-	background: #ffffff !important;
+	background: var(--pos-surface-raised, #ffffff) !important;
 }
 
 .purchase-order-header-fixed {
 	flex-shrink: 0;
-	background: #ffffff;
+	padding: 12px 16px 0;
+	background: var(--pos-surface-raised, #ffffff);
 	border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 	z-index: 2;
+}
+
+.purchase-title-row,
+.purchase-title-group,
+.purchase-items-compact-bar,
+.purchase-actions-layout,
+.purchase-actions-group {
+	display: flex;
+	align-items: center;
+}
+
+.purchase-title-row {
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.purchase-title-group {
+	min-width: 0;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.purchase-order-title {
+	min-width: 0;
+	font-size: clamp(16px, 1.2vw, 20px);
+	font-weight: 750;
+	line-height: 1.25;
+	color: var(--pos-primary, rgb(var(--v-theme-primary)));
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.purchase-clear-button {
+	flex-shrink: 0;
 }
 
 .purchase-header-icon-box {
@@ -1200,7 +1327,11 @@ export default {
 .purchase-items-compact-bar {
 	height: 28px;
 	min-height: 28px;
+	gap: 6px;
+	margin: 8px -16px 0;
+	padding-inline: 16px;
 	background: var(--pos-surface-raised, #ffffff);
+	border-top: 1px solid var(--pos-border-light, #e2e8f0);
 }
 
 .purchase-order-body {
@@ -1226,20 +1357,164 @@ export default {
 /* Compact Fixed Summary Strip */
 .purchase-summary-strip {
 	flex-shrink: 0;
-	background: #f8fafc;
+	padding: 9px 16px;
+	background: var(--pos-surface-muted, #f8fafc);
 	border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 	z-index: 2;
+}
+
+.purchase-summary-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, auto));
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+}
+
+.purchase-summary-item {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 7px;
+	min-width: 0;
+}
+
+.purchase-summary-label {
+	font-size: 12px;
+	font-weight: 650;
+	color: var(--pos-text-secondary, #64748b);
+	white-space: nowrap;
+}
+
+.purchase-summary-value {
+	font-size: 14px;
+	font-weight: 750;
+	color: var(--pos-primary, rgb(var(--v-theme-primary)));
+	white-space: nowrap;
+}
+
+.purchase-summary-item--total {
+	justify-self: end;
+}
+
+.purchase-summary-value--total {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 4px;
+	font-size: 17px;
+	color: var(--pos-success, #16a34a);
 }
 
 /* Order Actions Footer */
 .purchase-order-actions {
 	position: static;
-	border-top: 1px solid #e5e7eb;
-	background: #ffffff;
+	padding: 10px 14px;
+	border-top: 1px solid var(--pos-border-light, #e5e7eb);
+	background: var(--pos-surface-raised, #ffffff);
 	flex-shrink: 0;
 }
 
+.purchase-actions-layout {
+	justify-content: space-between;
+	gap: 10px;
+	width: 100%;
+}
+
+.purchase-actions-group {
+	gap: 8px;
+	min-width: 0;
+}
+
+.purchase-actions-group--primary {
+	justify-content: flex-end;
+}
+
+.purchase-actions-group :deep(.v-btn) {
+	min-height: 40px;
+}
+
+@container (max-width: 700px) {
+	.purchase-summary-grid {
+		gap: 10px;
+	}
+
+	.purchase-actions-layout {
+		align-items: stretch;
+		flex-direction: column;
+	}
+
+	.purchase-actions-group--primary :deep(.v-btn) {
+		flex: 1 1 0;
+	}
+}
+
+@container (max-width: 520px) {
+	.purchase-summary-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.purchase-summary-item--total {
+		grid-column: 1 / -1;
+		justify-self: stretch;
+		justify-content: space-between;
+		padding-top: 6px;
+		border-top: 1px solid var(--pos-border-light, #e2e8f0);
+	}
+}
+
 /* ===== TABLET & MOBILE BREAKPOINT (< 1200px) ===== */
+.purchase-orders-page--compact {
+	height: calc(100dvh - 52px);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.purchase-orders-page--compact .purchase-workspace-tabs {
+	display: flex;
+}
+
+.purchase-orders-page--compact .purchase-workspace {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 0;
+	height: calc(100% - 56px);
+	min-height: 0;
+	width: 100%;
+	overflow: hidden;
+	position: relative;
+}
+
+.purchase-orders-page--compact .purchase-workspace.has-bottom-bar {
+	padding-bottom: 0;
+}
+
+.purchase-orders-page--compact .purchase-workspace-splitter {
+	display: none !important;
+}
+
+.purchase-orders-page--compact .purchase-browser-pane,
+.purchase-orders-page--compact .purchase-order-pane {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+	flex: 1 1 0;
+	overflow: hidden;
+}
+
+.purchase-orders-page--compact .purchase-browser-pane :deep(.items-selector-shell),
+.purchase-orders-page--compact .purchase-browser-pane :deep(.selection-card) {
+	height: 100% !important;
+	max-height: 100% !important;
+	min-height: 0 !important;
+	flex: 1 1 0 !important;
+	display: flex !important;
+	flex-direction: column !important;
+	overflow: hidden !important;
+}
+
 @media (max-width: 1199px) {
 	.purchase-orders-page {
 		height: calc(100dvh - 52px);
@@ -1299,4 +1574,3 @@ export default {
 	cursor: pointer;
 }
 </style>
-

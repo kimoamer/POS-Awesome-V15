@@ -1,38 +1,11 @@
-import { ref, onUnmounted } from "vue";
+import { ref } from "vue";
 import {
 	getItemsLastSync,
 	setItemsLastSync,
 	isOffline,
 } from "../../../../offline/index";
-import {
-	normalizeBackgroundSyncInterval,
-	shouldRunBackgroundSync,
-} from "../../../utils/backgroundSync.js";
-
-const visibilityCallbacks = new Set<() => void>();
-let visibilityHandler: (() => void) | null = null;
-
-function bindSharedVisibilityListener(callback: () => void) {
-	visibilityCallbacks.add(callback);
-	if (typeof document === "undefined" || visibilityHandler) return;
-	visibilityHandler = () => {
-		visibilityCallbacks.forEach((listener) => listener());
-	};
-	document.addEventListener("visibilitychange", visibilityHandler);
-}
-
-function unbindSharedVisibilityListener(callback: () => void) {
-	visibilityCallbacks.delete(callback);
-	if (
-		typeof document === "undefined" ||
-		visibilityCallbacks.size ||
-		!visibilityHandler
-	) {
-		return;
-	}
-	document.removeEventListener("visibilitychange", visibilityHandler);
-	visibilityHandler = null;
-}
+import { shouldRunBackgroundSync } from "../../../utils/backgroundSync";
+import { posDebug } from "../../../utils/debug";
 
 /**
  * useItemSync Composable
@@ -77,9 +50,6 @@ export function useItemSync() {
 	};
 
 	// State
-	const background_sync_timer = ref<ReturnType<typeof setInterval> | null>(
-		null,
-	);
 	const background_sync_in_flight = ref(false);
 	const isBackgroundLoading = ref(false);
 	const last_background_sync_time = ref<string | null>(null);
@@ -163,72 +133,28 @@ export function useItemSync() {
 	}
 
 	function startBackgroundSyncScheduler() {
-		stopBackgroundSyncScheduler();
-		console.debug(`${BG_SYNC_LOG} scheduler start requested`, {
+		posDebug("item-sync", "using application sync coordinator", {
 			enabled: ctx.enable_background_sync,
-			intervalSeconds: normalizeBackgroundSyncInterval(
-				ctx.background_sync_interval,
-			),
+			configuredIntervalSeconds: ctx.background_sync_interval,
 		});
-		// Always hydrate last sync from local cache so UI can show it
-		// even before the next network sync cycle runs.
+		// DefaultLayout owns the only recurring timer. This selector hydrates the
+		// existing cursor and observes coordinated state instead of starting a
+		// second interval/visibility sync owner.
 		ensureBackgroundSyncBaseline().catch((error) => {
 			console.warn("Failed to load background sync baseline", error);
 		});
-
-		if (!ctx.enable_background_sync) {
-			return;
-		}
-
-		const intervalMs =
-			normalizeBackgroundSyncInterval(ctx.background_sync_interval) *
-			1000;
-		background_sync_timer.value = setInterval(() => {
-			// Skip while the tab is hidden — operators on cheap Android
-			// devices accumulated visible main-thread jank from sync runs
-			// firing in background tabs that the user wasn't even on.
-			// The next visibility change triggers an immediate catch-up
-			// run via the listener below.
-			if (typeof document !== "undefined" && document.hidden) {
-				return;
-			}
-			performBackgroundSync({ source: "interval" });
-		}, intervalMs);
-		console.debug(`${BG_SYNC_LOG} scheduler active`, { intervalMs });
-
-		performBackgroundSync({ source: "initial" });
-		bindVisibilityListener();
 	}
 
 	function stopBackgroundSyncScheduler() {
-		if (background_sync_timer.value) {
-			clearInterval(background_sync_timer.value);
-			background_sync_timer.value = null;
-			console.debug(`${BG_SYNC_LOG} scheduler stopped`);
-		}
-		unbindVisibilityListener();
-	}
-
-	// Visibility listener: pause syncs when the tab is hidden, run a
-	// single catch-up sync when the operator returns. Saves several
-	// MB of allocations per minute on multi-tab Chrome sessions.
-	const onVisibilityChange = () => {
-		if (!document.hidden && ctx.enable_background_sync) {
-			performBackgroundSync({ source: "visibility" });
-		}
-	};
-	function bindVisibilityListener() {
-		bindSharedVisibilityListener(onVisibilityChange);
-	}
-	function unbindVisibilityListener() {
-		unbindSharedVisibilityListener(onVisibilityChange);
+		// Kept as a compatibility hook for existing callers. The application
+		// runtime owns teardown for the recurring coordinator timer.
 	}
 
 	async function ensureBackgroundSyncBaseline() {
 		const lastSync = getItemsLastSync();
 		if (lastSync) {
 			last_background_sync_time.value = lastSync;
-			console.debug(`${BG_SYNC_LOG} baseline loaded from local cache`, {
+			posDebug("item-sync", "baseline loaded from local cache", {
 				lastSync,
 			});
 			return lastSync;
@@ -239,14 +165,14 @@ export function useItemSync() {
 			if (serverTimestamp) {
 				setItemsLastSync(serverTimestamp);
 				last_background_sync_time.value = serverTimestamp;
-				console.debug(`${BG_SYNC_LOG} baseline fetched from server`, {
+				posDebug("item-sync", "baseline fetched from server", {
 					serverTimestamp,
 				});
 				return serverTimestamp;
 			}
 		}
 
-		console.debug(`${BG_SYNC_LOG} baseline unavailable`);
+		posDebug("item-sync", "baseline unavailable");
 		return null;
 	}
 
@@ -279,7 +205,7 @@ export function useItemSync() {
 				usesLimitSearch: ctx.usesLimitSearch,
 			})
 		) {
-			console.debug(`${BG_SYNC_LOG} skipped`, { source, skipReasons });
+			posDebug("item-sync", "skipped", { source, skipReasons });
 			return;
 		}
 
@@ -287,7 +213,7 @@ export function useItemSync() {
 		const startedAt = Date.now();
 		let modifiedCount = 0;
 		try {
-			console.info(`${BG_SYNC_LOG} started`, { source });
+			posDebug("item-sync", "started", { source });
 			await ensureBackgroundSyncBaseline();
 			const syncCursorBefore = getItemsLastSync();
 			const backgroundPriceList =
@@ -301,7 +227,7 @@ export function useItemSync() {
 				modifiedCount = Array.isArray(updatedItems)
 					? updatedItems.length
 					: 0;
-				console.info(`${BG_SYNC_LOG} modified items fetched`, {
+				posDebug("item-sync", "modified items fetched", {
 					source,
 					modifiedCount,
 				});
@@ -318,8 +244,9 @@ export function useItemSync() {
 							},
 						);
 					}
-					console.info(
-						`${BG_SYNC_LOG} visible details refreshed`,
+					posDebug(
+						"item-sync",
+						"visible details refreshed",
 						{
 							source,
 							refreshedCount: visibleUpdatedItems.length,
@@ -348,7 +275,7 @@ export function useItemSync() {
 				setItemsLastSync(deltaCursor);
 			}
 			last_background_sync_time.value = completedAt;
-			console.info(`${BG_SYNC_LOG} completed`, {
+			posDebug("item-sync", "completed", {
 				source,
 				modifiedCount,
 				durationMs: Date.now() - startedAt,
@@ -399,10 +326,6 @@ export function useItemSync() {
 			ctx.onBackgroundLoadFinished();
 		}
 	}
-
-	onUnmounted(() => {
-		stopBackgroundSyncScheduler();
-	});
 
 	return {
 		// State

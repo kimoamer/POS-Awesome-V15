@@ -15,6 +15,7 @@ from posawesome.posawesome.api.invoices import get_draft_invoices
 from posawesome.posawesome.api.quotations import search_quotations, submit_quotation
 from posawesome.posawesome.api.sales_orders import search_orders
 from posawesome.posawesome.api.tax_contracts import apply_pos_tax_inclusion_contract
+from posawesome.posawesome.api.utils import assert_doctype_permission, get_pos_request_context
 
 SOURCE_DOCTYPES = {
     "invoice": "Sales Invoice",
@@ -38,6 +39,46 @@ ORDER_ACTIONS = {
 DELIVERY_ACTIONS = {
     "delivery_to_invoice",
 }
+
+
+def _source_feature_enabled(profile, source_key):
+    if source_key == "invoice":
+        return True
+    if source_key in {"order", "delivery"}:
+        return bool(
+            profile.get("custom_allow_select_sales_order")
+            or profile.get("posa_allow_sales_order")
+        )
+    if source_key == "quote":
+        return bool(
+            profile.get("custom_allow_create_quotation")
+            or profile.get("custom_allow_select_quotation")
+            or profile.get("posa_allow_select_quotation")
+            or profile.get("posa_allow_quotation_selection")
+        )
+    return False
+
+
+def _commercial_context(source_key, pos_profile, pos_opening_shift, permission_type="read"):
+    source_doctype = SOURCE_DOCTYPES[source_key]
+    context = get_pos_request_context(
+        pos_profile,
+        doctype=source_doctype,
+        permission_type=permission_type,
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
+    if not _source_feature_enabled(context.pos_profile, source_key):
+        frappe.throw(_("This document source is disabled for the POS Profile."), frappe.PermissionError)
+    return context
+
+
+def _assert_source_document_scope(source_doc, context):
+    if source_doc.get("company") != context.company:
+        frappe.throw(_("Document is outside the active POS company."), frappe.PermissionError)
+    checker = getattr(source_doc, "check_permission", None)
+    if callable(checker):
+        checker("read")
 
 
 def _as_dict(doc):
@@ -249,8 +290,12 @@ def list_source_documents(
     search=None,
     include_draft=1,
     include_submitted=1,
+    cashier_grant=None,
 ):
     source_key = _normalize_source_key(source)
+    context = _commercial_context(source_key, pos_profile, pos_opening_shift)
+    company = context.company
+    currency = context.pos_profile.get("currency")
 
     if source_key == "invoice":
         rows = get_draft_invoices(
@@ -260,12 +305,19 @@ def list_source_documents(
             pos_profile=pos_profile,
             cashier=cashier,
             is_supervisor=is_supervisor,
+            cashier_grant=cashier_grant,
             limit_page_length=0,
         )
         return [_serialize_source_record("invoice", row) for row in rows]
 
     if source_key == "order":
-        rows = search_orders(company=company, currency=currency, order_name=search)
+        rows = search_orders(
+            company=company,
+            currency=currency,
+            order_name=search,
+            pos_profile=context.profile_name,
+            pos_opening_shift=context.opening_shift.name,
+        )
         return [_serialize_source_record("order", row) for row in rows]
 
     if source_key == "quote":
@@ -275,6 +327,8 @@ def list_source_documents(
             quotation_name=search,
             include_draft=include_draft,
             include_submitted=include_submitted,
+            pos_profile=context.profile_name,
+            pos_opening_shift=context.opening_shift.name,
         )
         return [_serialize_source_record("quote", row) for row in rows]
 
@@ -287,15 +341,19 @@ def prepare_document_flow_action(
     source_doctype,
     source_name,
     target_invoice_doctype="Sales Invoice",
+    pos_profile=None,
+    pos_opening_shift=None,
 ):
     source_key, normalized_source_doctype = _normalize_source_doctype(source_doctype)
     action = str(action or "").strip()
     target_invoice_doctype = _normalize_target_invoice_doctype(target_invoice_doctype)
+    context = _commercial_context(source_key, pos_profile, pos_opening_shift)
 
     if not source_name:
         frappe.throw(_("source_name is required"))
 
     source_doc = frappe.get_doc(normalized_source_doctype, source_name)
+    _assert_source_document_scope(source_doc, context)
     source_payload = _as_dict(source_doc)
     if source_key == "quote":
         _normalize_quotation_customer_fields(source_payload)
@@ -329,20 +387,25 @@ def prepare_document_flow_action(
     fulfillment_mode = None
 
     if action == "quote_to_order":
+        assert_doctype_permission("Sales Order", "create")
         target_doctype = "Sales Order"
         fulfillment_mode = "order"
     elif action == "order_to_delivery_note":
+        assert_doctype_permission("Delivery Note", "create")
         target_doctype = "Delivery Note"
         fulfillment_mode = "delivery"
     elif action == "delivery_to_invoice":
+        assert_doctype_permission(target_invoice_doctype, "create")
         target_doctype = target_invoice_doctype
         update_stock = 0
         fulfillment_mode = "invoice_after_delivery"
     elif action == "order_to_invoice":
+        assert_doctype_permission(target_invoice_doctype, "create")
         target_doctype = target_invoice_doctype
         update_stock = 1
         fulfillment_mode = "direct_invoice"
     elif action == "quote_to_invoice":
+        assert_doctype_permission(target_invoice_doctype, "create")
         target_doctype = target_invoice_doctype
         update_stock = 1
         fulfillment_mode = "direct_invoice"
@@ -378,14 +441,18 @@ def commit_document_flow_action(
     source_doctype,
     source_name,
     payload=None,
+    pos_profile=None,
+    pos_opening_shift=None,
 ):
     source_key, normalized_source_doctype = _normalize_source_doctype(source_doctype)
     action = str(action or "").strip()
+    context = _commercial_context(source_key, pos_profile, pos_opening_shift, permission_type="write")
 
     if not source_name:
         frappe.throw(_("source_name is required"))
 
     source_doc = frappe.get_doc(normalized_source_doctype, source_name)
+    _assert_source_document_scope(source_doc, context)
     source_payload = _as_dict(source_doc)
     _assert_allowed_action(source_key, source_payload, action)
 
@@ -399,7 +466,11 @@ def commit_document_flow_action(
         elif not isinstance(submit_payload, dict):
             submit_payload = source_payload
         submit_payload.setdefault("name", source_name)
-        result = submit_quotation(json.dumps(submit_payload))
+        result = submit_quotation(
+            json.dumps(submit_payload),
+            pos_profile=context.profile_name,
+            pos_opening_shift=context.opening_shift.name,
+        )
         return {
             "action": action,
             "source": source_key,
@@ -413,10 +484,7 @@ def commit_document_flow_action(
             frappe.throw(_("You are not allowed to create Delivery Notes"), frappe.PermissionError)
         mapping_functions = _get_mapping_functions()
         delivery_note = mapping_functions[action](source_name)
-        try:
-            delivery_note.save(ignore_permissions=True)
-        except TypeError:
-            delivery_note.save()
+        delivery_note.save()
         if cint(delivery_note.docstatus) == 0:
             delivery_note.submit()
         delivery_payload = _as_dict(delivery_note)

@@ -54,7 +54,7 @@ def _install_stubs():
     sys.modules["posawesome.posawesome.api.utils"] = utils
 
     barcode = types.ModuleType("posawesome.posawesome.api.item_processing.barcode")
-    barcode.search_serial_or_batch_or_barcode_number = lambda *args, **kwargs: None
+    barcode._search_serial_or_batch_or_barcode_number = lambda *args, **kwargs: {}
     sys.modules["posawesome.posawesome.api.item_processing.barcode"] = barcode
 
     details = types.ModuleType("posawesome.posawesome.api.item_processing.details")
@@ -75,8 +75,14 @@ def _load_module():
 class TestItemSearchSerialization(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         _install_stubs()
         cls.module = _load_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def test_run_item_query_serializes_datetime_rows_for_details(self):
         serialized_payloads = []

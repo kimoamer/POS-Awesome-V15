@@ -176,6 +176,11 @@ describe("Sales report sections", () => {
 		expect(wrapper.text()).toContain("Week-wise");
 		expect(wrapper.text()).toContain("Month-wise");
 		expect(wrapper.text()).toContain("Hourly (Today)");
+
+		const scrollRegions = wrapper.findAll(".sales-trend-list");
+		expect(scrollRegions).toHaveLength(4);
+		expect(scrollRegions.every((region) => region.attributes("role") === "region")).toBe(true);
+		expect(scrollRegions.every((region) => region.attributes("tabindex") === "0")).toBe(true);
 	});
 
 	it("renders discount, void, and return totals with row breakdowns", () => {

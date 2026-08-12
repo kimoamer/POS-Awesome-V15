@@ -87,6 +87,62 @@ describe("offline pricing repositories", () => {
 		).toEqual([]);
 	});
 
+	it("keeps Item Prices and Pricing Rules isolated between POS profiles", async () => {
+		const scopeA = "tenant::cashier::POS-A::WH-A";
+		const scopeB = "tenant::cashier::POS-B::WH-B";
+		await itemPriceRepository.upsertMany(
+			[
+				{
+					name: "IP-SHARED",
+					price_list: "Retail",
+					item_code: "ITEM-001",
+					price_list_rate: 10,
+				},
+			],
+			scopeA,
+		);
+		await itemPriceRepository.upsertMany(
+			[
+				{
+					name: "IP-SHARED",
+					price_list: "Retail",
+					item_code: "ITEM-001",
+					price_list_rate: 25,
+				},
+			],
+			scopeB,
+		);
+		await pricingRuleRepository.replaceRuleTargets(
+			[
+				{
+					key: "RULE-SHARED::all::",
+					rule_name: "RULE-SHARED",
+					target_type: "all",
+					target_value: "",
+					discount_percentage: 5,
+				},
+			],
+			scopeA,
+		);
+
+		expect(
+			await itemPriceRepository.findForItem(
+				"Retail",
+				"ITEM-001",
+				scopeA,
+			),
+		).toEqual([expect.objectContaining({ price_list_rate: 10 })]);
+		expect(
+			await itemPriceRepository.findForItem(
+				"Retail",
+				"ITEM-001",
+				scopeB,
+			),
+		).toEqual([expect.objectContaining({ price_list_rate: 25 })]);
+		expect(await pricingRuleRepository.getAll(scopeA)).toHaveLength(1);
+		expect(await pricingRuleRepository.getAll(scopeB)).toEqual([]);
+	});
+
 	it("purges Item Prices from price lists that leave the selling scope", async () => {
 		await itemPriceRepository.upsertMany([
 			{
@@ -157,6 +213,7 @@ describe("offline pricing repositories", () => {
 	});
 
 	it("resolves the latest stored Currency Exchange rate on or before a date", async () => {
+		const scope = "tenant::cashier::POS-1::WH-1";
 		await currencyRateRepository.upsertMany([
 			{
 				name: "FX-OLD",
@@ -176,7 +233,7 @@ describe("offline pricing repositories", () => {
 				exchange_rate: 280,
 				date: "2026-06-01",
 			},
-		]);
+		], scope);
 
 		const rate = await currencyRateRepository.findLatestOnOrBefore({
 			profileName: "POS-1",
@@ -184,6 +241,7 @@ describe("offline pricing repositories", () => {
 			fromCurrency: "USD",
 			toCurrency: "PKR",
 			date: "2026-05-15",
+			profileScope: scope,
 		});
 
 		expect(rate).toEqual(
@@ -192,5 +250,35 @@ describe("offline pricing repositories", () => {
 				exchange_rate: 275,
 			}),
 		);
+	});
+
+	it("keeps Currency Exchange records isolated between POS profiles", async () => {
+		const shared = {
+			name: "FX-SHARED",
+			profile_name: "POS-1",
+			company: "Test Co",
+			from_currency: "USD",
+			to_currency: "PKR",
+			date: "2026-06-01",
+		};
+		await currencyRateRepository.upsertMany(
+			[{ ...shared, exchange_rate: 275 }],
+			"tenant::cashier::POS-A::WH-A",
+		);
+		await currencyRateRepository.upsertMany(
+			[{ ...shared, exchange_rate: 285 }],
+			"tenant::cashier::POS-B::WH-B",
+		);
+
+		expect(
+			await currencyRateRepository.findLatestOnOrBefore({
+				profileName: "POS-1",
+				profileScope: "tenant::cashier::POS-A::WH-A",
+				company: "Test Co",
+				fromCurrency: "USD",
+				toCurrency: "PKR",
+				date: "2026-06-01",
+			}),
+		).toEqual(expect.objectContaining({ exchange_rate: 275 }));
 	});
 });

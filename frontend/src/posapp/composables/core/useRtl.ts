@@ -1,5 +1,5 @@
 import { ref, computed, onMounted } from "vue";
-import { useDisplay } from "vuetify";
+import { useResponsive } from "./useResponsive";
 
 /**
  * Composable for RTL (Right-to-Left) support in Vue components
@@ -7,7 +7,7 @@ import { useDisplay } from "vuetify";
  * Integrates with Frappe's built-in RTL detection system
  */
 export function useRtl() {
-	const { name: breakpointName } = useDisplay();
+	const responsive = useResponsive();
 
 	// Reactive RTL state
 	const isRtl = ref(false);
@@ -165,7 +165,7 @@ export function useRtl() {
 		const baseStyles = rtlStyles.value;
 
 		// Add responsive considerations
-		const isMobile = ["xs", "sm"].includes(breakpointName.value);
+		const isMobile = responsive.isPhone.value || responsive.isTablet.value;
 
 		return {
 			...baseStyles,

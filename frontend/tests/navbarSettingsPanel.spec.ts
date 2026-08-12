@@ -104,6 +104,10 @@ describe("NavbarSettingsPanel", () => {
 		expect(wrapper.get('[data-test="settings-panel-detail-title"]').text()).toContain("Offline & Sync");
 		expect(wrapper.find('[data-test="settings-panel-action-refresh-offline-data"]').exists()).toBe(true);
 		expect(wrapper.find('[data-test="settings-panel-action-open-customer-display"]').exists()).toBe(false);
+		expect(wrapper.get('[data-test="settings-panel-category-offline-sync"]').text()).toContain(
+			"2 actions",
+		);
+		expect(wrapper.text()).not.toContain("{0} actions");
 	});
 
 	it("switches the right pane when a different left-rail category is selected", async () => {

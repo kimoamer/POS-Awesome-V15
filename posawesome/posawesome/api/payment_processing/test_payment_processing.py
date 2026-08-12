@@ -19,6 +19,7 @@ class FakePaymentEntry:
     def __init__(self, name="ACC-PAY-TEST-0001", paid_amount=0):
         self.name = name
         self.paid_amount = paid_amount
+        self.received_amount = paid_amount
         self.amount = paid_amount
         self.references = []
         self.total_allocated_amount = None
@@ -147,9 +148,11 @@ def _load_module(module_name, file_path):
 class TestPosPaymentProcessing(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         _install_framework_stubs()
         _install_package_stubs()
         sys.modules.pop("posawesome.posawesome.api.idempotency", None)
+        sys.modules.pop("posawesome.posawesome.api.utils", None)
         payment_processing_dir = REPO_ROOT / "posawesome" / "posawesome" / "api" / "payment_processing"
         _load_module(
             "posawesome.posawesome.api.payment_processing.utils",
@@ -167,10 +170,65 @@ class TestPosPaymentProcessing(unittest.TestCase):
             "posawesome.posawesome.api.payment_processing.processor",
             payment_processing_dir / "processor.py",
         )
+
+        # Calculation tests exercise the payment allocation engine in isolation.
+        # Request-boundary authorization has dedicated coverage in
+        # ``test_pos_authorization`` and is replaced here with an authoritative
+        # profile fixture instead of trusting each legacy payload fixture.
+        def authorize_fixture(data):
+            profile = AttrDict(data.get("pos_profile") or {})
+            profile.update(
+                {
+                    "name": data.get("pos_profile_name") or "Main POS",
+                    "company": data.get("company") or "Test Company",
+                    "currency": data.get("currency") or "USD",
+                    "posa_allow_make_new_payments": 1,
+                    "posa_allow_reconcile_payments": 1,
+                    "posa_allow_mpesa_reconcile_payments": 1,
+                    "posa_allow_multi_currency": 1,
+                    "posa_allow_change_posting_date": 1,
+                    "payments": [
+                        AttrDict({"mode_of_payment": "Cash"}),
+                        AttrDict({"mode_of_payment": "Card"}),
+                    ],
+                }
+            )
+            data.pos_profile = profile
+            context = types.SimpleNamespace(
+                pos_profile=profile,
+                profile_name=profile.name,
+                company=profile.company,
+                opening_shift=AttrDict({"name": data.get("pos_opening_shift_name")}),
+            )
+            return data, context
+
+        cls.processor._authorize_payment_request = authorize_fixture
+        payment_data_profile = AttrDict(
+            name="Main POS",
+            company="Test Company",
+            currency="USD",
+            posa_allow_multi_currency=1,
+            posa_allow_reconcile_payments=1,
+        )
+        payment_data_context = types.SimpleNamespace(
+            user="cashier@example.com",
+            pos_profile=payment_data_profile,
+            profile_name=payment_data_profile.name,
+            company=payment_data_profile.company,
+            opening_shift=AttrDict({"name": "POS-OPEN-0001"}),
+        )
+        cls.data._authorize_payment_data = lambda *_args, **_kwargs: payment_data_context
         cls.reconciliation = _load_module(
             "posawesome.posawesome.api.payment_processing.reconciliation",
             payment_processing_dir / "reconciliation.py",
         )
+        cls.reconciliation.get_pos_request_context = lambda *_args, **_kwargs: payment_data_context
+        cls.reconciliation.assert_doctype_permission = lambda *_args, **_kwargs: True
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def test_party_bank_account_uses_lazy_erpnext_compat_resolver(self):
         resolved_helper = Mock(return_value="BANK-ACCOUNT-0001")
@@ -355,6 +413,7 @@ class TestPosPaymentProcessing(unittest.TestCase):
                 "received_amount": 100,
                 "posting_date": "2026-03-30",
                 "mode_of_payment": "Cash",
+                "company": "Test Company",
                 "party": "Customer 727",
                 "party_type": "Customer",
                 "docstatus": 1,
@@ -406,6 +465,9 @@ class TestPosPaymentProcessing(unittest.TestCase):
         mock_frappe._dict.side_effect = lambda value: AttrDict(value)
         mock_frappe.log_error = Mock()
         mock_frappe.msgprint = Mock()
+        mock_frappe.throw.side_effect = lambda message, *_args, **_kwargs: (_ for _ in ()).throw(
+            Exception(message)
+        )
         mock_find_existing_entries.return_value = [
             {
                 "name": "ACC-PAY-IDEMP-0001",
@@ -413,6 +475,7 @@ class TestPosPaymentProcessing(unittest.TestCase):
                 "received_amount": 100,
                 "posting_date": "2026-03-30",
                 "mode_of_payment": "Cash",
+                "company": "Test Company",
                 "party": "Customer 727",
                 "party_type": "Customer",
                 "docstatus": 1,
@@ -480,7 +543,9 @@ class TestPosPaymentProcessing(unittest.TestCase):
         mock_find_existing_entries,
     ):
         mock_frappe._dict.side_effect = lambda value: AttrDict(value)
-        mock_frappe.throw.side_effect = lambda message: (_ for _ in ()).throw(Exception(message))
+        mock_frappe.throw.side_effect = lambda message, *_args, **_kwargs: (_ for _ in ()).throw(
+            Exception(message)
+        )
         mock_find_existing_entries.return_value = [
             {
                 "name": "ACC-PAY-IDEMP-DRAFT-0001",
@@ -488,6 +553,7 @@ class TestPosPaymentProcessing(unittest.TestCase):
                 "received_amount": 100,
                 "posting_date": "2026-03-30",
                 "mode_of_payment": "Cash",
+                "company": "Test Company",
                 "party": "Customer 727",
                 "party_type": "Customer",
                 "docstatus": 0,
@@ -536,6 +602,9 @@ class TestPosPaymentProcessing(unittest.TestCase):
         mock_frappe._dict.side_effect = lambda value: AttrDict(value)
         mock_frappe.log_error = Mock()
         mock_frappe.msgprint = Mock()
+        mock_frappe.throw.side_effect = lambda message, *_args, **_kwargs: (_ for _ in ()).throw(
+            Exception(message)
+        )
         mock_find_existing_entries.return_value = []
         mock_frappe.get_doc.side_effect = lambda doctype, name: AttrDict(
             {
@@ -547,38 +616,36 @@ class TestPosPaymentProcessing(unittest.TestCase):
             }
         )
 
-        result = self.processor.process_pos_payment(
-            json.dumps(
-                {
-                    "client_request_id": "pay-first-pass-001",
-                    "customer": "Customer 727",
-                    "company": "Test Company",
-                    "currency": "USD",
-                    "pos_profile_name": "Main POS",
-                    "pos_opening_shift_name": "POS-OPEN-0001",
-                    "selected_invoices": [],
-                    "selected_payments": [{"name": "ACC-PAY-0009", "voucher_type": "Payment Entry"}],
-                    "selected_mpesa_payments": [],
-                    "payment_methods": [],
-                    "total_selected_invoices": 0,
-                    "total_selected_payments": 1,
-                    "total_selected_mpesa_payments": 0,
-                    "total_payment_methods": 0,
-                    "pos_profile": {
-                        "posa_use_pos_awesome_payments": 1,
-                        "posa_allow_make_new_payments": 0,
-                        "posa_allow_reconcile_payments": 1,
-                        "posa_allow_mpesa_reconcile_payments": 0,
-                        "cost_center": "Main - TC",
-                    },
-                }
+        with self.assertRaisesRegex(Exception, "already fully allocated"):
+            self.processor.process_pos_payment(
+                json.dumps(
+                    {
+                        "client_request_id": "pay-first-pass-001",
+                        "customer": "Customer 727",
+                        "company": "Test Company",
+                        "currency": "USD",
+                        "pos_profile_name": "Main POS",
+                        "pos_opening_shift_name": "POS-OPEN-0001",
+                        "selected_invoices": [],
+                        "selected_payments": [
+                            {"name": "ACC-PAY-0009", "voucher_type": "Payment Entry"}
+                        ],
+                        "selected_mpesa_payments": [],
+                        "payment_methods": [],
+                        "total_selected_invoices": 0,
+                        "total_selected_payments": 1,
+                        "total_selected_mpesa_payments": 0,
+                        "total_payment_methods": 0,
+                        "pos_profile": {
+                            "posa_use_pos_awesome_payments": 1,
+                            "posa_allow_make_new_payments": 0,
+                            "posa_allow_reconcile_payments": 1,
+                            "posa_allow_mpesa_reconcile_payments": 0,
+                            "cost_center": "Main - TC",
+                        },
+                    }
+                )
             )
-        )
-
-        self.assertIn(
-            "Payment ACC-PAY-0009 is already fully allocated",
-            result["errors"],
-        )
 
     @patch("posawesome.posawesome.api.payment_processing.processor.find_payment_entries_by_client_request_id")
     @patch("posawesome.posawesome.api.payment_processing.processor.frappe")

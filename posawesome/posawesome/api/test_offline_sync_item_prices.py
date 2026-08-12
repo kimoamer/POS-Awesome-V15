@@ -93,12 +93,24 @@ def _install_stubs():
             ]
             modified_filter = filters.get("modified")
             if modified_filter:
-                rows = [row for row in rows if row["modified"] > modified_filter[1]]
-            start = kwargs.get("start") or 0
+                if modified_filter[0] == "between":
+                    rows = [
+                        row
+                        for row in rows
+                        if modified_filter[1][0] <= row["modified"] <= modified_filter[1][1]
+                    ]
+                elif modified_filter[0] == "<=":
+                    rows = [row for row in rows if row["modified"] <= modified_filter[1]]
+                else:
+                    rows = [row for row in rows if row["modified"] > modified_filter[1]]
+            name_filter = filters.get("name")
+            if name_filter:
+                rows = [row for row in rows if row["name"] > name_filter[1]]
             limit = kwargs.get("limit_page_length") or len(rows)
-            return [AttrDict(row) for row in rows[start : start + limit]]
+            return [AttrDict(row) for row in rows[:limit]]
         if doctype == "Deleted Document":
-            return [
+            filters = kwargs.get("filters") or {}
+            rows = [
                 AttrDict(
                     {
                         "deleted_name": "IP-DELETED",
@@ -106,6 +118,10 @@ def _install_stubs():
                     }
                 )
             ]
+            name_filter = filters.get("deleted_name")
+            if name_filter:
+                rows = [row for row in rows if row["deleted_name"] > name_filter[1]]
+            return rows[: kwargs.get("limit_page_length") or len(rows)]
         return []
 
     frappe_module.get_all = fake_get_all
@@ -134,13 +150,20 @@ def _load_module():
 class TestOfflineSyncItemPrices(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         _install_stubs()
         cls.module = _load_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def test_syncs_all_selling_price_lists_with_uom_currency_customer_and_validity(self):
         response = self.module.sync_item_prices(
             pos_profile="POS-TEST",
             watermark="2026-05-31T00:00:00",
+            sync_until="2026-06-01T10:03:00",
             limit=10,
         )
 
@@ -156,25 +179,26 @@ class TestOfflineSyncItemPrices(unittest.TestCase):
         self.assertEqual(response["scope"]["price_lists"], ["Export", "Retail"])
         self.assertEqual(response["next_watermark"], "2026-06-01T10:03:00")
 
-    def test_paginates_without_advancing_the_watermark_until_the_final_page(self):
+    def test_paginates_by_stable_name_cursor_until_the_snapshot_boundary(self):
         first = self.module.sync_item_prices(
             pos_profile="POS-TEST",
             watermark=None,
-            offset=0,
+            sync_until="2026-06-01T10:05:00",
             limit=1,
         )
         second = self.module.sync_item_prices(
             pos_profile="POS-TEST",
             watermark=None,
-            offset=1,
+            start_after=first["next_cursor"],
+            sync_until=first["sync_until"],
             limit=1,
         )
 
         self.assertTrue(first["has_more"])
-        self.assertEqual(first["next_offset"], 1)
-        self.assertIsNone(first["next_watermark"])
+        self.assertEqual(first["next_cursor"], "IP-001")
+        self.assertEqual(first["next_watermark"], "2026-06-01T10:00:00")
         self.assertFalse(second["has_more"])
-        self.assertEqual(second["next_watermark"], "2026-06-01T10:01:00")
+        self.assertEqual(second["next_watermark"], "2026-06-01T10:05:00")
 
 
 if __name__ == "__main__":

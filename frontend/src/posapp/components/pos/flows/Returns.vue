@@ -325,8 +325,8 @@
 
 <script>
 import format, { formatUtils } from "../../../format";
-import { useInvoiceStore } from "../../../stores/invoiceStore.js";
-import { useUIStore } from "../../../stores/uiStore.js";
+import { useInvoiceStore } from "../../../stores/invoiceStore";
+import { useUIStore } from "../../../stores/uiStore";
 import { computed } from "vue";
 import { useResponsive } from "../../../composables/core/useResponsive";
 import { useTheme } from "../../../composables/core/useTheme";
@@ -355,7 +355,6 @@ export default {
 		};
 	},
 	data: () => ({
-		invoicesDialog: false,
 		singleSelect: true,
 		selected: [],
 		dialog_data: [],
@@ -410,7 +409,16 @@ export default {
 			},
 		],
 	}),
-	computed: {},
+	computed: {
+		invoicesDialog: {
+			get() {
+				return this.uiStore.returnsDialog;
+			},
+			set(value) {
+				if (!value) this.uiStore.closeReturns();
+			},
+		},
+	},
 	watch: {
 		from_date() {
 			this.formatFromDate();
@@ -826,9 +834,8 @@ export default {
 		},
 	},
 	created: function () {
-		this.eventBus.on("open_returns", (data) => {
-			this.invoicesDialog = true;
-			this.company = data;
+		const resetDialog = (company) => {
+			this.company = company || this.uiStore.posProfile?.company || "";
 			this.invoice_name = "";
 			this.customer_name = "";
 			this.customer_id = "";
@@ -845,7 +852,15 @@ export default {
 			this.page = 1;
 			this.has_more_invoices = false;
 			this.searched_once = false;
-		});
+		};
+
+		resetDialog(this.uiStore.returnsCompany);
+		this.$watch(
+			() => this.uiStore.returnsCompany,
+			(company) => {
+				if (this.uiStore.returnsDialog) resetDialog(company);
+			},
+		);
 
 		this.$watch(
 			() => this.uiStore.posProfile,
@@ -854,9 +869,6 @@ export default {
 			},
 			{ deep: false, immediate: true },
 		);
-	},
-	beforeUnmount() {
-		this.eventBus.off("open_returns");
 	},
 };
 </script>

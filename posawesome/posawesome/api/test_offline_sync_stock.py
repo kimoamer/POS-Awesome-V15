@@ -40,11 +40,15 @@ def _install_stubs():
 
     def fake_get_all(doctype, **kwargs):
         if doctype == "Bin":
-            return [
+            rows = [
                 {"item_code": "ITEM-001", "modified": "2026-04-09T10:02:00"},
                 {"item_code": "ITEM-002", "modified": "2026-04-09T10:03:00"},
                 {"item_code": "ITEM-003", "modified": "2026-04-09T10:04:00"},
             ]
+            cursor_filter = (kwargs.get("filters") or {}).get("item_code")
+            if cursor_filter:
+                rows = [row for row in rows if row["item_code"] > cursor_filter[1]]
+            return rows[: kwargs.get("limit_page_length") or len(rows)]
         return []
 
     frappe_module.get_all = fake_get_all
@@ -63,7 +67,7 @@ def _install_stubs():
     sys.modules["posawesome.posawesome.api.utils"] = api_utils_module
 
     stock_module = types.ModuleType("posawesome.posawesome.api.item_processing.stock")
-    stock_module.get_bulk_stock_availability = lambda rows: {
+    stock_module._get_bulk_stock_availability = lambda rows: {
         (row["item_code"], row["warehouse"], ""): index + 5 for index, row in enumerate(rows)
     }
     sys.modules["posawesome.posawesome.api.item_processing.stock"] = stock_module
@@ -83,13 +87,20 @@ def _load_module():
 class TestOfflineSyncStock(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         _install_stubs()
         cls.module = _load_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def test_sync_stock_returns_scoped_actual_qty_changes(self):
         response = self.module.sync_stock(
             pos_profile="POS-TEST",
             watermark="2026-04-09T09:59:00",
+            sync_until="2026-04-09T10:04:00",
             limit=5,
         )
 
@@ -117,10 +128,25 @@ class TestOfflineSyncStock(unittest.TestCase):
             ["stock::ITEM-001", "stock::ITEM-002"],
         )
         self.assertTrue(response["has_more"])
+        self.assertEqual(response["next_cursor"], "ITEM-002")
         self.assertEqual(response["next_watermark"], "2026-04-09T10:03:00")
         self.assertEqual(response["schema_version"], self.module.SYNC_SCHEMA_VERSION)
         self.assertIn("next_watermark", response)
         self.assertIn("has_more", response)
+
+    def test_sync_stock_continues_from_the_returned_item_cursor(self):
+        response = self.module.sync_stock(
+            pos_profile="POS-TEST",
+            watermark="2026-04-09T09:59:00",
+            start_after="ITEM-002",
+            limit=2,
+        )
+
+        self.assertEqual(
+            [item["key"] for item in response["changes"]],
+            ["stock::ITEM-003"],
+        )
+        self.assertFalse(response["has_more"])
 
 
 if __name__ == "__main__":

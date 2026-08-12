@@ -42,6 +42,7 @@ class FakeInvoice:
         debit_to="1310 - Debtors - TC",
         customer="CUST-0001",
         grand_total=800,
+        currency="PKR",
     ):
         self.doctype = doctype
         self.name = name
@@ -51,6 +52,7 @@ class FakeInvoice:
         self.debit_to = debit_to
         self.customer = customer
         self.grand_total = grand_total
+        self.currency = currency
         self.rounded_total = grand_total
         self.gift_card_redemptions = []
         self.payments = []
@@ -122,6 +124,9 @@ def _install_stubs():
     frappe_utils_module = types.ModuleType("frappe.utils")
     employees_module = types.ModuleType("posawesome.posawesome.api.employees")
     utilities_module = types.ModuleType("posawesome.posawesome.api.utilities")
+    pos_utils_module = types.ModuleType("posawesome.posawesome.api.utils")
+    erpnext_setup_utils = types.ModuleType("erpnext.setup.utils")
+    erpnext_setup_utils.get_exchange_rate = lambda *_args, **_kwargs: 1
     utilities_module.resolve_erpnext_currency_rates = lambda *_args, **_kwargs: {
         "conversion_rate": 1.0,
         "plc_conversion_rate": 1.0,
@@ -170,10 +175,14 @@ def _install_stubs():
 
     frappe_module._ = lambda text: text
     frappe_module.whitelist = lambda *args, **kwargs: (lambda fn: fn)
-    frappe_module.throw = lambda message: (_ for _ in ()).throw(Exception(message))
+    frappe_module.throw = lambda message, *_args, **_kwargs: (_ for _ in ()).throw(
+        Exception(message)
+    )
     frappe_module.generate_hash = lambda: "GCODE12345"
     frappe_module.utils = types.SimpleNamespace(now_datetime=lambda: "2026-04-05 12:00:00")
     frappe_utils_module.nowdate = lambda: "2026-04-05"
+    frappe_utils_module.getdate = lambda value: value
+    frappe_module.PermissionError = PermissionError
     frappe_module.session = types.SimpleNamespace(user="administrator@example.com")
 
     def _new_doc(doctype):
@@ -216,7 +225,11 @@ def _install_stubs():
     frappe_module.new_doc = _new_doc
     frappe_module.get_doc = _get_doc
     frappe_module.get_cached_doc = lambda doctype, name: (
-        state["pos_profiles"][name] if doctype == "POS Profile" else state["companies"][name]
+        state["pos_profiles"][name]
+        if doctype == "POS Profile"
+        else state["mode_of_payments"][name]
+        if doctype == "Mode of Payment"
+        else state["companies"][name]
     )
     frappe_module.get_cached_value = lambda *args, **kwargs: None
     frappe_module.get_value = lambda doctype, name, fieldname: (
@@ -235,7 +248,15 @@ def _install_stubs():
                 )
             )
             or (doctype == "Mode of Payment" and isinstance(name, str) and name in state["mode_of_payments"])
-        )
+        ),
+        sql=lambda *args, **kwargs: [],
+        get_value=lambda doctype, filters, fieldname: (
+            "2190 - Gift Card Liability - TC"
+            if doctype == "Mode of Payment Account"
+            and filters.get("parent") == "Gift Card"
+            and filters.get("company") == "Test Company"
+            else None
+        ),
     )
 
     employees_module._resolve_profile_name = lambda pos_profile=None: str(pos_profile or "").strip()
@@ -246,12 +267,27 @@ def _install_stubs():
     employees_module._is_pos_supervisor = lambda user_doc: bool(
         getattr(user_doc, "posa_is_pos_supervisor", 0)
     )
+    def verify_cashier_grant(_grant, _profile, cashier, require_supervisor=False, **_kwargs):
+        user_doc = state["user_docs"][cashier]
+        if require_supervisor and not getattr(user_doc, "posa_is_pos_supervisor", 0):
+            raise Exception("A POS supervisor is required for this action.")
+        return user_doc
+
+    employees_module.verify_cashier_grant = verify_cashier_grant
     utilities_module.ensure_child_doctype = lambda *args, **kwargs: None
+    pos_utils_module.assert_doctype_permission = lambda *args, **kwargs: True
+    pos_utils_module.get_pos_request_context = lambda profile, **_kwargs: types.SimpleNamespace(
+        pos_profile=state["pos_profiles"][profile],
+        profile_name=profile,
+        company=state["pos_profiles"][profile].company,
+    )
 
     sys.modules["frappe"] = frappe_module
     sys.modules["frappe.utils"] = frappe_utils_module
     sys.modules["posawesome.posawesome.api.employees"] = employees_module
     sys.modules["posawesome.posawesome.api.utilities"] = utilities_module
+    sys.modules["posawesome.posawesome.api.utils"] = pos_utils_module
+    sys.modules["erpnext.setup.utils"] = erpnext_setup_utils
     return state
 
 
@@ -280,15 +316,29 @@ def _load_module():
 class TestGiftCardApi(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         cls.state = _install_stubs()
         _install_package_stubs()
         cls.module = _load_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def setUp(self):
         self.state["cards"].clear()
         self.state["new_docs"].clear()
         self.state["journal_entries"].clear()
         self.state["mode_of_payments"].clear()
+        gift_mode = FakeModeOfPayment(mode_type="Cash")
+        gift_mode.accounts.append(
+            {
+                "company": "Test Company",
+                "default_account": "2190 - Gift Card Liability - TC",
+            }
+        )
+        self.state["mode_of_payments"]["Gift Card"] = gift_mode
         profile_doc = self.state["pos_profiles"]["Main POS"]
         profile_doc.posa_use_gift_cards = 1
         profile_doc.posa_default_source_account = "1110 - Cash - TC"
@@ -349,7 +399,7 @@ class TestGiftCardApi(unittest.TestCase):
 
         self.assertEqual(result, 300)
         self.assertEqual(existing.current_balance, 500)
-        self.assertEqual(len(existing.transactions), 0)
+        self.assertEqual(len(existing.transactions), 1)
         self.assertEqual(len(self.state["journal_entries"]), 0)
         self.assertEqual(len(invoice_doc.gift_card_redemptions), 1)
         self.assertEqual(invoice_doc.gift_card_redemptions[0]["gift_card_code"], "GC-0002")
@@ -438,7 +488,7 @@ class TestGiftCardApi(unittest.TestCase):
 
         self.assertIn("active gift cards", str(ctx.exception))
 
-    def test_apply_invoice_gift_card_redemptions_creates_mode_of_payment_account_mapping(self):
+    def test_apply_invoice_gift_card_redemptions_uses_configured_mode_of_payment_account(self):
         existing = FakeGiftCard(code="GC-0004", balance=500, status="Active")
         self.state["cards"][existing.gift_card_code] = existing
         invoice_doc = self.state["invoices"]["ACC-SINV-0001"]

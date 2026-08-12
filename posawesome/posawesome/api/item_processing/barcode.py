@@ -1,6 +1,24 @@
 import frappe
 from frappe.utils import cint, cstr, flt
 from typing import Any, Dict, Optional
+def _item_context(*args, **kwargs):
+    from posawesome.posawesome.api.item_processing.details import _item_context as resolve_context
+
+    return resolve_context(*args, **kwargs)
+
+
+def _validate_item_codes(*args, **kwargs):
+    from posawesome.posawesome.api.item_processing.details import _validate_item_codes as validate_codes
+
+    return validate_codes(*args, **kwargs)
+
+
+def _resolve_effective_price_list(*args, **kwargs):
+    from posawesome.posawesome.api.invoice_processing.utils import (
+        _resolve_effective_price_list as resolve_price_list,
+    )
+
+    return resolve_price_list(*args, **kwargs)
 
 
 def _get_scale_barcode_settings():
@@ -246,8 +264,10 @@ def _parse_scale_barcode_data(barcode: str) -> Optional[Dict[str, Any]]:
 
 
 @frappe.whitelist()
-def parse_scale_barcode(barcode: str):
+def parse_scale_barcode(barcode: str, pos_profile=None, pos_opening_shift=None):
     """Public API to parse a scale barcode and return decoded data."""
+
+    _item_context(pos_profile, pos_opening_shift=pos_opening_shift)
 
     settings = _get_scale_barcode_settings()
     metadata: Optional[Dict[str, Any]] = _get_scale_settings_metadata(settings) if settings else None
@@ -271,8 +291,14 @@ def build_scale_barcode(
     qty: Optional[float] = None,
     weight_grams: Optional[float] = None,
     price: Optional[float] = None,
+    pos_profile=None,
+    pos_opening_shift=None,
 ):
     """Build a scale barcode using Scale Barcode Settings."""
+
+    context = _item_context(pos_profile, pos_opening_shift=pos_opening_shift)
+    if item_code:
+        _validate_item_codes(context.pos_profile, [item_code])
 
     settings = _get_scale_barcode_settings()
     if not settings:
@@ -387,7 +413,21 @@ def build_scale_barcode(
 
 
 @frappe.whitelist()
-def get_items_from_barcode(selling_price_list, currency, barcode):
+def get_items_from_barcode(
+    selling_price_list,
+    currency,
+    barcode,
+    pos_profile=None,
+    pos_opening_shift=None,
+):
+    context = _item_context(pos_profile, pos_opening_shift=pos_opening_shift)
+    selling_price_list = _resolve_effective_price_list(
+        None,
+        context.profile_name,
+        selling_price_list,
+    )
+    if not context.pos_profile.get("posa_allow_multi_currency"):
+        currency = context.pos_profile.get("currency")
     scale_data = _parse_scale_barcode_data(barcode)
     item_code = None
     scale_qty = None
@@ -414,6 +454,8 @@ def get_items_from_barcode(selling_price_list, currency, barcode):
 
     if not item_code:
         return None
+
+    _validate_item_codes(context.pos_profile, [item_code])
 
     try:
         # OPTIMIZE: Remove redundant DB query from exists()
@@ -454,8 +496,37 @@ def get_items_from_barcode(selling_price_list, currency, barcode):
 
 
 @frappe.whitelist()
-def search_serial_or_batch_or_barcode_number(search_value, search_serial_no=None, search_batch_no=None):
+def search_serial_or_batch_or_barcode_number(
+    search_value,
+    search_serial_no=None,
+    search_batch_no=None,
+    pos_profile=None,
+    pos_opening_shift=None,
+):
     """Search for items by serial number, batch number, or barcode."""
+    context = _item_context(pos_profile, pos_opening_shift=pos_opening_shift)
+    return _search_serial_or_batch_or_barcode_number(
+        search_value,
+        search_serial_no,
+        search_batch_no,
+        context.pos_profile,
+        context.warehouse,
+    )
+
+
+def _search_serial_or_batch_or_barcode_number(
+    search_value,
+    search_serial_no,
+    search_batch_no,
+    pos_profile,
+    warehouse=None,
+):
+    """Resolve a scan inside an already-authorized POS request context.
+
+    This private helper prevents nested item searches from invoking the public
+    endpoint without its profile/opening-shift arguments while keeping the
+    whitelisted entry point fully permission checked.
+    """
     # Search by barcode
     barcode_data = frappe.db.get_value(
         "Item Barcode",
@@ -464,10 +535,11 @@ def search_serial_or_batch_or_barcode_number(search_value, search_serial_no=None
         as_dict=True,
     )
     if barcode_data:
+        _validate_item_codes(pos_profile, [barcode_data.item_code])
         return {"item_code": barcode_data.item_code, "barcode": barcode_data.barcode}
 
     # Search by batch number if enabled
-    if search_batch_no:
+    if search_batch_no and pos_profile.get("posa_search_batch_no"):
         batch_data = frappe.db.get_value(
             "Batch",
             {"name": search_value},
@@ -475,20 +547,26 @@ def search_serial_or_batch_or_barcode_number(search_value, search_serial_no=None
             as_dict=True,
         )
         if batch_data:
+            from erpnext.stock.doctype.batch.batch import get_batch_qty
+
+            if flt(get_batch_qty(batch_data.batch_no, warehouse)) <= 0:
+                return {}
+            _validate_item_codes(pos_profile, [batch_data.item_code])
             return {
                 "item_code": batch_data.item_code,
                 "batch_no": batch_data.batch_no,
             }
 
     # Search by serial number if enabled
-    if search_serial_no:
+    if search_serial_no and pos_profile.get("posa_search_serial_no"):
         serial_data = frappe.db.get_value(
             "Serial No",
-            {"name": search_value},
+            {"name": search_value, "warehouse": warehouse, "status": "Active"},
             ["item_code", "name as serial_no"],
             as_dict=True,
         )
         if serial_data:
+            _validate_item_codes(pos_profile, [serial_data.item_code])
             return {
                 "item_code": serial_data.item_code,
                 "serial_no": serial_data.serial_no,

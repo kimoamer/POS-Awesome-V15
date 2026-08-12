@@ -1,4 +1,52 @@
+import { useDialogStore } from "../posapp/stores/dialogStore";
+
 const DEFAULT_INDEXED_DB_NAMES = ["posawesome_offline"];
+const POSAWESOME_CACHE_PREFIX = "posawesome-cache-";
+const POSAWESOME_SERVICE_WORKER_PATH = "/sw.js";
+const POSAWESOME_STORAGE_PREFIXES = [
+	"posa_",
+	"posawesome_",
+	"pos_manual_base_",
+	"pos_audit_archive_",
+];
+const POSAWESOME_STORAGE_KEYS = new Set([
+	"networkOnline",
+	"serverOnline",
+	"use_western_numerals",
+	"purchase_workspace_split_width",
+]);
+const PROTECTED_MUTATION_STORAGE_KEYS = new Set(["posa_invoice_outbox_mode"]);
+
+function isPosawesomeStorageKey(key: string) {
+	if (
+		PROTECTED_MUTATION_STORAGE_KEYS.has(key) ||
+		key.startsWith("posa_offline_")
+	) {
+		return false;
+	}
+	return (
+		POSAWESOME_STORAGE_KEYS.has(key) ||
+		POSAWESOME_STORAGE_PREFIXES.some((prefix) => key.startsWith(prefix))
+	);
+}
+
+function isPosawesomeServiceWorkerRegistration(
+	registration: ServiceWorkerRegistration,
+) {
+	return [
+		registration.active,
+		registration.waiting,
+		registration.installing,
+	]
+		.filter(Boolean)
+		.some((worker) => {
+			try {
+				return new URL(worker!.scriptURL).pathname === POSAWESOME_SERVICE_WORKER_PATH;
+			} catch {
+				return false;
+			}
+		});
+}
 
 async function delay(ms: number) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
@@ -10,9 +58,9 @@ export async function clearLocalStorage(keys: string[] = []) {
 		if (keys.length) {
 			keys.forEach((k) => localStorage.removeItem(k));
 		} else {
-			Object.keys(localStorage).forEach((key) =>
-				localStorage.removeItem(key),
-			);
+			Object.keys(localStorage)
+				.filter(isPosawesomeStorageKey)
+				.forEach((key) => localStorage.removeItem(key));
 		}
 		console.log(
 			"[ClearAllCaches] localStorage cleared",
@@ -30,7 +78,9 @@ export async function clearSessionStorage(keys: string[] = []) {
 		if (keys.length) {
 			keys.forEach((k) => sessionStorage.removeItem(k));
 		} else {
-			sessionStorage.clear();
+			Object.keys(sessionStorage)
+				.filter(isPosawesomeStorageKey)
+				.forEach((key) => sessionStorage.removeItem(key));
 		}
 		console.log(
 			"[ClearAllCaches] sessionStorage cleared",
@@ -46,18 +96,6 @@ export async function clearIndexedDB(databases: string[] = []) {
 	if (typeof indexedDB === "undefined") return;
 	try {
 		let targets = Array.isArray(databases) ? [...databases] : [];
-
-		if (!targets.length && (indexedDB as any).databases) {
-			try {
-				const infos = await (indexedDB as any).databases();
-				targets = infos.map((d: any) => d && d.name).filter(Boolean);
-			} catch (enumerationError) {
-				console.warn(
-					"[ClearAllCaches] Failed to enumerate IndexedDB databases",
-					enumerationError,
-				);
-			}
-		}
 		if (!targets.length) {
 			targets = [...DEFAULT_INDEXED_DB_NAMES];
 		}
@@ -89,7 +127,9 @@ export async function clearCacheAPI(cacheNames: string[] = []) {
 	try {
 		let cacheTargets = cacheNames;
 		if (!cacheTargets.length) {
-			cacheTargets = await caches.keys();
+			cacheTargets = (await caches.keys()).filter((name) =>
+				name.startsWith(POSAWESOME_CACHE_PREFIX),
+			);
 		}
 		await Promise.all(cacheTargets.map((name) => caches.delete(name)));
 		console.log(
@@ -203,6 +243,9 @@ export async function unregisterServiceWorkers(scopes: string[] = []) {
 				);
 			}
 		}
+		registrations = registrations.filter(
+			isPosawesomeServiceWorkerRegistration,
+		);
 
 		if (!registrations.length) {
 			return;
@@ -252,7 +295,9 @@ export async function clearAllCaches(options: ClearAllCachesOptions = {}) {
 			specificKeys: [],
 			specificDatabases: [],
 			specificCaches: [],
-			skipStorage: [],
+			// IndexedDB includes durable financial outbox rows. The normal cache
+			// reset clears derived Dexie tables through offline/db.ts instead.
+			skipStorage: options.specificDatabases?.length ? [] : ["indexedDB"],
 			skipServiceWorkers: false,
 			serviceWorkerScopes: [],
 		},
@@ -261,9 +306,17 @@ export async function clearAllCaches(options: ClearAllCachesOptions = {}) {
 
 	try {
 		if (opts.confirmBeforeClear && typeof window !== "undefined") {
-			const confirmMsg =
-				"Are you sure you want to clear application cache?";
-			if (!window.confirm(confirmMsg)) {
+			const translate = window.__ || ((value: string) => value);
+			const confirmed = await useDialogStore().confirm({
+				title: translate("Clear local cache?"),
+				message: translate(
+					"Cached POS data will be rebuilt. Pending offline transactions will be preserved.",
+				),
+				confirmLabel: translate("Clear cache"),
+				cancelLabel: translate("Cancel"),
+				color: "warning",
+			});
+			if (!confirmed) {
 				return;
 			}
 		}

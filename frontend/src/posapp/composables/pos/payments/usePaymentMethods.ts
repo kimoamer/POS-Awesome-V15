@@ -69,7 +69,7 @@ export function usePaymentMethods(options: PaymentMethodsOptions) {
 
 		frappe.call({
 			method: "posawesome.posawesome.api.m_pesa.get_mpesa_mode_of_payment",
-			args: { company },
+			args: { company, pos_profile: unref(posProfile)?.name },
 			async: true,
 			callback: function (r: any) {
 				if (!r.exc) {
@@ -189,12 +189,12 @@ export function usePaymentMethods(options: PaymentMethodsOptions) {
 		const company = unref(posProfile)?.company;
 		const data = {
 			company: company,
+			pos_profile: unref(posProfile)?.name,
+			pos_opening_shift_name: doc.pos_opening_shift || doc.pos_opening_shift_name,
 			mode_of_payment: payment.mode_of_payment,
 			customer: doc.customer,
 		};
-		if (eventBus) {
-			eventBus.emit("open_mpesa_payments", data);
-		}
+		stores.uiStore?.openMpesaPayments?.(data);
 	};
 
 	// Set M-Pesa payment as customer credit

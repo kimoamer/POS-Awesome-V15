@@ -2,7 +2,7 @@
 	<v-dialog v-model="dialog" max-width="650">
 		<v-card>
 			<v-card-title class="bg-primary text-white d-flex align-center">
-				<v-icon start class="mr-2">mdi-verified</v-icon>
+				<v-icon start class="mr-2">mdi-check-decagram</v-icon>
 				<span>{{ __("Barcode Verification") }}</span>
 				<v-spacer></v-spacer>
 				<v-btn icon="mdi-close" variant="text" color="white" @click="dialog = false"></v-btn>
@@ -112,6 +112,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from "vue";
+import { useUIStore } from "../../../stores/uiStore";
 
 declare const __: (_str: string, _args?: any[]) => string;
 declare const frappe: any;
@@ -150,6 +151,7 @@ const emit = defineEmits<{
 }>();
 
 const dialog = ref(props.modelValue);
+const uiStore = useUIStore();
 const scannerInput = ref<HTMLInputElement | null>(null);
 const scannedInput = ref("");
 const logs = ref<PrintLogEntry[]>([]);
@@ -173,8 +175,11 @@ const refreshLogs = async () => {
 					date: frappe.datetime.get_today(),
 					user: frappe.session.user,
 					...(filterStatus.value !== "all" ? { verification_status: filterStatus.value } : {}),
-				},
-				limit: 100,
+					},
+					limit: 100,
+					pos_profile: uiStore.posProfile?.name || null,
+					pos_opening_shift:
+						uiStore.posOpeningShift?.name || uiStore.posOpeningShift || null,
 			},
 			silent: true,
 		});
@@ -202,7 +207,14 @@ const processScan = async () => {
 		} else if (existing) {
 			await frappe.call({
 				method: "posawesome.posawesome.api.barcode_print_log.verify_barcode",
-				args: { log_id: existing.name, scanned_barcode: scanned, status: "Verified" },
+					args: {
+						log_id: existing.name,
+						scanned_barcode: scanned,
+						status: "Verified",
+						pos_profile: uiStore.posProfile?.name || null,
+						pos_opening_shift:
+							uiStore.posOpeningShift?.name || uiStore.posOpeningShift || null,
+					},
 				silent: true,
 			});
 			lastScanResult.value = {

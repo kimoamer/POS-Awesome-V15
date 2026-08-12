@@ -41,7 +41,12 @@
 			</div>
 		</header>
 
-		<div v-show="!collapsible || internalExpanded" class="payment-section-shell__body">
+		<div
+			v-show="!collapsible || internalExpanded"
+			class="payment-section-shell__body"
+			:hidden="collapsible && !internalExpanded"
+			:aria-hidden="collapsible && !internalExpanded"
+		>
 			<slot></slot>
 		</div>
 

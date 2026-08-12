@@ -1,15 +1,24 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
 	createPosAppRouter,
 	resolveRouteLoadFailureAction,
 	resolveRouteLoadingMessage,
 } from "../src/posapp/router";
+import {
+	resetCapabilityContextForTests,
+	setCapabilityContext,
+} from "../src/posapp/services/capabilities";
 
 describe("route loading messaging", () => {
+	beforeEach(() => {
+		window.scrollTo = vi.fn();
+	});
+
 	afterEach(() => {
+		resetCapabilityContextForTests();
 		window.history.replaceState({}, "", "/");
 	});
 
@@ -32,9 +41,30 @@ describe("route loading messaging", () => {
 	});
 
 	it("keeps route guards compatible with the loading router factory", async () => {
-		const { router } = createPosAppRouter();
+		const { router, dispose } = createPosAppRouter();
 
 		expect(router).toBeTruthy();
+		dispose();
+	});
+
+	it("rechecks the active route when POS Profile capabilities finish loading", async () => {
+		const { router, dispose } = createPosAppRouter();
+		await router.push("/orders");
+		await router.isReady();
+		expect(router.currentRoute.value.path).toBe("/orders");
+
+		setCapabilityContext({
+			ready: true,
+			posProfile: {
+				name: "POS-1",
+				posa_allow_purchase_order: 0,
+			},
+		});
+
+		await vi.waitFor(() => {
+			expect(router.currentRoute.value.name).toBe("access-denied");
+		});
+		dispose();
 	});
 
 	it("routes offline chunk failures to an explicit unavailable state", () => {

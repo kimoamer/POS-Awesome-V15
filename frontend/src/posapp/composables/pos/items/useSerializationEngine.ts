@@ -1,4 +1,5 @@
 import { ref } from "vue";
+import { useUIStore } from "../../../stores/uiStore";
 
 declare const frappe: any;
 
@@ -14,6 +15,7 @@ export interface SerializationConfig {
 }
 
 export function useSerializationEngine() {
+	const uiStore = useUIStore();
 	const config = ref<SerializationConfig>({
 		prefix: "SN-",
 		suffix: "",
@@ -32,6 +34,8 @@ export function useSerializationEngine() {
 				args: {
 					naming_series: config.value.namingSeries,
 					count,
+					pos_profile: uiStore.posProfile?.name,
+					pos_opening_shift: uiStore.posOpeningShift?.name,
 				},
 			});
 			return Array.isArray(message) ? message : [];

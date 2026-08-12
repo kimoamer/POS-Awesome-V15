@@ -1,6 +1,6 @@
 import { isOffline } from "../../../../offline/index";
-import { usePricingRulesStore } from "../../../stores/pricingRulesStore.js";
-import { useItemsStore } from "../../../stores/itemsStore.js";
+import { usePricingRulesStore } from "../../../stores/pricingRulesStore";
+import { useItemsStore } from "../../../stores/itemsStore";
 import { evaluatePricingRules } from "../../../../lib/pricingEngine";
 import { _syncAutoFreeLines } from "./free_items";
 
@@ -64,12 +64,15 @@ export function _getPricingContext(context: any) {
 	const customerInfo = context.customer_info || {};
 
 	return {
+		pos_profile: context.pos_profile?.name || doc.pos_profile || null,
 		company: context.pos_profile?.company || doc.company || null,
 		price_list:
 			priceList || context.pos_profile?.selling_price_list || null,
 		currency: selectedCurrency || context.pos_profile?.currency || null,
 		price_list_currency:
-			context.price_list_currency || context.pos_profile?.currency || null,
+			context.price_list_currency ||
+			context.pos_profile?.currency ||
+			null,
 		conversion_rate: context.conversion_rate || 1,
 		plc_conversion_rate: context._getPlcConversionRate
 			? context._getPlcConversionRate()
@@ -97,7 +100,9 @@ function syncAutoFreeLines(context: any, freebiesMap: Map<string, any>) {
 function refreshInvoiceTotals(context: any) {
 	if (typeof context?.invoiceStore?.recalculateTotals === "function") {
 		context.invoiceStore.recalculateTotals();
-	} else if (typeof context?.invoiceStore?.triggerUpdateTotals === "function") {
+	} else if (
+		typeof context?.invoiceStore?.triggerUpdateTotals === "function"
+	) {
 		context.invoiceStore.triggerUpdateTotals();
 	}
 }
@@ -323,9 +328,9 @@ export function _applyPricingToLine(
 		item.base_discount_amount = normalizedBaseDiscount;
 		item.price_list_rate = context.flt
 			? context.flt(
-				context._fromBaseCurrency(baseRate),
-				context.currency_precision,
-			)
+					context._fromBaseCurrency(baseRate),
+					context.currency_precision,
+				)
 			: context._fromBaseCurrency(baseRate);
 		item.rate = context.flt
 			? context.flt(convertedRate, context.currency_precision)
@@ -338,9 +343,9 @@ export function _applyPricingToLine(
 			: 0;
 		item.discount_percentage = baseRate
 			? context.flt(
-				Math.abs(rawDiscountPercentage),
-				context.float_precision,
-			)
+					Math.abs(rawDiscountPercentage),
+					context.float_precision,
+				)
 			: 0;
 		item.amount = context.flt
 			? context.flt(item.rate * item.qty, context.currency_precision)
@@ -382,7 +387,12 @@ export async function applyPricingRulesForCart(context: any, force = false) {
 
 	const ctx = context._getPricingContext ? context._getPricingContext() : {};
 	const hasServerContext =
-		ctx && ctx.company && ctx.price_list && ctx.currency && !isOffline();
+		ctx &&
+		ctx.pos_profile &&
+		ctx.company &&
+		ctx.price_list &&
+		ctx.currency &&
+		!isOffline();
 
 	context._applyingPricingRules = true;
 	try {
@@ -416,7 +426,14 @@ export async function _applyLocalPricingRules(context: any, force = false) {
 			if (!item || item.is_free_item) {
 				continue;
 			}
-			_applyPricingToLine(context, item, ctx, indexes, freebiesMap, cartAmount);
+			_applyPricingToLine(
+				context,
+				item,
+				ctx,
+				indexes,
+				freebiesMap,
+				cartAmount,
+			);
 		}
 
 		syncAutoFreeLines(context, freebiesMap);
@@ -430,7 +447,13 @@ export async function _applyLocalPricingRules(context: any, force = false) {
 }
 
 export async function _applyServerPricingRules(context: any, ctx: any = {}) {
-	if (!ctx || !ctx.company || !ctx.price_list || !ctx.currency) {
+	if (
+		!ctx ||
+		!ctx.pos_profile ||
+		!ctx.company ||
+		!ctx.price_list ||
+		!ctx.currency
+	) {
 		return;
 	}
 
@@ -752,7 +775,7 @@ export async function _applyServerPricingRules(context: any, ctx: any = {}) {
 				entry.base_price_list_rate ?? entry.price_list_rate,
 			),
 			fallbackSnapshot?.base_price_list_rate ??
-			fallbackSnapshot?.price_list_rate,
+				fallbackSnapshot?.price_list_rate,
 			true,
 		);
 		let displayPriceListRate = resolveWithFallback(
@@ -766,7 +789,7 @@ export async function _applyServerPricingRules(context: any, ctx: any = {}) {
 				entry.base_discount_amount ?? entry.discount_amount,
 			),
 			fallbackSnapshot?.base_discount_amount ??
-			fallbackSnapshot?.discount_amount,
+				fallbackSnapshot?.discount_amount,
 			true,
 		);
 		let discountAmount = resolveWithFallback(
@@ -957,21 +980,21 @@ export async function _applyServerPricingRules(context: any, ctx: any = {}) {
 				rawServerBasePriceList <= 0;
 			const serverRemovedPriceList =
 				zeroPriceListFromServer &&
-					Number.isFinite(originalBasePriceList)
+				Number.isFinite(originalBasePriceList)
 					? originalBasePriceList > 0
 					: false;
 			const serverRemovedDiscount =
 				(!Number.isFinite(rawServerBaseDiscount) ||
 					rawServerBaseDiscount <= 0) &&
-					Number.isFinite(originalBaseDiscount)
+				Number.isFinite(originalBaseDiscount)
 					? originalBaseDiscount > 0
 					: false;
 			const serverRemovedPercentage =
 				(!Number.isFinite(discountPercentage) ||
 					discountPercentage <= 0) &&
-					Number.isFinite(originalBaseDiscount) &&
-					Number.isFinite(originalBasePriceList) &&
-					originalBasePriceList > 0
+				Number.isFinite(originalBaseDiscount) &&
+				Number.isFinite(originalBasePriceList) &&
+				originalBasePriceList > 0
 					? originalBaseDiscount >= originalBasePriceList - epsilon
 					: false;
 			const serverFullDiscount =
@@ -982,8 +1005,8 @@ export async function _applyServerPricingRules(context: any, ctx: any = {}) {
 					baseDiscount >= basePriceListRate - epsilon);
 			const fallbackFullDiscount =
 				Number.isFinite(originalBasePriceList) &&
-					originalBasePriceList > 0 &&
-					Number.isFinite(originalBaseDiscount)
+				originalBasePriceList > 0 &&
+				Number.isFinite(originalBaseDiscount)
 					? originalBaseDiscount >= originalBasePriceList - epsilon
 					: false;
 

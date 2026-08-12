@@ -9,11 +9,14 @@ import {
 	getOfflineCashMovements,
 	getOfflineInvoices,
 	getOfflinePayments,
+	getLocalStockCache,
 	initPromise,
 	memory,
 	saveOfflineCashMovement,
 	saveOfflineInvoice,
 	saveOfflinePayment,
+	setInvoiceOutboxMode,
+	setLocalStockCache,
 	syncOfflineCashMovements,
 } from "../src/offline/index";
 import { migrateLegacyOfflineQueues } from "../src/offline/writeQueue";
@@ -22,6 +25,7 @@ describe("offline write queue durability", () => {
 	beforeEach(async () => {
 		await initPromise;
 		await db.table("write_queue").clear();
+		await db.table("invoice_outbox").clear();
 		await db.table("queue").clear();
 		await db.table("keyval").clear();
 		localStorage.clear();
@@ -31,8 +35,10 @@ describe("offline write queue durability", () => {
 		memory.offline_cash_movements = [];
 		memory.local_stock_cache = {};
 		memory.pos_opening_storage = null;
+		setInvoiceOutboxMode("off");
 		vi.spyOn(console, "error").mockImplementation(() => {});
 		(globalThis as any).frappe = {
+			session: { user: "cashier@example.com" },
 			call: vi.fn(),
 		};
 	});
@@ -123,9 +129,9 @@ describe("offline write queue durability", () => {
 				posa_allow_offline_sale_without_stock_verification: 0,
 			},
 		};
-		memory.local_stock_cache = {
+		setLocalStockCache({
 			"ITEM-STOCK": { actual_qty: 2 },
-		};
+		}, memory.pos_opening_storage.pos_profile);
 
 		await expect(
 			saveOfflineInvoice({
@@ -155,9 +161,9 @@ describe("offline write queue durability", () => {
 				posa_allow_offline_sale_without_stock_verification: 1,
 			},
 		};
-		memory.local_stock_cache = {
+		setLocalStockCache({
 			"ITEM-STOCK": { actual_qty: 0 },
-		};
+		}, memory.pos_opening_storage.pos_profile);
 
 		await saveOfflineInvoice({
 			invoice: {
@@ -187,9 +193,9 @@ describe("offline write queue durability", () => {
 				posa_allow_offline_sale_without_stock_verification: 0,
 			},
 		};
-		memory.local_stock_cache = {
+		setLocalStockCache({
 			"ITEM-SO": { actual_qty: 1 },
-		};
+		}, memory.pos_opening_storage.pos_profile);
 
 		await saveOfflineInvoice({
 			invoice: {
@@ -209,7 +215,10 @@ describe("offline write queue durability", () => {
 		});
 
 		expect(getOfflineInvoices()).toHaveLength(1);
-		expect(memory.local_stock_cache["ITEM-SO"].actual_qty).toBe(1);
+		expect(
+			getLocalStockCache(memory.pos_opening_storage.pos_profile)["ITEM-SO"]
+				.actual_qty,
+		).toBe(1);
 	});
 
 	it("prevents duplicate queue entries for the same idempotent payment", async () => {
@@ -264,6 +273,10 @@ describe("offline write queue durability", () => {
 		);
 
 		for (let attempt = 0; attempt < 4; attempt += 1) {
+			[row] = await db.table("write_queue").toArray();
+			await db.table("write_queue").update(row.queue_id, {
+				next_attempt_at: "2000-01-01T00:00:00.000Z",
+			});
 			result = await syncOfflineCashMovements();
 		}
 
@@ -284,6 +297,7 @@ describe("offline write queue durability", () => {
 			{
 				invoice: {
 					name: "LEGACY-SINV-0001",
+					owner: "cashier@example.com",
 					customer: "CUST-LEGACY",
 					items: [{ item_code: "ITEM-LEGACY", item_name: "Legacy", qty: 1 }],
 				},

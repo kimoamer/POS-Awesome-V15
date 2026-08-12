@@ -109,6 +109,7 @@
 									:format-number="memoizedFormatNumber"
 									:rate-precision="ratePrecision"
 									:is-negative="isNegative"
+									:show-media="catalogShowsMedia"
 									:no-items-title="__('No items found')"
 									:no-items-subtitle="__('Try adjusting your search or filters')"
 									:clear-search-label="__('Clear Search')"
@@ -293,6 +294,7 @@ import {
 	nextTick,
 	ref,
 	computed,
+	defineAsyncComponent,
 	watch,
 	reactive,
 	inject,
@@ -301,7 +303,6 @@ import {
 import { storeToRefs } from "pinia";
 import * as _ from "lodash";
 
-import CameraScanner from "./CameraScanner.vue";
 import ItemActionToolbar from "./ItemActionToolbar.vue";
 import ItemSettingsDialog from "./ItemSettingsDialog.vue";
 import ItemHeader from "./ItemHeader.vue";
@@ -353,9 +354,15 @@ import { useToastStore } from "../../../stores/toastStore";
 import { useUIStore } from "../../../stores/uiStore";
 import { useInvoiceStore } from "../../../stores/invoiceStore";
 import { useEmployeeStore } from "../../../stores/employeeStore";
+import { useOfflineSyncStore } from "../../../stores/offlineSyncStore";
 
 import { parseBooleanSetting } from "../../../utils/stock";
 import { createItemSearchFocusClearGuard } from "../../../utils/itemSearchFocusClearGuard";
+import { useSyncCoordinator } from "../../../../offline/sync/useSyncCoordinator";
+
+const CameraScanner = defineAsyncComponent(
+	() => import("./CameraScanner.vue"),
+);
 
 const props = defineProps({
 	context: {
@@ -381,6 +388,7 @@ const toastStore = useToastStore();
 const uiStore = useUIStore();
 const invoiceStore = useInvoiceStore();
 const employeeStore = useEmployeeStore();
+const offlineSyncStore = useOfflineSyncStore();
 const { selectedCustomer } = storeToRefs(customersStore);
 const {
 	posProfile: uiPosProfile,
@@ -389,6 +397,7 @@ const {
 	activeView,
 } = storeToRefs(uiStore);
 const { currentCashier } = storeToRefs(employeeStore);
+const { resourceStates: offlineResourceStates } = storeToRefs(offlineSyncStore);
 const { deferStockValidationToPayment: invoiceTypeDefersStockValidation } = storeToRefs(invoiceStore);
 
 const __ = (window as any).__;
@@ -430,6 +439,7 @@ const itemAvailability = useItemAvailability();
 const itemDetailFetcher = useItemDetailFetcher();
 const itemSelection = useItemSelection();
 const itemSync = useItemSync();
+const coordinatedItemSync = useSyncCoordinator();
 const itemDisplay = useItemDisplay();
 const itemsLoader = useItemsLoader();
 const itemCurrencyUtils = useItemCurrency();
@@ -546,7 +556,7 @@ const forceCustomerPriceList = computed(() =>
 	parseBooleanSetting(pos_profile.value?.posa_force_price_from_customer_price_list),
 );
 
-const isMobileOrTabletView = computed(() => responsive.windowWidth.value < 1024);
+	const isMobileOrTabletView = computed(() => responsive.isPhone.value);
 
 const resolveProfileDefaultItemsView = (profile: any) => {
 	if (isMobileOrTabletView.value) {
@@ -714,8 +724,36 @@ const displayedItems = computed(() => {
 		hideZeroRate: hide_zero_rate_items.value,
 		hideVariants: pos_profile.value?.posa_hide_variants_items,
 		onlyBarcode: showOnlyBarcodeItemsRef.value,
-		limit: enable_custom_items_per_page.value ? items_per_page.value : itemsPerPage.value,
+		limit:
+			usesLimitSearch.value && enable_custom_items_per_page.value
+				? items_per_page.value
+				: Number.POSITIVE_INFINITY,
 	});
+});
+
+const catalogShowsMedia = computed(() => {
+	if (parseBooleanSetting(pos_profile.value?.posa_always_show_item_image)) {
+		return true;
+	}
+	if (
+		parseBooleanSetting(
+			pos_profile.value?.posa_hide_item_image ??
+				pos_profile.value?.posa_hide_images,
+		)
+	) {
+		return false;
+	}
+	const sample = displayedItems.value.slice(0, 80);
+	if (!sample.length) return true;
+	const imaged = sample.filter((item: any) =>
+		Boolean(
+			item?.image ||
+				item?.item_image ||
+				item?.website_image ||
+				item?.thumbnail,
+		),
+	).length;
+	return imaged / sample.length >= 0.2;
 });
 
 watch(
@@ -736,9 +774,17 @@ watch(
 	{ immediate: true },
 );
 
+const coordinatedItemSyncState = computed(() =>
+	offlineResourceStates.value.find((state) => state.resourceId === "items"),
+);
+const coordinatedItemSyncing = computed(
+	() => coordinatedItemSyncState.value?.status === "syncing",
+);
+
 const isLoadingOrSyncing = computed(() => {
 	if (loading.value) return true;
 	if (isBackgroundLoading.value && items.value.length === 0) return true;
+	if (coordinatedItemSyncing.value && items.value.length === 0) return true;
 	return false;
 });
 
@@ -748,6 +794,7 @@ const syncStatus = computed(() => {
 		return __("Syncing items in background");
 	}
 	if (isBackgroundLoading.value) return __("Preparing background sync");
+	if (coordinatedItemSyncing.value) return __("Refreshing item catalog");
 	return "";
 });
 
@@ -767,10 +814,16 @@ const syncItemsCount = computed(() => {
 	return Math.round(count);
 });
 
-const showSearchSyncProgress = computed(() => isBackgroundLoading.value && items.value.length > 0);
+const showSearchSyncProgress = computed(
+	() =>
+		(isBackgroundLoading.value || coordinatedItemSyncing.value) &&
+		items.value.length > 0,
+);
 
 const lastSyncTimeLabel = computed(() => {
-	const lastSync = itemSync.last_background_sync_time?.value;
+	const lastSync =
+		coordinatedItemSyncState.value?.lastSyncedAt ||
+		itemSync.last_background_sync_time?.value;
 	if (!lastSync) return __("Never");
 	const parsed = new Date(lastSync);
 	return Number.isNaN(parsed.getTime()) ? __("Never") : parsed.toLocaleTimeString();
@@ -829,6 +882,7 @@ const itemsSelectorFocus = useItemsSelectorFocus({
 
 const { getLastInvoiceRate, scheduleLastInvoiceRateRefresh, clearLastInvoiceRateCache } = useLastInvoiceRate({
 	pos_profile: () => pos_profile.value,
+	pos_opening_shift: () => uiStore.posOpeningShift?.name || null,
 	customer: () => selectedCustomer.value,
 	displayedItems: () => displayedItems.value,
 	show_last_invoice_rate: () => show_last_invoice_rate.value,
@@ -839,10 +893,16 @@ const selectedSupplier = ref<string | null>(null);
 
 const { getLastBuyingRate, scheduleLastBuyingRateRefresh, clearLastBuyingRateCache } = useLastBuyingRate({
 	pos_profile: () => pos_profile.value,
+	pos_opening_shift: () => uiStore.posOpeningShift?.name || null,
 	supplier: () => selectedSupplier.value,
 	displayedItems: () => displayedItems.value,
 	show_last_buying_rate: () =>
-		show_last_invoice_rate.value && parseBooleanSetting(currentCashier.value?.is_supervisor),
+		show_last_invoice_rate.value &&
+		parseBooleanSetting(currentCashier.value?.is_supervisor) &&
+		parseBooleanSetting(
+			pos_profile.value?.posa_allow_purchase_order ??
+				uiPosProfile.value?.posa_allow_purchase_order,
+		),
 });
 
 const getLastRateForContext = (item: any) => {
@@ -877,6 +937,7 @@ const {
 } = useItemSelectorLayout({
 	resizeDebounce: 100,
 	loadVisibleItems: () => itemsLoader.loadVisibleItems(),
+	showMedia: catalogShowsMedia,
 });
 
 const itemSelectorLayoutLifecycle = useItemsSelectorLayoutLifecycle({
@@ -1165,6 +1226,35 @@ onMounted(async () => {
 		get itemDetailFetcher() {
 			return itemDetailFetcher;
 		},
+		get appendCachedItemsPage() {
+			return itemsIntegration.appendCachedItemsPage;
+		},
+		get loadItems() {
+			return itemsIntegration.loadItems;
+		},
+		get items() {
+			return items.value;
+		},
+		get totalItemCount() {
+			return itemsIntegration.totalItemCount.value;
+		},
+		get hasMoreCachedItems() {
+			return itemsIntegration.hasMoreCachedItems.value;
+		},
+		get first_search() {
+			return first_search.value;
+		},
+		get item_group() {
+			return item_group.value;
+		},
+		get usesLimitSearch() {
+			return usesLimitSearch.value;
+		},
+		get limitSearchCap() {
+			return enable_custom_items_per_page.value
+				? items_per_page.value
+				: itemsPerPage.value;
+		},
 		get displayedItems() {
 			return displayedItems.value;
 		},
@@ -1219,7 +1309,21 @@ onMounted(async () => {
 
 			return profilePriceList || customerPriceList || null;
 		},
-		refreshModifiedItems: (priceListOverride) => itemsIntegration.refreshModifiedItems(priceListOverride),
+		refreshModifiedItems: async () => {
+			const previousVersions = new Map(
+				items.value.map((item: any) => [
+					item.item_code,
+					`${item.modified || ""}|${item.price_list_rate ?? item.rate ?? ""}|${item.actual_qty ?? ""}`,
+				]),
+			);
+			await coordinatedItemSync.runTrigger("timer");
+			await itemsIntegration.itemsStore.loadCachedItems();
+			const updatedItems = items.value.filter((item: any) => {
+				const nextVersion = `${item.modified || ""}|${item.price_list_rate ?? item.rate ?? ""}|${item.actual_qty ?? ""}`;
+				return previousVersions.get(item.item_code) !== nextVersion;
+			});
+			return { items: updatedItems };
+		},
 		backgroundSyncItems: (args) => itemsIntegration.backgroundSyncItems(args),
 		get_items: (force) => itemsIntegration.get_items(force),
 		search_onchange: (value, fromScanner) => itemsIntegration.search_onchange(value, fromScanner),
@@ -1330,6 +1434,33 @@ watch(selectedCustomer, () => {
 	clearLastInvoiceRateCache();
 	scheduleLastInvoiceRateRefresh();
 });
+
+let coordinatedCacheRefresh: Promise<void> | null = null;
+watch(
+	() => coordinatedItemSyncState.value?.lastSyncedAt,
+	(nextSyncedAt, previousSyncedAt) => {
+		if (
+			!nextSyncedAt ||
+			nextSyncedAt === previousSyncedAt ||
+			!isInitialized.value ||
+			coordinatedCacheRefresh
+		) {
+			return;
+		}
+
+		coordinatedCacheRefresh = itemsIntegration.itemsStore
+			.loadCachedItems()
+			.then(() => {
+				eventBus?.emit?.("set_all_items", items.value);
+			})
+			.catch((error: unknown) => {
+				console.error("Failed to refresh the item view after coordinated sync", error);
+			})
+			.finally(() => {
+				coordinatedCacheRefresh = null;
+			});
+	},
+);
 
 watch(isPosSupervisor, (isSupervisor) => {
 	if (!isSupervisor) {

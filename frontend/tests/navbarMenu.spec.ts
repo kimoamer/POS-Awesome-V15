@@ -217,6 +217,7 @@ describe("NavbarMenu cashier pin management", () => {
 				user: "cashier@example.com",
 				current_pin: "",
 				new_pin: "5678",
+				cashier_grant: null,
 			},
 		});
 	});

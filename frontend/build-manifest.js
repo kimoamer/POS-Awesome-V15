@@ -17,37 +17,65 @@ function toVersionedPublicAssetUrl(fileName, version) {
 	return version ? `${url}?v=${encodeURIComponent(version)}` : url;
 }
 
-function getChunkFileName(bundle, chunkName) {
+export function getChunkFileName(bundle, chunkName) {
 	const match = Object.values(bundle || {}).find(
 		(entry) => entry?.type === "chunk" && entry?.name === chunkName,
 	);
 	return match?.fileName || null;
 }
 
-function getCssAssetFileName(bundle) {
-	// `cssCodeSplit: false` emits a single combined stylesheet (Vite
-	// names it `style-<hash>.css` by default). Pick the largest CSS
-	// asset to be robust to either naming scheme.
+export function getCssAssetFileNames(bundle, entryName = "posawesome") {
+	const entry = Object.values(bundle || {}).find(
+		(candidate) =>
+			candidate?.type === "chunk" && candidate?.name === entryName,
+	);
+	const entryCss = [];
+	const visitedChunks = new Set();
+	const collectChunkCss = (chunk) => {
+		if (!chunk || chunk.type !== "chunk" || visitedChunks.has(chunk.fileName)) {
+			return;
+		}
+		visitedChunks.add(chunk.fileName);
+		const importedCss = chunk.viteMetadata?.importedCss;
+		if (importedCss) {
+			entryCss.push(
+				...Array.from(importedCss).filter((fileName) =>
+					String(fileName).endsWith(".css"),
+				),
+			);
+		}
+		for (const importedChunk of chunk.imports || []) {
+			collectChunkCss(bundle?.[importedChunk]);
+		}
+	};
+	collectChunkCss(entry);
+	if (entryCss.length) {
+		return Array.from(new Set(entryCss)).sort();
+	}
+
+	// Compatibility fallback for synthetic bundles/tests and older Vite output.
+	// A non-split build emits one stylesheet, while a split build normally exposes
+	// the exact entry CSS set through `viteMetadata.importedCss` above.
 	const cssAssets = Object.values(bundle || {}).filter(
 		(entry) =>
 			entry?.type === "asset" &&
 			typeof entry?.fileName === "string" &&
 			entry.fileName.endsWith(".css"),
 	);
-	if (!cssAssets.length) return null;
+	if (!cssAssets.length) return [];
 	cssAssets.sort((a, b) => (b.source?.length || 0) - (a.source?.length || 0));
-	return cssAssets[0].fileName;
+	return [cssAssets[0].fileName];
 }
 
 function getCriticalFontAssetFileNames(bundle) {
 	return Object.values(bundle || {})
 		.filter(
 			(entry) =>
-				entry?.type === "asset" &&
-				typeof entry?.fileName === "string" &&
-				/materialdesignicons-webfont.*\.(?:woff2?|ttf|eot)$/i.test(
-					entry.fileName,
-				),
+			entry?.type === "asset" &&
+			typeof entry?.fileName === "string" &&
+			/materialdesignicons-webfont.*\.woff2$/i.test(
+				entry.fileName,
+			),
 		)
 		.map((entry) => entry.fileName)
 		.sort();
@@ -57,7 +85,11 @@ export function buildVersionPayload(version, bundle = {}) {
 	const loaderFile = getChunkFileName(bundle, "loader");
 	const posawesomeFile = getChunkFileName(bundle, "posawesome");
 	const offlineIndexFile = getChunkFileName(bundle, "offline/index");
-	const cssFile = getCssAssetFileName(bundle);
+	const cssFiles = getCssAssetFileNames(bundle);
+	const styleUrls = cssFiles.map((fileName) =>
+		toVersionedPublicAssetUrl(fileName, version),
+	);
+	const cssUrl = toVersionedPublicAssetUrl("posawesome.css", version);
 	const fontFiles = getCriticalFontAssetFileNames(bundle);
 
 	return {
@@ -69,9 +101,9 @@ export function buildVersionPayload(version, bundle = {}) {
 			posawesome: posawesomeFile
 				? toVersionedPublicAssetUrl(posawesomeFile, version)
 				: toVersionedPublicAssetUrl("posawesome.js", version),
-			css: cssFile
-				? toVersionedPublicAssetUrl(cssFile, version)
-				: toVersionedPublicAssetUrl("posawesome.css", version),
+			// `css` remains for clients upgrading from a pre-split release.
+			css: cssUrl,
+			styles: styleUrls.length ? styleUrls : [cssUrl],
 			offlineIndex: offlineIndexFile
 				? toPublicAssetUrl(offlineIndexFile)
 				: toPublicAssetUrl("offline/index.js"),

@@ -20,7 +20,7 @@
 				variant="outlined"
 				color="primary"
 				:label="
-					__('Available') +
+					__('You can redeem up to') +
 					(customerInfo.loyalty_points ? ` (${customerInfo.loyalty_points} pts)` : '')
 				"
 				class="sleek-field pos-themed-input"

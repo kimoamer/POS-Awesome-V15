@@ -12,6 +12,7 @@ import { useItemBatchSerial } from "./addition/useItemBatchSerial";
 import { useItemBundles } from "./addition/useItemBundles";
 import { collectUsedSerialsForItem } from "./addition/serialSelection";
 import { useBatchSerial } from "../shared/useBatchSerial";
+import { posDebug } from "../../../utils/debug";
 
 declare const __: (_text: string, _args?: any[]) => string;
 declare const frappe: any;
@@ -40,9 +41,7 @@ export function useItemAddition() {
 	const { expandBundle } = useItemBundles() as any;
 	const sharedBatchSerial = useBatchSerial();
 	const logBatchFlow = (message: string, payload?: any) => {
-		if ((globalThis as any).__POSAWESOME_DEBUG_BATCH_FLOW__ === true) {
-			console.debug(`[POS BatchFlow] ${message}`, payload || {});
-		}
+		posDebug("batch-flow", message, payload || {});
 	};
 	const toFiniteNumber = (value: any, fallback = 0) => {
 		const numeric = Number(value);
@@ -374,7 +373,7 @@ export function useItemAddition() {
 				item.actual_qty <= 0 &&
 				!allowNegativeStock
 			) {
-				console.debug("POS stock gate: item blocked", {
+				posDebug("stock-gate", "item blocked", {
 					item_code: item.item_code,
 					actual_qty: item.actual_qty,
 					block_sale_beyond_available_qty: blockSale,

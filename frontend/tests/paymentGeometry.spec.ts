@@ -13,10 +13,16 @@ import eventBus from "../src/posapp/bus";
 
 describe("Payment Geometry & Viewport Recovery Contract", () => {
 	const samplePayment = [
-		{ name: "P1", mode_of_payment: "Cash", amount: 100, default: 1, type: "Cash" },
+		{
+			name: "P1",
+			mode_of_payment: "Cash",
+			amount: 100,
+			default: 1,
+			type: "Cash",
+		},
 	];
 
-	it("renders icon-only Set Remaining action on desktop viewportMode", () => {
+	it("renders a readable Set Remaining action on desktop viewportMode", () => {
 		const wrapper = mount(PaymentMethods, {
 			props: {
 				payments: samplePayment,
@@ -28,6 +34,7 @@ describe("Payment Geometry & Viewport Recovery Contract", () => {
 		const remainingBtn = wrapper.find(".payment-use-remaining-btn");
 		expect(remainingBtn.exists()).toBe(true);
 		expect(remainingBtn.attributes("title")).toBe("Set Remaining");
+		expect(remainingBtn.text()).toContain("Set Remaining");
 	});
 
 	it("renders icon-only Set Remaining action on phone viewportMode", () => {

@@ -1,5 +1,7 @@
 import { clearPriceListCache } from "../../../../offline/index";
-import { useCustomersStore } from "../../../stores/customersStore.js";
+import { useCustomersStore } from "../../../stores/customersStore";
+import { posDebug } from "../../../utils/debug";
+import { parseBooleanSetting } from "../../../utils/stock";
 
 interface WatcherItem {
 	posa_row_id?: string | number;
@@ -21,6 +23,7 @@ interface InvoiceWatchersVm {
 	return_doc?: Record<string, unknown> | string | null;
 	update_discount_umount?: () => void;
 	pos_profile: {
+		name?: string;
 		posa_use_percentage_discount?: boolean;
 		selling_price_list?: string;
 		posa_allow_multi_currency?: boolean;
@@ -32,6 +35,7 @@ interface InvoiceWatchersVm {
 	posting_date_display?: string;
 	selected_price_list?: string;
 	price_list_currency?: string;
+	pos_opening_shift?: { name?: string } | string | null;
 	available_stock_cache?: Record<string, unknown>;
 	exchange_rate?: number;
 	selected_currency?: string;
@@ -85,7 +89,7 @@ const applyReturnDiscountProration = (context: InvoiceWatchersVm) => {
 	const prorated = -Math.abs(originalDiscount * ratio);
 	const current = Number(context.additional_discount || 0);
 	if (Math.abs(current - prorated) > 0.0001) {
-		console.log("[POSA][Returns] Auto-prorate discount", {
+		posDebug("returns", "auto-prorate discount", {
 			originalDiscount,
 			originalTotal,
 			returnTotal,
@@ -241,10 +245,20 @@ const invoiceWatchers: Record<string, unknown> & ThisType<InvoiceWatchersVm> = {
 		this.apply_cached_price_list(applied);
 
 		// If multi-currency is enabled, sync currency with the price list currency
-		if (this.pos_profile.posa_allow_multi_currency && applied) {
+		if (
+			parseBooleanSetting(this.pos_profile.posa_allow_multi_currency) &&
+			applied
+		) {
 			frappe.call({
 				method: "posawesome.posawesome.api.invoices.get_price_list_currency",
-				args: { price_list: applied },
+				args: {
+					price_list: applied,
+					pos_profile: this.pos_profile?.name || null,
+					pos_opening_shift:
+						typeof this.pos_opening_shift === "string"
+							? this.pos_opening_shift
+							: this.pos_opening_shift?.name || null,
+				},
 				callback: (r: { message?: string }) => {
 					if (r.message) {
 						// Store price list currency for later use
@@ -254,6 +268,11 @@ const invoiceWatchers: Record<string, unknown> & ThisType<InvoiceWatchersVm> = {
 					}
 				},
 			});
+		} else {
+			this.price_list_currency = this.pos_profile.currency || "";
+			this.selected_currency = this.pos_profile.currency || "";
+			this.exchange_rate = 1;
+			this.conversion_rate = 1;
 		}
 
 		if (Array.isArray(this.items)) {

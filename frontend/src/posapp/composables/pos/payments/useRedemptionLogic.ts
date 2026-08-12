@@ -1,12 +1,6 @@
 import { ref, watch, computed, unref, type Ref } from "vue";
-import {
-	isOffline,
-	getCachedStoredValueSnapshot,
-	saveStoredValueSnapshot,
-} from "../../../../offline/index";
+import { isOffline } from "../../../../offline/index";
 import { fromCompanyCurrency } from "../../../utils/erpnextCurrency";
-
-declare const frappe: any;
 
 export interface RedemptionLogicOptions {
 	invoiceDoc: Ref<any>;
@@ -76,20 +70,28 @@ export function useRedemptionLogic(options: RedemptionLogicOptions) {
 		if (!customer || !company) return [];
 
 		if (isOffline()) {
-			const cachedSnapshot = getCachedStoredValueSnapshot(customer, company);
-			return Array.isArray(cachedSnapshot?.sources)
-				? JSON.parse(JSON.stringify(cachedSnapshot.sources))
-				: [];
+			// Stored value is money and can be spent from another terminal while
+			// this device is offline. Never authorize it from a stale snapshot.
+			return [];
 		}
 
-		const r: any = await frappe.call({
+		const frappeClient = (globalThis as any)?.frappe;
+		if (typeof frappeClient?.call !== "function") {
+			return [];
+		}
+
+		const r: any = await frappeClient.call({
 			method: "posawesome.posawesome.api.payments.get_available_credit",
-			args: { customer, company },
+			args: {
+				customer,
+				company,
+				pos_profile: unref(posProfile)?.name,
+				opening_shift: unref(invoiceDoc)?.posa_pos_opening_shift || null,
+			},
 		});
 
 		const data = r?.message || [];
 		if (Array.isArray(data) && data.length) {
-			saveStoredValueSnapshot(customer, company, data);
 			return JSON.parse(JSON.stringify(data));
 		}
 		return [];

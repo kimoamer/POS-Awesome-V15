@@ -16,8 +16,10 @@ class AcknowledgingWorker {
 	onmessage: ((_event: MessageEvent) => void) | null = null;
 	onerror: ((_event: ErrorEvent) => void) | null = null;
 	messages: WorkerMessage[] = [];
+	url: string;
 
-	constructor() {
+	constructor(url = "") {
+		this.url = url;
 		AcknowledgingWorker.instances.push(this);
 	}
 
@@ -80,7 +82,9 @@ describe("offline persistence batching", () => {
 
 	it("coalesces repeated keys into one worker batch without JSON-normalizing values", async () => {
 		vi.stubGlobal("Worker", AcknowledgingWorker);
-		const { flushPersistQueue, persist } = await import("../src/offline/db");
+		const { flushPersistQueue, persist } = await import(
+			"../src/offline/db"
+		);
 		const persistedAt = new Date("2026-06-15T10:00:00.000Z");
 		const stringify = vi.spyOn(JSON, "stringify");
 
@@ -114,11 +118,14 @@ describe("offline persistence batching", () => {
 			}
 		)?.persistedAt;
 		expect(dateValue).toBeInstanceOf(Date);
+		expect(worker?.url).toMatch(/itemWorker\.js\?v=.+/);
 	});
 
 	it("keeps lightweight localStorage mirrors on the main thread", async () => {
 		vi.stubGlobal("Worker", AcknowledgingWorker);
-		const { flushPersistQueue, persist } = await import("../src/offline/db");
+		const { flushPersistQueue, persist } = await import(
+			"../src/offline/db"
+		);
 
 		persist("manual_offline", true);
 
@@ -129,7 +136,9 @@ describe("offline persistence batching", () => {
 
 	it("groups worker-less writes into one bulkPut per physical table", async () => {
 		vi.stubGlobal("Worker", undefined);
-		const { db, flushPersistQueue, persist } = await import("../src/offline/db");
+		const { db, flushPersistQueue, persist } = await import(
+			"../src/offline/db"
+		);
 		await db.open();
 		await Promise.all([
 			db.table("cache").clear(),
@@ -158,7 +167,9 @@ describe("offline persistence batching", () => {
 	it("falls back to grouped main-thread writes when a worker rejects a batch", async () => {
 		vi.stubGlobal("Worker", RejectingWorker);
 		vi.spyOn(console, "error").mockImplementation(() => {});
-		const { db, flushPersistQueue, persist } = await import("../src/offline/db");
+		const { db, flushPersistQueue, persist } = await import(
+			"../src/offline/db"
+		);
 		await db.open();
 		await db.table("cache").clear();
 		const cacheBulkPut = vi.spyOn(db.table("cache"), "bulkPut");
@@ -176,7 +187,9 @@ describe("offline persistence batching", () => {
 
 	it("serializes fallback batches so the latest write wins", async () => {
 		vi.stubGlobal("Worker", undefined);
-		const { db, flushPersistQueue, persist } = await import("../src/offline/db");
+		const { db, flushPersistQueue, persist } = await import(
+			"../src/offline/db"
+		);
 		await db.open();
 		await db.table("cache").clear();
 		const table = db.table("cache");
@@ -213,7 +226,9 @@ describe("offline persistence batching", () => {
 	it("replays all in-flight worker batches in order after a later batch fails", async () => {
 		vi.stubGlobal("Worker", ControlledWorker);
 		vi.spyOn(console, "error").mockImplementation(() => {});
-		const { db, flushPersistQueue, persist } = await import("../src/offline/db");
+		const { db, flushPersistQueue, persist } = await import(
+			"../src/offline/db"
+		);
 		await db.open();
 		await db.table("cache").clear();
 
@@ -232,6 +247,39 @@ describe("offline persistence batching", () => {
 		expect(await db.table("cache").get("item_details_cache")).toEqual({
 			key: "item_details_cache",
 			value: { version: 2 },
+		});
+	});
+
+	it("keeps a failed direct batch retryable instead of dropping it", async () => {
+		vi.stubGlobal("Worker", undefined);
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		const { db, flushPersistQueue, persist } = await import(
+			"../src/offline/db"
+		);
+		await db.open();
+		await db.table("cache").clear();
+
+		const table = db.table("cache");
+		const bulkPut = vi
+			.spyOn(table, "bulkPut")
+			.mockRejectedValueOnce(new Error("temporary bulk failure"));
+		const put = vi
+			.spyOn(table, "put")
+			.mockRejectedValueOnce(new Error("temporary row failure"));
+
+		persist("item_details_cache", { retained: true });
+		await expect(flushPersistQueue()).rejects.toThrow(
+			"temporary row failure",
+		);
+
+		bulkPut.mockRestore();
+		put.mockRestore();
+		await flushPersistQueue();
+
+		expect(await table.get("item_details_cache")).toEqual({
+			key: "item_details_cache",
+			value: { retained: true },
 		});
 	});
 });

@@ -24,6 +24,15 @@ class DummyClosingShift:
 
 
 class TestClosingShiftCashMovementIntegration(unittest.TestCase):
+    def setUp(self):
+        self._context_patches = [
+            patch.object(creation, "get_pos_request_context"),
+            patch.object(overview, "get_pos_request_context"),
+        ]
+        for patcher in self._context_patches:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
     @patch("posawesome.posawesome.doctype.pos_closing_shift.closing_processing.creation.get_payments_entries")
     @patch("posawesome.posawesome.doctype.pos_closing_shift.closing_processing.creation.get_pos_invoices")
     @patch(
@@ -56,6 +65,13 @@ class TestClosingShiftCashMovementIntegration(unittest.TestCase):
             "company": "My Co",
             "balance_details": [{"mode_of_payment": "Cash", "amount": 50}],
         }
+        mock_frappe.get_doc.return_value = SimpleNamespace(
+            doctype="POS Opening Shift",
+            name=opening_shift["name"],
+            pos_profile=opening_shift["pos_profile"],
+            company=opening_shift["company"],
+            as_dict=lambda: dict(opening_shift),
+        )
 
         result = creation.make_closing_shift_from_opening(json.dumps(opening_shift))
 

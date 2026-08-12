@@ -10,7 +10,7 @@
 		<div v-else-if="errorMessage" class="credit-state-box credit-state-box--error">
 			<v-icon size="16" color="error">mdi-alert-circle-outline</v-icon>
 			<span>{{ errorMessage }}</span>
-			<v-btn density="compact" variant="text" color="primary" class="credit-retry-action" @click="$emit('retry')">
+			<v-btn density="compact" variant="text" color="primary" class="credit-retry-action" @click="emit('retry')">
 				{{ __("Retry") }}
 			</v-btn>
 		</div>
@@ -74,14 +74,14 @@
 
 		<!-- Empty State when balance is 0 -->
 		<div v-else class="credit-state-box credit-state-box--empty">
-			<v-icon size="16" color="grey">mdi-wallet-off-outline</v-icon>
+			<v-icon size="16" color="grey">mdi-wallet-outline</v-icon>
 			<span>{{ __("No customer credit balance available.") }}</span>
 		</div>
 	</div>
 </template>
 
 <script setup>
-const props = defineProps({
+defineProps({
 	viewportMode: {
 		type: String,
 		default: "desktop",

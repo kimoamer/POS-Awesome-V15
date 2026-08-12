@@ -7,6 +7,7 @@ from posawesome.posawesome.doctype.pos_closing_shift.closing_processing.data imp
     get_pos_invoices,
     get_payments_entries,
 )
+from posawesome.posawesome.api.utils import get_pos_request_context
 
 
 @frappe.whitelist()
@@ -43,6 +44,15 @@ def get_closing_shift_overview(pos_opening_shift):
 
     if opening_shift_doc.doctype != "POS Opening Shift":
         frappe.throw(_("Unable to resolve POS Opening Shift."))
+
+    get_pos_request_context(
+        opening_shift_doc.pos_profile,
+        company=opening_shift_doc.company,
+        doctype="POS Closing Shift",
+        permission_type="read",
+        require_open_shift=True,
+        opening_shift=opening_shift_doc.name,
+    )
 
     pos_profile = opening_shift_doc.pos_profile
     company = opening_shift_doc.company

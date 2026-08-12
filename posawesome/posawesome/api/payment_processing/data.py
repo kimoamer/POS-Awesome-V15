@@ -4,13 +4,47 @@ from frappe.utils import nowdate, getdate, flt, cint
 from erpnext.accounts.party import get_party_account
 from erpnext.controllers.accounts_controller import get_advance_payment_entries_for_regional
 from erpnext.setup.utils import get_exchange_rate
+from posawesome.posawesome.api.utils import (
+    assert_doctype_permission,
+    get_pos_request_context,
+)
 
 MAX_OUTSTANDING_PAGE_LENGTH = 500
 
 
 def _resolve_party_inputs(customer=None, party=None, party_type=None):
     resolved_party = party if party is not None else customer
-    return resolved_party, (party_type or "Customer")
+    resolved_type = str(party_type or "Customer").strip().title()
+    if resolved_type not in {"Customer", "Supplier"}:
+        frappe.throw(_("Party Type must be Customer or Supplier."))
+    return resolved_party, resolved_type
+
+
+def _authorize_payment_data(pos_profile, company, party, party_type, *, include_payments=False):
+    if not pos_profile:
+        frappe.throw(_("POS Profile is required."))
+    invoice_doctype = "Purchase Invoice" if party_type == "Supplier" else "Sales Invoice"
+    context = get_pos_request_context(
+        pos_profile,
+        company=company,
+        action_flag="posa_allow_reconcile_payments",
+        doctype=invoice_doctype,
+        permission_type="read",
+    )
+    assert_doctype_permission(party_type, "read")
+    if include_payments:
+        assert_doctype_permission("Payment Entry", "read")
+    if not frappe.db.exists(party_type, party):
+        frappe.throw(_("{0} {1} was not found.").format(party_type, party))
+    return context
+
+
+def _authorize_currency(context, currency, include_all_currencies):
+    profile_currency = context.pos_profile.get("currency")
+    allow_multi_currency = cint(context.pos_profile.get("posa_allow_multi_currency"))
+    if currency and profile_currency and currency != profile_currency and not allow_multi_currency:
+        frappe.throw(_("Currency {0} is outside this POS Profile.").format(currency))
+    return currency or profile_currency, bool(include_all_currencies and allow_multi_currency)
 
 
 def _get_open_sales_invoices(
@@ -153,132 +187,138 @@ def get_outstanding_invoices(
     Args:
         include_all_currencies (bool): If True, returns invoices in ALL currencies instead of filtering
     """
-    try:
-        customer = _coerce_text_filter(customer, _("Customer"))
-        party = _coerce_text_filter(party, _("Party"))
-        customer, party_type = _resolve_party_inputs(customer=customer, party=party, party_type=party_type)
-        company = _coerce_text_filter(company, _("Company"))
-        currency = _coerce_text_filter(currency, _("Currency"))
-        pos_profile = _coerce_text_filter(pos_profile, _("POS Profile"))
-        include_all_currencies = _coerce_bool(include_all_currencies, default=False)
+    customer = _coerce_text_filter(customer, _("Customer"))
+    party = _coerce_text_filter(party, _("Party"))
+    customer, party_type = _resolve_party_inputs(customer=customer, party=party, party_type=party_type)
+    company = _coerce_text_filter(company, _("Company"))
+    currency = _coerce_text_filter(currency, _("Currency"))
+    pos_profile = _coerce_text_filter(pos_profile, _("POS Profile"))
+    include_all_currencies = _coerce_bool(include_all_currencies, default=False)
 
-        if not customer or not company:
-            return []
-
-        page_start = _coerce_non_negative_int(page_start, default=0)
-        page_length = _coerce_non_negative_int(page_length, default=0)
-        if page_length:
-            page_length = min(page_length, MAX_OUTSTANDING_PAGE_LENGTH)
-
-        label_doctype = "Supplier" if party_type == "Supplier" else "Customer"
-        label_field = "supplier_name" if party_type == "Supplier" else "customer_name"
-        customer_name = frappe.get_cached_value(label_doctype, customer, label_field)
-
-        invoice_rows = (
-            _get_open_purchase_invoices(
-                supplier=customer,
-                company=company,
-                currency=currency,
-                include_all_currencies=include_all_currencies,
-            )
-            if party_type == "Supplier"
-            else _get_open_sales_invoices(
-                customer=customer,
-                company=company,
-                currency=currency,
-                pos_profile=pos_profile,
-                include_all_currencies=include_all_currencies,
-            )
-        )
-
-        normalized_rows = []
-        for invoice in invoice_rows:
-            invoice_outstanding = flt(invoice.get("outstanding_amount"))
-            conversion_rate = flt(invoice.get("conversion_rate")) or 1
-
-            outstanding_amount = invoice_outstanding
-
-            if outstanding_amount <= 0:
-                continue
-
-            row_currency = invoice.get("currency") or currency
-
-            # Convert outstanding from party account currency to invoice currency
-            # Examples:
-            # - Party YER (company), Invoice USD: 60,003 YER ÷ 531 (YER/USD) = 113 USD
-            # - Party USD (invoice), Invoice USD: 100 USD → 100 USD (no conversion)
-            party_account_currency = invoice.get("party_account_currency") or currency
-            company_currency = frappe.get_cached_value("Company", company, "default_currency")
-            if party_account_currency == row_currency:
-                outstanding_in_invoice_currency = outstanding_amount
-            elif party_account_currency == company_currency:
-                precision = frappe.get_precision("Sales Invoice", "outstanding_amount") or 2
-                if conversion_rate > 0:
-                    outstanding_in_invoice_currency = flt(outstanding_amount / conversion_rate, precision)
-                else:
-                    outstanding_in_invoice_currency = outstanding_amount
-            else:
-                # Third currency: convert from party account currency to invoice currency
-                precision = frappe.get_precision("Sales Invoice", "outstanding_amount") or 2
-                party_to_inv = get_exchange_rate(party_account_currency, row_currency, invoice.get("posting_date"))
-                if party_to_inv:
-                    outstanding_in_invoice_currency = flt(outstanding_amount / party_to_inv, precision)
-                else:
-                    outstanding_in_invoice_currency = flt(outstanding_amount / conversion_rate, precision) if conversion_rate > 0 else outstanding_amount
-            invoice_total = flt(
-                invoice.get("rounded_total")
-                or invoice.get("grand_total")
-                or outstanding_in_invoice_currency
-            )
-
-            normalized_rows.append(
-                frappe._dict(
-                    {
-                        "voucher_no": invoice.get("name"),
-                        "voucher_type": "Purchase Invoice" if party_type == "Supplier" else "Sales Invoice",
-                        "outstanding_amount": outstanding_amount,
-                        "outstanding_amount_in_invoice_currency": outstanding_in_invoice_currency,
-                        "invoice_amount": invoice_total,
-                        "due_date": invoice.get("due_date") or invoice.get("posting_date"),
-                        "posting_date": invoice.get("posting_date"),
-                        "currency": row_currency,
-                        "pos_profile": invoice.get("pos_profile") if party_type == "Customer" else None,
-                        "customer": customer,
-                        "customer_name": (
-                            invoice.get("supplier_name")
-                            if party_type == "Supplier"
-                            else invoice.get("customer_name")
-                        )
-                        or customer_name,
-                        "party": customer,
-                        "party_name": (
-                            invoice.get("supplier_name")
-                            if party_type == "Supplier"
-                            else invoice.get("customer_name")
-                        )
-                        or customer_name,
-                        "party_type": party_type,
-                        "conversion_rate": conversion_rate,
-                    }
-                )
-            )
-
-        normalized_rows = sorted(
-            normalized_rows,
-            key=lambda inv: (
-                getdate(inv.get("posting_date")) if inv.get("posting_date") else getdate(nowdate()),
-                inv.get("voucher_no"),
-            ),
-            reverse=True,
-        )
-
-        if page_length:
-            return normalized_rows[page_start : page_start + page_length]
-
-        return normalized_rows
-    except Exception as e:
-        frappe.logger().error(f"Error in get_outstanding_invoices: {str(e)}")
+    if not customer or not company:
         return []
+
+    context = _authorize_payment_data(pos_profile, company, customer, party_type)
+    company = context.company
+    currency, include_all_currencies = _authorize_currency(
+        context, currency, include_all_currencies
+    )
+
+    page_start = _coerce_non_negative_int(page_start, default=0)
+    page_length = _coerce_non_negative_int(page_length, default=0)
+    if page_length:
+        page_length = min(page_length, MAX_OUTSTANDING_PAGE_LENGTH)
+
+    label_doctype = "Supplier" if party_type == "Supplier" else "Customer"
+    label_field = "supplier_name" if party_type == "Supplier" else "customer_name"
+    customer_name = frappe.get_cached_value(label_doctype, customer, label_field)
+
+    invoice_rows = (
+        _get_open_purchase_invoices(
+            supplier=customer,
+            company=company,
+            currency=currency,
+            include_all_currencies=include_all_currencies,
+        )
+        if party_type == "Supplier"
+        else _get_open_sales_invoices(
+            customer=customer,
+            company=company,
+            currency=currency,
+            pos_profile=context.profile_name,
+            include_all_currencies=include_all_currencies,
+        )
+    )
+
+    normalized_rows = []
+    for invoice in invoice_rows:
+        invoice_outstanding = flt(invoice.get("outstanding_amount"))
+        conversion_rate = flt(invoice.get("conversion_rate")) or 1
+
+        outstanding_amount = invoice_outstanding
+
+        if outstanding_amount <= 0:
+            continue
+
+        row_currency = invoice.get("currency") or currency
+
+        # Convert outstanding from party account currency to invoice currency.
+        party_account_currency = invoice.get("party_account_currency") or currency
+        company_currency = frappe.get_cached_value("Company", company, "default_currency")
+        if party_account_currency == row_currency:
+            outstanding_in_invoice_currency = outstanding_amount
+        elif party_account_currency == company_currency:
+            precision = frappe.get_precision("Sales Invoice", "outstanding_amount") or 2
+            if conversion_rate > 0:
+                outstanding_in_invoice_currency = flt(outstanding_amount / conversion_rate, precision)
+            else:
+                outstanding_in_invoice_currency = outstanding_amount
+        else:
+            precision = frappe.get_precision("Sales Invoice", "outstanding_amount") or 2
+            party_to_inv = get_exchange_rate(
+                party_account_currency,
+                row_currency,
+                invoice.get("posting_date"),
+            )
+            if party_to_inv:
+                outstanding_in_invoice_currency = flt(outstanding_amount / party_to_inv, precision)
+            else:
+                outstanding_in_invoice_currency = (
+                    flt(outstanding_amount / conversion_rate, precision)
+                    if conversion_rate > 0
+                    else outstanding_amount
+                )
+        invoice_total = flt(
+            invoice.get("rounded_total")
+            or invoice.get("grand_total")
+            or outstanding_in_invoice_currency
+        )
+
+        normalized_rows.append(
+            frappe._dict(
+                {
+                    "voucher_no": invoice.get("name"),
+                    "voucher_type": "Purchase Invoice" if party_type == "Supplier" else "Sales Invoice",
+                    "outstanding_amount": outstanding_amount,
+                    "outstanding_amount_in_invoice_currency": outstanding_in_invoice_currency,
+                    "invoice_amount": invoice_total,
+                    "due_date": invoice.get("due_date") or invoice.get("posting_date"),
+                    "posting_date": invoice.get("posting_date"),
+                    "currency": row_currency,
+                    "pos_profile": invoice.get("pos_profile") if party_type == "Customer" else None,
+                    "customer": customer,
+                    "customer_name": (
+                        invoice.get("supplier_name")
+                        if party_type == "Supplier"
+                        else invoice.get("customer_name")
+                    )
+                    or customer_name,
+                    "party": customer,
+                    "party_name": (
+                        invoice.get("supplier_name")
+                        if party_type == "Supplier"
+                        else invoice.get("customer_name")
+                    )
+                    or customer_name,
+                    "party_type": party_type,
+                    "conversion_rate": conversion_rate,
+                }
+            )
+        )
+
+    normalized_rows = sorted(
+        normalized_rows,
+        key=lambda inv: (
+            getdate(inv.get("posting_date")) if inv.get("posting_date") else getdate(nowdate()),
+            inv.get("voucher_no"),
+        ),
+        reverse=True,
+    )
+
+    if page_length:
+        return normalized_rows[page_start : page_start + page_length]
+
+    return normalized_rows
 
 
 @frappe.whitelist()
@@ -290,6 +330,7 @@ def get_unallocated_payments(
     include_all_currencies=False,
     party=None,
     party_type="Customer",
+    pos_profile=None,
 ):
     customer = _coerce_text_filter(customer, _("Customer"))
     party = _coerce_text_filter(party, _("Party"))
@@ -301,6 +342,18 @@ def get_unallocated_payments(
 
     if not customer or not company:
         return []
+
+    context = _authorize_payment_data(
+        _coerce_text_filter(pos_profile, _("POS Profile")),
+        company,
+        customer,
+        party_type,
+        include_payments=True,
+    )
+    company = context.company
+    currency, include_all_currencies = _authorize_currency(
+        context, currency, include_all_currencies
+    )
 
     label_doctype = "Supplier" if party_type == "Supplier" else "Customer"
     label_field = "supplier_name" if party_type == "Supplier" else "customer_name"
@@ -573,10 +626,32 @@ def get_unallocated_payments(
 
 
 @frappe.whitelist()
-def get_available_pos_profiles(company, currency):
+def get_available_pos_profiles(company, currency, pos_profile=None):
+    context = get_pos_request_context(
+        pos_profile,
+        company=company,
+        action_flag="posa_allow_reconcile_payments",
+        doctype="POS Profile",
+        permission_type="read",
+    )
+    company = context.company
+    currency = currency or context.pos_profile.get("currency")
+    user = context.user
+    allowed_names = None
+    if user != "Administrator":
+        allowed_names = frappe.get_all(
+            "POS Profile User",
+            filters={"user": user},
+            pluck="parent",
+        )
+        if not allowed_names:
+            return []
+    filters = {"disabled": 0, "company": company, "currency": currency}
+    if allowed_names is not None:
+        filters["name"] = ["in", allowed_names]
     pos_profiles_list = frappe.get_list(
         "POS Profile",
-        filters={"disabled": 0, "company": company, "currency": currency},
+        filters=filters,
         page_length=1000,
         pluck="name",
     )
@@ -606,5 +681,6 @@ def get_unreconciled_entries(
             currency=currency,
             mode_of_payment=mode_of_payment,
             include_all_currencies=include_all_currencies,
+            pos_profile=pos_profile,
         ),
     }

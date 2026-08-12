@@ -22,16 +22,21 @@
 	--pos-text-muted: #667085;
 
 	/* Primary Colors - Original Light Mode */
-	--pos-primary: #0097a7;
-	--pos-primary-variant: #00838f;
+	--pos-primary: #007681;
+	--pos-primary-variant: #005f68;
 	--pos-primary-container: #e0f7fa;
 	--pos-on-primary: #ffffff;
 
 	/* Secondary Colors - Original Light Mode */
-	--pos-secondary: #00bcd4;
-	--pos-secondary-variant: #0097a7;
+	--pos-secondary: #007c87;
+	--pos-secondary-variant: #006d77;
 	--pos-secondary-container: #e0f7fa;
 	--pos-on-secondary: #ffffff;
+	--pos-action-active-bg: #e6f7f8;
+	--pos-action-active-fg: #006d77;
+	--pos-action-hover-bg: #f0fafa;
+	--pos-action-pressed-bg: #d8f0f2;
+	--pos-action-pressed-fg: #005f68;
 
 	/* Accent Colors - Modern Orange (Light Mode) */
 	--pos-accent: #ff6b35;
@@ -72,8 +77,9 @@
 	--pos-dialog-bg: #ffffff;
 	--pos-surface-raised: #ffffff;
 	--pos-surface-muted: #f4f7fb;
-	--pos-tooltip-bg: #ffffff;
-	--pos-tooltip-border: rgba(15, 23, 42, 0.12);
+	--pos-tooltip-bg: #17202a;
+	--pos-tooltip-fg: #ffffff;
+	--pos-tooltip-border: rgba(255, 255, 255, 0.16);
 	--pos-tooltip-shadow: rgba(15, 23, 42, 0.14);
 
 	/* Shared Radius Scale */
@@ -99,8 +105,11 @@
 	--pos-header-padding-x: 12px;
 	--pos-header-padding-y: 8px;
 	--pos-header-gap: 7px;
-	--pos-header-control-size: 38px;
-	--pos-header-control-size-compact: 36px;
+	--pos-header-control-size: 44px;
+	--pos-header-control-size-compact: 44px;
+	--pos-control-min-height: 44px;
+	--pos-touch-target: 44px;
+	--pos-focus-ring: 0 0 0 3px color-mix(in srgb, var(--pos-primary) 30%, transparent);
 	--pos-header-icon-size: 18px;
 	--pos-header-icon-size-compact: 17px;
 	--pos-header-brand-title-size: 16px;
@@ -150,6 +159,58 @@
 	color-scheme: light;
 }
 
+.posawesome-active :is(
+	.body-sidebar-container,
+	.body-sidebar,
+	.desk-sidebar,
+	.app-sidebar,
+	.layout-side-section,
+	.page-head,
+	.navbar.navbar-default.navbar-fixed-top,
+	.sidebar-overlay
+) {
+	display: none !important;
+}
+
+:root[data-pos-density="touch"] {
+	--pos-control-min-height: 48px;
+	--pos-touch-target: 48px;
+	--pos-control-height: 48px;
+	--pos-header-control-size: 48px;
+	--pos-header-control-size-compact: 48px;
+	--pos-control-gap: 8px;
+	--pos-row-gap: 10px;
+}
+
+:root[data-pos-density="compact"] {
+	--pos-control-min-height: 44px;
+	--pos-touch-target: 44px;
+	--pos-control-height: 44px;
+	--pos-workspace-padding: 6px;
+	--pos-pane-padding: 6px;
+	--pos-section-gap: 6px;
+}
+
+.posapp :where(button, [role="button"], a, input, select, textarea):focus-visible {
+	outline: 2px solid var(--pos-primary);
+	outline-offset: 2px;
+}
+
+.posapp :where(.v-btn, .v-field, .v-tab) {
+	min-block-size: var(--pos-control-min-height, 44px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.posapp *,
+	.posapp *::before,
+	.posapp *::after {
+		scroll-behavior: auto !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}
+
 /* Dark Theme Override */
 [data-theme="dark"],
 [data-theme-mode="dark"],
@@ -182,6 +243,11 @@
 	--pos-secondary-variant: #00b894;
 	--pos-secondary-container: #004433;
 	--pos-on-secondary: #000000;
+	--pos-action-active-bg: #063f49;
+	--pos-action-active-fg: #75e6f4;
+	--pos-action-hover-bg: #17343a;
+	--pos-action-pressed-bg: #20515a;
+	--pos-action-pressed-fg: #a5f3fc;
 
 	/* Accent Colors - Modern Orange */
 	--pos-accent: #ff6b35;
@@ -223,6 +289,7 @@
 	--pos-surface-raised: #242b33;
 	--pos-surface-muted: #1a2028;
 	--pos-tooltip-bg: #202833;
+	--pos-tooltip-fg: #ffffff;
 	--pos-tooltip-border: rgba(148, 163, 184, 0.2);
 	--pos-tooltip-shadow: rgba(0, 0, 0, 0.4);
 
@@ -258,6 +325,11 @@
 		--pos-secondary-variant: #00b894;
 		--pos-secondary-container: #004433;
 		--pos-on-secondary: #000000;
+		--pos-action-active-bg: #063f49;
+		--pos-action-active-fg: #75e6f4;
+		--pos-action-hover-bg: #17343a;
+		--pos-action-pressed-bg: #20515a;
+		--pos-action-pressed-fg: #a5f3fc;
 		--pos-accent: #ff6b35;
 		--pos-accent-variant: #e55a2b;
 		--pos-success: #4caf50;
@@ -287,6 +359,7 @@
 		--pos-surface-raised: #242b33;
 		--pos-surface-muted: #1a2028;
 		--pos-tooltip-bg: #202833;
+		--pos-tooltip-fg: #ffffff;
 		--pos-tooltip-border: rgba(148, 163, 184, 0.2);
 		--pos-tooltip-shadow: rgba(0, 0, 0, 0.4);
 		--pos-navbar-bg: #1e1e1e;
@@ -512,6 +585,81 @@ body[data-page-route="posapp"] .v-application__wrap {
 	outline-offset: 2px;
 }
 
+/* Stable interactive states. Vuetify normally paints a currentColor overlay
+ * above buttons/list items. On long press that overlay can become opaque and
+ * make an icon the same colour as its background, so states are painted on
+ * the control itself and content always stays above the state layer. */
+.posapp .v-ripple__container,
+.posapp .v-ripple__animation,
+html.posawesome-active .v-overlay-container .v-ripple__container,
+html.posawesome-active .v-overlay-container .v-ripple__animation {
+	display: none !important;
+	opacity: 0 !important;
+	animation: none !important;
+	transition: none !important;
+}
+
+.posapp .v-btn:not(.v-btn--disabled) > .v-btn__overlay,
+.posapp .v-btn:not(.v-btn--disabled) > .v-btn__underlay,
+.posapp .v-list-item:not(.v-list-item--disabled) > .v-list-item__overlay,
+.posapp .v-list-item:not(.v-list-item--disabled) > .v-list-item__underlay {
+	background: transparent !important;
+	opacity: 0 !important;
+}
+
+.posapp .v-btn:not(.v-btn--disabled) > .v-btn__content,
+.posapp .v-btn:not(.v-btn--disabled) > .v-btn__content .v-icon,
+.posapp .v-list-item:not(.v-list-item--disabled) .v-list-item__content,
+.posapp .v-list-item:not(.v-list-item--disabled) .v-list-item-title,
+.posapp .v-list-item:not(.v-list-item--disabled) .v-icon {
+	position: relative;
+	z-index: 1;
+	opacity: 1 !important;
+}
+
+.posapp .v-btn:not(.v-btn--disabled):is(:hover, :focus-visible, :active, [aria-pressed="true"], .v-btn--active) > .v-btn__content,
+.posapp .v-btn:not(.v-btn--disabled):is(:hover, :focus-visible, :active, [aria-pressed="true"], .v-btn--active) > .v-btn__content .v-icon,
+.posapp .v-list-item:not(.v-list-item--disabled):is(:hover, :focus-visible, :active, .v-list-item--active) :is(.v-list-item__content, .v-list-item-title, .v-icon) {
+	color: inherit !important;
+	-webkit-text-fill-color: currentColor !important;
+	opacity: 1 !important;
+}
+
+.posapp :is(.v-btn--variant-text, .v-btn--variant-outlined, .v-btn--variant-plain):hover:not(.v-btn--disabled),
+.posapp :is(.v-btn--variant-text, .v-btn--variant-outlined, .v-btn--variant-plain):focus-visible:not(.v-btn--disabled) {
+	background: color-mix(in srgb, currentColor 8%, var(--pos-surface-raised)) !important;
+}
+
+.posapp :is(.v-btn--variant-text, .v-btn--variant-outlined, .v-btn--variant-plain):active:not(.v-btn--disabled),
+.posapp :is(.v-btn--variant-text, .v-btn--variant-outlined, .v-btn--variant-plain)[aria-pressed="true"]:not(.v-btn--disabled) {
+	background: color-mix(in srgb, currentColor 14%, var(--pos-surface-raised)) !important;
+}
+
+.posapp :is(.v-btn--variant-flat, .v-btn--variant-elevated, .v-btn--variant-tonal):hover:not(.v-btn--disabled) {
+	filter: brightness(0.96);
+}
+
+.posapp :is(.v-btn--variant-flat, .v-btn--variant-elevated, .v-btn--variant-tonal):active:not(.v-btn--disabled) {
+	filter: brightness(0.91);
+}
+
+.posapp :is(.pos-header-control, .pos-themed-button):hover:not(:disabled),
+.posapp :is(.pos-header-control, .pos-themed-button):focus-visible:not(:disabled) {
+	background: var(--pos-action-hover-bg) !important;
+	color: var(--pos-action-active-fg) !important;
+}
+
+.posapp :is(.pos-header-control, .pos-themed-button):active:not(:disabled),
+.posapp :is(.pos-header-control, .pos-themed-button)[aria-pressed="true"]:not(:disabled),
+.posapp :is(.pos-header-control, .pos-themed-button).v-btn--active:not(.v-btn--disabled) {
+	background: var(--pos-action-pressed-bg) !important;
+	color: var(--pos-action-pressed-fg) !important;
+}
+
+.posapp :is(button, [role="button"], a, .v-btn, .v-list-item) {
+	touch-action: manipulation;
+}
+
 body[data-page-route="posapp"] .v-overlay__content>.v-card,
 body[data-page-route="posapp"] .v-overlay__content>.v-sheet,
 body[data-page-route="posapp"] .v-overlay__content .v-card {
@@ -549,8 +697,8 @@ body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip {
 	--v-theme-on-surface: 33, 33, 33;
 	--v-theme-on-surface-variant: 33, 33, 33;
 	background: var(--pos-tooltip-bg) !important;
-	color: var(--pos-text-primary) !important;
-	-webkit-text-fill-color: var(--pos-text-primary) !important;
+	color: var(--pos-tooltip-fg, #ffffff) !important;
+	-webkit-text-fill-color: var(--pos-tooltip-fg, #ffffff) !important;
 	border: 1px solid var(--pos-tooltip-border) !important;
 	border-radius: var(--pos-radius-sm) !important;
 	box-shadow: 0 14px 30px var(--pos-tooltip-shadow) !important;
@@ -572,8 +720,8 @@ body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip {
 body[data-page-route="posapp"] .v-overlay-container .v-tooltip>.v-overlay__content *,
 body[data-page-route="posapp"] .v-tooltip .v-overlay__content *,
 body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip * {
-	color: var(--pos-text-primary) !important;
-	-webkit-text-fill-color: var(--pos-text-primary) !important;
+	color: var(--pos-tooltip-fg, #ffffff) !important;
+	-webkit-text-fill-color: var(--pos-tooltip-fg, #ffffff) !important;
 	opacity: 1 !important;
 }
 
@@ -583,8 +731,8 @@ body[data-page-route="posapp"] .v-tooltip .v-overlay__content>span,
 body[data-page-route="posapp"] .v-tooltip .v-overlay__content>div,
 body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip>span,
 body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip>div {
-	color: var(--pos-text-primary) !important;
-	-webkit-text-fill-color: var(--pos-text-primary) !important;
+	color: var(--pos-tooltip-fg, #ffffff) !important;
+	-webkit-text-fill-color: var(--pos-tooltip-fg, #ffffff) !important;
 }
 
 body[data-page-route="posapp"] .v-overlay-container .v-tooltip>.v-overlay__content .text-medium-emphasis,
@@ -593,11 +741,56 @@ body[data-page-route="posapp"] .v-tooltip .v-overlay__content .text-medium-empha
 body[data-page-route="posapp"] .v-tooltip .v-overlay__content .text-caption,
 body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip .text-medium-emphasis,
 body[data-page-route="posapp"] .v-overlay__content.posa-theme-tooltip .text-caption {
-	color: var(--pos-text-secondary) !important;
+	color: var(--pos-tooltip-fg, #ffffff) !important;
+	-webkit-text-fill-color: var(--pos-tooltip-fg, #ffffff) !important;
 }
 
 body[data-page-route="posapp"] .v-overlay__scrim {
 	background: color-mix(in srgb, var(--pos-bg-primary) 72%, transparent) !important;
+}
+
+/* Vuetify teleports tooltips outside `.posapp`; the root class is the stable
+ * application boundary and guarantees explicit foreground/background contrast. */
+html.posawesome-active .v-tooltip > .v-overlay__content,
+html.posawesome-active .v-tooltip .v-overlay__content,
+html.posawesome-active .v-overlay__content.posa-theme-tooltip {
+	background: var(--pos-tooltip-bg, #17202a) !important;
+	color: var(--pos-tooltip-fg, #ffffff) !important;
+	-webkit-text-fill-color: var(--pos-tooltip-fg, #ffffff) !important;
+	border: 1px solid var(--pos-tooltip-border, rgba(255, 255, 255, 0.16)) !important;
+	opacity: 1 !important;
+}
+
+html.posawesome-active .v-tooltip > .v-overlay__content *,
+html.posawesome-active .v-tooltip .v-overlay__content *,
+html.posawesome-active .v-overlay__content.posa-theme-tooltip * {
+	color: var(--pos-tooltip-fg, #ffffff) !important;
+	-webkit-text-fill-color: var(--pos-tooltip-fg, #ffffff) !important;
+	opacity: 1 !important;
+}
+
+/* Menus are teleported outside `.posapp`; keep their hover/press contrast in
+ * the same state system used by in-app controls. */
+html.posawesome-active .v-overlay-container .v-list-item:not(.v-list-item--disabled) > :is(.v-list-item__overlay, .v-list-item__underlay) {
+	background: transparent !important;
+	opacity: 0 !important;
+}
+
+html.posawesome-active .v-overlay-container .v-list-item:not(.v-list-item--disabled):is(:hover, :focus-visible) {
+	background: var(--pos-action-hover-bg) !important;
+	color: var(--pos-action-active-fg) !important;
+}
+
+html.posawesome-active .v-overlay-container .v-list-item:not(.v-list-item--disabled):active,
+html.posawesome-active .v-overlay-container .v-list-item.v-list-item--active:not(.v-list-item--disabled) {
+	background: var(--pos-action-pressed-bg) !important;
+	color: var(--pos-action-pressed-fg) !important;
+}
+
+html.posawesome-active .v-overlay-container .v-list-item:not(.v-list-item--disabled):is(:hover, :focus-visible, :active, .v-list-item--active) :is(.v-list-item__content, .v-list-item-title, .v-list-item-subtitle, .v-icon) {
+	color: inherit !important;
+	-webkit-text-fill-color: currentColor !important;
+	opacity: 1 !important;
 }
 
 /* Optimized fast theme transitions - scoped to POSApp only */

@@ -1,5 +1,7 @@
 import { ref } from "vue";
 import { useToastStore } from "../../../stores/toastStore";
+import { useUIStore } from "../../../stores/uiStore";
+import { posDebug } from "../../../utils/debug";
 
 declare const frappe: any;
 declare const __: (_str: string, _args?: any[]) => string;
@@ -21,15 +23,12 @@ export interface ScaleBarcodeSettingsSnapshot {
 }
 
 export function useScaleBarcodeSettings() {
+	const uiStore = useUIStore();
 	const scaleBarcodeSettings = ref<any>(null);
 	const scaleBarcodeSettingsLoaded = ref(false);
 
 	const logDebug = (step: string, payload: any = {}) => {
-		try {
-			console.debug("[POS ScaleBarcodeSettings]", step, payload);
-		} catch {
-			console.log("[POS ScaleBarcodeSettings]", step);
-		}
+		posDebug("scale-barcode", step, payload);
 	};
 
 	const getScaleSettingsSnapshot = (): ScaleBarcodeSettingsSnapshot => {
@@ -186,7 +185,12 @@ export function useScaleBarcodeSettings() {
 		try {
 			const res: any = await frappe.call({
 				method: "posawesome.posawesome.api.items.parse_scale_barcode",
-				args: { barcode: "" },
+					args: {
+						barcode: "",
+						pos_profile: uiStore.posProfile?.name || null,
+						pos_opening_shift:
+							uiStore.posOpeningShift?.name || uiStore.posOpeningShift || null,
+					},
 			});
 			const settings = (res && res.message && res.message.settings) || (res && res.message) || null;
 			if (settings && typeof settings === "object") {
@@ -235,7 +239,10 @@ export function useScaleBarcodeSettings() {
 					item_code: item.item_code,
 					uom: item.uom,
 					weight_grams: normalizedGrams,
-					price: includePrice ? item.price : null,
+						price: includePrice ? item.price : null,
+						pos_profile: uiStore.posProfile?.name || null,
+						pos_opening_shift:
+							uiStore.posOpeningShift?.name || uiStore.posOpeningShift || null,
 				},
 			});
 			const generated = res && res.message ? res.message : null;

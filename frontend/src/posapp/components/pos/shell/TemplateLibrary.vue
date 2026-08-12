@@ -52,6 +52,7 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { useToastStore } from "../../../stores/toastStore";
+import { useUIStore } from "../../../stores/uiStore";
 
 declare const __: (_str: string, _args?: any[]) => string;
 declare const frappe: any;
@@ -63,6 +64,11 @@ const emit = defineEmits<{
 	(e: "update:modelValue", v: boolean): void;
 	(e: "load", template: any): void;
 }>();
+const uiStore = useUIStore();
+const posScopeArgs = () => ({
+	pos_profile: uiStore.posProfile?.name,
+	pos_opening_shift: uiStore.posOpeningShift?.name,
+});
 
 const visible = ref(props.modelValue);
 watch(() => props.modelValue, (v) => { visible.value = v; });
@@ -78,7 +84,7 @@ const fetchTemplates = async () => {
 	try {
 		const res = await frappe.call({
 			method: "posawesome.posawesome.api.label_templates.get_label_templates",
-			args: {},
+			args: posScopeArgs(),
 			silent: true,
 		});
 		templates.value = res.message || [];
@@ -97,7 +103,7 @@ const selectTemplate = async (tpl: any) => {
 	try {
 		const res = await frappe.call({
 			method: "posawesome.posawesome.api.label_templates.get_label_template_detail",
-			args: { name: tpl.name },
+			args: { name: tpl.name, ...posScopeArgs() },
 			silent: true,
 		});
 		if (res.message) {
@@ -114,7 +120,7 @@ const deleteTemplate = async (tpl: any) => {
 	try {
 		await frappe.call({
 			method: "posawesome.posawesome.api.label_templates.delete_label_template",
-			args: { name: tpl.name },
+			args: { name: tpl.name, ...posScopeArgs() },
 			silent: true,
 		});
 		templates.value = templates.value.filter((t) => t.name !== tpl.name);

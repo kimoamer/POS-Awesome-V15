@@ -56,7 +56,20 @@ class FakeDoc:
     def update(self, other=None, **kwargs):
         if other:
             if isinstance(other, dict):
-                self._data.update(other)
+                normalized = dict(other)
+                # Mirror Frappe Document.update(), which materializes child
+                # rows as document objects instead of leaving raw mappings.
+                for table_field in ("items", "payments"):
+                    if table_field in normalized:
+                        child_rows = []
+                        for child_index, row in enumerate(normalized[table_field] or [], start=1):
+                            child = row if isinstance(row, FakeDoc) else FakeDoc(**row)
+                            if table_field == "items":
+                                child.idx = child.get("idx") or child_index
+                                child.item_name = child.get("item_name") or child.get("item_code")
+                            child_rows.append(child)
+                        normalized[table_field] = child_rows
+                self._data.update(normalized)
             else:
                 self._data.update(getattr(other, "_data", {}))
         if kwargs:
@@ -174,6 +187,7 @@ def _install_dependency_stubs():
 
     payments_module = types.ModuleType("posawesome.posawesome.api.payments")
     payments_module.redeeming_customer_credit = lambda *_args, **_kwargs: None
+    payments_module.validate_customer_credit_claims = lambda *_args, **_kwargs: []
     sys.modules["posawesome.posawesome.api.payments"] = payments_module
 
 
@@ -194,21 +208,63 @@ def _install_package_stubs():
 
 def _load_module():
     module_name = "posawesome.posawesome.api.invoice_processing.creation"
+    # Each test class installs a fresh Frappe stub. Avoid retaining dependent
+    # modules bound to a previous class's stub when the combined suite runs.
+    sys.modules.pop("posawesome.posawesome.api.invoice_processing.returns", None)
+    sys.modules.pop("posawesome.posawesome.api.invoice_processing.pricing_authority", None)
+    sys.modules.pop("posawesome.posawesome.api.utils", None)
     file_path = REPO_ROOT / "posawesome" / "posawesome" / "api" / "invoice_processing" / "creation.py"
     spec = importlib.util.spec_from_file_location(module_name, file_path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
+    profile = AttrDict(
+        {
+            "name": "Main POS",
+            "company": "Test Company",
+            "currency": "USD",
+            "warehouse": None,
+            "create_pos_invoice_instead_of_sales_invoice": 0,
+            "posa_allow_multi_currency": 1,
+            "posa_allow_change_posting_date": 1,
+            "posa_allow_return": 1,
+            "posa_allow_returns": 1,
+            "posa_allow_return_without_invoice": 1,
+            "posa_allow_user_to_edit_additional_discount": 1,
+            "posa_allow_user_to_edit_item_discount": 1,
+            "posa_allow_line_item_name_override": 1,
+            "posa_use_gift_cards": 1,
+            "payments": [
+                AttrDict({"mode_of_payment": "Cash"}),
+                AttrDict({"mode_of_payment": "Card"}),
+                AttrDict({"mode_of_payment": "Gift Card"}),
+            ],
+        }
+    )
+    module.assert_pos_profile_access_allowed = lambda *_args, **_kwargs: profile
+    module.assert_doctype_permission = lambda *_args, **_kwargs: True
+    module.get_pos_request_context = lambda *_args, **_kwargs: types.SimpleNamespace(
+        profile_name=profile.name,
+        company=profile.company,
+        pos_profile=profile,
+        opening_shift=AttrDict({"name": "POS-OPEN-TEST"}),
+    )
     return module
 
 
 class TestCustomerCreditPrintFields(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         cls.frappe, cls.enqueue_calls = _install_framework_stubs()
         _install_dependency_stubs()
         _install_package_stubs()
         cls.creation = _load_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def setUp(self):
         self.frappe.get_meta = lambda _doctype: types.SimpleNamespace(
@@ -238,19 +294,24 @@ class TestCustomerCreditPrintFields(unittest.TestCase):
 class TestUpdateInvoiceReturnPayments(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.frappe, cls.enqueue_calls = _install_framework_stubs()
-        _install_dependency_stubs()
-        _install_package_stubs()
-        cls._original_modules = dict(sys.modules)
+        cls._orig_sys_modules = sys.modules.copy()
         cls.frappe, cls.enqueue_calls = _install_framework_stubs()
         _install_dependency_stubs()
         _install_package_stubs()
         sys.modules.pop("posawesome.posawesome.api.idempotency", None)
         cls.creation = _load_module()
 
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
+
     def setUp(self):
         self.enqueue_calls.clear()
         self.frappe._publish_realtime_calls.clear()
+        self.frappe.get_meta = lambda _doctype: types.SimpleNamespace(
+            get_field=lambda _fieldname: None,
+        )
 
     def test_return_invoice_derives_missing_base_amount_from_amount(self):
         invoice_doc = FakeDoc(
@@ -465,11 +526,17 @@ class TestUpdateInvoiceReturnPayments(unittest.TestCase):
 class TestStaleNamedInvoiceHandling(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         cls.frappe, cls.enqueue_calls = _install_framework_stubs()
         _install_dependency_stubs()
         _install_package_stubs()
         sys.modules.pop("posawesome.posawesome.api.idempotency", None)
         cls.creation = _load_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def setUp(self):
         self.enqueue_calls.clear()
@@ -519,6 +586,9 @@ class TestStaleNamedInvoiceHandling(unittest.TestCase):
         self.creation.frappe.db.exists = lambda doctype, name: name == "SINV-OLD"
         self.creation.frappe.get_doc = fake_get_doc
         self.creation.frappe.get_cached_value = lambda *args, **kwargs: 0
+        self.creation.frappe.db.exists = lambda doctype, name: (
+            doctype == "Customer" and name == "CUST-0001"
+        )
         self.creation._save_draft_with_latest_timestamp = lambda doc: doc
 
         result = self.creation.update_invoice(
@@ -759,11 +829,17 @@ class TestStaleNamedInvoiceHandling(unittest.TestCase):
 class TestPostSubmitPaymentProcessing(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         cls.frappe, cls.enqueue_calls = _install_framework_stubs()
         _install_dependency_stubs()
         _install_package_stubs()
         sys.modules.pop("posawesome.posawesome.api.idempotency", None)
         cls.creation = _load_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def setUp(self):
         self.enqueue_calls.clear()
@@ -997,6 +1073,7 @@ class TestPostSubmitPaymentProcessing(unittest.TestCase):
             pos_profile="Main POS",
             company="Test Company",
             customer="CUST-0001",
+            posting_date="2026-03-21",
             is_return=0,
             redeem_loyalty_points=0,
             loyalty_program=None,
@@ -1036,6 +1113,7 @@ class TestPostSubmitPaymentProcessing(unittest.TestCase):
             pos_profile="Main POS",
             company="Test Company",
             customer="CUST-0001",
+            posting_date="2026-03-21",
             is_return=0,
             redeem_loyalty_points=0,
             loyalty_program=None,
@@ -1075,15 +1153,30 @@ class TestPostSubmitPaymentProcessing(unittest.TestCase):
 class TestManualPostingDatePreservation(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         cls.frappe, cls.enqueue_calls = _install_framework_stubs()
         _install_dependency_stubs()
         _install_package_stubs()
         sys.modules.pop("posawesome.posawesome.api.idempotency", None)
         cls.creation = _load_module()
+        cls.original_prepare_invoice_pricing = cls.creation.prepare_invoice_pricing
+        cls.original_apply_authoritative_pricing = cls.creation.apply_authoritative_pricing
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def setUp(self):
         self.enqueue_calls.clear()
         self.frappe._publish_realtime_calls.clear()
+        self.frappe.get_meta = lambda _doctype: types.SimpleNamespace(
+            get_field=lambda _fieldname: None,
+        )
+        # Pricing authority has its own focused suite. These tests exercise
+        # posting-date, tax and return-payment behavior with minimal ERP stubs.
+        self.creation.prepare_invoice_pricing = lambda *_args, **_kwargs: None
+        self.creation.apply_authoritative_pricing = lambda *_args, **_kwargs: None
 
     def _install_loyalty_program_module(self, conversion_factor):
         module_name = "erpnext.accounts.doctype.loyalty_program.loyalty_program"
@@ -1278,6 +1371,9 @@ class TestManualPostingDatePreservation(unittest.TestCase):
 
         self.creation.frappe.get_doc = fake_get_doc
         self.creation.frappe.get_cached_value = lambda *args, **kwargs: 0
+        self.creation.frappe.db.exists = lambda doctype, name: (
+            doctype == "Customer" and name == "CUST-0001"
+        )
         self.creation._save_draft_with_latest_timestamp = lambda doc: doc
 
         self.creation.update_invoice(
@@ -1305,7 +1401,9 @@ class TestManualPostingDatePreservation(unittest.TestCase):
         )
         invoice_doc.submit = lambda: setattr(invoice_doc, "docstatus", 1)
 
-        self.creation.frappe.db.exists = lambda doctype, name: name == "ACC-SINV-0001"
+        self.creation.frappe.db.exists = lambda doctype, name: (
+            (doctype, name) in {("Sales Invoice", "ACC-SINV-0001"), ("Customer", "CUST-0001")}
+        )
         self.creation.frappe.db.get_value = lambda *args, **kwargs: 0
         self.creation.frappe.get_value = lambda *args, **kwargs: 0
         self.creation.frappe.get_doc = lambda *args: invoice_doc
@@ -1387,8 +1485,18 @@ class TestManualPostingDatePreservation(unittest.TestCase):
 
         FakeDoc.calculate_taxes_and_totals = calculate_taxes_and_totals
         invoice_doc.submit = submit
+        def apply_non_inclusive_tax_contract(doc):
+            if not doc.taxes:
+                doc.set("taxes", [dict(tax_row)])
+            for tax in doc.taxes:
+                tax["included_in_print_rate"] = 0
+            doc.calculate_taxes_and_totals()
 
-        self.creation.frappe.db.exists = lambda doctype, name: name == "ACC-SINV-VAT-0001"
+        self.creation.apply_pos_tax_inclusion_contract = apply_non_inclusive_tax_contract
+
+        self.creation.frappe.db.exists = lambda doctype, name: (
+            (doctype, name) in {("Sales Invoice", "ACC-SINV-VAT-0001"), ("Customer", "CUST-0001")}
+        )
         self.creation.frappe.db.get_value = lambda *args, **kwargs: 0
         self.creation.frappe.get_value = lambda *args, **kwargs: 0
         self.creation.frappe.get_cached_value = (
@@ -1437,7 +1545,9 @@ class TestManualPostingDatePreservation(unittest.TestCase):
         finally:
             FakeDoc.calculate_taxes_and_totals = original_calculate_taxes_and_totals
 
-        self.assertEqual(calculate_calls, [0])
+        # Existing drafts are normalized once during authoritative update and
+        # once immediately before submit, both with the same profile contract.
+        self.assertEqual(calculate_calls, [0, 0])
         self.assertEqual(result["status"], 1)
 
     def test_submit_invoice_normalizes_existing_return_draft_payments_before_save(self):
@@ -1468,7 +1578,12 @@ class TestManualPostingDatePreservation(unittest.TestCase):
 
         invoice_doc.submit = assert_submit_sees_negative_payments
 
-        self.creation.frappe.db.exists = lambda doctype, name: name == "ACC-SINV-RETURN-0001"
+        self.creation.frappe.db.exists = lambda doctype, name: (
+            (doctype, name) in {
+                ("Sales Invoice", "ACC-SINV-RETURN-0001"),
+                ("Customer", "CUST-0001"),
+            }
+        )
         self.creation.frappe.db.get_value = (
             lambda doctype, name, fieldname, *args, **kwargs: 90
             if fieldname == "paid_amount"
@@ -1515,18 +1630,30 @@ class TestManualPostingDatePreservation(unittest.TestCase):
 class TestInvoiceIdempotency(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         cls.frappe, cls.enqueue_calls = _install_framework_stubs()
         _install_dependency_stubs()
         _install_package_stubs()
         sys.modules.pop("posawesome.posawesome.api.idempotency", None)
         cls.creation = _load_module()
         cls.original_process_post_submit_payments = cls.creation._process_post_submit_payments
+        cls.original_update_invoice = cls.creation.update_invoice
+        cls.original_prepare_invoice_pricing = cls.creation.prepare_invoice_pricing
+        cls.original_apply_authoritative_pricing = cls.creation.apply_authoritative_pricing
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def setUp(self):
         self.enqueue_calls.clear()
         self.frappe._publish_realtime_calls.clear()
         self.creation.frappe.db.has_column = lambda doctype, fieldname: True
         self.creation._process_post_submit_payments = type(self).original_process_post_submit_payments
+        self.creation.update_invoice = type(self).original_update_invoice
+        self.creation.prepare_invoice_pricing = lambda *_args, **_kwargs: None
+        self.creation.apply_authoritative_pricing = lambda *_args, **_kwargs: None
 
     def test_submit_invoice_returns_existing_submitted_doc_for_same_client_request_id(self):
         existing_doc = FakeDoc(
@@ -1582,6 +1709,7 @@ class TestInvoiceIdempotency(unittest.TestCase):
             company="Test Company",
             currency="USD",
             customer="CUST-0001",
+            posting_date="2026-03-21",
             is_return=0,
             items=[],
             payments=[],
@@ -1590,6 +1718,11 @@ class TestInvoiceIdempotency(unittest.TestCase):
             redeem_loyalty_points=0,
             loyalty_program=None,
             cost_center=None,
+            total=0,
+            net_total=0,
+            discount_amount=0,
+            paid_amount=0,
+            base_paid_amount=0,
             write_off_amount=0,
             rounded_total=0,
             grand_total=0,
@@ -1599,7 +1732,9 @@ class TestInvoiceIdempotency(unittest.TestCase):
 
         self.creation.frappe.db.has_column = lambda doctype, fieldname: False
         self.creation.frappe.db.get_value = lambda *args, **kwargs: 0
-        self.creation.frappe.db.exists = lambda doctype, name: name == "ACC-SINV-NEW-0001"
+        self.creation.frappe.db.exists = lambda doctype, name: (
+            (doctype, name) in {("Sales Invoice", "ACC-SINV-NEW-0001"), ("Customer", "CUST-0001")}
+        )
         self.creation.frappe.get_value = lambda *args, **kwargs: 0
         self.creation.frappe.get_doc = lambda *args: invoice_doc
         self.creation._save_draft_with_latest_timestamp = lambda doc: doc
@@ -1636,6 +1771,7 @@ class TestInvoiceIdempotency(unittest.TestCase):
             company="Test Company",
             currency="USD",
             customer="CUST-0001",
+            posting_date="2026-03-21",
             is_return=0,
             items=[],
             payments=[],
@@ -1644,6 +1780,11 @@ class TestInvoiceIdempotency(unittest.TestCase):
             redeem_loyalty_points=0,
             loyalty_program=None,
             cost_center=None,
+            total=0,
+            net_total=0,
+            discount_amount=0,
+            paid_amount=0,
+            base_paid_amount=0,
             write_off_amount=0,
             rounded_total=0,
             grand_total=0,
@@ -1659,7 +1800,9 @@ class TestInvoiceIdempotency(unittest.TestCase):
 
         self.creation.frappe.db.has_column = lambda doctype, fieldname: False
         self.creation.frappe.db.get_value = explode_if_lookup_runs
-        self.creation.frappe.db.exists = lambda doctype, name: name == "ACC-SINV-NEW-0002"
+        self.creation.frappe.db.exists = lambda doctype, name: (
+            (doctype, name) in {("Sales Invoice", "ACC-SINV-NEW-0002"), ("Customer", "CUST-0001")}
+        )
         self.creation.frappe.get_value = lambda *args, **kwargs: 0
         self.creation.frappe.get_doc = lambda *args: invoice_doc
         self.creation._save_draft_with_latest_timestamp = lambda doc: doc

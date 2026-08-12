@@ -276,9 +276,9 @@ import {
 } from "../../../services/documentPrint";
 
 import { useRtl } from "../../../composables/core/useRtl";
-import { useCustomersStore } from "../../../stores/customersStore.js";
-import { useUIStore } from "../../../stores/uiStore.js";
-import { useToastStore } from "../../../stores/toastStore.js";
+import { useCustomersStore } from "../../../stores/customersStore";
+import { useUIStore } from "../../../stores/uiStore";
+import { useToastStore } from "../../../stores/toastStore";
 import { getValidCachedOpeningForCurrentUser } from "../../../utils/openingCache";
 
 // Composables
@@ -428,6 +428,7 @@ export default {
 			customerName: customer_name,
 			partyType,
 			paymentType: paymentEntryType,
+			posOpeningShift: pos_opening_shift,
 			toastStore,
 			eventBus: proxy?.eventBus,
 			currencySymbol,
@@ -481,7 +482,7 @@ export default {
 						return;
 					} catch (error) {
 						console.warn("QZ Tray print failed", error);
-						if (confirmDocumentPrintFallback(error, { raw: useRawPrint })) {
+						if (await confirmDocumentPrintFallback(error, { raw: useRawPrint })) {
 							silentPrint(url, printOptions);
 						}
 						return;
@@ -489,7 +490,7 @@ export default {
 				}
 				if (useRawPrint) {
 					const offlineError = new Error("Raw printing is not available while the POS is offline.");
-					if (confirmDocumentPrintFallback(offlineError, { raw: true, offline: true })) {
+					if (await confirmDocumentPrintFallback(offlineError, { raw: true, offline: true })) {
 						silentPrint(url, printOptions);
 					}
 					return;
@@ -797,7 +798,13 @@ export default {
 			try {
 				const r = await frappe.call({
 					method: "posawesome.posawesome.api.payment_processing.utils.get_mode_of_payment_accounts",
-					args: { company: company.value, mode_of_payments: modes },
+						args: {
+							company: company.value,
+							mode_of_payments: modes,
+							pos_profile: pos_profile.value?.name || null,
+							pos_opening_shift:
+								pos_opening_shift.value?.name || pos_opening_shift.value || null,
+						},
 				});
 				const accountData = r.message || {};
 				payment_method_accounts.value = accountData;
@@ -818,7 +825,13 @@ export default {
 			try {
 				const r = await frappe.call({
 					method: "posawesome.posawesome.api.payment_processing.utils.get_available_accounts_for_mop",
-					args: { company: company.value, mode_of_payment: mode },
+						args: {
+							company: company.value,
+							mode_of_payment: mode,
+							pos_profile: pos_profile.value?.name || null,
+							pos_opening_shift:
+								pos_opening_shift.value?.name || pos_opening_shift.value || null,
+						},
 				});
 				const accounts = r.message || [];
 				available_bank_accounts.value = {
@@ -840,8 +853,11 @@ export default {
 					method: "posawesome.posawesome.api.payment_processing.utils.get_party_account_info",
 					args: {
 						party_type: partyType.value || "Customer",
-						party: customer_name.value,
-						company: company.value,
+							party: customer_name.value,
+							company: company.value,
+							pos_profile: pos_profile.value?.name || null,
+							pos_opening_shift:
+								pos_opening_shift.value?.name || pos_opening_shift.value || null,
 					},
 				});
 				partyAccount.value = r.message || null;
@@ -963,8 +979,11 @@ export default {
 				const r = await frappe.call({
 					method: "posawesome.posawesome.api.purchase_orders.search_suppliers",
 					args: {
-						search_text: searchText || "",
-						limit: 20,
+							search_text: searchText || "",
+							limit: 20,
+							pos_profile: pos_profile.value?.name || null,
+							pos_opening_shift:
+								pos_opening_shift.value?.name || pos_opening_shift.value || null,
 					},
 				});
 				supplierOptions.value = Array.isArray(r.message) ? r.message : [];

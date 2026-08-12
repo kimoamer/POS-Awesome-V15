@@ -44,6 +44,7 @@ import {
 } from "../../../../offline/index";
 import format from "../../../format";
 import { bus } from "../../../bus";
+import { posDebug } from "../../../utils/debug";
 
 // @ts-ignore
 const __ = window.__ || ((s) => s);
@@ -504,7 +505,7 @@ export function useInvoiceItems(invoiceType: Ref<string>) {
 				);
 			}
 		} catch (error) {
-			console.error("Failed to fetch delivery charges", error);
+			posDebug("delivery", "Live delivery charges unavailable; using cache", error);
 			const cachedCharges = getCachedDeliveryCharges(
 				pos_profile.value.name,
 				customer,

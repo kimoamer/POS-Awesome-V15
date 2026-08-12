@@ -37,6 +37,7 @@
 
 		<div v-if="expanded" class="gift-card-entry__editor">
 			<div class="gift-card-entry__editor-fields">
+				<label class="gift-card-entry__field-label">{{ __("Gift Card Code") }}</label>
 				<v-text-field
 					data-test="gift-card-code-input"
 					:model-value="cardCode"

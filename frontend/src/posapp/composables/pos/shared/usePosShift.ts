@@ -1,7 +1,8 @@
 import { ref, getCurrentInstance, inject } from "vue";
-import { useToastStore } from "../../../stores/toastStore.js";
-import { useUIStore } from "../../../stores/uiStore.js";
+import { useToastStore } from "../../../stores/toastStore";
+import { useUIStore } from "../../../stores/uiStore";
 import { useInvoiceStore } from "../../../stores/invoiceStore";
+import { useDialogStore } from "../../../stores/dialogStore";
 import {
 	initPromise,
 	checkDbHealth,
@@ -15,6 +16,7 @@ import {
 } from "../../../../offline/index";
 import { getValidCachedOpeningForCurrentUser } from "../../../utils/openingCache";
 import { createBootstrapSnapshotFromRegisterData } from "../../../../offline/bootstrapSnapshot";
+import { posDebug } from "../../../utils/debug";
 
 declare const __BUILD_VERSION__: string;
 declare const frappe: any;
@@ -85,6 +87,7 @@ export function usePosShift(openDialog?: () => void) {
 		typeof __BUILD_VERSION__ !== "undefined" ? __BUILD_VERSION__ : null;
 	const toastStore = useToastStore();
 	const uiStore = useUIStore();
+	const dialogStore = useDialogStore();
 
 	const pos_profile = ref<any>(null);
 	const pos_opening_shift = ref<any>(null);
@@ -120,7 +123,7 @@ export function usePosShift(openDialog?: () => void) {
 		);
 		if (cachedOpening) {
 			applyRegisterData(cachedOpening);
-			console.info("LoadPosProfile (bootstrapped from cache)");
+			posDebug("shift", "POS Profile bootstrapped from cache");
 		}
 		return frappe
 			.call("posawesome.posawesome.api.shifts.check_opening_shift", {
@@ -146,14 +149,14 @@ export function usePosShift(openDialog?: () => void) {
 							},
 						});
 					}
-					console.info("LoadPosProfile");
+					posDebug("shift", "POS Profile loaded");
 					try {
 						setOpeningStorage(r.message);
 					} catch (e) {
 						console.error("Failed to cache opening data", e);
 					}
 				} else {
-					console.info("No opening shift found, opening dialog");
+					posDebug("shift", "No opening shift found; opening dialog");
 					clearOpeningStorage();
 					openDialog && openDialog();
 				}
@@ -167,7 +170,7 @@ export function usePosShift(openDialog?: () => void) {
 					);
 				if (data) {
 					applyRegisterData(data);
-					console.info("LoadPosProfile (cached)");
+					posDebug("shift", "POS Profile loaded from cached opening");
 					return;
 				}
 				if (!isOffline()) {
@@ -193,7 +196,7 @@ export function usePosShift(openDialog?: () => void) {
 				"posawesome.posawesome.doctype.pos_closing_shift.pos_closing_shift.make_closing_shift_from_opening",
 				{ opening_shift: resolvedShift },
 			)
-			.then((r: any) => {
+			.then(async (r: any) => {
 				if (r.message) {
 					const response = normalizeClosingShiftPreparationResponse(r.message);
 					const closingShift = response.closing_shift;
@@ -205,9 +208,14 @@ export function usePosShift(openDialog?: () => void) {
 					}
 
 					if (skippedPrintedInvoices.length) {
-						const confirmed = window.confirm(
-							buildSkippedClosingInvoicesPrompt(skippedPrintedInvoices),
-						);
+						const confirmed = await dialogStore.confirm({
+							title: translateMessage("Some invoices will be excluded"),
+							message: buildSkippedClosingInvoicesPrompt(skippedPrintedInvoices),
+							confirmLabel: translateMessage("Continue closing"),
+							cancelLabel: translateMessage("Review invoices"),
+							color: "warning",
+							persistent: true,
+						});
 						if (!confirmed) {
 							return;
 						}
@@ -219,7 +227,7 @@ export function usePosShift(openDialog?: () => void) {
 	}
 
 	function submit_closing_pos(data: any) {
-		console.log("Submitting closing shift", data);
+		posDebug("shift", "Submitting closing shift", data);
 		frappe
 			.call(
 				"posawesome.posawesome.doctype.pos_closing_shift.pos_closing_shift.submit_closing_shift",
@@ -228,7 +236,7 @@ export function usePosShift(openDialog?: () => void) {
 				},
 			)
 			.then((r: any) => {
-				console.log("Submit result", r);
+				posDebug("shift", "Closing shift submitted", r);
 				if (r.message) {
 					pos_profile.value = null;
 					pos_opening_shift.value = null;

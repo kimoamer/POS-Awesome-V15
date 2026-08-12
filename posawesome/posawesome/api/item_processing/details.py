@@ -2,20 +2,77 @@ import frappe
 from frappe.utils import nowdate
 from posawesome.posawesome.api.item_fetchers import ItemDetailAggregator, get_batches
 from posawesome.posawesome.api.item_processing.stock import get_stock_availability
-from posawesome.posawesome.api.utils import _ensure_pos_profile, log_perf_event
+from posawesome.posawesome.api.utils import (
+    expand_item_groups,
+    get_pos_request_context,
+    log_perf_event,
+)
+from posawesome.posawesome.api.invoice_processing.utils import _resolve_effective_price_list
 from frappe import _, as_json
 import json
 import time
 
 
+def _item_context(pos_profile, company=None, pos_opening_shift=None):
+    return get_pos_request_context(
+        pos_profile,
+        company=company,
+        doctype="Item",
+        permission_type="read",
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
+
+
+def _allowed_item_groups(profile):
+    configured = [
+        row.get("item_group")
+        for row in (profile.get("item_groups") or [])
+        if row.get("item_group")
+    ]
+    return set(expand_item_groups(configured)) if configured else set()
+
+
+def _validate_item_codes(profile, item_codes):
+    item_codes = list(dict.fromkeys(str(code).strip() for code in item_codes if str(code).strip()))
+    if len(item_codes) > 500:
+        frappe.throw(_("A maximum of 500 items can be requested."))
+    rows = frappe.get_list(
+        "Item",
+        filters={"name": ["in", item_codes], "disabled": 0},
+        fields=["name", "item_group"],
+        limit_page_length=len(item_codes),
+    ) if item_codes else []
+    row_map = {row.get("name"): row for row in rows}
+    allowed_groups = _allowed_item_groups(profile)
+    invalid = [
+        code
+        for code in item_codes
+        if code not in row_map
+        or (allowed_groups and row_map[code].get("item_group") not in allowed_groups)
+    ]
+    if invalid:
+        frappe.throw(_("One or more items are outside this POS Profile."), frappe.PermissionError)
+    return item_codes
+
+
 @frappe.whitelist()
-def get_items_details(pos_profile, items_data, price_list=None, customer=None):
+def get_items_details(
+    pos_profile,
+    items_data,
+    price_list=None,
+    customer=None,
+    pos_opening_shift=None,
+):
     """Bulk fetch item details for a list of items."""
 
     started_at = time.perf_counter()
 
-    pos_profile, _ = _ensure_pos_profile(pos_profile)
+    context = _item_context(pos_profile, pos_opening_shift=pos_opening_shift)
+    pos_profile = context.pos_profile
     items_data = json.loads(items_data)
+    if not isinstance(items_data, list):
+        frappe.throw(_("Items data must be a JSON array."))
 
     if not items_data:
         log_perf_event(
@@ -26,6 +83,16 @@ def get_items_details(pos_profile, items_data, price_list=None, customer=None):
             cache_enabled=int(bool(pos_profile.get("posa_use_server_cache"))),
         )
         return []
+
+    _validate_item_codes(
+        pos_profile,
+        [row.get("item_code") for row in items_data if isinstance(row, dict)],
+    )
+    price_list = _resolve_effective_price_list(
+        customer,
+        context.profile_name,
+        price_list,
+    )
 
     aggregator = ItemDetailAggregator(pos_profile, price_list=price_list, customer=customer)
     result = aggregator.build_details(items_data)
@@ -41,7 +108,15 @@ def get_items_details(pos_profile, items_data, price_list=None, customer=None):
 
 
 @frappe.whitelist()
-def get_item_detail(item, doc=None, warehouse=None, price_list=None, company=None):
+def get_item_detail(
+    item,
+    doc=None,
+    warehouse=None,
+    price_list=None,
+    company=None,
+    pos_profile=None,
+    pos_opening_shift=None,
+):
     from erpnext.stock.get_item_details import get_item_details
 
     def normalize_mapping(value):
@@ -53,9 +128,24 @@ def get_item_detail(item, doc=None, warehouse=None, price_list=None, company=Non
 
     item = normalize_mapping(item)
     doc = normalize_mapping(doc) if doc is not None else doc
+    context = _item_context(
+        pos_profile or item.get("pos_profile"),
+        company=company,
+        pos_opening_shift=pos_opening_shift,
+    )
+    company = context.company
+    if warehouse and warehouse != context.warehouse:
+        frappe.throw(_("Warehouse is outside this POS Profile."), frappe.PermissionError)
+    warehouse = context.warehouse
+    price_list = _resolve_effective_price_list(
+        item.get("customer"),
+        context.profile_name,
+        price_list,
+    )
 
     today = nowdate()
     item_code = item.get("item_code")
+    _validate_item_codes(context.pos_profile, [item_code])
     batch_no_data = []
     non_expired_batch_qty = 0
     serial_no_data = []
@@ -93,9 +183,9 @@ def get_item_detail(item, doc=None, warehouse=None, price_list=None, company=Non
 
     # Determine if multi-currency is enabled on the POS Profile
     allow_multi_currency = False
-    if item.get("pos_profile"):
+    if context.profile_name:
         allow_multi_currency = (
-            frappe.db.get_value("POS Profile", item.get("pos_profile"), "posa_allow_multi_currency") or 0
+            context.pos_profile.get("posa_allow_multi_currency") or 0
         )
 
     # Ensure conversion rate exists when price list currency differs from
@@ -192,9 +282,18 @@ def get_item_detail(item, doc=None, warehouse=None, price_list=None, company=Non
 
 
 @frappe.whitelist()
-def get_item_variants(pos_profile, parent_item_code, price_list=None, customer=None):
+def get_item_variants(
+    pos_profile,
+    parent_item_code,
+    price_list=None,
+    customer=None,
+    pos_opening_shift=None,
+):
     """Return variants of an item along with attribute metadata."""
-    pos_profile, pos_profile_json = _ensure_pos_profile(pos_profile)
+    context = _item_context(pos_profile, pos_opening_shift=pos_opening_shift)
+    pos_profile = context.pos_profile
+    pos_profile_json = as_json({"name": context.profile_name})
+    _validate_item_codes(pos_profile, [parent_item_code])
     price_list = price_list or pos_profile.get("selling_price_list")
 
     fields = [
@@ -279,8 +378,10 @@ def get_item_optional_attributes(item_code):
 
 
 @frappe.whitelist()
-def get_item_attributes(item_code):
+def get_item_attributes(item_code, pos_profile=None, pos_opening_shift=None):
     """Get item attributes."""
+    context = _item_context(pos_profile, pos_opening_shift=pos_opening_shift)
+    _validate_item_codes(context.pos_profile, [item_code])
     return frappe.get_all(
         "Item Attribute",
         fields=["name", "attribute_name"],

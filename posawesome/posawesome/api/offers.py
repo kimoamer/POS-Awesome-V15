@@ -10,19 +10,34 @@ from posawesome.posawesome.doctype.pos_coupon.pos_coupon import check_coupon_cod
 from posawesome.posawesome.doctype.delivery_charges.delivery_charges import (
     get_applicable_delivery_charges as _get_applicable_delivery_charges,
 )
+from posawesome.posawesome.api.utils import (
+    assert_doctype_permission,
+    assert_document_permission,
+    get_pos_request_context,
+)
 
 
 @frappe.whitelist()
-def get_pos_coupon(coupon, customer, company):
+def get_pos_coupon(coupon, customer, company, pos_profile):
+    context = get_pos_request_context(pos_profile, company=company)
+    assert_doctype_permission("POS Coupon", "read")
+    assert_doctype_permission("Customer", "read")
+    assert_document_permission(frappe.get_doc("Customer", customer), "read")
+    company = context.company
     res = check_coupon_code(coupon, customer, company)
     return res
 
 
 @frappe.whitelist()
-def get_active_gift_coupons(customer, company):
+def get_active_gift_coupons(customer, company, pos_profile):
+    context = get_pos_request_context(pos_profile, company=company)
+    assert_doctype_permission("POS Coupon", "read")
+    assert_doctype_permission("Customer", "read")
+    assert_document_permission(frappe.get_doc("Customer", customer), "read")
+    company = context.company
     coupons = []
     today = getdate(nowdate())
-    coupons_data = frappe.get_all(
+    coupons_data = frappe.get_list(
         "POS Coupon",
         filters={
             "company": company,
@@ -51,7 +66,9 @@ def _is_coupon_active(coupon_data, today):
 
 @frappe.whitelist()
 def get_offers(profile):
-    pos_profile = frappe.get_doc("POS Profile", profile)
+    context = get_pos_request_context(profile)
+    assert_doctype_permission("POS Offer", "read")
+    pos_profile = context.pos_profile
     company = pos_profile.company
     warehouse = pos_profile.warehouse
     date = nowdate()
@@ -104,13 +121,22 @@ def get_offers(profile):
 
 @frappe.whitelist()
 def get_applicable_delivery_charges(company, pos_profile, customer, shipping_address_name=None):
-    return _get_applicable_delivery_charges(company, pos_profile, customer, shipping_address_name)
+    context = get_pos_request_context(pos_profile, company=company)
+    assert_doctype_permission("Customer", "read")
+    assert_document_permission(frappe.get_doc("Customer", customer), "read")
+    return _get_applicable_delivery_charges(
+        context.company,
+        context.profile_name,
+        customer,
+        shipping_address_name,
+    )
 
 
 def _get_promotional_scheme_offers(pos_profile):
     if not frappe.db.table_exists("Promotional Scheme"):
         return []
 
+    assert_doctype_permission("Promotional Scheme", "read")
     date = nowdate()
     values = {"company": pos_profile.company, "date": date}
 
@@ -137,6 +163,7 @@ def _get_promotional_scheme_offers(pos_profile):
     for row in promotional_schemes:
         try:
             scheme = frappe.get_doc("Promotional Scheme", row.name)
+            assert_document_permission(scheme, "read")
         except Exception:
             frappe.log_error(
                 frappe.get_traceback(),

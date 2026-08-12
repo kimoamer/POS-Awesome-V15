@@ -1,7 +1,8 @@
 import { isOffline } from "../../../../offline/index";
-import { toSelectedCurrency } from "../../../utils/currencyConversion.js";
+import { toSelectedCurrency } from "../../../utils/currencyConversion";
 import { getPlcConversionRate } from "../../../utils/erpnextCurrency";
-import { useToastStore } from "../../../stores/toastStore.js";
+import { useToastStore } from "../../../stores/toastStore";
+import { posDebug } from "../../../utils/debug";
 
 export function useStockUtils() {
 	const toastStore = useToastStore();
@@ -165,8 +166,9 @@ export function useStockUtils() {
 					method: "posawesome.posawesome.api.items.get_price_for_uom",
 					args: {
 						item_code: item.item_code,
-						price_list: priceList,
-						uom: new_uom.uom,
+							price_list: priceList,
+							uom: new_uom.uom,
+							pos_profile: context.pos_profile?.name || null,
 					},
 				});
 				if (r.message) {
@@ -181,7 +183,7 @@ export function useStockUtils() {
 			}
 		}
 
-		console.log("[useStockUtils] calcUom progress", {
+		posDebug("stock", "calcUom progress", {
 			item: item.item_code,
 			requestedUom: value,
 			foundUom: new_uom?.uom,
@@ -277,7 +279,7 @@ export function useStockUtils() {
 			refreshInvoiceTotals(context);
 			if (context.forceUpdate) context.forceUpdate();
 
-			console.log("[useStockUtils] calcUom DONE (specific price)", {
+			posDebug("stock", "calcUom completed with specific price", {
 				item: item.item_code,
 				rate: item.rate,
 				price_list_rate: item.price_list_rate,

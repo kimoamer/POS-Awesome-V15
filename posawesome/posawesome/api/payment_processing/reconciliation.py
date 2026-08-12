@@ -8,11 +8,17 @@ from posawesome.posawesome.api.payment_processing.data import (
     get_outstanding_invoices,
     get_unallocated_payments,
 )
+from posawesome.posawesome.api.utils import assert_doctype_permission, get_pos_request_context
 
 
 @frappe.whitelist()
 def auto_reconcile_customer_invoices(
-    customer, company, currency=None, pos_profile=None, party_type="Customer"
+    customer,
+    company,
+    currency=None,
+    pos_profile=None,
+    party_type="Customer",
+    opening_shift=None,
 ):
     """Automatically reconcile all unallocated payments against outstanding invoices for a customer.
 
@@ -26,13 +32,27 @@ def auto_reconcile_customer_invoices(
         frappe.throw(_("Customer is required"))
     if not company:
         frappe.throw(_("Company is required"))
+    context = get_pos_request_context(
+        pos_profile,
+        company=company,
+        action_flag="posa_allow_reconcile_payments",
+        doctype="Payment Entry",
+        permission_type="write",
+        require_open_shift=True,
+        opening_shift=opening_shift,
+    )
+    assert_doctype_permission(
+        "Purchase Invoice" if party_type == "Supplier" else "Sales Invoice",
+        "read",
+    )
+    company = context.company
 
     outstanding_invoices = get_outstanding_invoices(
         customer=customer,
         company=company,
         currency=currency,
-        pos_profile=pos_profile,
         party_type=party_type,
+        pos_profile=context.profile_name,
     )
 
     unallocated_payments = get_unallocated_payments(
@@ -40,6 +60,7 @@ def auto_reconcile_customer_invoices(
         company=company,
         currency=currency,
         party_type=party_type,
+        pos_profile=context.profile_name,
     )
 
     if not outstanding_invoices:

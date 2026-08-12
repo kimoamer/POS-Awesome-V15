@@ -58,18 +58,16 @@
 import { refreshBootstrapSnapshotFromCaches } from "./bootstrapSnapshot";
 import { memory, persist, db, checkDbHealth } from "./db";
 import { emitBootstrapSnapshotUpdated } from "../posapp/utils/bootstrapRuntimeEvents";
+import { posDebug } from "../utils/debug";
+import { buildOfflineTenantScope, LEGACY_UNSCOPED_ITEM_SCOPE } from "./scope";
 
 const normalizeScope = (scope: unknown): string => String(scope || "");
 const hasScope = (scope: unknown): boolean => normalizeScope(scope).length > 0;
-const isMatchingScope = (row: any, scope: unknown): boolean =>
-	normalizeScope(row?.profile_scope) === normalizeScope(scope);
+const resolveItemWriteScope = (scope: unknown) =>
+	hasScope(scope) ? normalizeScope(scope) : LEGACY_UNSCOPED_ITEM_SCOPE;
 
-const filterByScope = (collection: any, scope: unknown) => {
-	if (!hasScope(scope)) {
-		return collection;
-	}
-	return collection.filter((it: any) => isMatchingScope(it, scope));
-};
+const scopedItemsCollection = (scope: unknown) =>
+	db.table("items").where("profile_scope").equals(normalizeScope(scope));
 
 type ItemBarcodeEntry = {
 	barcode?: string | null;
@@ -107,9 +105,7 @@ const normalizeSearchValue = (value: unknown): string =>
 const uniqueStrings = (values: unknown[]): string[] =>
 	Array.from(
 		new Set(
-			values
-				.map((value) => String(value || "").trim())
-				.filter(Boolean),
+			values.map((value) => String(value || "").trim()).filter(Boolean),
 		),
 	);
 
@@ -186,7 +182,9 @@ const deriveItemSearchFields = (item: SearchableItem | null | undefined) => {
 	const itemCodeLc = normalizeSearchValue(safeItem.item_code);
 	const itemNameLc = normalizeSearchValue(safeItem.item_name);
 	const barcodesLc = barcodes.map(normalizeSearchValue).filter(Boolean);
-	const nameKeywordsLc = nameKeywords.map(normalizeSearchValue).filter(Boolean);
+	const nameKeywordsLc = nameKeywords
+		.map(normalizeSearchValue)
+		.filter(Boolean);
 
 	return {
 		...safeItem,
@@ -198,12 +196,7 @@ const deriveItemSearchFields = (item: SearchableItem | null | undefined) => {
 		name_keywords_lc: nameKeywordsLc,
 		serials: getSerials(),
 		batches: getBatches(),
-		search_text: [
-			itemCodeLc,
-			itemNameLc,
-			...barcodesLc,
-			...nameKeywordsLc,
-		]
+		search_text: [itemCodeLc, itemNameLc, ...barcodesLc, ...nameKeywordsLc]
 			.filter(Boolean)
 			.join(" "),
 	};
@@ -302,7 +295,9 @@ const normalizeCacheKeyPart = (value: unknown): string =>
 		.toLowerCase();
 
 const buildScopedCacheKey = (...parts: unknown[]): string =>
-	parts.map((part) => normalizeCacheKeyPart(part)).join("::");
+	[buildOfflineTenantScope(), ...parts]
+		.map((part) => normalizeCacheKeyPart(part))
+		.join("::");
 
 const isFreshCacheEntry = (entry: any, ttlMs = DEFAULT_CACHE_TTL_MS) => {
 	if (!entry || typeof entry !== "object") {
@@ -350,7 +345,7 @@ type ExchangeRateCacheEntry = {
  */
 export async function getStoredItems() {
 	try {
-		await checkDbHealth();
+		if (!(await checkDbHealth())) return [];
 		if (!db.isOpen()) await db.open();
 		return await db.table("items").toArray();
 	} catch (e) {
@@ -367,17 +362,30 @@ export async function searchStoredItems({
 	scope = "",
 } = {}) {
 	try {
-		await checkDbHealth();
+		if (!(await checkDbHealth())) return [];
 		if (!db.isOpen()) await db.open();
 		const normalizedGroup =
 			typeof itemGroup === "string" ? itemGroup.trim() : "";
-		let collection = db.table("items");
-		if (normalizedGroup && normalizedGroup.toLowerCase() !== "all") {
-			collection = collection
+		let collection: any;
+		if (
+			hasScope(scope) &&
+			normalizedGroup &&
+			normalizedGroup.toLowerCase() !== "all"
+		) {
+			collection = db
+				.table("items")
+				.where("[profile_scope+item_group]")
+				.equals([normalizeScope(scope), normalizedGroup]);
+		} else if (normalizedGroup && normalizedGroup.toLowerCase() !== "all") {
+			collection = db
+				.table("items")
 				.where("item_group")
 				.equalsIgnoreCase(normalizedGroup);
+		} else if (hasScope(scope)) {
+			collection = scopedItemsCollection(scope);
+		} else {
+			collection = db.table("items").toCollection();
 		}
-		collection = filterByScope(collection, scope);
 		const normalizedSearch =
 			typeof search === "string" ? search.trim() : "";
 		if (normalizedSearch) {
@@ -412,7 +420,7 @@ export async function searchStoredItems({
 
 export async function getStoredItemsCount() {
 	try {
-		await checkDbHealth();
+		if (!(await checkDbHealth())) return 0;
 		if (!db.isOpen()) await db.open();
 		return await db.table("items").count();
 	} catch (e) {
@@ -423,12 +431,12 @@ export async function getStoredItemsCount() {
 
 export async function getStoredItemsCountByScope(scope = "") {
 	try {
-		await checkDbHealth();
+		if (!(await checkDbHealth())) return 0;
 		if (!db.isOpen()) await db.open();
 		if (!hasScope(scope)) {
 			return await db.table("items").count();
 		}
-		return await filterByScope(db.table("items"), scope).count();
+		return await scopedItemsCollection(scope).count();
 	} catch (e) {
 		console.error("Failed to count scoped stored items", e);
 		return 0;
@@ -443,9 +451,9 @@ export async function getAllStoredItems(scope = "") {
 		return await getStoredItems();
 	}
 	try {
-		await checkDbHealth();
+		if (!(await checkDbHealth())) return [];
 		if (!db.isOpen()) await db.open();
-		return await filterByScope(db.table("items"), scope).toArray();
+		return await scopedItemsCollection(scope).toArray();
 	} catch (e) {
 		console.error("Failed to read scoped stored items", e);
 		return [];
@@ -458,7 +466,7 @@ export async function saveItemsBulk(items, scope = "") {
 
 export async function saveItems(items, scope = "") {
 	try {
-		await checkDbHealth();
+		if (!(await checkDbHealth())) return;
 		if (!db.isOpen()) await db.open();
 		const CHUNK_SIZE = 1000;
 		const incomingItems = Array.isArray(items)
@@ -470,15 +478,22 @@ export async function saveItems(items, scope = "") {
 		if (!incomingItems.length) {
 			return;
 		}
+		const resolvedScope = resolveItemWriteScope(scope);
 
-		const itemCodes = Array.from(new Set(incomingItems.map((it) => it.item_code).filter(Boolean)));
+		const itemCodes = Array.from(
+			new Set(incomingItems.map((it) => it.item_code).filter(Boolean)),
+		);
 		const existingRows: any[] = [];
 		for (let i = 0; i < itemCodes.length; i += CHUNK_SIZE) {
 			const codeChunk = itemCodes.slice(i, i + CHUNK_SIZE);
 			if (!codeChunk.length) {
 				continue;
 			}
-			const rows = await db.table("items").where("item_code").anyOf(codeChunk).toArray();
+			const rows = await db
+				.table("items")
+				.where("[profile_scope+item_code]")
+				.anyOf(codeChunk.map((itemCode) => [resolvedScope, itemCode]))
+				.toArray();
 			if (Array.isArray(rows) && rows.length) {
 				existingRows.push(...rows);
 			}
@@ -497,11 +512,7 @@ export async function saveItems(items, scope = "") {
 					const merged = {
 						...existing,
 						...it,
-						profile_scope:
-							scope ||
-							it?.profile_scope ||
-							existing?.profile_scope ||
-							"",
+						profile_scope: resolvedScope,
 					};
 					const cloneSafeMerged =
 						toCloneSafeValue<SearchableItem>(merged);
@@ -517,8 +528,9 @@ export async function saveItems(items, scope = "") {
 			try {
 				await db.table("items").bulkPut(scopedItems);
 			} catch (bulkError) {
-				console.warn(
-					"bulkPut failed for items chunk; retrying one-by-one",
+				posDebug(
+					"offline-cache",
+					"bulk item write failed; retrying rows individually",
 					bulkError,
 				);
 				for (const row of scopedItems) {
@@ -549,7 +561,7 @@ export async function clearStoredItems(scope = "") {
 			await db.table("items").clear();
 			return;
 		}
-		await filterByScope(db.table("items"), scope).delete();
+		await scopedItemsCollection(scope).delete();
 	} catch (e) {
 		console.error("Failed to clear stored items", e);
 	}
@@ -607,23 +619,23 @@ export async function deleteStoredItemsByCodes(
 		}
 
 		if (!hasScope(scope)) {
-			await db.table("items").bulkDelete(normalizedCodes);
+			const keys = await db
+				.table("items")
+				.where("item_code")
+				.anyOf(normalizedCodes)
+				.primaryKeys();
+			await db.table("items").bulkDelete(keys);
 			return;
 		}
 
-		const existingRows = await db
+		await db
 			.table("items")
-			.where("item_code")
-			.anyOf(normalizedCodes)
-			.toArray();
-		const matchingCodes = existingRows
-			.filter((row: any) => isMatchingScope(row, scope))
-			.map((row: any) => row?.item_code)
-			.filter(Boolean);
-
-		if (matchingCodes.length) {
-			await db.table("items").bulkDelete(matchingCodes);
-		}
+			.bulkDelete(
+				normalizedCodes.map((itemCode) => [
+					normalizeScope(scope),
+					itemCode,
+				]),
+			);
 	} catch (e) {
 		console.error("Failed to delete stored items by code", e);
 	}
@@ -742,9 +754,7 @@ export function removeCachedPriceListItems(
 		}
 
 		const cache = memory.price_list_cache || {};
-		const targetLists = priceList
-			? [priceList]
-			: Object.keys(cache || {});
+		const targetLists = priceList ? [priceList] : Object.keys(cache || {});
 
 		targetLists.forEach((targetPriceList) => {
 			const cachedEntry = cache[targetPriceList];
@@ -754,7 +764,10 @@ export function removeCachedPriceListItems(
 			cache[targetPriceList] = {
 				...cachedEntry,
 				items: cachedEntry.items.filter(
-					(entry) => !normalizedCodes.has(String(entry?.item_code || "").trim()),
+					(entry) =>
+						!normalizedCodes.has(
+							String(entry?.item_code || "").trim(),
+						),
 				),
 				timestamp: Date.now(),
 			};
@@ -826,6 +839,7 @@ export async function getCachedItemDetails(
 	priceList: string,
 	itemCodes: string[],
 	ttl = 15 * 60 * 1000,
+	scope = "",
 ) {
 	try {
 		const cache = memory.item_details_cache || {};
@@ -845,11 +859,23 @@ export async function getCachedItemDetails(
 		if (cached.length) {
 			await checkDbHealth();
 			if (!db.isOpen()) await db.open();
-			const baseItems = await db
-				.table("items")
-				.where("item_code")
-				.anyOf(cached.map((it) => it.item_code))
-				.toArray();
+			const cachedCodes = cached.map((it) => it.item_code);
+			const baseItems = hasScope(scope)
+				? await db
+						.table("items")
+						.where("[profile_scope+item_code]")
+						.anyOf(
+							cachedCodes.map((itemCode) => [
+								normalizeScope(scope),
+								itemCode,
+							]),
+						)
+						.toArray()
+				: await db
+						.table("items")
+						.where("item_code")
+						.anyOf(cachedCodes)
+						.toArray();
 			const map = new Map(baseItems.map((it) => [it.item_code, it]));
 			cached.forEach((det, idx) => {
 				const base = map.get(det.item_code) || {};
@@ -994,7 +1020,10 @@ export function refreshBootstrapSnapshotFromCacheState(cacheState = {}) {
 			}),
 		);
 	} catch (e) {
-		console.error("Failed to refresh bootstrap snapshot from cache state", e);
+		console.error(
+			"Failed to refresh bootstrap snapshot from cache state",
+			e,
+		);
 	}
 }
 
@@ -1069,8 +1098,7 @@ async function persistOpeningEntities(data: any) {
 		if (openingShift?.name) {
 			await db.table("opening_shifts").put({
 				...openingShift,
-				pos_profile:
-					openingShift?.pos_profile || profile?.name || "",
+				pos_profile: openingShift?.pos_profile || profile?.name || "",
 			});
 		}
 	} catch (e) {
@@ -1108,7 +1136,9 @@ export function setOpeningStorage(data) {
 
 export function clearOpeningStorage() {
 	try {
-		const previousOpeningData = cloneOpeningData(memory.pos_opening_storage);
+		const previousOpeningData = cloneOpeningData(
+			memory.pos_opening_storage,
+		);
 		memory.pos_opening_storage = null;
 		persist("pos_opening_storage");
 		void clearPersistedOpeningShift(previousOpeningData);
@@ -1209,22 +1239,35 @@ export function getCustomersLastSync() {
 	return memory.customers_last_sync || null;
 }
 
-export async function getCustomerStorageCount() {
+export async function getCustomerStorageCount(
+	scope = buildOfflineTenantScope(),
+) {
 	try {
 		await checkDbHealth();
 		if (!db.isOpen()) await db.open();
-		return await db.table("customers").count();
+		return await db
+			.table("customers")
+			.where("customer_scope")
+			.equals(scope)
+			.count();
 	} catch {
 		return 0;
 	}
 }
 
-export async function clearCustomerStorage() {
+export async function clearCustomerStorage(scope = buildOfflineTenantScope()) {
 	try {
 		await checkDbHealth();
 		if (!db.isOpen()) await db.open();
-		await db.table("customers").clear();
-		memory.customer_storage = [];
+		const customers = db.table("customers");
+		const searchTokens = db.table("customer_search_tokens");
+		await db.transaction("rw", customers, searchTokens, async () => {
+			await customers.where("customer_scope").equals(scope).delete();
+			await searchTokens.where("customer_scope").equals(scope).delete();
+		});
+		memory.customer_storage = (memory.customer_storage || []).filter(
+			(row: any) => row?._offline_scope !== scope,
+		);
 	} catch (e) {
 		console.error("Failed to clear customer storage", e);
 	}
@@ -1425,8 +1468,9 @@ export function saveDeliveryChargesCache(
 		memory.delivery_charges_cache = cache;
 		persist("delivery_charges_cache");
 		refreshBootstrapSnapshotFromCacheState({
-			deliveryChargesCount: Object.keys(memory.delivery_charges_cache || {})
-				.length,
+			deliveryChargesCount: Object.keys(
+				memory.delivery_charges_cache || {},
+			).length,
 		});
 	} catch (e) {
 		console.error("Failed to save delivery charges cache", e);
@@ -1465,8 +1509,9 @@ export function saveCurrencyOptionsCache(profileName, currencies) {
 		memory.currency_options_cache = cache;
 		persist("currency_options_cache");
 		refreshBootstrapSnapshotFromCacheState({
-			currencyOptionsCount: Object.keys(memory.currency_options_cache || {})
-				.length,
+			currencyOptionsCount: Object.keys(
+				memory.currency_options_cache || {},
+			).length,
 		});
 	} catch (e) {
 		console.error("Failed to save currency options cache", e);
@@ -1510,7 +1555,8 @@ export function saveExchangeRateCache(entry: ExchangeRateCacheEntry = {}) {
 		memory.exchange_rate_cache = cache;
 		persist("exchange_rate_cache");
 		refreshBootstrapSnapshotFromCacheState({
-			exchangeRateCount: Object.keys(memory.exchange_rate_cache || {}).length,
+			exchangeRateCount: Object.keys(memory.exchange_rate_cache || {})
+				.length,
 		});
 	} catch (e) {
 		console.error("Failed to save exchange rate cache", e);

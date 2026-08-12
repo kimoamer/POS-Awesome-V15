@@ -3,8 +3,30 @@ import { useUIStore } from "./stores/uiStore";
 
 declare const frappe: any;
 declare const __: any;
-declare const flt: any;
-declare const get_currency_symbol: any;
+const getFrappeDefault = (name: string, fallback = 2): number => {
+	const rawValue = (globalThis as any)?.frappe?.defaults?.get_default?.(name);
+	if (rawValue === null || rawValue === undefined || rawValue === "") {
+		return fallback;
+	}
+	const value = Number(rawValue);
+	return Number.isFinite(value) && value >= 0 ? value : fallback;
+};
+
+const safeFlt = (
+	value: any,
+	precision = 2,
+	numberFormat?: string,
+	roundingMethod?: string,
+): number => {
+	const globalFlt = (globalThis as any)?.flt;
+	if (typeof globalFlt === "function") {
+		return globalFlt(value, precision, numberFormat, roundingMethod);
+	}
+	const numeric = Number(fromArabicNumerals(String(value ?? 0)).replace(/,/g, ""));
+	if (!Number.isFinite(numeric)) return 0;
+	const factor = 10 ** Math.max(0, Number(precision) || 0);
+	return Math.round((numeric + Number.EPSILON) * factor) / factor;
+};
 
 // Type definitions for RTL and numeral systems
 export type NumeralsMode = "western" | "arabic-indic";
@@ -219,7 +241,7 @@ export function useFormat() {
 			uiStore.posProfile?.posa_decimal_precision as any,
 		);
 		return isNaN(prec)
-			? frappe.defaults.get_default("float_precision") || 2
+			? getFrappeDefault("float_precision")
 			: prec;
 	});
 
@@ -228,7 +250,7 @@ export function useFormat() {
 			uiStore.posProfile?.posa_decimal_precision as any,
 		);
 		return isNaN(prec)
-			? frappe.defaults.get_default("currency_precision") || 2
+			? getFrappeDefault("currency_precision")
 			: prec;
 	});
 
@@ -244,7 +266,7 @@ export function useFormat() {
 		const prec =
 			precision !== undefined ? precision : currency_precision.value;
 		const method = rounding_method || "Banker's Rounding (legacy)";
-		return flt(value, prec, number_format, method);
+		return safeFlt(value, prec, number_format, method);
 	};
 
 	/**
@@ -376,7 +398,7 @@ export function useFormat() {
 			}
 			const prec =
 				precision !== undefined ? precision : float_precision.value;
-			let value = flt(input_val, prec);
+			let value = safeFlt(input_val, prec);
 			if (isNaN(value)) value = 0;
 			if (no_negative && value < 0) value = Math.abs(value);
 			if (el && field_name) el[field_name] = value;
@@ -396,7 +418,7 @@ export function useFormat() {
 			}
 			const prec =
 				precision !== undefined ? precision : currency_precision.value;
-			let value = flt(input_val, prec);
+			let value = safeFlt(input_val, prec);
 			if (isNaN(value)) value = 0;
 			if (no_negative && value < 0) value = Math.abs(value);
 			if (el && field_name) el[field_name] = value;
@@ -429,7 +451,7 @@ export default {
 				precision !== undefined
 					? precision
 					: this.currency_precision || 2;
-			return flt(
+			return safeFlt(
 				value,
 				prec,
 				number_format,
@@ -545,7 +567,7 @@ export default {
 			}
 			const prec =
 				precision !== undefined ? precision : this.float_precision || 2;
-			let value = flt(input_val, prec);
+			let value = safeFlt(input_val, prec);
 			if (isNaN(value)) value = 0;
 			if (no_negative && value < 0) value = Math.abs(value);
 			if (el && field_name) el[field_name] = value;
@@ -568,7 +590,7 @@ export default {
 				precision !== undefined
 					? precision
 					: this.currency_precision || 2;
-			let value = flt(input_val, prec);
+			let value = safeFlt(input_val, prec);
 			if (isNaN(value)) value = 0;
 			if (no_negative && value < 0) value = Math.abs(value);
 			if (el && field_name) el[field_name] = value;
@@ -579,10 +601,8 @@ export default {
 		},
 	},
 	mounted(this: any) {
-		this.float_precision =
-			frappe.defaults.get_default("float_precision") || 2;
-		this.currency_precision =
-			frappe.defaults.get_default("currency_precision") || 2;
+		this.float_precision = getFrappeDefault("float_precision");
+		this.currency_precision = getFrappeDefault("currency_precision");
 
 		const updatePrecision = (data: any) => {
 			const profile = data.pos_profile || data;

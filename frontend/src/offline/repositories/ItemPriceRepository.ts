@@ -1,4 +1,5 @@
 import { db, withDbTransaction } from "../db";
+import { buildOfflineTenantScope } from "../scope";
 
 export type OfflineItemPriceRecord = {
 	name: string;
@@ -11,40 +12,58 @@ export type OfflineItemPriceRecord = {
 	valid_from?: string | null;
 	valid_upto?: string | null;
 	modified?: string | null;
+	profile_scope?: string;
 	[key: string]: any;
 };
 
 class ItemPriceRepository {
-	async clear() {
-		await db.table("item_price_records").clear();
+	async clear(scope = buildOfflineTenantScope()) {
+		await db
+			.table("item_price_records")
+			.where("profile_scope")
+			.equals(scope)
+			.delete();
 	}
 
-	async upsertMany(rows: OfflineItemPriceRecord[]) {
+	async upsertMany(
+		rows: OfflineItemPriceRecord[],
+		scope = buildOfflineTenantScope(),
+	) {
 		const validRows = (rows || []).filter(
 			(row) => row?.name && row?.price_list && row?.item_code,
-		);
+		).map((row) => ({ ...row, profile_scope: scope }));
 		if (!validRows.length) {
 			return;
 		}
 		await db.table("item_price_records").bulkPut(validRows);
 	}
 
-	async deleteByNames(names: string[]) {
+	async deleteByNames(
+		names: string[],
+		scope = buildOfflineTenantScope(),
+	) {
 		const keys = [...new Set((names || []).filter(Boolean))];
 		if (!keys.length) {
 			return;
 		}
-		await db.table("item_price_records").bulkDelete(keys);
+		await db
+			.table("item_price_records")
+			.bulkDelete(keys.map((name) => [scope, name]));
 	}
 
-	async deleteOutsidePriceLists(priceLists: string[]) {
+	async deleteOutsidePriceLists(
+		priceLists: string[],
+		scope = buildOfflineTenantScope(),
+	) {
 		const allowed = new Set((priceLists || []).filter(Boolean));
 		const table = db.table("item_price_records");
 		if (!allowed.size) {
-			await table.clear();
+			await this.clear(scope);
 			return;
 		}
 		const staleNames = await table
+			.where("profile_scope")
+			.equals(scope)
 			.filter((row) => !allowed.has(String(row.price_list || "")))
 			.primaryKeys();
 		if (staleNames.length) {
@@ -52,24 +71,28 @@ class ItemPriceRepository {
 		}
 	}
 
-	async replaceAll(rows: OfflineItemPriceRecord[]) {
+	async replaceAll(
+		rows: OfflineItemPriceRecord[],
+		scope = buildOfflineTenantScope(),
+	) {
 		await withDbTransaction("rw", "item_price_records", async () => {
-			await db.table("item_price_records").clear();
-			await this.upsertMany(rows);
+			await this.clear(scope);
+			await this.upsertMany(rows, scope);
 		});
 	}
 
 	async findForItem(
 		priceList: string,
 		itemCode: string,
+		scope = buildOfflineTenantScope(),
 	): Promise<OfflineItemPriceRecord[]> {
 		if (!priceList || !itemCode) {
 			return [];
 		}
 		return db
 			.table("item_price_records")
-			.where("[price_list+item_code]")
-			.equals([priceList, itemCode])
+			.where("[profile_scope+price_list+item_code]")
+			.equals([scope, priceList, itemCode])
 			.toArray();
 	}
 
@@ -77,14 +100,15 @@ class ItemPriceRepository {
 		priceList: string,
 		itemCode: string,
 		uom: string,
+		scope = buildOfflineTenantScope(),
 	): Promise<OfflineItemPriceRecord[]> {
 		if (!priceList || !itemCode || !uom) {
 			return [];
 		}
 		return db
 			.table("item_price_records")
-			.where("[price_list+item_code+uom]")
-			.equals([priceList, itemCode, uom])
+			.where("[profile_scope+price_list+item_code+uom]")
+			.equals([scope, priceList, itemCode, uom])
 			.toArray();
 	}
 }

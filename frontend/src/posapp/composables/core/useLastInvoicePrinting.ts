@@ -147,7 +147,7 @@ export function useLastInvoicePrinting() {
 				return;
 			} catch (error) {
 				console.warn("QZ Tray print failed", error);
-				if (confirmDocumentPrintFallback(error, { raw: useRawPrint })) {
+				if (await confirmDocumentPrintFallback(error, { raw: useRawPrint })) {
 					silentPrint(url, printOptions);
 				}
 				return;

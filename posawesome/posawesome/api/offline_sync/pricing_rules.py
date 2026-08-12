@@ -1,8 +1,10 @@
 import frappe
 
 from posawesome.posawesome.api.offline_sync.common import (
+    SYNC_SCHEMA_VERSION,
     _build_response,
     _max_timestamp,
+    _resolve_sync_until,
     _resolve_profile,
 )
 from posawesome.posawesome.api.pricing_rules import (
@@ -10,8 +12,6 @@ from posawesome.posawesome.api.pricing_rules import (
     _normalise_rule,
     _serialize_rule,
 )
-
-SYNC_SCHEMA_VERSION = "2026-04-09"
 
 BASE_FIELDS = [
     "name",
@@ -82,18 +82,29 @@ def _pricing_rule_fields():
     return BASE_FIELDS + [field for field in OPTIONAL_FIELDS if meta.has_field(field)]
 
 
-def _deleted_rules(watermark):
+def _deleted_rules(
+    watermark,
+    start_after=None,
+    limit=201,
+    sync_until=None,
+):
     if not watermark:
         return []
+    filters = {
+        "deleted_doctype": "Pricing Rule",
+        "creation": ["between", [watermark, sync_until]]
+        if sync_until
+        else [">", watermark],
+    }
+    if start_after:
+        filters["deleted_name"] = [">", start_after]
     rows = (
         frappe.get_all(
             "Deleted Document",
-            filters={
-                "deleted_doctype": "Pricing Rule",
-                "creation": [">", watermark],
-            },
+            filters=filters,
             fields=["deleted_name", "creation"],
-            order_by="creation asc, deleted_name asc",
+            order_by="deleted_name asc",
+            limit_page_length=limit,
         )
         or []
     )
@@ -156,8 +167,10 @@ def sync_pricing_rules(
     pos_profile=None,
     watermark=None,
     offset=0,
+    start_after=None,
     limit=200,
     schema_version=None,
+    sync_until=None,
 ):
     if schema_version and schema_version != SYNC_SCHEMA_VERSION:
         return _build_response(full_resync_required=True)
@@ -169,26 +182,53 @@ def sync_pricing_rules(
     if not company:
         frappe.throw("POS Profile company is required")
 
-    resolved_offset = _coerce_int(offset, 0)
     resolved_limit = _coerce_int(limit, 200, minimum=1)
+    resolved_sync_until = _resolve_sync_until(sync_until)
     if watermark:
-        filters = {"modified": [">", watermark]}
+        filters = {
+            "modified": ["between", [watermark, resolved_sync_until]],
+        }
     else:
-        filters = {"company": company, "selling": 1, "disable": 0}
+        filters = {
+            "company": company,
+            "selling": 1,
+            "disable": 0,
+            "modified": ["<=", resolved_sync_until],
+        }
+    if start_after:
+        filters["name"] = [">", start_after]
 
     rows = (
         frappe.get_all(
             "Pricing Rule",
             filters=filters,
             fields=_pricing_rule_fields(),
-            order_by="modified asc, name asc",
-            start=resolved_offset,
+            order_by="name asc",
             limit_page_length=resolved_limit + 1,
         )
         or []
     )
-    has_more = len(rows) > resolved_limit
-    page_rows = rows[:resolved_limit]
+    deleted_rows = _deleted_rules(
+        watermark,
+        start_after=start_after,
+        limit=resolved_limit + 1,
+        sync_until=resolved_sync_until,
+    )
+    rows_by_name = {row.get("name"): row for row in rows if row.get("name")}
+    deleted_by_name = {
+        str(row.get("key") or "").removeprefix("pricing_rule::"): row
+        for row in deleted_rows
+        if row.get("key")
+    }
+    page_names = sorted(set(rows_by_name) | set(deleted_by_name))
+    has_more = len(page_names) > resolved_limit
+    page_names = page_names[:resolved_limit]
+    page_rows = [rows_by_name[name] for name in page_names if name in rows_by_name]
+    deleted_rows = [
+        deleted_by_name[name]
+        for name in page_names
+        if name in deleted_by_name
+    ]
     active_rows = [
         row
         for row in page_rows
@@ -201,25 +241,27 @@ def sync_pricing_rules(
         for row in page_rows
         if row.get("name") and row not in active_rows
     ]
-    deleted_rows = _deleted_rules(watermark)
     deleted = [
         {"key": f"pricing_rule::{row.get('name')}"}
         for row in inactive_rows
     ] + [{"key": row["key"]} for row in deleted_rows]
 
-    next_watermark = None
-    if not has_more:
-        next_watermark = _max_timestamp(
+    next_watermark = (
+        _max_timestamp(
             watermark,
             [row.get("modified") for row in page_rows],
             [row.get("modified") for row in deleted_rows],
         )
+        if has_more
+        else resolved_sync_until
+    )
 
     response = _build_response(
         changes=_serialize_rows(active_rows),
         deleted=deleted,
         next_watermark=next_watermark,
+        next_cursor=page_names[-1] if has_more and page_names else None,
+        sync_until=resolved_sync_until,
         has_more=has_more,
     )
-    response["next_offset"] = resolved_offset + len(page_rows) if has_more else None
     return response

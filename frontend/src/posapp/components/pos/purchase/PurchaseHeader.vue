@@ -1,7 +1,7 @@
 <template>
 	<div class="purchase-header-section pa-0">
 		<div class="purchase-meta-grid">
-			<!-- Supplier with switches directly under it -->
+			<!-- Supplier -->
 			<div class="purchase-header-field">
 				<label class="purchase-header-field__label">
 					{{ __("Supplier") }}
@@ -39,31 +39,6 @@
 						</v-tooltip>
 					</template>
 				</v-autocomplete>
-
-				<div class="purchase-switches-under-supplier d-flex align-center ga-3 mt-1">
-					<v-switch
-						v-if="posProfile.posa_allow_purchase_receipt"
-						:model-value="receiveNow"
-						@update:model-value="$emit('update:receiveNow', $event)"
-						density="compact"
-						hide-details
-						color="success"
-						:disabled="receiveDisabled"
-						:label="receiveDisabled ? __('Received') : __('Receive')"
-						class="ma-0"
-					></v-switch>
-
-					<v-switch
-						:model-value="createInvoice"
-						@update:model-value="$emit('update:createInvoice', $event)"
-						density="compact"
-						hide-details
-						color="primary"
-						:disabled="createInvoiceDisabled"
-						:label="createInvoiceDisabled ? __('Billed') : __('Create Bill')"
-						class="ma-0"
-					></v-switch>
-				</div>
 			</div>
 
 			<!-- Warehouse -->
@@ -122,6 +97,30 @@
 				/>
 			</div>
 		</div>
+
+		<div class="purchase-header-switches">
+			<v-switch
+				v-if="posProfile.posa_allow_purchase_receipt"
+				:model-value="receiveNow"
+				@update:model-value="$emit('update:receiveNow', $event)"
+				density="compact"
+				hide-details
+				color="success"
+				:disabled="receiveDisabled"
+				:label="receiveDisabled ? __('Received') : __('Receive')"
+				class="ma-0"
+			/>
+			<v-switch
+				:model-value="createInvoice"
+				@update:model-value="$emit('update:createInvoice', $event)"
+				density="compact"
+				hide-details
+				color="primary"
+				:disabled="createInvoiceDisabled"
+				:label="createInvoiceDisabled ? __('Billed') : __('Create Bill')"
+				class="ma-0"
+			/>
+		</div>
 	</div>
 </template>
 
@@ -163,8 +162,8 @@ export default {
 
 .purchase-meta-grid {
 	display: grid;
-	grid-template-columns: minmax(180px, 1.4fr) minmax(140px, 1fr) minmax(115px, 0.8fr) minmax(115px, 0.8fr);
-	gap: 10px;
+	grid-template-columns: minmax(190px, 1.35fr) minmax(150px, 1fr) repeat(2, minmax(130px, 0.85fr));
+	gap: 12px;
 	align-items: start;
 	width: 100%;
 }
@@ -178,7 +177,7 @@ export default {
 	margin-block-end: 4px;
 	font-size: 11px;
 	font-weight: 600;
-	color: #64748b;
+	color: var(--pos-text-secondary, #64748b);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -209,22 +208,36 @@ export default {
 	inset-inline-end: auto !important;
 }
 
-.purchase-switches-under-supplier {
-	min-height: 28px;
+.purchase-header-switches {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+	min-height: 32px;
+	margin-top: 6px;
+	padding-inline: 2px;
 }
 
-.purchase-switches-under-supplier :deep(.v-label) {
+.purchase-header-switches :deep(.v-label) {
 	font-size: 12px;
 	font-weight: 600;
-	color: #475569;
+	color: var(--pos-text-primary, #334155);
 	white-space: nowrap;
 }
 
-@media (max-width: 768px) {
+@container (max-width: 760px) {
 	.purchase-meta-grid {
-		grid-template-columns: repeat(2, 1fr);
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@container (max-width: 460px) {
+	.purchase-meta-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.purchase-header-switches {
+		flex-wrap: wrap;
 	}
 }
 </style>
-
 

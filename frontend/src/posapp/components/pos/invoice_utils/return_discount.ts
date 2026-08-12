@@ -1,3 +1,5 @@
+import { posDebug } from "../../../utils/debug";
+
 export function getReturnDiscountProration(context: any) {
 	if (
 		!context ||
@@ -51,7 +53,7 @@ export function syncReturnDiscountProration(context: any, logLabel?: string) {
 	context.additional_discount_percentage = 0;
 	if (Math.abs(current - proration.prorated) > 0.0001) {
 		if (logLabel) {
-			console.log(logLabel, proration);
+			posDebug("returns", logLabel, proration);
 		}
 		context.additional_discount = proration.prorated;
 	}

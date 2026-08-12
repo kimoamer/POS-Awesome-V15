@@ -86,8 +86,8 @@ import { ensurePosProfile } from "../../../../utils/pos_profile";
 import _ from "lodash";
 import placeholderImage from "../placeholder-image.png";
 import { getCurrentInstance } from "vue";
-import { useUIStore } from "../../../stores/uiStore.js";
-import { useInvoiceStore } from "../../../stores/invoiceStore.js";
+import { useUIStore } from "../../../stores/uiStore";
+import { useInvoiceStore } from "../../../stores/invoiceStore";
 export default {
 	setup() {
 		const { proxy } = getCurrentInstance();
@@ -328,7 +328,11 @@ export default {
 				try {
 					const res = await frappe.call({
 						method: "posawesome.posawesome.api.utils.get_default_warehouse",
-						args: { company: this.pos_profile.company },
+						args: {
+							company: this.pos_profile.company,
+							pos_profile: this.pos_profile.name,
+							pos_opening_shift: this.uiStore.posOpeningShift?.name,
+						},
 					});
 					if (res.message) {
 						this.pos_profile.warehouse = res.message;
@@ -343,7 +347,8 @@ export default {
 					args: {
 						warehouse: item.warehouse || this.pos_profile.warehouse,
 						price_list: this.pos_profile.selling_price_list,
-						company: this.pos_profile.company,
+							company: this.pos_profile.company,
+							pos_profile: this.pos_profile.name,
 						item: JSON.stringify({
 							item_code: item.item_code,
 							pos_profile: this.pos_profile.name,

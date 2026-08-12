@@ -14,6 +14,10 @@ from erpnext.accounts.doctype.payment_request.payment_request import (
     get_existing_payment_request_amount,
 )
 from posawesome.posawesome.api.utilities import ensure_child_doctype
+from posawesome.posawesome.api.utils import (
+    assert_doctype_permission,
+    get_pos_request_context,
+)
 
 def get_party_bank_account(*args, **kwargs):
     return resolve_get_party_bank_account()(*args, **kwargs)
@@ -25,18 +29,41 @@ def get_posawesome_credit_redeem_remark(invoice_name):
 
 @frappe.whitelist()
 def create_payment_request(doc):
-    doc = json.loads(doc)
-    for pay in doc.get("payments"):
-        if pay.get("type") == "Phone":
-            if pay.get("amount") <= 0:
-                frappe.throw(_("Payment amount cannot be less than or equal to 0"))
+    payload = json.loads(doc) if isinstance(doc, str) else dict(doc or {})
+    doctype = payload.get("doctype") or "Sales Invoice"
+    if doctype not in {"Sales Invoice", "POS Invoice"} or not payload.get("name"):
+        frappe.throw(_("A saved POS invoice is required for a payment request."))
+    invoice_doc = frappe.get_doc(doctype, payload.get("name"))
+    context = get_pos_request_context(
+        invoice_doc.pos_profile,
+        company=invoice_doc.company,
+        doctype=doctype,
+        permission_type="write",
+        require_open_shift=True,
+        opening_shift=invoice_doc.get("posa_pos_opening_shift"),
+    )
+    assert_doctype_permission("Payment Request", "create")
+    if invoice_doc.pos_profile != context.profile_name:
+        frappe.throw(_("Invoice is outside the active POS Profile."))
 
-            if not doc.get("contact_mobile"):
+    configured_modes = {
+        row.get("mode_of_payment")
+        for row in (context.pos_profile.get("payments") or [])
+        if row.get("mode_of_payment")
+    }
+    for pay in invoice_doc.get("payments") or []:
+        if pay.get("type") == "Phone":
+            if flt(pay.get("amount")) <= 0:
+                frappe.throw(_("Payment amount cannot be less than or equal to 0"))
+            if pay.get("mode_of_payment") not in configured_modes:
+                frappe.throw(_("Mode of Payment is not configured for this POS Profile."))
+
+            if not invoice_doc.get("contact_mobile"):
                 frappe.throw(_("Please enter the phone number first"))
 
-            pay_req = get_existing_payment_request(doc, pay)
+            pay_req = get_existing_payment_request(invoice_doc, pay)
             if not pay_req:
-                pay_req = get_new_payment_request(doc, pay)
+                pay_req = get_new_payment_request(invoice_doc, pay)
                 pay_req.submit()
             else:
                 pay_req.request_phone_payment()
@@ -186,7 +213,7 @@ def make_payment_request(**args):
         if args.order_type == "Shopping Cart" or args.mute_email:
             pr.flags.mute_email = True
 
-        pr.insert(ignore_permissions=True)
+        pr.insert()
         if args.submit_doc:
             pr.submit()
 
@@ -276,8 +303,6 @@ def redeeming_customer_credit(invoice_doc, data, is_payment_entry, total_cash, c
 
                 ensure_child_doctype(jv_doc, "accounts", "Journal Entry Account")
 
-                jv_doc.flags.ignore_permissions = True
-                frappe.flags.ignore_account_permission = True
                 jv_doc.user_remark = get_posawesome_credit_redeem_remark(invoice_doc.name)
                 jv_doc.set_missing_values()
                 try:
@@ -326,8 +351,6 @@ def redeeming_customer_credit(invoice_doc, data, is_payment_entry, total_cash, c
                 ref_row = payment_entry_doc.append("references", {})
                 ref_row.update(payment_reference)
                 ensure_child_doctype(payment_entry_doc, "references", "Payment Entry Reference")
-            payment_entry_doc.flags.ignore_permissions = True
-            frappe.flags.ignore_account_permission = True
             payment_entry_doc.save()
             payment_entry_doc.submit()
             created_receive_payment_entries.append(
@@ -349,11 +372,124 @@ def redeeming_customer_credit(invoice_doc, data, is_payment_entry, total_cash, c
     return created_receive_payment_entries
 
 
+def _lock_credit_source(doctype, name):
+    if doctype not in {"Sales Invoice", "Payment Entry"}:
+        frappe.throw(_("Unsupported customer credit source."))
+    frappe.db.sql(
+        "select name from `tab{0}` where name = %s for update".format(doctype),
+        name,
+    )
+    return frappe.get_doc(doctype, name)
+
+
+def validate_customer_credit_claims(invoice_doc, data):
+    """Replace client credit balances with locked, authoritative values."""
+
+    requested_total = flt((data or {}).get("redeemed_customer_credit"))
+    rows = (data or {}).get("customer_credit_dict") or []
+    if requested_total <= 0:
+        data["redeemed_customer_credit"] = 0
+        data["customer_credit_dict"] = []
+        return []
+    if invoice_doc.get("is_return"):
+        frappe.throw(_("Customer credit cannot be redeemed on a return."))
+
+    profile = frappe.get_cached_doc("POS Profile", invoice_doc.pos_profile)
+    if not profile.get("use_customer_credit"):
+        frappe.throw(_("Customer credit is disabled for this POS Profile."))
+    if not isinstance(rows, list) or not rows:
+        frappe.throw(_("Customer credit sources are required."))
+
+    normalized = []
+    seen = set()
+    claimed_total = 0
+    for row in rows:
+        source_type = str(row.get("type") or "").strip()
+        source_name = str(row.get("credit_origin") or "").strip()
+        amount = flt(row.get("credit_to_redeem"))
+        if amount <= 0:
+            continue
+        key = (source_type, source_name)
+        if not source_name or key in seen:
+            frappe.throw(_("Customer credit sources must be unique and valid."))
+        seen.add(key)
+
+        if source_type == "Invoice":
+            assert_doctype_permission("Sales Invoice", "read")
+            assert_doctype_permission("Journal Entry", "create")
+            source = _lock_credit_source("Sales Invoice", source_name)
+            valid = (
+                source.docstatus == 1
+                and source.company == invoice_doc.company
+                and source.customer == invoice_doc.customer
+                and flt(source.outstanding_amount) < 0
+            )
+            available = abs(flt(source.outstanding_amount))
+            label = "Sales Return" if source.get("is_return") else "Sales Invoice"
+        elif source_type == "Advance":
+            assert_doctype_permission("Payment Entry", "read")
+            source = _lock_credit_source("Payment Entry", source_name)
+            valid = (
+                source.docstatus == 1
+                and source.company == invoice_doc.company
+                and source.party_type == "Customer"
+                and source.party == invoice_doc.customer
+                and source.payment_type == "Receive"
+                and flt(source.unallocated_amount) > 0
+            )
+            available = flt(source.unallocated_amount)
+            label = "Payment Entry"
+        else:
+            frappe.throw(_("Unsupported customer credit source type."))
+
+        if not valid:
+            frappe.throw(_("Customer credit source {0} is no longer available.").format(source_name))
+        if amount - available > 0.01:
+            frappe.throw(_("Customer credit source {0} has insufficient balance.").format(source_name))
+
+        claimed_total += amount
+        normalized.append(
+            {
+                "type": source_type,
+                "credit_origin": source_name,
+                "total_credit": available,
+                "credit_to_redeem": amount,
+                "source_type": label,
+            }
+        )
+
+    invoice_total = abs(flt(invoice_doc.get("rounded_total") or invoice_doc.get("grand_total")))
+    if abs(claimed_total - requested_total) > 0.01:
+        frappe.throw(_("Redeemed customer credit does not match its source allocations."))
+    if claimed_total - invoice_total > 0.01:
+        frappe.throw(_("Customer credit cannot exceed the invoice total."))
+
+    data["redeemed_customer_credit"] = claimed_total
+    data["customer_credit_dict"] = normalized
+    return normalized
+
+
 @frappe.whitelist()
-def get_available_credit(customer, company):
+def get_available_credit(customer, company, pos_profile=None, opening_shift=None):
+    context = get_pos_request_context(
+        pos_profile,
+        company=company,
+        action_flag="use_customer_credit",
+        doctype="Sales Invoice",
+        permission_type="read",
+        require_open_shift=True,
+        opening_shift=opening_shift,
+    )
+    assert_doctype_permission("Payment Entry", "read")
+    if not frappe.db.exists("Customer", customer):
+        frappe.throw(_("Customer {0} was not found.").format(customer))
+    from posawesome.posawesome.api.utils import assert_document_permission
+
+    assert_document_permission(frappe.get_doc("Customer", customer), "read")
+    company = context.company
     total_credit = []
 
-    outstanding_invoices = frappe.get_all(
+    outstanding_invoices = frappe.get_list(
         "Sales Invoice",
         {
             "outstanding_amount": ["<", 0],
@@ -379,9 +515,12 @@ def get_available_credit(customer, company):
                     and per.reference_name in ({placeholders})
                     and pe.docstatus = 1
                     and pe.payment_type = 'Pay'
+                    and pe.company = %s
+                    and pe.party_type = 'Customer'
+                    and pe.party = %s
                 group by per.reference_name
             """,
-            invoice_names,
+            [*invoice_names, company, customer],
             as_dict=True,
         )
 
@@ -405,7 +544,7 @@ def get_available_credit(customer, company):
 
         total_credit.append(row)
 
-    advances = frappe.get_all(
+    advances = frappe.get_list(
         "Payment Entry",
         {
             "unallocated_amount": [">", 0],
@@ -418,7 +557,7 @@ def get_available_credit(customer, company):
         ["name", "unallocated_amount"],
     )
 
-    outstanding_payments = frappe.get_all(
+    outstanding_payments = frappe.get_list(
         "Payment Entry",
         {
             "unallocated_amount": [">", 0],
@@ -545,6 +684,10 @@ def repair_overpayment_change_allocations(
     posting_date=None,
     dry_run=1,
     limit=100,
+    pos_profile=None,
+    opening_shift=None,
+    cashier=None,
+    cashier_grant=None,
 ):
     """Repair historical POS invoices where change Pay entries were left unallocated.
 
@@ -558,6 +701,8 @@ def repair_overpayment_change_allocations(
     Ambiguous rows are reported and skipped instead of guessed.
     """
 
+    from posawesome.posawesome.api.employees import verify_cashier_grant
+
     invoice_names = set(_coerce_text_list(invoice_names))
     invoice_doctype = doctype if doctype in {"Sales Invoice", "POS Invoice"} else "Sales Invoice"
     dry_run = _coerce_bool_flag(dry_run, default=True)
@@ -566,14 +711,31 @@ def repair_overpayment_change_allocations(
     except Exception:
         limit = 100
 
+    context = get_pos_request_context(
+        pos_profile,
+        company=company,
+        doctype=invoice_doctype,
+        permission_type="write",
+        require_open_shift=True,
+        opening_shift=opening_shift,
+    )
+    verify_cashier_grant(
+        cashier_grant,
+        context.profile_name,
+        cashier,
+        require_supervisor=True,
+    )
+    assert_doctype_permission("Payment Entry", "write")
+    company = context.company
+
     invoice_filters = {
         "docstatus": 1,
         "is_pos": 1,
         "is_return": 0,
         "outstanding_amount": ["<", 0],
+        "pos_profile": context.profile_name,
     }
-    if company:
-        invoice_filters["company"] = company
+    invoice_filters["company"] = company
     if customer:
         invoice_filters["customer"] = customer
     if posting_date:

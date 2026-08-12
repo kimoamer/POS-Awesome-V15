@@ -1,5 +1,6 @@
 // Network-related composable functions for Home.vue
 import { isManualOffline } from "../../../offline/index";
+import { posDebug } from "../../utils/debug";
 
 type NetworkVm = {
 	networkOnline: boolean;
@@ -106,7 +107,7 @@ export function setupNetworkListeners(this: NetworkVm) {
 		if (isManualOffline()) return;
 		this.networkOnline = true;
 		this.internetReachable = true;
-		console.log("Network: Online");
+		posDebug("network", "Online");
 		// Verify actual connectivity
 		this.checkNetworkConnectivity();
 	});
@@ -117,7 +118,7 @@ export function setupNetworkListeners(this: NetworkVm) {
 		this.internetReachable = false;
 		this.serverOnline = false;
 		(window as any).serverOnline = false;
-		console.log("Network: Offline");
+		posDebug("network", "Offline");
 		this.$forceUpdate();
 	});
 
@@ -216,7 +217,7 @@ export async function checkNetworkConnectivity(
 					this.serverOnline = true;
 					(window as any).serverOnline = true;
 					persistStatus(this.networkOnline, true);
-					console.log("Network: Connected");
+					posDebug("network", "Connected");
 					this.$forceUpdate();
 					if (typeof this.onConnectivityRecovered === "function") {
 						await this.onConnectivityRecovered();
@@ -233,7 +234,7 @@ export async function checkNetworkConnectivity(
 					this.serverOnline = false;
 					(window as any).serverOnline = false;
 					persistStatus(this.networkOnline, false);
-					console.log("Network: Disconnected");
+					posDebug("network", "Disconnected");
 					this.$forceUpdate();
 				}
 			}

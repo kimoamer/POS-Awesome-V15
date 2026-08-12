@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
-import { watch } from "vue";
 import { useCustomersStore } from "../src/posapp/stores/customersStore";
 import type {
 	CustomerInfo,
@@ -10,12 +9,19 @@ import type {
 
 const setCustomerStorageMock = vi.fn(async () => undefined);
 const saveStoredValueSnapshotMock = vi.fn();
+const offlineCustomerState = vi.hoisted(() => ({ count: 0 }));
+const customerSyncMocks = vi.hoisted(() => ({
+	runTrigger: vi.fn(async () => undefined),
+}));
 
 vi.mock("../src/offline/index", () => ({
 	db: {
 		isOpen: () => true,
 		open: vi.fn(async () => undefined),
-		table: vi.fn(() => ({
+			table: vi.fn(() => ({
+			where: vi.fn().mockReturnThis(),
+			equals: vi.fn().mockReturnThis(),
+			between: vi.fn().mockReturnThis(),
 			filter: vi.fn().mockReturnThis(),
 			offset: vi.fn().mockReturnThis(),
 			limit: vi.fn().mockReturnThis(),
@@ -29,10 +35,14 @@ vi.mock("../src/offline/index", () => ({
 	memoryInitPromise: Promise.resolve(),
 	getCustomersLastSync: vi.fn(() => null),
 	setCustomersLastSync: vi.fn(),
-	getCustomerStorageCount: vi.fn(async () => 0),
+	getCustomerStorageCount: vi.fn(async () => offlineCustomerState.count),
 	clearCustomerStorage: vi.fn(async () => undefined),
 	isOffline: vi.fn(() => false),
 	refreshBootstrapSnapshotFromCacheState: vi.fn(),
+}));
+
+vi.mock("../src/offline/sync/useSyncCoordinator", () => ({
+	useSyncCoordinator: () => customerSyncMocks,
 }));
 
 describe("customersStore profile and customer dto handling", () => {
@@ -40,6 +50,9 @@ describe("customersStore profile and customer dto handling", () => {
 		setActivePinia(createPinia());
 		setCustomerStorageMock.mockClear();
 		saveStoredValueSnapshotMock.mockClear();
+		offlineCustomerState.count = 0;
+		customerSyncMocks.runTrigger.mockReset();
+		customerSyncMocks.runTrigger.mockResolvedValue(undefined);
 		(globalThis as any).frappe = {
 			call: vi.fn(),
 		};
@@ -79,7 +92,10 @@ describe("customersStore profile and customer dto handling", () => {
 		]);
 		expect(store.customerInfo).toEqual(info);
 		expectTypeOf(store.customers).toEqualTypeOf<CustomerSummary[]>();
-		expect(setCustomerStorageMock).toHaveBeenCalledWith([customer]);
+		expect(setCustomerStorageMock).toHaveBeenCalledWith(
+			[customer],
+			expect.stringContaining("::Main%20POS::"),
+		);
 	});
 
 	it("adds fetched customer info to the visible selector list", () => {
@@ -99,56 +115,49 @@ describe("customersStore profile and customer dto handling", () => {
 		});
 	});
 
-	it("loads customers in five parallel 200-row pages with smooth progress", async () => {
+	it("falls back to permission-filtered server search when local customers are empty", async () => {
 		const store = useCustomersStore();
 		store.setPosProfile({ name: "Main POS", company: "Test Co" });
-		const catalog = Array.from({ length: 450 }, (_, index) => ({
-			name: `CUST-${String(index + 1).padStart(4, "0")}`,
-			customer_name: `Customer ${index + 1}`,
-		}));
-		const observedCounts: number[] = [];
-		const stopWatching = watch(
-			() => store.loadedCustomerCount,
-			(value) => observedCounts.push(value),
-			{ flush: "sync" },
-		);
+		(globalThis as any).frappe.call.mockResolvedValue({
+			message: [
+				{
+					name: "CUST-REMOTE",
+					customer_name: "Remote Customer",
+				},
+			],
+		});
 
-		(globalThis as any).frappe.call = vi.fn(async (request: any) => {
-			if (
-				request.method ===
-				"posawesome.posawesome.api.customers.get_customers_count"
-			) {
-				return { message: catalog.length };
-			}
-			const { offset = 0, limit = 200 } = request.args;
-			const response = {
-				message: catalog.slice(offset, offset + limit),
-			};
-			request.callback?.(response);
-			return response;
+		await store.searchCustomers("Remote");
+
+		expect((globalThis as any).frappe.call).toHaveBeenCalledWith({
+			method: "posawesome.posawesome.api.customers.get_customer_names",
+			args: expect.objectContaining({
+				pos_profile: "Main POS",
+				search_text: "Remote",
+			}),
+		});
+		expect(store.customers).toEqual([
+			expect.objectContaining({ name: "CUST-REMOTE" }),
+		]);
+		expect(setCustomerStorageMock).toHaveBeenCalledWith(
+			[expect.objectContaining({ name: "CUST-REMOTE" })],
+			expect.stringContaining("::Main%20POS::"),
+		);
+	});
+
+	it("routes customer hydration through the single offline sync coordinator", async () => {
+		const store = useCustomersStore();
+		store.setPosProfile({ name: "Main POS", company: "Test Co" });
+		customerSyncMocks.runTrigger.mockImplementationOnce(async () => {
+			offlineCustomerState.count = 450;
 		});
 
 		await store.get_customer_names();
-		await vi.waitFor(() => {
-			expect(store.loadProgress).toBe(100);
-		});
-		stopWatching();
 
-		const customerCalls = (globalThis as any).frappe.call.mock.calls
-			.map(([request]: any[]) => request)
-			.filter((request: any) =>
-				request.method.endsWith("get_customer_names"),
-			);
-		expect(customerCalls.slice(0, 6).map((request: any) => request.args.offset)).toEqual([
-			null,
-			200,
-			400,
-			600,
-			800,
-			1000,
-		]);
+		expect(customerSyncMocks.runTrigger).toHaveBeenCalledTimes(1);
+		expect(customerSyncMocks.runTrigger).toHaveBeenCalledWith("timer");
+		expect((globalThis as any).frappe.call).not.toHaveBeenCalled();
 		expect(store.loadedCustomerCount).toBe(450);
-		expect(observedCounts).toContain(201);
-		expect(observedCounts).toContain(449);
+		expect(store.loadProgress).toBe(100);
 	});
 });

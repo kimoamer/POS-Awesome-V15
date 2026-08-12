@@ -7,9 +7,12 @@ describe("Payment Complete Experience Contract", () => {
 	it("renders net invoice summary totals formatted with currency", () => {
 		const wrapper = mount(InvoiceTotals, {
 			props: {
-				grandTotal: 1000,
-				totalPaid: 1000,
-				paidAmount: 1000,
+				invoice_doc: {
+					net_total: 1000,
+					total_taxes_and_charges: 0,
+					total: 1000,
+					grand_total: 1000,
+				},
 				formatCurrency: (val: number) => `E£ ${val}.00`,
 			},
 		});

@@ -9,6 +9,10 @@ from posawesome.posawesome.doctype.pos_closing_shift.closing_processing.data imp
 from posawesome.posawesome.doctype.pos_closing_shift.closing_processing.invoices import (
     submit_printed_invoices,
 )
+from posawesome.posawesome.api.utils import (
+    assert_doctype_permission,
+    get_pos_request_context,
+)
 
 
 def build_pos_payment_reference(payment_entry):
@@ -80,7 +84,26 @@ def normalize_pos_payment_references(closing_shift_doc):
 
 @frappe.whitelist()
 def make_closing_shift_from_opening(opening_shift):
-    opening_shift = json.loads(opening_shift)
+    if isinstance(opening_shift, str):
+        try:
+            opening_payload = json.loads(opening_shift)
+        except (TypeError, ValueError):
+            opening_payload = {"name": opening_shift}
+    else:
+        opening_payload = opening_shift or {}
+    opening_name = opening_payload.get("name") if isinstance(opening_payload, dict) else None
+    if not opening_name:
+        frappe.throw(_("POS Opening Shift is required."))
+    opening_doc = frappe.get_doc("POS Opening Shift", opening_name)
+    get_pos_request_context(
+        opening_doc.pos_profile,
+        company=opening_doc.company,
+        doctype="POS Closing Shift",
+        permission_type="create",
+        require_open_shift=True,
+        opening_shift=opening_doc.name,
+    )
+    opening_shift = opening_doc.as_dict()
     use_pos_invoice = frappe.db.get_value(
         "POS Profile",
         opening_shift.get("pos_profile"),
@@ -245,9 +268,23 @@ def make_closing_shift_from_opening(opening_shift):
 
 @frappe.whitelist()
 def submit_closing_shift(closing_shift):
-    closing_shift = json.loads(closing_shift)
-    closing_shift_doc = frappe.get_doc(closing_shift)
-    closing_shift_doc.flags.ignore_permissions = True
+    closing_payload = json.loads(closing_shift) if isinstance(closing_shift, str) else closing_shift
+    opening_name = (closing_payload or {}).get("pos_opening_shift")
+    if not opening_name:
+        frappe.throw(_("POS Opening Shift is required."))
+
+    authoritative = make_closing_shift_from_opening(opening_name)["closing_shift"]
+    submitted_amounts = {
+        row.get("mode_of_payment"): flt(row.get("closing_amount"))
+        for row in (closing_payload or {}).get("payment_reconciliation", [])
+        if row.get("mode_of_payment")
+    }
+    for row in authoritative.get("payment_reconciliation", []):
+        if row.get("mode_of_payment") in submitted_amounts:
+            row.closing_amount = submitted_amounts[row.get("mode_of_payment")]
+
+    assert_doctype_permission("POS Closing Shift", "submit")
+    closing_shift_doc = frappe.get_doc(authoritative)
     normalize_pos_payment_references(closing_shift_doc)
     closing_shift_doc.save()
     closing_shift_doc.submit()

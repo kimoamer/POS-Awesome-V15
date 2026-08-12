@@ -227,7 +227,7 @@ const checkBalance = async () => {
 			method: "posawesome.posawesome.api.gift_cards.check_gift_card_balance",
 			args: {
 				gift_card_code: cardCode.value,
-				company: posProfile.value.company,
+				pos_profile: posProfile.value.name,
 			},
 		});
 		const card = response?.message || {};
@@ -255,6 +255,7 @@ const issueCard = async () => {
 			args: {
 				pos_profile: posProfile.value?.name,
 				cashier: currentCashier.value?.user,
+				cashier_grant: currentCashier.value?.cashier_grant,
 				company: posProfile.value?.company,
 				initial_amount: flt(amount.value || 0),
 				gift_card_code: cardCode.value || null,
@@ -288,6 +289,7 @@ const topUpCard = async () => {
 			args: {
 				pos_profile: posProfile.value?.name,
 				cashier: currentCashier.value?.user,
+				cashier_grant: currentCashier.value?.cashier_grant,
 				gift_card_code: cardCode.value,
 				amount: flt(amount.value || 0),
 			},

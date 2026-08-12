@@ -11,11 +11,14 @@ import {
 	type SyncResponse,
 	type SyncScopedProfile,
 } from "./common";
+import { buildOfflineProfileScope } from "../../scope";
 
 type PricingRulesFetcher = (_args: {
 	posProfile: SyncScopedProfile;
 	watermark?: string | null;
-	offset?: number;
+	startAfter?: string | null;
+	syncUntil?: string | null;
+	limit?: number;
 	schemaVersion?: string | null;
 }) => Promise<SyncResponse>;
 
@@ -41,6 +44,7 @@ function deletedRuleNames(response: SyncResponse) {
 
 function buildSnapshotContext(posProfile: PricingRulesSyncProfile) {
 	return JSON.stringify({
+		pos_profile: posProfile?.name || "",
 		company: posProfile?.company || "",
 		price_list: posProfile?.selling_price_list || "",
 		currency: posProfile?.currency || "",
@@ -54,8 +58,11 @@ function buildSnapshotContext(posProfile: PricingRulesSyncProfile) {
 async function refreshPricingSnapshotFromRepository(
 	posProfile: PricingRulesSyncProfile,
 ) {
+	const storageScope = buildOfflineProfileScope(posProfile);
 	const hasContext = Boolean(
-		posProfile?.company && posProfile?.selling_price_list && posProfile?.currency,
+		posProfile?.company &&
+			posProfile?.selling_price_list &&
+			posProfile?.currency,
 	);
 	if (!hasContext) {
 		refreshSnapshotFromSync({
@@ -68,7 +75,7 @@ async function refreshPricingSnapshotFromRepository(
 		return;
 	}
 
-	const snapshot = await pricingRuleRepository.getAll();
+	const snapshot = await pricingRuleRepository.getAll(storageScope);
 	(
 		savePricingRulesSnapshot as unknown as (
 			_snapshot: OfflinePricingRuleRecord[],
@@ -80,23 +87,40 @@ async function refreshPricingSnapshotFromRepository(
 export async function syncPricingRulesResource(
 	args: PricingRulesSyncArgs,
 ): Promise<ResourceSyncResult> {
-	if (!args.watermark) {
-		await pricingRuleRepository.clear();
+	const storageScope = buildOfflineProfileScope(args.posProfile);
+	let effectiveWatermark = args.watermark || null;
+	let effectiveSchemaVersion = args.schemaVersion || null;
+	let attemptedSchemaRecovery = false;
+	if (!effectiveWatermark) {
+		await pricingRuleRepository.clear(storageScope);
 	}
 
-	let offset = 0;
+	let startAfter: string | null = null;
+	let syncUntil: string | null = null;
 	let finalResponse: SyncResponse = {};
 	while (true) {
 		const response = await args.fetcher({
 			posProfile: args.posProfile,
-			watermark: args.watermark || null,
-			offset,
-			schemaVersion: args.schemaVersion,
+			watermark: effectiveWatermark,
+			startAfter,
+			syncUntil,
+			limit: 1000,
+			schemaVersion: effectiveSchemaVersion,
 		});
 		finalResponse = response;
+		syncUntil = response?.sync_until || syncUntil;
 
 		if (response?.full_resync_required) {
-			await pricingRuleRepository.clear();
+			await pricingRuleRepository.clear(storageScope);
+			if (!attemptedSchemaRecovery) {
+				attemptedSchemaRecovery = true;
+				effectiveWatermark = null;
+				effectiveSchemaVersion = null;
+				startAfter = null;
+				syncUntil = null;
+				finalResponse = {};
+				continue;
+			}
 			refreshSnapshotFromSync({
 				posProfile: args.posProfile,
 				cacheState: {
@@ -109,13 +133,13 @@ export async function syncPricingRulesResource(
 				status: "limited",
 				posProfile: args.posProfile,
 				response,
-				watermark: args.watermark,
+				watermark: effectiveWatermark,
 			});
 			return buildResourceSyncResult(
 				"pricing_rules",
 				"limited",
 				response,
-				args.watermark,
+				effectiveWatermark,
 			);
 		}
 
@@ -125,19 +149,22 @@ export async function syncPricingRulesResource(
 				(row): row is OfflinePricingRuleRecord =>
 					!!row?.key && !!row?.rule_name,
 			);
-		await pricingRuleRepository.replaceRuleTargets(rows);
+		await pricingRuleRepository.replaceRuleTargets(rows, storageScope);
 		await pricingRuleRepository.deleteByRuleNames(
 			deletedRuleNames(response),
+			storageScope,
 		);
 
 		if (!response?.has_more) {
 			break;
 		}
-		const nextOffset = Number(response?.next_offset);
-		if (!Number.isFinite(nextOffset) || nextOffset <= offset) {
-			throw new Error("Pricing Rule sync returned an invalid next_offset");
+		const nextCursor = String(response?.next_cursor || "").trim();
+		if (!nextCursor || nextCursor === startAfter) {
+			throw new Error(
+				"Pricing Rule sync pagination cursor did not advance",
+			);
 		}
-		offset = nextOffset;
+		startAfter = nextCursor;
 	}
 
 	await persistResourceSyncState({
@@ -145,13 +172,13 @@ export async function syncPricingRulesResource(
 		status: "fresh",
 		posProfile: args.posProfile,
 		response: finalResponse,
-		watermark: args.watermark,
+		watermark: effectiveWatermark,
 	});
 	await refreshPricingSnapshotFromRepository(args.posProfile);
 	return buildResourceSyncResult(
 		"pricing_rules",
 		"fresh",
 		finalResponse,
-		args.watermark,
+		effectiveWatermark,
 	);
 }

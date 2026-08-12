@@ -2,6 +2,57 @@ import json
 
 import frappe
 from frappe.utils import getdate
+from posawesome.posawesome.api.utils import assert_document_permission, get_pos_request_context
+from posawesome.posawesome.api.tax_contracts import apply_pos_tax_inclusion_contract
+from posawesome.posawesome.api.invoice_processing.pricing_authority import (
+    apply_authoritative_pricing,
+    capture_pricing_state,
+    prepare_invoice_pricing,
+)
+from posawesome.posawesome.api.invoice_processing.stock import _strip_client_freebies_from_payload
+from posawesome.posawesome.api.invoice_processing.utils import _resolve_effective_price_list
+
+
+def _quotation_enabled(profile):
+    return bool(
+        profile.get("custom_allow_create_quotation")
+        or profile.get("custom_allow_select_quotation")
+        or profile.get("posa_allow_select_quotation")
+        or profile.get("posa_allow_quotation_selection")
+    )
+
+
+def _quotation_context(pos_profile, opening_shift=None, company=None, permission_type="read"):
+    context = get_pos_request_context(
+        pos_profile,
+        company=company,
+        doctype="Quotation",
+        permission_type=permission_type,
+        require_open_shift=True,
+        opening_shift=opening_shift,
+    )
+    if not _quotation_enabled(context.pos_profile):
+        frappe.throw("Quotations are disabled for this POS Profile", frappe.PermissionError)
+    return context
+
+
+def _apply_quotation_authority(doc, context, pricing_state):
+    profile = context.pos_profile
+    doc.company = context.company
+    doc.pos_profile = context.profile_name
+    effective_price_list = _resolve_effective_price_list(
+        doc.get("party_name") or doc.get("customer"),
+        context.profile_name,
+        doc.get("selling_price_list"),
+    )
+    if effective_price_list:
+        doc.selling_price_list = effective_price_list
+    doc.set("taxes", [])
+    doc.taxes_and_charges = profile.get("taxes_and_charges") or None
+    prepare_invoice_pricing(doc, profile, pricing_state)
+    doc.set_missing_values()
+    apply_authoritative_pricing(doc, profile, pricing_state)
+    apply_pos_tax_inclusion_contract(doc)
 
 
 def _map_delivery_dates(data):
@@ -60,7 +111,13 @@ def search_quotations(
     quotation_name=None,
     include_draft=1,
     include_submitted=1,
+    pos_profile=None,
+    pos_opening_shift=None,
 ):
+    context = _quotation_context(pos_profile, pos_opening_shift, company)
+    company = context.company
+    if not context.pos_profile.get("posa_allow_multi_currency"):
+        currency = context.pos_profile.get("currency")
     docstatus_filters = []
     if int(include_draft or 0):
         docstatus_filters.append(0)
@@ -116,35 +173,71 @@ def search_quotations(
 def update_quotation(data):
     """Create or update a Quotation document."""
     data = json.loads(data)
+    context = _quotation_context(
+        data.get("pos_profile"),
+        data.get("posa_pos_opening_shift"),
+        data.get("company"),
+        "write" if data.get("name") else "create",
+    )
+    data["company"] = context.company
+    data["doctype"] = "Quotation"
+    data["pos_profile"] = context.profile_name
+    data["posa_pos_opening_shift"] = context.opening_shift.name
+    pricing_state = capture_pricing_state(data, context.pos_profile)
+    _strip_client_freebies_from_payload(data)
     _map_delivery_dates(data)
     _ensure_customer_fields(data)
-    if data.get("name") and frappe.db.exists("Quotation", data.get("name")):
+    if data.get("name"):
+        if not frappe.db.exists("Quotation", data.get("name")):
+            frappe.throw("Quotation was not found")
         doc = frappe.get_doc("Quotation", data.get("name"))
+        assert_document_permission(doc, "write")
+        if doc.company != context.company:
+            frappe.throw("Quotation is outside this POS Profile", frappe.PermissionError)
+        if int(doc.docstatus or 0) != 0:
+            frappe.throw("Only draft Quotations can be updated")
         doc.update(data)
     else:
         doc = frappe.get_doc(data)
 
-    doc.flags.ignore_permissions = True
-    frappe.flags.ignore_account_permission = True
     doc.docstatus = 0
+    _apply_quotation_authority(doc, context, pricing_state)
     doc.save()
     return doc
 
 
 @frappe.whitelist()
-def submit_quotation(order):
+def submit_quotation(order, pos_profile=None, pos_opening_shift=None):
     """Submit quotation document."""
     order = json.loads(order)
+    context = _quotation_context(
+        pos_profile or order.get("pos_profile"),
+        pos_opening_shift or order.get("posa_pos_opening_shift"),
+        order.get("company"),
+        "submit",
+    )
+    order["company"] = context.company
+    order["doctype"] = "Quotation"
+    order["pos_profile"] = context.profile_name
+    order["posa_pos_opening_shift"] = context.opening_shift.name
+    pricing_state = capture_pricing_state(order, context.pos_profile)
+    _strip_client_freebies_from_payload(order)
     _map_delivery_dates(order)
     _ensure_customer_fields(order)
-    if order.get("name") and frappe.db.exists("Quotation", order.get("name")):
+    if order.get("name"):
+        if not frappe.db.exists("Quotation", order.get("name")):
+            frappe.throw("Quotation was not found")
         doc = frappe.get_doc("Quotation", order.get("name"))
+        assert_document_permission(doc, "submit")
+        if doc.company != context.company:
+            frappe.throw("Quotation is outside this POS Profile", frappe.PermissionError)
+        if int(doc.docstatus or 0) != 0:
+            frappe.throw("Only draft Quotations can be submitted")
         doc.update(order)
     else:
         doc = frappe.get_doc(order)
 
-    doc.flags.ignore_permissions = True
-    frappe.flags.ignore_account_permission = True
+    _apply_quotation_authority(doc, context, pricing_state)
     doc.save()
     doc.submit()
 

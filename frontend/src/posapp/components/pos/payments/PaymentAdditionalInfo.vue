@@ -3,6 +3,7 @@
 		<div class="payment-details-grid">
 			<!-- Delivery Date (if applicable) -->
 			<div v-if="allowSalesOrder && invoiceType === 'Order'" class="payment-details-cell">
+				<label class="payment-field-label">{{ __("Delivery Date") }}</label>
 				<VueDatePicker
 					:model-value="newDeliveryDate"
 					model-type="format"
@@ -11,7 +12,7 @@
 					auto-apply
 					class="sleek-field pos-themed-input"
 					:placeholder="__('Delivery Date')"
-					@update:model-value="$emit('update:newDeliveryDate', $event)"
+					@update:model-value="emit('update:newDeliveryDate', $event)"
 				/>
 			</div>
 
@@ -26,12 +27,13 @@
 					auto-apply
 					class="sleek-field pos-themed-input"
 					:placeholder="__('Return Valid Until')"
-					@update:model-value="$emit('update:returnValidUptoDate', $event)"
+					@update:model-value="emit('update:returnValidUptoDate', $event)"
 				/>
 			</div>
 
 			<!-- Shipping Address Selection -->
 			<div v-if="invoiceDoc.posa_delivery_date" class="payment-details-cell payment-details-cell--full">
+				<label class="payment-field-label">{{ __("Shipping Address") }}</label>
 				<!-- Loading State -->
 				<div v-if="addressesLoading" class="address-state-box">
 					<v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
@@ -42,7 +44,7 @@
 				<div v-else-if="addressesError" class="address-state-box address-state-box--error">
 					<v-icon size="16" color="error">mdi-alert-circle-outline</v-icon>
 					<span>{{ addressesError }}</span>
-					<v-btn density="compact" variant="text" color="primary" class="address-retry-action" @click="$emit('retry-addresses')">
+					<v-btn density="compact" variant="text" color="primary" class="address-retry-action" @click="emit('retry-addresses')">
 						{{ __("Retry") }}
 					</v-btn>
 				</div>
@@ -54,7 +56,7 @@
 						auto-select-first
 						variant="outlined"
 						color="primary"
-						:label="__('Address')"
+						:label="__('Shipping Address')"
 						v-model="invoiceDoc.shipping_address_name"
 						:items="addresses"
 						item-title="display_title"
@@ -101,7 +103,7 @@
 						icon="mdi-plus"
 						:title="__('Create Address')"
 						:aria-label="__('Create Address')"
-						@click="$emit('new-address')"
+						@click="emit('new-address')"
 					></v-btn>
 				</div>
 			</div>
@@ -192,7 +194,7 @@ const props = defineProps({
 	},
 });
 
-defineEmits(["update:newDeliveryDate", "update:returnValidUptoDate", "new-address", "retry-addresses"]);
+const emit = defineEmits(["update:newDeliveryDate", "update:returnValidUptoDate", "new-address", "retry-addresses"]);
 
 const __ = (s) => (typeof window !== "undefined" && (window.__ || window.frappe?._) ? (window.__ || window.frappe._)(s) : s);
 

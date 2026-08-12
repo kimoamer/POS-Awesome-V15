@@ -8,7 +8,10 @@ vi.mock("../src/offline/index", () => ({
 	clearPricingRulesSnapshot: vi.fn(),
 }));
 
-import { usePricingRulesStore } from "../src/posapp/stores/pricingRulesStore";
+import {
+	buildPricingRuleContext,
+	usePricingRulesStore,
+} from "../src/posapp/stores/pricingRulesStore";
 
 describe("pricing rules store request coordination", () => {
 	beforeEach(() => {
@@ -26,6 +29,7 @@ describe("pricing rules store request coordination", () => {
 		(globalThis as any).frappe = { call };
 		const store = usePricingRulesStore();
 		const context = {
+			pos_profile: "Main POS",
 			company: "Test Co",
 			price_list: "Retail",
 			currency: "USD",
@@ -35,6 +39,11 @@ describe("pricing rules store request coordination", () => {
 		const second = store.ensureActiveRules(context);
 
 		expect(call).toHaveBeenCalledTimes(1);
+		expect(call).toHaveBeenCalledWith(
+			expect.objectContaining({
+				args: expect.objectContaining({ pos_profile: "Main POS" }),
+			}),
+		);
 		resolveRequest?.({ message: [{ name: "RULE-1" }] });
 		await Promise.all([first, second]);
 		expect(store.rules).toHaveLength(1);
@@ -52,12 +61,14 @@ describe("pricing rules store request coordination", () => {
 		const store = usePricingRulesStore();
 
 		const first = store.ensureActiveRules({
+			pos_profile: "Main POS",
 			company: "Test Co",
 			price_list: "Retail",
 			currency: "USD",
 			customer: "CUST-OLD",
 		});
 		const second = store.ensureActiveRules({
+			pos_profile: "Main POS",
 			company: "Test Co",
 			price_list: "Retail",
 			currency: "USD",
@@ -71,5 +82,54 @@ describe("pricing rules store request coordination", () => {
 
 		expect(store.rules.map((rule) => rule.name)).toEqual(["NEW-RULE"]);
 		expect(store.contextKey).toContain("CUST-NEW");
+	});
+
+	it("does not call the protected endpoint without a POS Profile", async () => {
+		const call = vi.fn();
+		(globalThis as any).frappe = { call };
+		const store = usePricingRulesStore();
+
+		await store.ensureActiveRules({
+			company: "Test Co",
+			price_list: "Retail",
+			currency: "USD",
+		});
+
+		expect(call).not.toHaveBeenCalled();
+	});
+
+	it("builds the authorized pricing context from the active profile", () => {
+		expect(
+			buildPricingRuleContext({
+				name: "Main POS",
+				company: "Test Co",
+				selling_price_list: "Retail",
+				currency: "USD",
+			}),
+		).toEqual(
+			expect.objectContaining({
+				pos_profile: "Main POS",
+				company: "Test Co",
+				price_list: "Retail",
+				currency: "USD",
+			}),
+		);
+	});
+
+	it("propagates endpoint failures so readiness is not reported as successful", async () => {
+		const failure = new Error("pricing endpoint failed");
+		const call = vi.fn().mockRejectedValue(failure);
+		(globalThis as any).frappe = { call };
+		const store = usePricingRulesStore();
+
+		await expect(
+			store.ensureActiveRules({
+				pos_profile: "Main POS",
+				company: "Test Co",
+				price_list: "Retail",
+				currency: "USD",
+			}),
+		).rejects.toBe(failure);
+		expect(store.loading).toBe(false);
 	});
 });

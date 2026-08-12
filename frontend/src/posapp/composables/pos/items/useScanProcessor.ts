@@ -6,6 +6,7 @@ import {
 	parseBooleanSetting,
 } from "../../../utils/stock";
 import { saveItems, savePriceListItems } from "../../../../offline/index";
+import { buildOfflineProfileScope } from "../../../../offline/scope";
 import { openItemSelectionDialog } from "../../../utils/itemSelectionDialog";
 import {
 	extractScanAssignmentFromItem,
@@ -13,6 +14,7 @@ import {
 	type ScanAssignment,
 } from "./scanProcessor/scanAssignment";
 import { toCompanyCurrency } from "../../../utils/erpnextCurrency";
+import { posDebug } from "../../../utils/debug";
 // @ts-ignore
 import placeholderImage from "../../../components/pos/placeholder-image.png";
 
@@ -102,7 +104,7 @@ export function useScanProcessor(context: ScanProcessorContext) {
 	const awaitingScanResult = ref(false);
 	const pendingScanCode = ref("");
 	const logScanFlow = (step: string, payload?: any) => {
-		console.debug(`[POS ScanFlow] ${step}`, payload || {});
+		posDebug("scan", step, payload || {});
 	};
 
 	const isNegativeStockEnabled = (item: any = null) => {
@@ -204,8 +206,9 @@ export function useScanProcessor(context: ScanProcessorContext) {
 						method: "posawesome.posawesome.api.items.get_price_for_uom",
 						args: {
 							item_code: newItem.item_code,
-							price_list: active_price_list.value,
-							uom: matchedUom,
+								price_list: active_price_list.value,
+								uom: matchedUom,
+								pos_profile: pos_profile.value?.name || null,
 						},
 					});
 
@@ -450,7 +453,10 @@ export function useScanProcessor(context: ScanProcessorContext) {
 		try {
 			const res = await frappe.call({
 				method: "posawesome.posawesome.api.items.parse_scale_barcode",
-				args: { barcode: scannedCode },
+					args: {
+						barcode: scannedCode,
+						pos_profile: pos_profile.value?.name || null,
+					},
 			});
 			if (res && res.message) {
 				scaleResponse = res.message;
@@ -564,6 +570,7 @@ export function useScanProcessor(context: ScanProcessorContext) {
 							search_value: scannedCode,
 							search_serial_no: searchSerialNo ? 1 : 0,
 							search_batch_no: searchBatchNo ? 1 : 0,
+							pos_profile: pos_profile.value?.name || null,
 						},
 					});
 
@@ -622,8 +629,9 @@ export function useScanProcessor(context: ScanProcessorContext) {
 					args: {
 						item: JSON.stringify({ item_code: searchCode }),
 						warehouse: pos_profile.value.warehouse,
-						price_list: active_price_list.value,
-						company: pos_profile.value.company,
+							price_list: active_price_list.value,
+							company: pos_profile.value.company,
+							pos_profile: pos_profile.value.name,
 					},
 				});
 				if (res && res.message) {
@@ -637,6 +645,7 @@ export function useScanProcessor(context: ScanProcessorContext) {
 						pos_profile: pos_profile.value,
 						price_list: active_price_list.value,
 						search_value: searchCode,
+						include_image: 1,
 					},
 				});
 
@@ -653,7 +662,7 @@ export function useScanProcessor(context: ScanProcessorContext) {
 					searchCache.value.clear();
 				}
 
-				const profileScope = `${pos_profile.value?.name || "no_profile"}_${pos_profile.value?.warehouse || "no_warehouse"}`;
+				const profileScope = buildOfflineProfileScope(pos_profile.value);
 				await saveItems(items.value, profileScope);
 				await savePriceListItems(
 					customer_price_list.value,

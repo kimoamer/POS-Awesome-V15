@@ -83,6 +83,13 @@ class TestBarcodeProcessing(unittest.TestCase):
             {"name": name, "item_name": "Item 001", "stock_uom": "Nos"}
         )
         self.module._parse_scale_barcode_data = lambda barcode: None
+        self.module._item_context = lambda *args, **kwargs: types.SimpleNamespace(
+            profile_name="POS-TEST",
+            pos_profile=AttrDict({"name": "POS-TEST", "currency": "USD"}),
+            warehouse="Stores - TC",
+        )
+        self.module._validate_item_codes = lambda *args, **kwargs: None
+        self.module._resolve_effective_price_list = lambda *_args, **_kwargs: "Standard Selling"
 
         result = self.module.get_items_from_barcode(
             "Standard Selling",

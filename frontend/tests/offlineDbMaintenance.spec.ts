@@ -53,7 +53,9 @@ describe("offline IndexedDB maintenance", () => {
 	});
 
 	it("prunes terminal outbox rows and stale metadata while retaining active rows", async () => {
-		const oldIso = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString();
+		const oldIso = new Date(
+			Date.now() - 45 * 24 * 60 * 60 * 1000,
+		).toISOString();
 		const freshIso = new Date().toISOString();
 		await db.table("invoice_outbox").bulkPut([
 			{
@@ -154,7 +156,10 @@ describe("offline IndexedDB maintenance", () => {
 			"keyval",
 		].map((tableName) => vi.spyOn(db.table(tableName), "toArray"));
 
-		const result = await pruneOfflineStorage({ now: Date.now(), maxAgeDays: 30 });
+		const result = await pruneOfflineStorage({
+			now: Date.now(),
+			maxAgeDays: 30,
+		});
 
 		expect(result.invoiceOutbox).toBe(1);
 		expect(result.writeQueue).toBe(1);
@@ -180,11 +185,16 @@ describe("offline IndexedDB maintenance", () => {
 		const keyvalKeys = (await db.table("keyval").toArray())
 			.map((row) => row.key)
 			.sort();
-		expect(keyvalKeys).toEqual(["local_telemetry:fresh", "tombstone:fresh"]);
+		expect(keyvalKeys).toEqual([
+			"local_telemetry:fresh",
+			"tombstone:fresh",
+		]);
 	});
 
 	it("does not trim unsynced legacy queue entries by count", () => {
-		const oldIso = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString();
+		const oldIso = new Date(
+			Date.now() - 45 * 24 * 60 * 60 * 1000,
+		).toISOString();
 		memory.offline_invoices = Array.from({ length: 1505 }, (_, index) => ({
 			status: "pending",
 			created_at: oldIso,
@@ -192,7 +202,9 @@ describe("offline IndexedDB maintenance", () => {
 		}));
 
 		expect(queueHealthCheck()).toBe(false);
-		expect(purgeOldQueueEntries({ now: Date.now(), maxAgeDays: 30 })).toBe(0);
+		expect(purgeOldQueueEntries({ now: Date.now(), maxAgeDays: 30 })).toBe(
+			0,
+		);
 		expect(memory.offline_invoices).toHaveLength(1505);
 		expect(memory.offline_invoices[0]?.invoice?.name).toBe("PENDING-0");
 	});
@@ -202,26 +214,40 @@ describe("offline IndexedDB maintenance", () => {
 		const oldIso = new Date(now - 45 * 24 * 60 * 60 * 1000).toISOString();
 		const freshIso = new Date(now).toISOString();
 		memory.offline_invoices = [
-			{ status: "synced", last_attempt_at: oldIso, invoice: { name: "old-synced" } },
+			{
+				status: "synced",
+				last_attempt_at: oldIso,
+				invoice: { name: "old-synced" },
+			},
 			{
 				status: "acknowledged",
 				acknowledged_at: oldIso,
 				invoice: { name: "old-acknowledged" },
 			},
-			{ status: "pending", created_at: oldIso, invoice: { name: "old-pending" } },
+			{
+				status: "pending",
+				created_at: oldIso,
+				invoice: { name: "old-pending" },
+			},
 			{
 				status: "dead_letter",
 				last_attempt_at: oldIso,
 				invoice: { name: "old-dead-letter" },
 			},
-			{ status: "synced", last_attempt_at: freshIso, invoice: { name: "fresh-synced" } },
+			{
+				status: "synced",
+				last_attempt_at: freshIso,
+				invoice: { name: "fresh-synced" },
+			},
 			{ invoice: { name: "legacy-no-status" } },
 		];
 
 		expect(queueHealthCheck()).toBe(true);
 		expect(purgeOldQueueEntries({ now, maxAgeDays: 30 })).toBe(2);
 
-		const retainedNames = memory.offline_invoices.map((entry) => entry.invoice?.name);
+		const retainedNames = memory.offline_invoices.map(
+			(entry) => entry.invoice?.name,
+		);
 		expect(retainedNames).toEqual([
 			"old-pending",
 			"old-dead-letter",
@@ -231,14 +257,16 @@ describe("offline IndexedDB maintenance", () => {
 
 		await flushPersistQueue();
 		const persisted = await db.table("queue").get("offline_invoices");
-		expect((persisted?.value || []).map((entry: any) => entry.invoice?.name)).toEqual(
-			retainedNames,
-		);
+		expect(
+			(persisted?.value || []).map((entry: any) => entry.invoice?.name),
+		).toEqual(retainedNames);
 	});
 
 	it("keeps failed quick health checks non-destructive", async () => {
 		const isOpenSpy = vi.spyOn(db, "isOpen").mockReturnValue(false);
-		const openSpy = vi.spyOn(db, "open").mockRejectedValue(new Error("open failed"));
+		const openSpy = vi
+			.spyOn(db, "open")
+			.mockRejectedValue(new Error("open failed"));
 
 		await expect(quickDbHealthCheck()).resolves.toBe(false);
 
@@ -261,9 +289,40 @@ describe("offline IndexedDB maintenance", () => {
 		openSpy.mockRestore();
 	});
 
+	it("shares one health check and repair across concurrent callers", async () => {
+		const isOpenSpy = vi.spyOn(db, "isOpen").mockReturnValue(false);
+		let releaseFirstOpen: (() => void) | undefined;
+		const firstOpenBlocked = new Promise<void>((resolve) => {
+			releaseFirstOpen = resolve;
+		});
+		const openSpy = vi
+			.spyOn(db, "open")
+			.mockImplementationOnce(async () => {
+				await firstOpenBlocked;
+				throw new Error("open failed");
+			})
+			.mockResolvedValueOnce(db);
+
+		const first = checkDbHealth();
+		const second = checkDbHealth();
+		expect(openSpy).toHaveBeenCalledTimes(1);
+
+		releaseFirstOpen?.();
+		await expect(Promise.all([first, second])).resolves.toEqual([
+			true,
+			true,
+		]);
+		expect(openSpy).toHaveBeenCalledTimes(2);
+
+		isOpenSpy.mockRestore();
+		openSpy.mockRestore();
+	});
+
 	it("allows callers to enter degraded mode when controlled repair cannot open the DB", async () => {
 		const isOpenSpy = vi.spyOn(db, "isOpen").mockReturnValue(false);
-		const openSpy = vi.spyOn(db, "open").mockRejectedValue(new Error("blocked"));
+		const openSpy = vi
+			.spyOn(db, "open")
+			.mockRejectedValue(new Error("blocked"));
 
 		await expect(repairDbAfterFailedHealthCheck()).resolves.toBe(false);
 

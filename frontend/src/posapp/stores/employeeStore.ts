@@ -37,9 +37,12 @@ export interface TerminalEmployee {
 	enabled?: number;
 	is_current?: boolean;
 	is_supervisor?: boolean;
+	cashier_grant?: string;
+	cashier_grant_expires_at?: number;
 }
 
 const STORAGE_KEY = "posa_terminal_cashier";
+const GRANT_STORAGE_KEY = "posa_terminal_cashier_grant";
 
 const getBrowserGlobal = (): any =>
 	typeof window !== "undefined" ? window : globalThis;
@@ -78,6 +81,45 @@ const persistCashierUser = (user: string) => {
 	}
 };
 
+const persistCashierGrant = (cashier: TerminalEmployee | null) => {
+	try {
+		if (cashier?.cashier_grant) {
+			getBrowserGlobal()?.sessionStorage?.setItem(
+				GRANT_STORAGE_KEY,
+				JSON.stringify({
+					user: cashier.user,
+					token: cashier.cashier_grant,
+					expires_at: Number(cashier.cashier_grant_expires_at || 0),
+				}),
+			);
+		} else {
+			getBrowserGlobal()?.sessionStorage?.removeItem(GRANT_STORAGE_KEY);
+		}
+	} catch {
+		// Session storage is only an availability enhancement.
+	}
+};
+
+const readCashierGrant = (user: string) => {
+	try {
+		const raw = getBrowserGlobal()?.sessionStorage?.getItem(GRANT_STORAGE_KEY);
+		const parsed = raw ? JSON.parse(raw) : null;
+		if (
+			parsed?.user === user &&
+			parsed?.token &&
+			Number(parsed?.expires_at || 0) > Math.floor(Date.now() / 1000)
+		) {
+			return {
+				cashier_grant: String(parsed.token),
+				cashier_grant_expires_at: Number(parsed.expires_at),
+			};
+		}
+	} catch {
+		// Ignore malformed or inaccessible session storage.
+	}
+	return {};
+};
+
 export const useEmployeeStore = defineStore("employee", () => {
 	const terminalEmployees = ref<TerminalEmployee[]>([]);
 	const currentCashier = ref<TerminalEmployee | null>(getSessionCashier());
@@ -88,11 +130,13 @@ export const useEmployeeStore = defineStore("employee", () => {
 		() => currentCashier.value?.full_name || currentCashier.value?.user || "",
 	);
 	const isLocked = computed(() => lockDialogOpen.value);
+	const currentCashierGrant = computed(() => currentCashier.value?.cashier_grant || "");
 
 	const setCurrentCashier = (cashier: TerminalEmployee | string | null) => {
 		if (!cashier) {
 			currentCashier.value = null;
 			persistCashierUser("");
+			persistCashierGrant(null);
 			return;
 		}
 
@@ -106,23 +150,34 @@ export const useEmployeeStore = defineStore("employee", () => {
 						enabled: Number(cashier.enabled ?? 1),
 						is_current: Boolean(cashier.is_current),
 						is_supervisor: Boolean(cashier.is_supervisor),
+						cashier_grant: cashier.cashier_grant,
+						cashier_grant_expires_at: Number(cashier.cashier_grant_expires_at || 0),
 					};
 
 		if (!nextCashier) {
 			return;
 		}
 
-		currentCashier.value = nextCashier;
+		const storedGrant = readCashierGrant(nextCashier.user);
+		currentCashier.value = {
+			...nextCashier,
+			...(!nextCashier.cashier_grant ? storedGrant : {}),
+		};
 		persistCashierUser(nextCashier.user);
+		persistCashierGrant(currentCashier.value);
 	};
 
 	const ensureCurrentCashier = () => {
+		const sessionCashier = getSessionCashier();
 		const preferredUser =
-			readStoredCashierUser() || getSessionCashier()?.user || "";
+			readStoredCashierUser() || sessionCashier?.user || "";
 		const preferredCashier =
 			terminalEmployees.value.find((employee) => employee.user === preferredUser) ||
 			terminalEmployees.value.find((employee) => employee.is_current) ||
-			getSessionCashier() ||
+			terminalEmployees.value.find(
+				(employee) => employee.user === sessionCashier?.user,
+			) ||
+			sessionCashier ||
 			terminalEmployees.value[0] ||
 			null;
 
@@ -150,6 +205,10 @@ export const useEmployeeStore = defineStore("employee", () => {
 						enabled: Number(employee.enabled ?? 1),
 						is_current: Boolean(employee.is_current),
 						is_supervisor: Boolean(employee.is_supervisor),
+						cashier_grant: employee.cashier_grant,
+						cashier_grant_expires_at: Number(
+							employee.cashier_grant_expires_at || 0,
+						),
 					}))
 			: [];
 
@@ -181,6 +240,7 @@ export const useEmployeeStore = defineStore("employee", () => {
 		terminalEmployees,
 		currentCashier,
 		currentCashierDisplay,
+		currentCashierGrant,
 		switchDialogOpen,
 		lockDialogOpen,
 		isLocked,

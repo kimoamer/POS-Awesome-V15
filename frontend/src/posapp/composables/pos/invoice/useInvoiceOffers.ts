@@ -49,6 +49,7 @@ import { useToastStore } from "../../../stores/toastStore";
 import { storeToRefs } from "pinia";
 import itemService from "../../../services/itemService";
 import { bus } from "../../../bus";
+import { posDebug } from "../../../utils/debug";
 
 // @ts-ignore
 const __ = window.__ || ((s) => s);
@@ -63,15 +64,7 @@ const emitBus = (eventName: string, payload?: any) => {
 };
 
 export function useInvoiceOffers() {
-	const isOfferDebugEnabled =
-		typeof window !== "undefined" &&
-		window.localStorage?.getItem("posawesome_debug_offers") === "1";
-	const offerDebugLog = (...args: any[]) => {
-		if (!isOfferDebugEnabled) {
-			return;
-		}
-		console.log(...args);
-	};
+	const offerDebugLog = (...args: unknown[]) => posDebug("offers", ...args);
 
 	const invoiceStore = useInvoiceStore();
 	const uiStore = useUIStore();
@@ -100,34 +93,6 @@ export function useInvoiceOffers() {
 		(posa_coupons.value?.length || 0) > 0 ||
 		(posa_offers.value?.length || 0) > 0 ||
 		!!discount_percentage_offer_name.value;
-
-	watch(
-		() => uiStore.offers,
-		(newOffers) => {
-			if (Array.isArray(newOffers) && newOffers.length) {
-				posOffers.value = newOffers.map((offer: any) => ensureOfferIdentity(offer));
-				scheduleOfferRefresh();
-			}
-		},
-		{ immediate: true, deep: true },
-	);
-
-	// Watch for changes that should trigger offer evaluation.
-	// Cart mutations already bump metadata.changeVersion, so avoid deep-watching
-	// every cart item field on large invoices.
-	watch(
-		[() => invoiceStore.metadata.changeVersion, posOffers, posa_coupons],
-		() => {
-			if (!hasOfferWork()) {
-				return;
-			}
-			offerDebugLog(
-				"[useInvoiceOffers] watch triggered for items/offers/coupons/metadata",
-			);
-			scheduleOfferRefresh();
-		},
-		{ deep: true },
-	);
 
 	// Private state for refresh logic
 	const _offerRefreshPending = ref(false);
@@ -253,6 +218,37 @@ export function useInvoiceOffers() {
 		_pendingRemovedRowInfo.value = {};
 	};
 
+	// Register eager watchers only after every callback they can invoke has been
+	// initialized. Register boot can hydrate offers before this composable is
+	// created, so an immediate watcher above these declarations would hit the
+	// temporal dead zone in production bundles.
+	watch(
+		() => uiStore.offers,
+		(newOffers) => {
+			if (Array.isArray(newOffers) && newOffers.length) {
+				posOffers.value = newOffers.map((offer: any) => ensureOfferIdentity(offer));
+				scheduleOfferRefresh();
+			}
+		},
+		{ immediate: true, deep: true },
+	);
+
+	// Cart mutations already bump metadata.changeVersion, so avoid deep-watching
+	// every cart item field on large invoices.
+	watch(
+		[() => invoiceStore.metadata.changeVersion, posOffers, posa_coupons],
+		() => {
+			if (!hasOfferWork()) {
+				return;
+			}
+			offerDebugLog(
+				"[useInvoiceOffers] watch triggered for items/offers/coupons/metadata",
+			);
+			scheduleOfferRefresh();
+		},
+		{ deep: true },
+	);
+
 	const normalizeBrand = (brand: string) => {
 		return (brand || "").trim().toLowerCase();
 	};
@@ -300,7 +296,10 @@ export function useInvoiceOffers() {
 			} else {
 				try {
 					brand = normalizeBrand(
-						await itemService.getItemBrandData(item.item_code),
+						await itemService.getItemBrandData(
+							item.item_code,
+							pos_profile.value?.name || "",
+						),
 					);
 				} catch (error) {
 					console.error("Failed to fetch item brand:", error);

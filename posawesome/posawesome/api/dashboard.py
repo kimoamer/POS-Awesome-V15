@@ -10,7 +10,12 @@ import frappe
 from frappe import _
 from frappe.utils import add_months, cint, cstr, flt, getdate, now_datetime, nowdate
 
-from .utils import get_active_pos_profile, get_default_warehouse
+from .utils import (
+    assert_document_permission,
+    get_active_pos_profile,
+    _get_default_warehouse,
+    get_pos_request_context,
+)
 
 INVOICE_SOURCES: tuple[tuple[str, str], ...] = (
     ("Sales Invoice", "Sales Invoice Item"),
@@ -71,11 +76,14 @@ def _resolve_profile(pos_profile: Any) -> dict[str, Any]:
 
 
 def _check_profile_permission(profile_name: str):
-    if not frappe.has_permission("POS Profile", "read", profile_name):
-        frappe.throw(
-            _("You are not permitted to access POS Profile {0}.").format(profile_name),
-            frappe.PermissionError,
-        )
+    assert_document_permission(frappe.get_cached_doc("POS Profile", profile_name), "read")
+
+
+def _can_read(doctype: str) -> bool:
+    if not frappe.db.exists("DocType", doctype):
+        return False
+    checker = getattr(frappe, "has_permission", None)
+    return bool(not callable(checker) or checker(doctype, ptype="read", user=frappe.session.user))
 
 
 def _build_in_filter(column_sql: str, values: list[str]) -> tuple[str, list[str]]:
@@ -185,7 +193,7 @@ def _get_company_profiles(company: str) -> list[dict[str, Any]]:
     if has_disabled:
         filters["disabled"] = 0
 
-    profiles = frappe.get_all(
+    profiles = frappe.get_list(
         "POS Profile",
         filters=filters,
         fields=fields,
@@ -223,6 +231,8 @@ def _iter_invoice_sources() -> list[tuple[str, str]]:
         if not frappe.db.exists("DocType", child_doctype):
             continue
         if not frappe.db.has_column(parent_doctype, "pos_profile"):
+            continue
+        if not _can_read(parent_doctype):
             continue
         available_sources.append((parent_doctype, child_doctype))
     return available_sources
@@ -284,7 +294,7 @@ def _collect_sales_and_profit(
 
     # Prefer stock-ledger-based COGS for a closer accounting-style gross profit.
     if (
-        frappe.db.exists("DocType", "Stock Ledger Entry")
+        _can_read("Stock Ledger Entry")
         and frappe.db.has_column("Stock Ledger Entry", "voucher_type")
         and frappe.db.has_column("Stock Ledger Entry", "voucher_no")
         and frappe.db.has_column("Stock Ledger Entry", "stock_value_difference")
@@ -511,7 +521,7 @@ def _collect_sales_summary(
     closing_actual_by_mode: dict[str, float] = defaultdict(float)
     mode_names: set[str] = set(cash_modes)
 
-    if frappe.db.exists("DocType", "POS Opening Shift") and frappe.db.exists(
+    if _can_read("POS Opening Shift") and frappe.db.exists(
         "DocType", "POS Opening Shift Detail"
     ):
         opening_rows = frappe.db.sql(
@@ -539,7 +549,7 @@ def _collect_sales_summary(
             opening_by_mode[mode_name] += amount
             summary["opening_amount"] += amount
 
-    if frappe.db.exists("DocType", "POS Closing Shift") and frappe.db.exists(
+    if _can_read("POS Closing Shift") and frappe.db.exists(
         "DocType", "POS Closing Shift Detail"
     ):
         closing_rows = frappe.db.sql(
@@ -4601,7 +4611,15 @@ def get_dashboard_data(
     """
 
     user = frappe.session.user
-    current_profile_doc = _resolve_profile(pos_profile)
+    if not pos_profile:
+        active_profile = get_active_pos_profile()
+        pos_profile = active_profile.get("name") if active_profile else None
+    context = get_pos_request_context(
+        pos_profile,
+        doctype="POS Profile",
+        permission_type="read",
+    )
+    current_profile_doc = context.pos_profile.as_dict()
     current_profile_name = cstr(current_profile_doc.get("name")).strip()
     _check_profile_permission(current_profile_name)
 
@@ -4695,7 +4713,7 @@ def get_dashboard_data(
         if cstr(profile.get("warehouse")).strip()
     ]
     if not warehouses:
-        default_warehouse = get_default_warehouse(company)
+        default_warehouse = _get_default_warehouse(company)
         warehouses = [default_warehouse] if default_warehouse else []
 
     company_currency = cstr(frappe.db.get_value("Company", company, "default_currency")).strip()
@@ -4711,6 +4729,9 @@ def get_dashboard_data(
     # Keep dashboard operational whenever scoped profiles are available.
     # Global flag is kept in payload for backward compatibility.
     enabled = bool(selected_profiles)
+    invoice_access = bool(_iter_invoice_sources())
+    stock_access = _can_read("Item") and _can_read("Stock Ledger Entry") and _can_read("Warehouse")
+    purchase_access = _can_read("Purchase Invoice") and _can_read("Supplier")
     disabled_reason = None
     if not selected_profiles:
         disabled_reason = "profile_disabled" if selected_profiles_before_override else "no_profiles_in_scope"
@@ -4740,6 +4761,11 @@ def get_dashboard_data(
         "warehouse": warehouse_label,
         "currency": currency,
         "generated_at": now_datetime().isoformat(),
+        "report_permissions": {
+            "sales": invoice_access,
+            "inventory": stock_access,
+            "purchasing": purchase_access,
+        },
         "date_context": {
             "today": str(report_to_date),
             "month_start": str(month_start),
@@ -5131,14 +5157,15 @@ def get_dashboard_data(
         date_to=str(report_to_date),
         limit=profitability_report_limit,
     )
-    payload["branch_location_report"] = _collect_branch_location_report(
-        profile_names=selected_profile_names,
-        company=company,
-        date_from=str(month_start),
-        date_to=str(report_to_date),
-        threshold=threshold,
-        limit=branch_report_limit,
-    )
+    if stock_access:
+        payload["branch_location_report"] = _collect_branch_location_report(
+            profile_names=selected_profile_names,
+            company=company,
+            date_from=str(month_start),
+            date_to=str(report_to_date),
+            threshold=threshold,
+            limit=branch_report_limit,
+        )
     payload["tax_charges_report"] = _collect_tax_charges_report(
         profile_names=selected_profile_names,
         company=company,
@@ -5159,48 +5186,54 @@ def get_dashboard_data(
         date_to=str(report_to_date),
         limit=item_sales_limit,
     )
-    payload["category_brand_variant_report"] = _collect_category_brand_variant_report(
-        profile_names=selected_profile_names,
-        company=company,
-        date_from=str(month_start),
-        date_to=str(report_to_date),
-        limit=category_report_limit,
-    )
-    payload["inventory_status_report"] = _collect_inventory_status_report(
-        profile_names=selected_profile_names,
-        company=company,
-        warehouses=warehouses,
-        threshold=threshold,
-        date_from=str(month_start),
-        date_to=str(report_to_date),
-        limit=inventory_status_limit,
-    )
-    payload["stock_movement_report"] = _collect_stock_movement_report(
-        company=company,
-        warehouses=warehouses,
-        date_from=str(month_start),
-        date_to=str(report_to_date),
-        limit=stock_movement_limit,
-    )
-    payload["reorder_purchase_suggestions"] = _collect_reorder_purchase_suggestions(
-        profile_names=selected_profile_names,
-        company=company,
-        warehouses=warehouses,
-        threshold=threshold,
-        date_from=str(month_start),
-        date_to=str(report_to_date),
-        limit=reorder_suggestion_limit,
-    )
+    if _can_read("Item"):
+        payload["category_brand_variant_report"] = _collect_category_brand_variant_report(
+            profile_names=selected_profile_names,
+            company=company,
+            date_from=str(month_start),
+            date_to=str(report_to_date),
+            limit=category_report_limit,
+        )
+    if stock_access:
+        payload["inventory_status_report"] = _collect_inventory_status_report(
+            profile_names=selected_profile_names,
+            company=company,
+            warehouses=warehouses,
+            threshold=threshold,
+            date_from=str(month_start),
+            date_to=str(report_to_date),
+            limit=inventory_status_limit,
+        )
+        payload["stock_movement_report"] = _collect_stock_movement_report(
+            company=company,
+            warehouses=warehouses,
+            date_from=str(month_start),
+            date_to=str(report_to_date),
+            limit=stock_movement_limit,
+        )
+        if purchase_access and _can_read("Item Price"):
+            payload["reorder_purchase_suggestions"] = _collect_reorder_purchase_suggestions(
+                profile_names=selected_profile_names,
+                company=company,
+                warehouses=warehouses,
+                threshold=threshold,
+                date_from=str(month_start),
+                date_to=str(report_to_date),
+                limit=reorder_suggestion_limit,
+            )
 
-    fast_moving_items, fast_moving_total_count = _collect_fast_moving_items(
-        profile_names=selected_profile_names,
-        company=company,
-        date_from=str(month_start),
-        date_to=str(report_to_date),
-        limit=fast_moving_page_size,
-        offset=fast_moving_offset,
-        search_text=fast_moving_search,
-    )
+    if _can_read("Item"):
+        fast_moving_items, fast_moving_total_count = _collect_fast_moving_items(
+            profile_names=selected_profile_names,
+            company=company,
+            date_from=str(month_start),
+            date_to=str(report_to_date),
+            limit=fast_moving_page_size,
+            offset=fast_moving_offset,
+            search_text=fast_moving_search,
+        )
+    else:
+        fast_moving_items, fast_moving_total_count = [], 0
     payload["inventory_insights"]["fast_moving_items"] = fast_moving_items
     payload["inventory_insights"]["fast_moving_pagination"] = {
         "page": fast_moving_page,
@@ -5211,16 +5244,18 @@ def get_dashboard_data(
         ),
         "search": fast_moving_search,
     }
-    payload["inventory_insights"]["low_stock_items"] = _collect_low_stock_items(
-        warehouses=warehouses,
-        threshold=threshold,
-        limit=low_stock_limit,
-    )
-    payload["supplier_overview"] = _collect_supplier_overview_report(
-        company=company,
-        date_from=str(month_start),
-        date_to=str(report_to_date),
-        limit=supplier_limit,
-    )
+    if stock_access:
+        payload["inventory_insights"]["low_stock_items"] = _collect_low_stock_items(
+            warehouses=warehouses,
+            threshold=threshold,
+            limit=low_stock_limit,
+        )
+    if purchase_access:
+        payload["supplier_overview"] = _collect_supplier_overview_report(
+            company=company,
+            date_from=str(month_start),
+            date_to=str(report_to_date),
+            limit=supplier_limit,
+        )
 
     return payload

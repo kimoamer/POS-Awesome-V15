@@ -76,7 +76,7 @@
 </template>
 
 <script>
-import { useUIStore } from "../../../stores/uiStore.js";
+import { useUIStore } from "../../../stores/uiStore";
 import { ref, inject, onMounted, onBeforeUnmount, watch } from "vue";
 import { useClosingShift } from "../../../composables/pos/closing/useClosingShift";
 import { useClosingSummary } from "../../../composables/pos/closing/useClosingSummary";

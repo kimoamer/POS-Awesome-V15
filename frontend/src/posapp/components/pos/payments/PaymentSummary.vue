@@ -21,6 +21,23 @@
 				{{ renderMoney(differenceAmount) }}
 			</bdi>
 		</button>
+
+		<div
+			v-if="giftCardAppliedAmount > 0 || giftCardCode"
+			class="payment-overview-gift-card"
+			data-test="gift-card-settlement-summary"
+		>
+			<span class="payment-overview-gift-card__icon" aria-hidden="true">🎁</span>
+			<span class="payment-overview-gift-card__copy">
+				<strong>{{ __("Gift Card Applied") }}</strong>
+				<small>
+					<bdi v-if="giftCardCode">{{ giftCardCode }}</bdi>
+					<span v-if="giftCardCode"> · </span>
+					<bdi>{{ renderMoney(giftCardAppliedAmount) }}</bdi>
+					<span> · {{ __("Included in settlement") }}</span>
+				</small>
+			</span>
+		</div>
 	</div>
 </template>
 
@@ -48,6 +65,14 @@ const props = defineProps({
 		type: Function,
 		default: null,
 	},
+	giftCardAppliedAmount: {
+		type: Number,
+		default: 0,
+	},
+	giftCardCode: {
+		type: String,
+		default: "",
+	},
 });
 
 defineEmits(["show-paid-amount", "show-diff-payment", "show-paid-change", "update-credit-change"]);
@@ -71,6 +96,28 @@ const renderMoney = (val) => {
 	gap: var(--payment-space-2, 8px);
 	height: 100%;
 	min-height: 0;
+}
+
+.payment-overview-gift-card {
+	grid-column: 1 / -1;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 9px;
+	border: 1px solid color-mix(in srgb, var(--pos-success, #059669) 30%, transparent);
+	border-radius: var(--payment-radius-sm, 8px);
+	background: color-mix(in srgb, var(--pos-success, #059669) 8%, var(--pos-surface-raised, #fff));
+}
+
+.payment-overview-gift-card__copy {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	font-size: 11px;
+}
+
+.payment-overview-gift-card__copy small {
+	color: var(--pos-text-secondary, #64748b);
 }
 
 .payment-overview-metric {

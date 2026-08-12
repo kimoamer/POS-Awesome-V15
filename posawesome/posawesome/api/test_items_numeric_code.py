@@ -9,6 +9,33 @@ from posawesome.posawesome.api.items import get_items
 
 class TestNumericItemCodes(FrappeTestCase):
     def setUp(self):
+        super().setUp()
+        profile = {"name": "TestProfile"}
+        resolver = patch(
+            "posawesome.posawesome.api.item_processing.search._ensure_pos_profile",
+            return_value=(profile, json.dumps(profile)),
+        )
+        resolver.start()
+        self.addCleanup(resolver.stop)
+        def fake_details(_profile, items_json, **_kwargs):
+            return [
+                {
+                    "item_code": row["item_code"],
+                    "item_barcode": (
+                        [{"barcode": "123456789"}]
+                        if row["item_code"] == "TEST-ITEM-123"
+                        else []
+                    ),
+                }
+                for row in json.loads(items_json)
+            ]
+
+        details = patch(
+            "posawesome.posawesome.api.item_processing.search.get_items_details",
+            side_effect=fake_details,
+        )
+        details.start()
+        self.addCleanup(details.stop)
         items = [
             ("ALPHA-TEST", "Alpha"),
             ("BETA-TEST", "Beta"),
@@ -37,11 +64,16 @@ class TestNumericItemCodes(FrappeTestCase):
 
     def test_numeric_code_appears_without_search(self):
         pos_profile = json.dumps({"name": "TestProfile"})
-        with patch("posawesome.posawesome.api.items.get_items_details", return_value=[]):
-            first_page = get_items(pos_profile, limit=2)
-            last_name = first_page[-1]["item_name"]
-            second_page = get_items(pos_profile, limit=2, start_after=last_name)
-        codes = [i["item_code"] for i in second_page]
+        codes = []
+        cursor = None
+        for _page in range(50):
+            rows = get_items(pos_profile, limit=50, start_after=cursor)
+            if not rows:
+                break
+            codes.extend(row["item_code"] for row in rows)
+            if "002" in codes or len(rows) < 50:
+                break
+            cursor = rows[-1]["item_name"]
         self.assertIn("002", codes)
 
     def test_item_search_with_whitespace(self):

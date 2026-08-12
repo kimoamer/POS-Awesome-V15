@@ -72,6 +72,7 @@ def find_payment_entries_by_client_request_id(client_request_id):
             "received_amount",
             "posting_date",
             "mode_of_payment",
+            "company",
             "party",
             "party_type",
             "docstatus",

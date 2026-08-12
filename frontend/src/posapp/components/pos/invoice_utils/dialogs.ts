@@ -230,7 +230,7 @@ export async function get_draft_orders(context: any) {
 
 
 export function open_returns(context: any) {
-	context.eventBus.emit("open_returns", context.pos_profile.company);
+	context.uiStore?.openReturns?.(context.pos_profile.company);
 }
 
 export function open_invoice_management(
@@ -261,6 +261,7 @@ export async function load_draft_source_record(context: any, draft: any) {
 			source: selectedSource,
 			record: draft,
 			posProfile: context.pos_profile,
+			posOpeningShift: context.pos_opening_shift,
 			currentInvoiceDoctype: context.pos_profile?.create_pos_invoice_instead_of_sales_invoice
 				? "POS Invoice"
 				: "Sales Invoice",
@@ -394,6 +395,7 @@ export async function change_price_list_rate(
 					price_list: priceList,
 					rate: nextRate,
 					uom: item.uom || item.stock_uom || undefined,
+					pos_profile: context.pos_profile?.name,
 				},
 			});
 			item._price_list_rate_persisted = true;

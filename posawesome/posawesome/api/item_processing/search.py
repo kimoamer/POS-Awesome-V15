@@ -20,7 +20,9 @@ from posawesome.posawesome.api.utils import (
     _ensure_pos_profile,
     log_perf_event,
 )
-from posawesome.posawesome.api.item_processing.barcode import search_serial_or_batch_or_barcode_number
+from posawesome.posawesome.api.item_processing.barcode import (
+    _search_serial_or_batch_or_barcode_number,
+)
 from posawesome.posawesome.api.item_processing.details import get_items_details
 
 
@@ -90,9 +92,10 @@ def _build_search_plan(
     start_after,
     start_after_item_code,
     modified_after,
-    include_description: bool,
-    include_image: bool,
-    item_groups: Optional[Sequence[str]],
+    modified_before=None,
+    include_description: bool = False,
+    include_image: bool = False,
+    item_groups: Optional[Sequence[str]] = None,
 ) -> SearchPlan:
     """Assemble filters, pagination rules and search metadata."""
 
@@ -112,12 +115,27 @@ def _build_search_plan(
         filters["item_code"] = [">", cstr(start_after_item_code)]
     elif start_after:
         filters["item_name"] = [">", start_after]
+    parsed_modified_after = None
+    parsed_modified_before = None
     if modified_after:
         try:
             parsed_modified_after = get_datetime(modified_after)
         except Exception:
             frappe.throw(_("modified_after must be a valid ISO datetime"))
+    if modified_before:
+        try:
+            parsed_modified_before = get_datetime(modified_before)
+        except Exception:
+            frappe.throw(_("modified_before must be a valid ISO datetime"))
+    if parsed_modified_after and parsed_modified_before:
+        filters["modified"] = [
+            "between",
+            [parsed_modified_after.isoformat(), parsed_modified_before.isoformat()],
+        ]
+    elif parsed_modified_after:
         filters["modified"] = [">", parsed_modified_after.isoformat()]
+    elif parsed_modified_before:
+        filters["modified"] = ["<=", parsed_modified_before.isoformat()]
 
     if item_groups:
         filters["item_group"] = ["in", list(item_groups)]
@@ -131,7 +149,13 @@ def _build_search_plan(
 
     if search_value:
         raw_search_value = cstr(search_value).strip()
-        data = search_serial_or_batch_or_barcode_number(raw_search_value, search_serial_no, search_batch_no)
+        data = _search_serial_or_batch_or_barcode_number(
+            raw_search_value,
+            search_serial_no,
+            search_batch_no,
+            pos_profile,
+            pos_profile.get("warehouse"),
+        )
 
         tokens = re.split(r"\s+", raw_search_value)
         seen: List[str] = []
@@ -735,6 +759,7 @@ def _execute_item_search(
     start_after,
     start_after_item_code,
     modified_after,
+    modified_before,
     include_description: bool,
     include_image: bool,
     item_groups: Optional[Sequence[str]],
@@ -755,6 +780,7 @@ def _execute_item_search(
         start_after,
         start_after_item_code,
         modified_after,
+        modified_before,
         include_description,
         include_image,
         item_groups,
@@ -818,6 +844,7 @@ def get_items(
     start_after=None,
     start_after_item_code=None,
     modified_after=None,
+    modified_before=None,
     include_description=False,
     include_image=False,
     item_groups=None,
@@ -838,6 +865,7 @@ def get_items(
         start_after,
         start_after_item_code,
         modified_after,
+        modified_before,
         item_group,
         include_description,
         include_image,
@@ -854,6 +882,7 @@ def get_items(
             start_after,
             start_after_item_code,
             modified_after,
+            modified_before,
             include_description,
             include_image,
             list(item_groups_tuple),
@@ -871,6 +900,7 @@ def get_items(
             start_after,
             start_after_item_code,
             modified_after,
+            modified_before,
             item_group,
             include_description,
             include_image,
@@ -898,6 +928,7 @@ def get_items(
         start_after,
         start_after_item_code,
         modified_after,
+        modified_before,
         include_description,
         include_image,
         groups_ctx.groups,
@@ -956,11 +987,18 @@ def get_hot_items(
 
 
 @frappe.whitelist()
-def get_items_groups():
-    return frappe.db.sql(
-        """select name from `tabItem Group`
-		where is_group = 0 order by name limit 500""",
-        as_dict=1,
+def get_items_groups(pos_profile):
+    profile, _serialized = _ensure_pos_profile(pos_profile)
+    configured = get_item_groups(profile.get("name")) or []
+    filters = {"is_group": 0}
+    if configured:
+        filters["name"] = ["in", expand_item_groups(configured)]
+    return frappe.get_list(
+        "Item Group",
+        filters=filters,
+        fields=["name"],
+        order_by="name asc",
+        limit_page_length=500,
     )
 
 

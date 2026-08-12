@@ -2,6 +2,7 @@ import frappe
 from frappe import _
 from frappe.utils import nowdate
 from posawesome.posawesome.api.payment_processing.utils import get_party_account, get_bank_cash_account
+from posawesome.posawesome.api.utils import assert_doctype_permission
 
 
 def create_direct_journal_entry(
@@ -14,6 +15,8 @@ def create_direct_journal_entry(
 ):
     """Create a journal entry directly to handle payment allocation and bypass payment entry reconciliation issues"""
     try:
+        assert_doctype_permission("Journal Entry", "create")
+        assert_doctype_permission("Journal Entry", "submit")
         frappe.log_error(
             f"Creating direct journal entry for {customer} with amount {payment_amount}",
             "Direct JE Debug",
@@ -122,7 +125,7 @@ def create_direct_journal_entry(
             },
         )
 
-        je.save(ignore_permissions=True)
+        je.save()
         je.submit()
 
         frappe.log_error(f"Created Journal Entry: {je.name}", "Direct JE Debug")
@@ -187,6 +190,9 @@ def create_pos_exchange_gain_loss_journal(
     import erpnext
     from erpnext.accounts.doctype.account.account import get_account_currency
 
+    assert_doctype_permission("Journal Entry", "create")
+    assert_doctype_permission("Journal Entry", "submit")
+
     je = frappe.new_doc("Journal Entry")
     je.voucher_type = "Exchange Gain Or Loss"
     je.company = company
@@ -243,6 +249,6 @@ def create_pos_exchange_gain_loss_journal(
         gl_row.update(dimensions)
     je.append("accounts", gl_row)
 
-    je.save(ignore_permissions=True)
-    je.submit(ignore_permissions=True)
+    je.save()
+    je.submit()
     return je.name

@@ -150,6 +150,7 @@ export function useTheme() {
 			root.style.setProperty("--pos-card-bg", "#1E1E1E");
 			root.style.setProperty("--pos-input-bg", "#2d2d2d");
 			root.style.setProperty("--pos-tooltip-bg", "#202833");
+			root.style.setProperty("--pos-tooltip-fg", "#ffffff");
 			root.style.setProperty(
 				"--pos-tooltip-border",
 				"rgba(148, 163, 184, 0.2)",
@@ -173,9 +174,9 @@ export function useTheme() {
 			root.style.setProperty("--pos-text-disabled", "#9e9e9e");
 			root.style.setProperty("--pos-text-muted", "#667085");
 
-			root.style.setProperty("--pos-primary", "#0097A7");
-			root.style.setProperty("--pos-primary-variant", "#00838F");
-			root.style.setProperty("--pos-secondary", "#00BCD4");
+			root.style.setProperty("--pos-primary", "#007681");
+			root.style.setProperty("--pos-primary-variant", "#005F68");
+			root.style.setProperty("--pos-secondary", "#007C87");
 
 			root.style.setProperty("--pos-border", "rgba(0, 0, 0, 0.12)");
 			root.style.setProperty("--pos-divider", "rgba(0, 0, 0, 0.06)");
@@ -183,10 +184,11 @@ export function useTheme() {
 
 			root.style.setProperty("--pos-card-bg", "#ffffff");
 			root.style.setProperty("--pos-input-bg", "#f5f5f5");
-			root.style.setProperty("--pos-tooltip-bg", "#ffffff");
+			root.style.setProperty("--pos-tooltip-bg", "#17202a");
+			root.style.setProperty("--pos-tooltip-fg", "#ffffff");
 			root.style.setProperty(
 				"--pos-tooltip-border",
-				"rgba(15, 23, 42, 0.12)",
+				"rgba(255, 255, 255, 0.16)",
 			);
 			root.style.setProperty(
 				"--pos-tooltip-shadow",
@@ -298,7 +300,7 @@ export function useTheme() {
 			background: isDarkMode.value ? "#121212" : "#ffffff",
 			surface: isDarkMode.value ? "#1E1E1E" : "#ffffff",
 			surfaceVariant: isDarkMode.value ? "#2d2d2d" : "#f5f5f5",
-			primary: isDarkMode.value ? "#00D4FF" : "#0097A7",
+			primary: isDarkMode.value ? "#00D4FF" : "#007681",
 			textPrimary: isDarkMode.value ? "#ffffff" : "#212121",
 			textSecondary: isDarkMode.value ? "#e0e0e0" : "#666666",
 			border: isDarkMode.value

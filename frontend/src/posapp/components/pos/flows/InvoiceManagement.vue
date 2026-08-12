@@ -1499,7 +1499,7 @@
 					color="secondary"
 					variant="outlined"
 					size="small"
-					prepend-icon="mdi-link-wrench"
+					prepend-icon="mdi-wrench"
 					:loading="repairChangeLoading"
 					:disabled="repairChangeLoading || isOffline()"
 					@click="repairChangeAllocation(selectedInvoiceDetail)"
@@ -1547,6 +1547,7 @@ import format from "../../../format";
 import { useTheme } from "../../../composables/core/useTheme";
 import { useResponsive } from "../../../composables/core/useResponsive";
 import { useToastStore } from "../../../stores/toastStore";
+import { useDialogStore } from "../../../stores/dialogStore";
 import { useUIStore } from "../../../stores/uiStore";
 import { useInvoiceStore } from "../../../stores/invoiceStore";
 import { useCustomersStore } from "../../../stores/customersStore";
@@ -1593,6 +1594,7 @@ export default {
 		const customersStore = useCustomersStore();
 		const employeeStore = useEmployeeStore();
 		const toastStore = useToastStore();
+		const dialogStore = useDialogStore();
 		const router = useRouter();
 		const theme = useTheme();
 		const responsive = useResponsive();
@@ -1606,13 +1608,14 @@ export default {
 		);
 		const { invoiceManagementDialog, invoiceManagementTargetTab, posProfile, posOpeningShift } =
 			storeToRefs(uiStore);
-		const { currentCashier } = storeToRefs(employeeStore);
+		const { currentCashier, currentCashierGrant } = storeToRefs(employeeStore);
 		return {
 			uiStore,
 			invoiceStore,
 			customersStore,
 			employeeStore,
 			toastStore,
+			dialogStore,
 			router,
 			eventBus,
 			invoiceManagementDialog,
@@ -1620,6 +1623,7 @@ export default {
 			posProfile,
 			posOpeningShift,
 			currentCashier,
+			currentCashierGrant,
 			isDarkTheme: theme.isDark,
 			isOffline,
 			isCompactInvoiceManagement,
@@ -2190,6 +2194,10 @@ export default {
 								doctype,
 								invoice_names: invoiceNames,
 								company: this.posProfile?.company || null,
+								pos_profile: this.posProfile?.name || null,
+								opening_shift: this.posOpeningShift || null,
+								cashier: this.currentCashier?.user || null,
+								cashier_grant: this.currentCashierGrant || null,
 								dry_run: 1,
 								limit: Math.min(invoiceNames.length, 500),
 							},
@@ -2374,6 +2382,10 @@ export default {
 					doctype: invoice.doctype || this.currentInvoiceDoctype || "Sales Invoice",
 					invoice_names: [invoice.name],
 					company: this.posProfile?.company || invoice.company || null,
+					pos_profile: this.posProfile?.name || null,
+					opening_shift: this.posOpeningShift || null,
+					cashier: this.currentCashier?.user || null,
+					cashier_grant: this.currentCashierGrant || null,
 					dry_run: dryRun ? 1 : 0,
 				},
 				freeze: !dryRun,
@@ -2496,8 +2508,10 @@ export default {
 				if (action === "quote_submit" || action === "order_to_delivery_note") {
 					const result = await commitDocumentFlowAction({
 						action,
-						source: invoice?.source || this.currentDraftSource,
-						record: invoice,
+							source: invoice?.source || this.currentDraftSource,
+							record: invoice,
+							posProfile: this.posProfile,
+							posOpeningShift: this.posOpeningShift,
 					});
 					if (action === "quote_submit") {
 						this.toastStore.show({ title: __("Quotation submitted"), color: "success" });
@@ -2522,8 +2536,10 @@ export default {
 				const prepared = await prepareDocumentFlowAction({
 					action,
 					source: invoice?.source || this.currentDraftSource,
-					record: invoice,
-					currentInvoiceDoctype: this.currentInvoiceDoctype,
+						record: invoice,
+						currentInvoiceDoctype: this.currentInvoiceDoctype,
+						posProfile: this.posProfile,
+						posOpeningShift: this.posOpeningShift,
 				});
 				if (!prepared?.prepared_doc) {
 					this.toastStore.show({ title: __("Unable to prepare document"), color: "error" });
@@ -2651,7 +2667,8 @@ export default {
 							? this.resolveSupervisorProfileScope()
 							: null,
 					resolveCashierProfileScope: () => this.posProfile?.name || null,
-					resolveCashierScope: () => this.currentCashier?.user || null,
+						resolveCashierScope: () => this.currentCashier?.user || null,
+						cashierGrant: this.currentCashierGrant || null,
 				});
 				this.draftRecordsBySource = {
 					...this.draftRecordsBySource,
@@ -2683,7 +2700,8 @@ export default {
 				await loadDocumentSourceRecord({
 					source: invoice?.source || this.currentDraftSource,
 					record: invoice,
-					posProfile: this.posProfile,
+						posProfile: this.posProfile,
+						posOpeningShift: this.posOpeningShift,
 					currentInvoiceDoctype: this.currentInvoiceDoctype,
 					invoiceStore: this.invoiceStore,
 					uiStore: this.uiStore,
@@ -2697,11 +2715,21 @@ export default {
 		},
 		async deleteDraft(invoice) {
 			if (!this.canDeleteActiveDraftSource) return;
-			if (!window.confirm(__("Delete draft invoice {0}?", [invoice.name]))) return;
+			const confirmed = await this.dialogStore.confirm({
+				title: __("Delete draft invoice"),
+				message: __("Delete draft invoice {0}?", [invoice.name]),
+				confirmLabel: __("Delete"),
+				color: "error",
+			});
+			if (!confirmed) return;
 			try {
 				await frappe.call({
 					method: "posawesome.posawesome.api.invoices.delete_invoice",
-					args: { invoice: invoice.name },
+					args: {
+						invoice: invoice.name,
+						pos_profile: this.posProfile?.name,
+						pos_opening_shift: this.posOpeningShift?.name || this.posOpeningShift,
+					},
 				});
 				this.toastStore.show({ title: __("Draft invoice deleted"), color: "success" });
 				await this.loadDrafts();
@@ -2832,7 +2860,7 @@ export default {
 					return;
 				} catch (error) {
 					console.warn("QZ Tray print failed", error);
-					if (confirmDocumentPrintFallback(error, { raw: useRawPrint })) {
+					if (await confirmDocumentPrintFallback(error, { raw: useRawPrint })) {
 						silentPrint(url, printOptions);
 					}
 					return;
@@ -2840,7 +2868,7 @@ export default {
 			}
 			if (useRawPrint) {
 				const offlineError = new Error(__("Raw printing is not available while the POS is offline."));
-				if (confirmDocumentPrintFallback(offlineError, { raw: true, offline: true })) {
+				if (await confirmDocumentPrintFallback(offlineError, { raw: true, offline: true })) {
 					silentPrint(url, printOptions);
 				}
 				return;
@@ -2931,6 +2959,15 @@ export default {
 .invoice-management-card--dark {
 	background: #0f172a !important;
 	color: #f8fafc !important;
+}
+
+.invoice-management-card--dark .summary-tile__label,
+.invoice-management-card--dark .summary-tile__meta {
+	color: #cbd5e1;
+}
+
+.invoice-management-card--dark .summary-tile__value {
+	color: #f8fafc;
 }
 
 .header-icon-wrap {
@@ -3487,6 +3524,19 @@ export default {
 .invoice-detail-card--dark {
 	background: #0f172a !important;
 	color: #f8fafc !important;
+}
+
+.invoice-detail-card--dark .summary-tile {
+	background: #111c30;
+	border-color: #334155;
+}
+
+.invoice-detail-card--dark .summary-tile__label {
+	color: #cbd5e1;
+}
+
+.invoice-detail-card--dark .summary-tile__value {
+	color: #f8fafc;
 }
 
 .detail-dialog-header {

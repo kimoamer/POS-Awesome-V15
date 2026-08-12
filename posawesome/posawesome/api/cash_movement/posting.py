@@ -1,6 +1,7 @@
 import frappe
 from frappe import _
 from frappe.utils import nowdate, flt
+from posawesome.posawesome.api.utils import assert_doctype_permission, assert_document_permission
 
 
 def create_journal_entry(
@@ -13,6 +14,8 @@ def create_journal_entry(
     remarks=None,
     cost_center=None,
 ):
+    assert_doctype_permission("Journal Entry", "create")
+    assert_doctype_permission("Journal Entry", "submit")
     amount = flt(amount)
     if amount <= 0:
         frappe.throw(_("Amount must be greater than zero."))
@@ -51,8 +54,6 @@ def create_journal_entry(
         },
     )
 
-    je.flags.ignore_permissions = True
-    frappe.flags.ignore_account_permission = True
     je.save()
     je.submit()
     return je.name
@@ -66,9 +67,8 @@ def cancel_journal_entry(journal_entry_name):
         return
 
     je = frappe.get_doc("Journal Entry", journal_entry_name)
+    assert_document_permission(je, "cancel")
     if je.docstatus == 1:
-        je.flags.ignore_permissions = True
         # Cash movement keeps a hard link to JE for audit trail; allow JE cancel from this controlled path.
         je.flags.ignore_links = True
-        frappe.flags.ignore_account_permission = True
         je.cancel()

@@ -1,6 +1,6 @@
 <template>
 	<div class="invoice-items-table-view">
-		<v-data-table
+		<v-data-table-virtual
 			:headers="headers"
 			:items="items"
 			item-value="posa_row_id"
@@ -10,6 +10,8 @@
 			:density="tableDensity"
 			hide-default-footer
 			:header-props="headerProps"
+			:height="height"
+			:item-height="itemHeight"
 		>
 			<template #no-data>
 				<div class="posa-cart-empty-state">
@@ -53,7 +55,7 @@
 					@remove-item="$emit('remove-item', $event)"
 				/>
 			</template>
-		</v-data-table>
+		</v-data-table-virtual>
 	</div>
 </template>
 
@@ -106,6 +108,14 @@ defineProps({
 		default: "comfortable",
 	},
 	headerProps: Object,
+	height: {
+		type: Number,
+		default: 600,
+	},
+	itemHeight: {
+		type: Number,
+		default: 70,
+	},
 	emptyStateTitle: String,
 	emptyStateSubtitle: String,
 	emptyStateIcon: String,

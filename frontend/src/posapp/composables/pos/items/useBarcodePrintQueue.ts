@@ -1,8 +1,10 @@
 import { ref, nextTick } from "vue";
 import { useToastStore } from "../../../stores/toastStore";
 import { useItemsStore } from "../../../stores/itemsStore";
+import { useUIStore } from "../../../stores/uiStore";
 import { useScaleBarcodeSettings } from "./useScaleBarcodeSettings";
 import { useSerializationEngine } from "./useSerializationEngine";
+import { posDebug } from "../../../utils/debug";
 
 declare const frappe: any;
 declare const __: (_str: string, _args?: any[]) => string;
@@ -57,6 +59,7 @@ export function useBarcodePrintQueue() {
 	const pendingScaleBarcodeTimer = ref<any>(null);
 
 	const toastStore = useToastStore();
+	const uiStore = useUIStore();
 	const itemsStore = useItemsStore();
 	const scaleBarcode = useScaleBarcodeSettings();
 	const variableDataDialog = ref(false);
@@ -70,7 +73,11 @@ export function useBarcodePrintQueue() {
 			const company = itemsStore.posProfile?.company;
 			const { message } = await frappe.call({
 				method: "posawesome.posawesome.api.utils.get_warehouses",
-				args: { company },
+				args: {
+					company,
+					pos_profile: itemsStore.posProfile?.name,
+					pos_opening_shift: uiStore.posOpeningShift?.name,
+				},
 			});
 			warehouseOptions.value = Array.isArray(message) ? message : [];
 		} catch {
@@ -82,11 +89,7 @@ export function useBarcodePrintQueue() {
 	fetchWarehouseOptions();
 
 	const logDebug = (step: string, payload: any = {}) => {
-		try {
-			console.debug("[POS BarcodePrintQueue]", step, payload);
-		} catch {
-			console.log("[POS BarcodePrintQueue]", step);
-		}
+		posDebug("barcode-print-queue", step, payload);
 	};
 
 	const normalizeLabelQty = (value: any): number => {
@@ -293,7 +296,12 @@ export function useBarcodePrintQueue() {
 				try {
 					const res = await frappe.call({
 						method: "posawesome.posawesome.api.item_processing.price.get_price_for_uom",
-						args: { item_code: item.item_code, price_list: priceList, uom: newUom },
+							args: {
+								item_code: item.item_code,
+								price_list: priceList,
+								uom: newUom,
+								pos_profile: itemsStore.posProfile?.name || null,
+							},
 						silent: true,
 					});
 					if (res.message != null) {

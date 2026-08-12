@@ -116,7 +116,7 @@
 						</v-card>
 
 						<v-card
-							v-if="pos_profile.posa_allow_multi_currency"
+							v-if="multi_currency_enabled"
 							flat
 							class="invoice-section-card pos-themed-card"
 						>
@@ -321,16 +321,17 @@ import invoiceItemMethods from "./invoice/invoiceItemMethods";
 import invoiceComputed from "./invoice/invoiceComputed";
 import invoiceWatchers from "./invoice/invoiceWatchers";
 import shortcutMethods from "./invoice/invoiceShortcuts";
-import { useInvoiceStore } from "../../stores/invoiceStore.js";
-import { useCustomersStore } from "../../stores/customersStore.js";
-import { useToastStore } from "../../stores/toastStore.js";
-import { useUIStore } from "../../stores/uiStore.js";
+import { useInvoiceStore } from "../../stores/invoiceStore";
+import { useCustomersStore } from "../../stores/customersStore";
+import { useToastStore } from "../../stores/toastStore";
+import { useUIStore } from "../../stores/uiStore";
 import { storeToRefs } from "pinia";
 import stockCoordinator from "../../utils/stockCoordinator";
 import { computed, getCurrentInstance, ref } from "vue";
 import { save_and_clear_invoice as saveAndClearInvoiceAction } from "./invoice_utils/actions";
 import { fetchDraftInvoices } from "../../utils/draftInvoices";
 import { getQuickCashTenderSuggestions } from "../../utils/cashTender";
+import { posDebug } from "../../utils/debug";
 
 // Composables
 import { useOnlineStatus } from "../../composables/core/useOnlineStatus";
@@ -774,7 +775,7 @@ export default {
 			const ratio = Math.min(1, returnTotal / originalTotal);
 			const prorated = -Math.abs(originalDiscount * ratio);
 
-			console.log("[POSA][Returns] Event auto-prorate discount", {
+			posDebug("returns", "event auto-prorate discount", {
 				originalDiscount,
 				originalTotal,
 				returnTotal,
@@ -978,7 +979,7 @@ export default {
 
 			const ratio = Math.min(1, returnTotal / originalTotal);
 			const prorated = originalDiscount * ratio;
-			console.log("[POSA][Returns] Prorate discount", {
+			posDebug("returns", "prorate discount", {
 				originalDiscount,
 				originalTotal,
 				returnTotal,
@@ -1047,7 +1048,7 @@ export default {
 							0,
 					),
 				);
-				console.log("[POSA][Returns] Loaded return doc", {
+				posDebug("returns", "loaded return document", {
 					return_against: data.return_doc.name,
 					is_percentage: !!this.pos_profile?.posa_use_percentage_discount,
 					discount_amount: data.return_doc.discount_amount,
@@ -1482,13 +1483,13 @@ export default {
 	flex: 0 0 auto !important;
 }
 
-@media (max-width: 1199px) {
-	.invoice-workspace--compact .invoice-customer-region {
-		align-items: center;
-		min-height: 48px !important;
-		padding: 4px 8px 4px !important;
+	@media (max-width: 1199px) {
+		.invoice-workspace--compact .invoice-customer-region {
+			align-items: flex-start;
+			min-height: auto !important;
+			padding: 6px 10px 8px !important;
+		}
 	}
-}
 
 @media (max-width: 599px) {
 	.invoice-workspace--compact .invoice-customer-region {

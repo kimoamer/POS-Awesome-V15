@@ -28,13 +28,26 @@ from posawesome.posawesome.api.invoice_processing.stock import (
 from posawesome.posawesome.api.tax_contracts import apply_pos_tax_inclusion_contract
 from posawesome.posawesome.api.payment_processing.utils import get_bank_cash_account as get_bank_account
 from posawesome.posawesome.api.utilities import ensure_child_doctype, set_batch_nos_for_bundels
-from posawesome.posawesome.api.payments import redeeming_customer_credit
+from posawesome.posawesome.api.payments import (
+    redeeming_customer_credit,
+    validate_customer_credit_claims,
+)
+from posawesome.posawesome.api.invoice_processing.pricing_authority import (
+    apply_authoritative_pricing,
+    capture_pricing_state,
+    prepare_invoice_pricing,
+)
 from posawesome.posawesome.api.idempotency import (
     extract_invoice_client_request_id,
     find_invoice_by_client_request_id,
     set_invoice_client_request_id,
     strip_invoice_client_request_id,
     doctype_supports_client_request_id,
+)
+from posawesome.posawesome.api.utils import (
+    assert_doctype_permission,
+    assert_pos_profile_access_allowed,
+    get_pos_request_context,
 )
 import json
 import hashlib
@@ -54,6 +67,144 @@ RETURN_OUTSTANDING_MESSAGE_MARKERS = (
     "Updating the outstanding to this invoice.",
     "Update Outstanding for Self",
 )
+
+
+def _profile_flag(profile, *fieldnames):
+    return any(cint(profile.get(fieldname)) for fieldname in fieldnames)
+
+
+def _authorize_and_normalize_invoice_payload(
+    invoice,
+    data=None,
+    permission_type="create",
+):
+    invoice = invoice or {}
+    data = data or {}
+    profile_selector = invoice.get("pos_profile") or data.get("pos_profile")
+    if not profile_selector:
+        frappe.throw(_("POS Profile is required."))
+
+    profile = assert_pos_profile_access_allowed(profile_selector)
+    expected_doctype = (
+        "POS Invoice"
+        if cint(profile.get("create_pos_invoice_instead_of_sales_invoice"))
+        else "Sales Invoice"
+    )
+    supplied_doctype = invoice.get("doctype")
+    if supplied_doctype and supplied_doctype != expected_doctype:
+        frappe.throw(_("Document type is not allowed for this POS Profile."))
+
+    supplied_company = invoice.get("company") or data.get("company")
+    opening_shift = (
+        invoice.get("posa_pos_opening_shift")
+        or invoice.get("pos_opening_shift")
+        or data.get("posa_pos_opening_shift")
+        or data.get("pos_opening_shift")
+    )
+    get_pos_request_context(
+        profile.name,
+        company=supplied_company,
+        doctype=expected_doctype,
+        permission_type=permission_type,
+        require_open_shift=True,
+        opening_shift=opening_shift,
+    )
+    if permission_type == "submit":
+        assert_doctype_permission(expected_doctype, "create")
+
+    invoice["doctype"] = expected_doctype
+    invoice["pos_profile"] = profile.name
+    invoice["company"] = profile.company
+    data["pos_profile"] = profile.name
+    data["company"] = profile.company
+
+    requested_currency = invoice.get("currency")
+    if (
+        requested_currency
+        and requested_currency != profile.get("currency")
+        and not cint(profile.get("posa_allow_multi_currency"))
+    ):
+        frappe.throw(_("Multi-currency sales are disabled for this POS Profile."))
+
+    posting_date = _safe_date_string(invoice.get("posting_date"))
+    if (
+        posting_date
+        and posting_date != _safe_date_string(nowdate())
+        and not cint(profile.get("posa_allow_change_posting_date"))
+    ):
+        frappe.throw(_("Changing the posting date is disabled for this POS Profile."))
+
+    is_return = cint(invoice.get("is_return"))
+    if is_return and not _profile_flag(profile, "posa_allow_return", "posa_allow_returns"):
+        frappe.throw(_("Returns are disabled for this POS Profile."))
+    if is_return and not invoice.get("return_against") and not cint(
+        profile.get("posa_allow_return_without_invoice")
+    ):
+        frappe.throw(_("Returns without an original invoice are disabled for this POS Profile."))
+
+    additional_discount = abs(
+        flt(invoice.get("additional_discount_percentage"))
+        or flt(invoice.get("discount_amount"))
+    )
+    if additional_discount and not cint(
+        profile.get("posa_allow_user_to_edit_additional_discount")
+    ) and not invoice.get("posa_offers"):
+        frappe.throw(_("Additional discounts are disabled for this POS Profile."))
+
+    max_discount = flt(profile.get("posa_max_discount_allowed"))
+    allow_item_discount = cint(profile.get("posa_allow_user_to_edit_item_discount"))
+    allow_name_override = cint(profile.get("posa_allow_line_item_name_override"))
+    profile_warehouse = profile.get("warehouse")
+    for item in invoice.get("items") or []:
+        line_discount = abs(flt(item.get("discount_percentage"))) or abs(
+            flt(item.get("discount_amount"))
+        )
+        has_offer_claim = bool(item.get("posa_offers")) and cint(item.get("posa_offer_applied"))
+        if line_discount and not allow_item_discount and not has_offer_claim:
+            frappe.throw(_("Item discounts are disabled for this POS Profile."))
+        if max_discount > 0 and abs(flt(item.get("discount_percentage"))) > max_discount:
+            frappe.throw(
+                _("Item discount exceeds the POS Profile limit of {0}%.").format(
+                    max_discount
+                )
+            )
+        item_code = item.get("item_code")
+        supplied_name = str(item.get("item_name") or "").strip()
+        if item_code and supplied_name and not allow_name_override:
+            default_name = frappe.get_cached_value("Item", item_code, "item_name")
+            if default_name and supplied_name != default_name:
+                frappe.throw(_("Line item name override is disabled for this POS Profile."))
+        if profile_warehouse and item.get("warehouse") not in (None, "", profile_warehouse):
+            frappe.throw(_("Item warehouse is outside the active POS Profile."))
+        if profile_warehouse:
+            item["warehouse"] = profile_warehouse
+
+    if max_discount > 0 and abs(flt(invoice.get("additional_discount_percentage"))) > max_discount:
+        frappe.throw(
+            _("Additional discount exceeds the POS Profile limit of {0}%.").format(
+                max_discount
+            )
+        )
+
+    allowed_modes = {
+        row.get("mode_of_payment")
+        for row in profile.get("payments", [])
+        if row.get("mode_of_payment")
+    }
+    for payment in invoice.get("payments") or []:
+        mode = payment.get("mode_of_payment")
+        if mode == "Gift Card" and cint(profile.get("posa_use_gift_cards")):
+            continue
+        if mode and mode not in allowed_modes:
+            frappe.throw(
+                _("Mode of Payment {0} is not allowed for this POS Profile.").format(
+                    mode
+                )
+            )
+
+    invoice.pop("taxes", None)
+    invoice["taxes_and_charges"] = profile.get("taxes_and_charges") or None
+    return profile, expected_doctype
 
 
 def _json_dumps(value):
@@ -439,7 +590,11 @@ def _process_post_submit_payments(
 
 def process_post_submit_payments_job(kwargs):
     invoice = kwargs.get("invoice")
+    user = kwargs.get("user")
+    previous_user = getattr(getattr(frappe, "session", None), "user", None)
     try:
+        if user and hasattr(frappe, "set_user"):
+            frappe.set_user(user)
         doctype = kwargs.get("doctype") or "Sales Invoice"
         data = kwargs.get("data") or {}
         is_payment_entry = kwargs.get("is_payment_entry")
@@ -452,12 +607,17 @@ def process_post_submit_payments_job(kwargs):
         if invoice_doc.docstatus != 1:
             return
 
-        invoice_doc.flags.ignore_permissions = True
-        frappe.flags.ignore_account_permission = True
+        get_pos_request_context(
+            invoice_doc.pos_profile,
+            company=invoice_doc.company,
+            doctype=doctype,
+            permission_type="read",
+            require_open_shift=True,
+            opening_shift=invoice_doc.get("posa_pos_opening_shift"),
+        )
         _run_post_submit_payments(invoice_doc, data, is_payment_entry, total_cash, cash_account, payments)
         if ledger_name:
             _update_submission_ledger_by_name(ledger_name, STATE_POST_SUBMIT_DONE)
-        user = kwargs.get("user")
         if user and hasattr(frappe, "publish_realtime"):
             frappe.publish_realtime(
                 "pos_post_submit_payments_completed",
@@ -479,13 +639,15 @@ def process_post_submit_payments_job(kwargs):
             except Exception:
                 pass
         frappe.log_error(f"POS Post Submit Payment Processing Failed for {invoice}: {error_msg}")
-        user = kwargs.get("user")
         if user and hasattr(frappe, "publish_realtime"):
             frappe.publish_realtime(
                 "pos_post_submit_payments_failed",
                 {"invoice": invoice, "error": error_msg},
                 user=user,
             )
+    finally:
+        if previous_user and user and hasattr(frappe, "set_user"):
+            frappe.set_user(previous_user)
 
 
 def _resolve_write_off_limit(pos_profile_doc):
@@ -770,6 +932,7 @@ def _get_mutable_invoice_doc(data, doctype):
         return frappe.get_doc(_build_fresh_invoice_payload(data, doctype))
 
     invoice_doc = frappe.get_doc(doctype, invoice_name)
+    validate_customer_credit_claims(invoice_doc, data)
     previous_customer = invoice_doc.get("customer")
     previous_values = {
         fieldname: invoice_doc.get(fieldname)
@@ -961,19 +1124,20 @@ def _guard_return_cash_refund(invoice_doc):
 def update_invoice(data):
     currency_cache = {}
     data = json.loads(data)
+    permission_type = "write" if data.get("name") else "create"
+    profile_doc, doctype = _authorize_and_normalize_invoice_payload(
+        data,
+        permission_type=permission_type,
+    )
     client_request_id = extract_invoice_client_request_id(data)
     if not doctype_supports_client_request_id(data.get("doctype") or "Sales Invoice"):
         strip_invoice_client_request_id(data)
     _sanitize_delivery_dates(data)
     _apply_manual_posting_controls(data)
+    pricing_state = capture_pricing_state(data, profile_doc)
     _strip_client_freebies_from_payload(data)
     # Determine doctype based on POS Profile setting
-    pos_profile = data.get("pos_profile")
-    doctype = "Sales Invoice"
-    if pos_profile and frappe.db.get_value(
-        "POS Profile", pos_profile, "create_pos_invoice_instead_of_sales_invoice"
-    ):
-        doctype = "POS Invoice"
+    pos_profile = profile_doc.name
 
     # Ensure the document type is set for new invoices to prevent validation errors
     data.setdefault("doctype", doctype)
@@ -982,14 +1146,19 @@ def update_invoice(data):
 
     invoice_doc = _get_mutable_invoice_doc(data, doctype)
     set_invoice_client_request_id(invoice_doc, client_request_id)
+    invoice_doc.set("taxes", [])
+    invoice_doc.taxes_and_charges = profile_doc.get("taxes_and_charges") or None
 
     # Set currency from data before set_missing_values
     # Validate return items if this is a return invoice
     if (data.get("is_return") or invoice_doc.is_return) and invoice_doc.get("return_against"):
         # We need to import this here to avoid circular imports if possible, or just import it at top if safe
-        from posawesome.posawesome.api.invoice_processing.returns import validate_return_items
+        from posawesome.posawesome.api.invoice_processing.returns import _validate_return_items
 
-        validation = validate_return_items(
+        # The public endpoint authorizes the request before it reaches invoice
+        # creation. Reuse only its domain validator here so a nested whitelist
+        # call cannot resolve a second, potentially different POS context.
+        validation = _validate_return_items(
             invoice_doc.return_against,
             [d.as_dict() for d in invoice_doc.items],
             doctype=invoice_doc.doctype,
@@ -1002,22 +1171,11 @@ def update_invoice(data):
     # Ensure customer exists before setting missing values
     customer_name = invoice_doc.get("customer")
     if customer_name and not frappe.db.exists("Customer", customer_name):
-        try:
-            cust = frappe.get_doc(
-                {
-                    "doctype": "Customer",
-                    "customer_name": customer_name,
-                    "customer_group": "All Customer Groups",
-                    "territory": "All Territories",
-                    "customer_type": "Individual",
-                }
+        frappe.throw(
+            _("Customer {0} does not exist. Create the customer through the authorized customer flow first.").format(
+                customer_name
             )
-            cust.flags.ignore_permissions = True
-            cust.insert()
-            invoice_doc.customer = cust.name
-            invoice_doc.customer_name = cust.customer_name
-        except Exception as e:
-            frappe.log_error(f"Failed to create customer {customer_name}: {e}")
+        )
 
     if invoice_doc.get("customer"):
         resolved_customer_name = frappe.db.get_value(
@@ -1043,21 +1201,11 @@ def update_invoice(data):
         price_list_currency = frappe.db.get_value("Price List", invoice_doc.selling_price_list, "currency")
 
     # Preserve provided item names for manual overrides
-    overrides = {d.idx: {"item_name": d.item_name} for d in invoice_doc.items}
-    locked_items = {}
-    if invoice_doc.is_return:
-        for d in invoice_doc.items:
-            if d.get("locked_price"):
-                locked_items[d.idx] = {
-                    "rate": d.rate,
-                    "price_list_rate": d.price_list_rate,
-                    "discount_percentage": d.discount_percentage,
-                    "discount_amount": d.discount_amount,
-                    "is_free_item": d.get("is_free_item"),
-                }
-
-    invoice_doc.ignore_pricing_rule = 1
-    invoice_doc.flags.ignore_pricing_rule = True
+    overrides = {
+        (d.get("idx") or index): {"item_name": d.get("item_name")}
+        for index, d in enumerate(invoice_doc.items, start=1)
+    }
+    prepare_invoice_pricing(invoice_doc, profile_doc, pricing_state)
 
     _deduplicate_free_items(invoice_doc)
 
@@ -1071,14 +1219,9 @@ def update_invoice(data):
     # Reapply any custom item names after defaults are set
     _apply_item_name_overrides(invoice_doc, overrides)
 
-    _apply_tax_contract_before_save(invoice_doc)
+    apply_authoritative_pricing(invoice_doc, profile_doc, pricing_state)
 
-    if locked_items:
-        for item in invoice_doc.items:
-            locked = locked_items.get(item.idx)
-            if locked:
-                item.update(locked)
-        invoice_doc.calculate_taxes_and_totals()
+    _apply_tax_contract_before_save(invoice_doc)
 
     company_currency = (
         frappe.get_cached_value("Company", invoice_doc.company, "default_currency") or invoice_doc.currency
@@ -1163,8 +1306,6 @@ def update_invoice(data):
 
     _apply_return_outstanding_policy(invoice_doc)
 
-    invoice_doc.flags.ignore_permissions = True
-    frappe.flags.ignore_account_permission = True
     invoice_doc.docstatus = 0
     invoice_doc = _run_without_return_outstanding_prompts(
         invoice_doc,
@@ -1183,17 +1324,17 @@ def update_invoice(data):
 def submit_invoice(invoice, data, submit_in_background=False):
     data = json.loads(data)
     invoice = json.loads(invoice)
+    profile_doc, doctype = _authorize_and_normalize_invoice_payload(
+        invoice,
+        data,
+        permission_type="submit",
+    )
     client_request_id = extract_invoice_client_request_id(invoice, data)
     _sanitize_delivery_dates(invoice)
     _apply_manual_posting_controls(invoice)
     submit_in_background = cint(submit_in_background)
     _strip_client_freebies_from_payload(invoice)
-    pos_profile = invoice.get("pos_profile")
-    doctype = "Sales Invoice"
-    if pos_profile and frappe.db.get_value(
-        "POS Profile", pos_profile, "create_pos_invoice_instead_of_sales_invoice"
-    ):
-        doctype = "POS Invoice"
+    pos_profile = profile_doc.name
 
     if not doctype_supports_client_request_id(doctype):
         strip_invoice_client_request_id(invoice)
@@ -1246,18 +1387,14 @@ def submit_invoice(invoice, data, submit_in_background=False):
             invoice = _build_fresh_invoice_payload(invoice, doctype)
             invoice_name = None
 
-    if not invoice_name or not frappe.db.exists(doctype, invoice_name):
-        if client_request_id:
-            invoice["posa_client_request_id"] = client_request_id
-        created = update_invoice(json.dumps(invoice))
-        invoice_name = created.get("name")
-        invoice_doc = frappe.get_doc(doctype, invoice_name)
-    else:
-        # Prevent TimestampMismatchError by relying on server-side timestamp
-        if "modified" in invoice:
-            del invoice["modified"]
-        invoice_doc = frappe.get_doc(doctype, invoice_name)
-        invoice_doc.update(invoice)
+    if client_request_id:
+        invoice["posa_client_request_id"] = client_request_id
+    # Always pass the final payload through the authoritative draft path.  A
+    # client must not be able to re-introduce prices/taxes after a draft was
+    # validated simply because it already has a name.
+    created = update_invoice(json.dumps(invoice))
+    invoice_name = created.get("name")
+    invoice_doc = frappe.get_doc(doctype, invoice_name)
 
     set_invoice_client_request_id(invoice_doc, client_request_id)
     if ledger_doc:
@@ -1354,8 +1491,6 @@ def submit_invoice(invoice, data, submit_in_background=False):
     _validate_credit_sale_allowed(invoice_doc, data)
     _apply_write_off_settings(invoice_doc, data)
 
-    invoice_doc.flags.ignore_permissions = True
-    frappe.flags.ignore_account_permission = True
     invoice_doc.posa_is_printed = 1
     invoice_doc = _run_without_return_outstanding_prompts(
         invoice_doc,
@@ -1392,7 +1527,13 @@ def submit_invoice(invoice, data, submit_in_background=False):
             ),
         )
 
-    if submit_in_background and allow_background_submit:
+    requires_atomic_financial_settlement = bool(
+        flt(data.get("redeemed_customer_credit"))
+        or data.get("gift_card_redemptions")
+        or flt(data.get("paid_change"))
+        or flt(data.get("credit_change"))
+    )
+    if submit_in_background and allow_background_submit and not requires_atomic_financial_settlement:
         enqueue(
             method=submit_in_background_job,
             queue="default",
@@ -1434,7 +1575,7 @@ def submit_invoice(invoice, data, submit_in_background=False):
             total_cash,
             cash_account,
             payments,
-            bool(allow_background_submit),
+            bool(allow_background_submit and not requires_atomic_financial_settlement),
             getattr(getattr(frappe, "session", None), "user", None),
             ledger_doc.name if ledger_doc else None,
         )
@@ -1452,14 +1593,17 @@ def submit_invoice(invoice, data, submit_in_background=False):
 
 def submit_in_background_job(kwargs):
     invoice = kwargs.get("invoice")
+    user = kwargs.get("user") or getattr(getattr(frappe, "session", None), "user", None)
+    previous_user = getattr(getattr(frappe, "session", None), "user", None)
     try:
+        if user and hasattr(frappe, "set_user"):
+            frappe.set_user(user)
         doctype = kwargs.get("doctype") or "Sales Invoice"
         data = kwargs.get("data") or {}
         is_payment_entry = kwargs.get("is_payment_entry")
         total_cash = kwargs.get("total_cash")
         cash_account = kwargs.get("cash_account")
         payments = kwargs.get("payments") or []
-        user = kwargs.get("user") or getattr(getattr(frappe, "session", None), "user", None)
         ledger_name = kwargs.get("ledger_name")
         ledger_doc = _get_submission_ledger_by_name(ledger_name) if ledger_name else None
 
@@ -1474,8 +1618,14 @@ def submit_in_background_job(kwargs):
                 )
             return
 
-        invoice_doc.flags.ignore_permissions = True
-        frappe.flags.ignore_account_permission = True
+        get_pos_request_context(
+            invoice_doc.pos_profile,
+            company=invoice_doc.company,
+            doctype=doctype,
+            permission_type="submit",
+            require_open_shift=True,
+            opening_shift=invoice_doc.get("posa_pos_opening_shift"),
+        )
 
         # Re-run validations that may be impacted while queued (stock, credit limits)
         _validate_stock_on_invoice(invoice_doc)
@@ -1542,6 +1692,9 @@ def submit_in_background_job(kwargs):
             {"invoice": invoice, "error": error_msg},
             user=user,
         )
+    finally:
+        if previous_user and user and hasattr(frappe, "set_user"):
+            frappe.set_user(previous_user)
 
 
 @frappe.whitelist()
@@ -1551,6 +1704,22 @@ def repair_invoice_submission(client_request_id, company, pos_profile, document_
     client_request_id = (client_request_id or "").strip()
     if not client_request_id:
         frappe.throw(_("client_request_id is required"))
+
+    profile = assert_pos_profile_access_allowed(pos_profile)
+    expected_doctype = (
+        "POS Invoice"
+        if cint(profile.get("create_pos_invoice_instead_of_sales_invoice"))
+        else "Sales Invoice"
+    )
+    if document_type != expected_doctype:
+        frappe.throw(_("Document type is not allowed for this POS Profile."))
+    get_pos_request_context(
+        profile.name,
+        company=company,
+        doctype=document_type,
+        permission_type="submit",
+        require_open_shift=True,
+    )
 
     ledger_doc = _get_submission_ledger(
         client_request_id,
@@ -1629,8 +1798,11 @@ def validate_cart_items(items, pos_profile=None):
     if isinstance(items, str):
         items = json.loads(items)
 
-    if pos_profile and not frappe.db.exists("POS Profile", pos_profile):
-        pos_profile = None
+    if not pos_profile:
+        frappe.throw(_("POS Profile is required."))
+    profile = assert_pos_profile_access_allowed(pos_profile)
+    assert_doctype_permission("Item", "read")
+    pos_profile = profile.name
 
     errors = _collect_stock_errors(
         items,

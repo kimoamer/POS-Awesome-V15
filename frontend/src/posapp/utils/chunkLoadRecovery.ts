@@ -1,6 +1,26 @@
 import { buildPosAppRecoveryLocation } from "../../loader-utils";
 
 const POSAPP_ROUTE = "/app/posapp";
+const POSAWESOME_CACHE_PREFIX = "posawesome-cache-";
+const POSAWESOME_SERVICE_WORKER_PATH = "/sw.js";
+
+function isPosawesomeServiceWorkerRegistration(
+	registration: ServiceWorkerRegistration,
+) {
+	return [
+		registration.active,
+		registration.waiting,
+		registration.installing,
+	]
+		.filter(Boolean)
+		.some((worker) => {
+			try {
+				return new URL(worker!.scriptURL).pathname === POSAWESOME_SERVICE_WORKER_PATH;
+			} catch {
+				return false;
+			}
+		});
+}
 const CHUNK_RELOAD_KEY = "posa_chunk_reload_once";
 const CHUNK_CACHE_RECOVERY_KEY = "posa_chunk_cache_recovery_once";
 const CHUNK_RECOVERY_IN_PROGRESS_KEY = "posa_chunk_recovery_in_progress";
@@ -93,7 +113,9 @@ async function clearServiceWorkersAndCaches() {
 			"serviceWorker" in navigator &&
 			typeof navigator.serviceWorker.getRegistrations === "function"
 		) {
-			const registrations = await navigator.serviceWorker.getRegistrations();
+			const registrations = (
+				await navigator.serviceWorker.getRegistrations()
+			).filter(isPosawesomeServiceWorkerRegistration);
 			await Promise.all(
 				registrations.map(async (registration) => {
 					try {
@@ -128,7 +150,11 @@ async function clearServiceWorkersAndCaches() {
 	try {
 		if (typeof caches !== "undefined") {
 			const cacheKeys = await caches.keys();
-			await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+			await Promise.all(
+				cacheKeys
+					.filter((key) => key.startsWith(POSAWESOME_CACHE_PREFIX))
+					.map((key) => caches.delete(key)),
+			);
 		}
 	} catch (err) {
 		console.warn("Chunk recovery: failed to cleanup Cache API", err);

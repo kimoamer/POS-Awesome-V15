@@ -87,7 +87,12 @@ class TestCashMovementService(unittest.TestCase):
         mock_ensure_no_duplicate_client_request.return_value = existing
         mock_frappe.session.user = "cashier@example.com"
 
-        result = service._create_cash_movement({"x": 1}, "Expense")
+        with patch.object(
+            service,
+            "get_pos_request_context",
+            return_value=SimpleNamespace(pos_profile=profile_doc),
+        ):
+            result = service._create_cash_movement({"x": 1}, "Expense")
 
         self.assertEqual(result, {"name": "POS-CM-.26.-00002"})
         mock_create_journal_entry.assert_not_called()
@@ -120,7 +125,11 @@ class TestCashMovementService(unittest.TestCase):
         mock_frappe.get_doc.return_value = source_doc
         mock_create_cash_movement.return_value = {"name": "POS-CM-.26.-00009"}
 
-        result = service.duplicate_cash_movement("POS-CM-.26.-00001", posting_date="2026-02-17")
+        with patch.object(service, "assert_document_permission"):
+            result = service.duplicate_cash_movement(
+                "POS-CM-.26.-00001",
+                posting_date="2026-02-17",
+            )
 
         self.assertEqual(result, {"name": "POS-CM-.26.-00009"})
         mock_ensure_owner_or_manager.assert_called_once_with(source_doc)

@@ -28,6 +28,7 @@ def _install_stubs():
     state = {
         "loyalty_detail_calls": 0,
         "get_all_calls": [],
+        "stored_value_calls": 0,
     }
 
     def get_all(doctype, **kwargs):
@@ -54,12 +55,26 @@ def _install_stubs():
     frappe_module.whitelist = lambda *args, **kwargs: (lambda fn: fn)
     frappe_module.throw = lambda message: (_ for _ in ()).throw(Exception(message))
     frappe_module.get_all = get_all
-    frappe_module.get_doc = lambda *args, **kwargs: None
+    frappe_module.get_list = get_all
+    frappe_module.get_doc = lambda doctype, name: AttrDict(
+        {
+            "doctype": doctype,
+            "name": name,
+            "customer_name": "Alpha Customer",
+            "disabled": 0,
+            "customer_group": "Individual",
+            "loyalty_program": None,
+            "default_price_list": "Standard Selling",
+            "email_id": "alpha@example.com",
+            "mobile_no": "123",
+        }
+    )
     frappe_module.get_value = lambda *args, **kwargs: None
     frappe_module.db = SimpleNamespace(
         get_value=lambda *args, **kwargs: None,
         count=lambda *args, **kwargs: 0,
         escape=lambda value: f"'{value}'",
+        sql=lambda *args, **kwargs: [],
     )
 
     frappe_utils_module.nowdate = lambda: "2026-05-21"
@@ -70,9 +85,22 @@ def _install_stubs():
     erpnext_loyalty_module.get_loyalty_program_details_with_points = (
         get_loyalty_program_details_with_points
     )
-    api_utils_module.assert_pos_profile_write_allowed = lambda *args, **kwargs: None
+    api_utils_module.assert_doctype_permission = lambda *args, **kwargs: True
+    api_utils_module.assert_document_permission = lambda *args, **kwargs: True
+    api_utils_module.get_pos_request_context = lambda profile, **kwargs: SimpleNamespace(
+        pos_profile=AttrDict(
+            json.loads(profile) if isinstance(profile, str) else (profile or {})
+        ),
+        profile_name="POS-TEST",
+        company=kwargs.get("company") or "Test Company",
+        opening_shift=SimpleNamespace(name="SHIFT-001"),
+    )
     api_utils_module.fetch_sales_person_names = lambda *args, **kwargs: []
-    stored_value_module.get_stored_value_summary = lambda *args, **kwargs: {}
+    def get_stored_value_summary(*args, **kwargs):
+        state["stored_value_calls"] += 1
+        return {"available_amount": 75, "source_count": 2}
+
+    stored_value_module.get_stored_value_summary = get_stored_value_summary
 
     sys.modules["frappe"] = frappe_module
     sys.modules["frappe.utils"] = frappe_utils_module
@@ -117,6 +145,44 @@ class TestCustomersApi(unittest.TestCase):
         self.assertNotIn("loyalty_points", rows[0])
         self.assertNotIn("conversion_factor", rows[0])
         self.assertEqual(self.state["loyalty_detail_calls"], 0)
+
+    def test_customer_search_is_applied_server_side(self):
+        self.module.get_customer_names(
+            json.dumps({"name": "POS-TEST"}),
+            limit=20,
+            search_text="Alpha",
+        )
+
+        _doctype, kwargs = self.state["get_all_calls"][-1]
+        self.assertIn(
+            ["Customer", "customer_name", "like", "%Alpha%"],
+            kwargs["or_filters"],
+        )
+
+    def test_customer_info_skips_credit_when_profile_disables_it(self):
+        result = self.module.get_customer_info(
+            customer="CUST-001",
+            company="Test Company",
+            pos_profile={"name": "POS-TEST", "use_customer_credit": 0},
+            pos_opening_shift="SHIFT-001",
+        )
+
+        self.assertEqual(result["name"], "CUST-001")
+        self.assertEqual(result["stored_value_balance"], 0)
+        self.assertEqual(result["stored_value_sources"], 0)
+        self.assertEqual(self.state["stored_value_calls"], 0)
+
+    def test_customer_info_fetches_credit_when_profile_enables_it(self):
+        result = self.module.get_customer_info(
+            customer="CUST-001",
+            company="Test Company",
+            pos_profile={"name": "POS-TEST", "use_customer_credit": 1},
+            pos_opening_shift="SHIFT-001",
+        )
+
+        self.assertEqual(result["stored_value_balance"], 75)
+        self.assertEqual(result["stored_value_sources"], 2)
+        self.assertEqual(self.state["stored_value_calls"], 1)
 
 
 if __name__ == "__main__":

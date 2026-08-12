@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { shouldReloadOnSearchClear } from "../../../utils/searchUtils.js";
+import { shouldReloadOnSearchClear } from "../../../utils/searchUtils";
 import { isOffline } from "../../../../offline/index";
 import { resolveBooleanSetting } from "./selectorSearch/resolveBooleanSetting";
 

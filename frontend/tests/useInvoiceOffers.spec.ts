@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { useInvoiceStore } from "../src/posapp/stores/invoiceStore";
+import { useUIStore } from "../src/posapp/stores/uiStore";
 import { useInvoiceOffers } from "../src/posapp/composables/pos/invoice/useInvoiceOffers";
 
 const createCartItem = () => ({
@@ -62,5 +63,23 @@ describe("useInvoiceOffers", () => {
 		expect(invoiceStore.items[0].amount).toBe(308.75);
 		expect(invoiceStore.grossTotal).toBe(308.75);
 		expect((globalThis as any).flt).toHaveBeenCalled();
+	});
+
+	it("hydrates preloaded offers without invoking callbacks before initialization", () => {
+		const uiStore = useUIStore();
+		uiStore.setOffers([
+			{
+				name: "BOOT-OFFER",
+				offer: "Item Price",
+				apply_on: "Item Code",
+			},
+		]);
+
+		let offers: ReturnType<typeof useInvoiceOffers> | undefined;
+		expect(() => {
+			offers = useInvoiceOffers();
+		}).not.toThrow();
+		expect(offers?.posOffers.value[0]?.row_id).toBe("BOOT-OFFER");
+		offers?.cancelScheduledOfferRefresh();
 	});
 });

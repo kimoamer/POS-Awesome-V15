@@ -33,8 +33,7 @@ def get_stock_availability(item_code, warehouse):
     return flt(rows[0].actual_qty) if rows else 0.0
 
 
-@frappe.whitelist()
-def get_bulk_stock_availability(items):
+def _get_bulk_stock_availability(items):
     """
     Fetch available stock for a list of items.
 
@@ -112,7 +111,45 @@ def get_bulk_stock_availability(items):
 
 
 @frappe.whitelist()
-def get_available_qty(items):
+def get_bulk_stock_availability(items, pos_profile=None, pos_opening_shift=None):
+    """Permission-aware bulk stock lookup for the active POS warehouse."""
+
+    if isinstance(items, str):
+        items = json.loads(items)
+    items = items or []
+    if not isinstance(items, list):
+        frappe.throw("items must be a JSON array")
+    if len(items) > 500:
+        frappe.throw("A maximum of 500 stock rows can be requested.")
+
+    from posawesome.posawesome.api.item_processing.details import _validate_item_codes
+    from posawesome.posawesome.api.utils import get_pos_request_context
+
+    context = get_pos_request_context(
+        pos_profile,
+        doctype="Item",
+        permission_type="read",
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
+    item_codes = _validate_item_codes(
+        context.pos_profile,
+        [row.get("item_code") for row in items if isinstance(row, dict)],
+    )
+    allowed_codes = set(item_codes)
+    scoped_items = []
+    for row in items:
+        if not isinstance(row, dict) or row.get("item_code") not in allowed_codes:
+            continue
+        requested_warehouse = row.get("warehouse")
+        if requested_warehouse and requested_warehouse != context.warehouse:
+            frappe.throw("Warehouse is outside this POS Profile.", frappe.PermissionError)
+        scoped_items.append({**row, "warehouse": context.warehouse})
+    return _get_bulk_stock_availability(scoped_items)
+
+
+@frappe.whitelist()
+def get_available_qty(items, pos_profile=None, pos_opening_shift=None):
     """Return available stock quantity for given items.
 
     Args:
@@ -127,6 +164,11 @@ def get_available_qty(items):
     if isinstance(items, str):
         items = json.loads(items)
 
+    scoped_stock = get_bulk_stock_availability(
+        items,
+        pos_profile=pos_profile,
+        pos_opening_shift=pos_opening_shift,
+    )
     result = []
     for it in items or []:
         item_code = it.get("item_code")
@@ -136,10 +178,10 @@ def get_available_qty(items):
         if not item_code or not warehouse:
             continue
 
-        if batch_no:
-            available_qty = get_batch_qty(batch_no, warehouse) or 0
-        else:
-            available_qty = get_stock_availability(item_code, warehouse)
+        available_qty = scoped_stock.get(
+            (item_code, warehouse, cstr(batch_no)),
+            0,
+        )
 
         result.append(
             {

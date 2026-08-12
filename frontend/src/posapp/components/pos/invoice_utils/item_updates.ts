@@ -220,8 +220,9 @@ export async function _performItemDetailUpdate(
 				doc: currentDoc,
 				price_list: context.get_price_list
 					? context.get_price_list()
-					: null,
-				item: {
+						: null,
+					pos_profile: context.pos_profile.name,
+					item: {
 					item_code: item.item_code,
 					customer: context.customer,
 					doctype: currentDoc.doctype,

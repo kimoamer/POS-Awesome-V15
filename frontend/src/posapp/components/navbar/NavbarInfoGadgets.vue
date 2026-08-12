@@ -12,30 +12,37 @@
 				</v-btn>
 			</template>
 
-			<v-card class="pos-themed-card info-gadgets-menu" width="auto">
-				<v-card-title class="text-subtitle-1 font-weight-bold pa-4 pb-2">
-					{{ __("System Status") }}
-				</v-card-title>
-				<v-divider></v-divider>
-				<div class="gadgets-row d-flex flex-row pa-4">
-					<!-- Cache Usage (Left) -->
-					<div class="gadget-col">
+			<v-card
+				class="pos-themed-card info-gadgets-menu"
+				:class="{ 'info-gadgets-menu--wide': showSystemMetrics }"
+			>
+				<header class="info-gadgets-menu__header">
+					<div>
+						<div class="info-gadgets-menu__title">{{ __("System Status") }}</div>
+						<div class="info-gadgets-menu__subtitle">
+							{{ __("Local storage and terminal health") }}
+						</div>
+					</div>
+					<v-btn
+						icon="mdi-close"
+						variant="text"
+						size="small"
+						:aria-label="__('Close')"
+						@click="menu = false"
+					/>
+				</header>
+				<div class="gadgets-grid" :class="{ 'gadgets-grid--wide': showSystemMetrics }">
+					<section class="gadget-panel">
 						<slot name="cache-usage-meter"></slot>
-					</div>
-
-					<v-divider vertical class="mx-4"></v-divider>
-
-					<!-- DB Usage (Center) -->
-					<div class="gadget-col">
-						<slot name="db-usage-gadget"></slot>
-					</div>
-
-					<v-divider vertical class="mx-4"></v-divider>
-
-					<!-- CPU Usage (Right) -->
-					<div class="gadget-col">
-						<slot name="cpu-gadget"></slot>
-					</div>
+					</section>
+					<template v-if="showSystemMetrics">
+						<section class="gadget-panel">
+							<slot name="db-usage-gadget"></slot>
+						</section>
+						<section class="gadget-panel">
+							<slot name="cpu-gadget"></slot>
+						</section>
+					</template>
 				</div>
 			</v-card>
 		</v-menu>
@@ -51,6 +58,13 @@ defineOptions({
 
 const __ = window.__ || ((text) => text);
 const menu = ref(false);
+
+defineProps({
+	showSystemMetrics: {
+		type: Boolean,
+		default: false,
+	},
+});
 </script>
 
 <style scoped>
@@ -85,14 +99,60 @@ const menu = ref(false);
 	color: var(--pos-primary) !important;
 }
 
-.gadget-item {
-	min-height: 60px;
+.info-gadgets-menu {
+	width: min(400px, calc(100vw - 24px));
+	border: 1px solid var(--pos-border-light) !important;
+	border-radius: 16px !important;
+	overflow: hidden;
 }
 
-/* Ensure gadgets take full width inside the menu */
-.gadget-item :deep(> *) {
-	width: 100%;
+.info-gadgets-menu--wide {
+	width: min(980px, calc(100vw - 24px));
+}
+
+.info-gadgets-menu__header {
+	display: flex;
+	align-items: center;
 	justify-content: space-between;
+	gap: 16px;
+	padding: 14px 16px 12px;
+	border-bottom: 1px solid var(--pos-border-light);
+	background: var(--pos-surface-muted);
+}
+
+.info-gadgets-menu__title {
+	font-size: 16px;
+	font-weight: 750;
+	color: var(--pos-text-primary);
+}
+
+.info-gadgets-menu__subtitle {
+	margin-top: 2px;
+	font-size: 12px;
+	color: var(--pos-text-secondary);
+}
+
+.gadgets-grid {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 12px;
+	padding: 14px;
+}
+
+.gadgets-grid--wide {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gadget-panel {
+	min-width: 0;
+	padding: 14px;
+	border: 1px solid var(--pos-border-light);
+	border-radius: 12px;
+	background: var(--pos-surface-raised);
+}
+
+.gadget-panel :deep(> *) {
+	width: 100%;
 }
 
 @media (max-width: 1279px) {
@@ -101,6 +161,12 @@ const menu = ref(false);
 		height: var(--pos-header-control-size-compact, 40px) !important;
 		min-width: var(--pos-header-control-size-compact, 40px) !important;
 		min-height: var(--pos-header-control-size-compact, 40px) !important;
+	}
+}
+
+@media (max-width: 840px) {
+	.gadgets-grid--wide {
+		grid-template-columns: minmax(0, 1fr);
 	}
 }
 </style>

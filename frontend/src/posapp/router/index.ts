@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from "vue-router";
+import { watch } from "vue";
 import {
 	startRouteLoading,
 	stopRouteLoading,
@@ -9,6 +10,13 @@ import {
 } from "../utils/chunkLoadRecovery";
 import { resolvePosAppRouteFullPath } from "../../loader-utils";
 import OfflineRouteUnavailable from "../components/system/OfflineRouteUnavailable.vue";
+import AccessDenied from "../components/system/AccessDenied.vue";
+import {
+	can,
+	isCapabilityContextReady,
+	useCapabilities,
+	type PosCapability,
+} from "../services/capabilities";
 
 const OFFLINE_ROUTE_UNAVAILABLE_NAME = "offline-route-unavailable";
 
@@ -17,18 +25,33 @@ const routes = [
 	{
 		path: "/pos",
 		component: () => import("../components/pos/shell/Pos.vue"),
-		meta: { title: "POS", layout: "default", loadingMessage: "Loading POS..." },
+		meta: {
+			title: "POS",
+			layout: "default",
+			loadingMessage: "Loading POS...",
+			capability: "pos.sale",
+		},
 	},
 	{
 		path: "/orders",
 		component: () =>
 			import("../components/pos/purchase/PurchaseOrders.vue"),
-		meta: { title: "Orders", layout: "default", loadingMessage: "Loading orders..." },
+		meta: {
+			title: "Orders",
+			layout: "default",
+			loadingMessage: "Loading orders...",
+			capability: "purchase_order.create",
+		},
 	},
 	{
 		path: "/payments",
 		component: () => import("../components/pos/shell/PayView.vue"),
-		meta: { title: "Payments", layout: "default", loadingMessage: "Loading payments..." },
+		meta: {
+			title: "Payments",
+			layout: "default",
+			loadingMessage: "Loading payments...",
+			capability: "payments.manage",
+		},
 	},
 	{
 		path: "/gift-cards",
@@ -37,6 +60,7 @@ const routes = [
 			title: "Gift Cards",
 			layout: "default",
 			loadingMessage: "Loading gift cards...",
+			capability: "gift_cards.manage",
 		},
 	},
 	{
@@ -46,12 +70,18 @@ const routes = [
 			title: "Dashboard",
 			layout: "default",
 			loadingMessage: "Loading dashboard...",
+			capability: "dashboard.view",
 		},
 	},
 	{
 		path: "/reports",
 		component: () => import("@/posapp/components/reports/Reports.vue"),
-		meta: { title: "Reports", layout: "default", loadingMessage: "Loading reports..." },
+		meta: {
+			title: "Reports",
+			layout: "default",
+			loadingMessage: "Loading reports...",
+			capability: "reports.view",
+		},
 	},
 	{
 		path: "/barcode",
@@ -60,6 +90,7 @@ const routes = [
 			title: "Barcode Printing",
 			layout: "default",
 			loadingMessage: "Loading barcode printing...",
+			capability: "barcode.print",
 		},
 	},
 	{
@@ -69,6 +100,7 @@ const routes = [
 			title: "Cash Movement",
 			layout: "default",
 			loadingMessage: "Loading cash movement...",
+			capability: "cash_movement.manage",
 		},
 	},
 	{
@@ -78,6 +110,7 @@ const routes = [
 			title: "Close Shift",
 			layout: "default",
 			loadingMessage: "Loading close shift...",
+			capability: "shift.close",
 		},
 	},
 	{
@@ -88,6 +121,16 @@ const routes = [
 			title: "Customer Display",
 			layout: "display",
 			loadingMessage: "Loading customer display...",
+		},
+	},
+	{
+		path: "/access-denied",
+		name: "access-denied",
+		component: AccessDenied,
+		meta: {
+			title: "Access Denied",
+			layout: "default",
+			loadingMessage: "Checking access...",
 		},
 	},
 	{
@@ -157,6 +200,17 @@ const createPosAppRouter = () => {
 	let pendingRouteFullPath: string | null = null;
 
 	router.beforeEach((to, _from, next) => {
+		const requiredCapability = to.meta?.capability as
+			| PosCapability
+			| undefined;
+		if (
+			requiredCapability &&
+			isCapabilityContextReady() &&
+			!can(requiredCapability)
+		) {
+			next({ name: "access-denied", query: { capability: requiredCapability } });
+			return;
+		}
 		pendingRouteFullPath = to.fullPath || "/";
 		startRouteLoading({
 			message: resolveRouteLoadingMessage(to),
@@ -206,7 +260,32 @@ const createPosAppRouter = () => {
 		}
 	});
 
-	return { router, history };
+	const { context: capabilityContext } = useCapabilities();
+	const stopCapabilityWatcher = watch(capabilityContext, () => {
+		const currentRoute = router.currentRoute.value;
+		const requiredCapability = currentRoute.meta?.capability as
+			| PosCapability
+			| undefined;
+		if (
+			!requiredCapability ||
+			!isCapabilityContextReady() ||
+			can(requiredCapability) ||
+			currentRoute.name === "access-denied"
+		) {
+			return;
+		}
+
+		void router.replace({
+			name: "access-denied",
+			query: { capability: requiredCapability },
+		});
+	});
+
+	return {
+		router,
+		history,
+		dispose: () => stopCapabilityWatcher(),
+	};
 };
 
 export { createPosAppRouter };

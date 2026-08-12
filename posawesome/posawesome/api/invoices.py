@@ -40,7 +40,11 @@ from posawesome.posawesome.api.invoice_processing.returns import (
 )
 from posawesome.posawesome.api.invoice_processing.payment import _create_change_payment_entries
 from posawesome.posawesome.api.invoice_processing.data import get_last_invoice_rates
-from posawesome.posawesome.api.utils import log_perf_event
+from posawesome.posawesome.api.utils import (
+    assert_document_permission,
+    get_pos_request_context,
+    log_perf_event,
+)
 
 
 @frappe.whitelist()
@@ -52,6 +56,7 @@ def get_draft_invoices(
     pos_profile=None,
     cashier=None,
     is_supervisor=0,
+    cashier_grant=None,
 ):
     started_at = time.perf_counter()
     try:
@@ -61,18 +66,36 @@ def get_draft_invoices(
     if limit_page_length < 0:
         limit_page_length = 0
 
+    if doctype not in {"Sales Invoice", "POS Invoice"}:
+        frappe.throw("Unsupported invoice doctype")
+    context = get_pos_request_context(
+        pos_profile,
+        company=company,
+        doctype=doctype,
+        permission_type="read",
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
     supervisor_scope = int(is_supervisor or 0)
+    if supervisor_scope:
+        from posawesome.posawesome.api.employees import verify_cashier_grant
+
+        verify_cashier_grant(
+            cashier_grant,
+            context.profile_name,
+            cashier,
+            require_supervisor=True,
+        )
     filters = {
         "docstatus": 0,
+        "company": context.company,
+        "pos_profile": context.profile_name,
     }
-    if supervisor_scope and company:
-        filters["company"] = company
-        if pos_profile:
-            filters["pos_profile"] = pos_profile
+    if supervisor_scope:
         if cashier:
             filters["owner"] = cashier
     else:
-        filters["posa_pos_opening_shift"] = pos_opening_shift
+        filters["posa_pos_opening_shift"] = context.opening_shift.name
     if frappe.db.has_column(doctype, "posa_is_printed"):
         filters["posa_is_printed"] = 0
 
@@ -106,9 +129,31 @@ def get_draft_invoices(
 
 
 @frappe.whitelist()
-def get_draft_invoice_doc(invoice_name, doctype="Sales Invoice"):
+def get_draft_invoice_doc(
+    invoice_name,
+    doctype="Sales Invoice",
+    pos_profile=None,
+    pos_opening_shift=None,
+):
     started_at = time.perf_counter()
+    if doctype not in {"Sales Invoice", "POS Invoice"}:
+        frappe.throw("Unsupported invoice doctype")
+    context = get_pos_request_context(
+        pos_profile,
+        doctype=doctype,
+        permission_type="read",
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
     doc = frappe.get_cached_doc(doctype, invoice_name)
+    assert_document_permission(doc, "read")
+    if (
+        doc.docstatus != 0
+        or doc.company != context.company
+        or doc.pos_profile != context.profile_name
+        or doc.get("posa_pos_opening_shift") != context.opening_shift.name
+    ):
+        frappe.throw("Draft invoice is outside the active POS session", frappe.PermissionError)
     log_perf_event(
         "get_draft_invoice_doc",
         started_at,
@@ -120,7 +165,7 @@ def get_draft_invoice_doc(invoice_name, doctype="Sales Invoice"):
 
 
 @frappe.whitelist()
-def delete_invoice(invoice):
+def delete_invoice(invoice, pos_profile=None, pos_opening_shift=None):
     from frappe import _
     from posawesome.posawesome.api.invoice import delete_invoice_submission_ledger_entries_for_invoice
 
@@ -129,6 +174,24 @@ def delete_invoice(invoice):
         doctype = "POS Invoice"
     elif not frappe.db.exists("Sales Invoice", invoice):
         frappe.throw(_("Invoice {0} does not exist").format(invoice))
+
+    context = get_pos_request_context(
+        pos_profile,
+        action_flag="posa_allow_delete",
+        doctype=doctype,
+        permission_type="delete",
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
+    invoice_doc = frappe.get_doc(doctype, invoice)
+    assert_document_permission(invoice_doc, "delete")
+    if (
+        invoice_doc.docstatus != 0
+        or invoice_doc.company != context.company
+        or invoice_doc.pos_profile != context.profile_name
+        or invoice_doc.get("posa_pos_opening_shift") != context.opening_shift.name
+    ):
+        frappe.throw(_("Invoice is outside the active POS session."), frappe.PermissionError)
 
     if frappe.db.has_column(doctype, "posa_is_printed") and frappe.get_value(
         doctype, invoice, "posa_is_printed"
@@ -141,11 +204,17 @@ def delete_invoice(invoice):
 
 
 @frappe.whitelist()
-def fetch_exchange_rate_pair(from_currency, to_currency):
+def fetch_exchange_rate_pair(from_currency, to_currency, pos_profile=None):
     """Return exchange rate payload expected by POS multi-currency UI."""
 
     if not from_currency or not to_currency:
         frappe.throw("from_currency and to_currency are required")
+    get_pos_request_context(
+        pos_profile,
+        action_flag="posa_allow_multi_currency",
+        doctype="Currency Exchange",
+        permission_type="read",
+    )
 
     if from_currency == to_currency:
         from frappe.utils import nowdate
@@ -163,7 +232,11 @@ def fetch_exchange_rate_pair(from_currency, to_currency):
 
 
 @frappe.whitelist()
-def create_sales_invoice_from_order(sales_order):
+def create_sales_invoice_from_order(
+    sales_order,
+    pos_profile=None,
+    pos_opening_shift=None,
+):
     """Backward-compatible facade for legacy frontend method path."""
 
     if not sales_order:
@@ -173,8 +246,28 @@ def create_sales_invoice_from_order(sales_order):
         frappe.throw(f"Sales Order {sales_order} does not exist")
 
     sales_order_doc = frappe.get_doc("Sales Order", sales_order)
+    context = get_pos_request_context(
+        pos_profile,
+        company=sales_order_doc.company,
+        doctype="Sales Invoice",
+        permission_type="create",
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
+    if not (
+        context.pos_profile.get("custom_allow_select_sales_order")
+        or context.pos_profile.get("posa_allow_sales_order")
+    ):
+        frappe.throw("Sales Orders are disabled for this POS Profile", frappe.PermissionError)
+    assert_document_permission(sales_order_doc, "read")
     invoice_doc = resolve_make_sales_invoice_from_order()(sales_order)
-    invoice_doc.flags.ignore_permissions = True
+    invoice_doc.company = context.company
+    invoice_doc.pos_profile = context.profile_name
+    invoice_doc.posa_pos_opening_shift = context.opening_shift.name
+    if context.warehouse:
+        invoice_doc.set_warehouse = context.warehouse
+        for row in invoice_doc.get("items") or []:
+            row.warehouse = context.warehouse
     invoice_doc.run_method("set_missing_values")
     apply_pos_tax_inclusion_contract(invoice_doc, source_doc=sales_order_doc, recalculate=False)
     invoice_doc.run_method("calculate_taxes_and_totals")
@@ -182,15 +275,19 @@ def create_sales_invoice_from_order(sales_order):
 
 
 @frappe.whitelist()
-def delete_sales_invoice(sales_invoice):
+def delete_sales_invoice(sales_invoice, pos_profile=None, pos_opening_shift=None):
     """Backward-compatible facade for legacy frontend method path."""
 
     if not sales_invoice:
         frappe.throw("sales_invoice is required")
 
-    if frappe.db.exists("Sales Invoice", sales_invoice):
-        frappe.delete_doc("Sales Invoice", sales_invoice, force=1)
-    return True
+    if not frappe.db.exists("Sales Invoice", sales_invoice):
+        return True
+    return delete_invoice(
+        sales_invoice,
+        pos_profile=pos_profile,
+        pos_opening_shift=pos_opening_shift,
+    )
 
 
 @frappe.whitelist()

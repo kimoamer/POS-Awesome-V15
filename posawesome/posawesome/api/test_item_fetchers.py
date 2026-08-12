@@ -79,8 +79,14 @@ def _load_module():
 class TestItemFetchers(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         _install_stubs()
         cls.module = _load_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def test_get_bom_costs_prefers_item_default_bom(self):
         meta_rows = [

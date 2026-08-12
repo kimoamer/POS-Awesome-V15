@@ -33,7 +33,7 @@ class TestGiftCardWorkspaceExposure(unittest.TestCase):
         hooks = HOOKS_PATH.read_text()
         patches = PATCHES_PATH.read_text().splitlines()
 
-        self.assertIn(PATCH_PATH, hooks)
+        self.assertNotIn(PATCH_PATH, hooks)
         self.assertIn(PATCH_MODULE, patches)
 
     def test_workspace_json_exposes_submission_ledger_doctype(self):
@@ -59,7 +59,7 @@ class TestGiftCardWorkspaceExposure(unittest.TestCase):
         hooks = HOOKS_PATH.read_text()
         patches = PATCHES_PATH.read_text().splitlines()
 
-        self.assertIn(LEDGER_PATCH_PATH, hooks)
+        self.assertNotIn(LEDGER_PATCH_PATH, hooks)
         self.assertIn(LEDGER_PATCH_MODULE, patches)
 
 

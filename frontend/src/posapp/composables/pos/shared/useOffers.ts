@@ -1,6 +1,7 @@
 import { ref } from "vue";
-import { useUIStore } from "../../../stores/uiStore.js";
+import { useUIStore } from "../../../stores/uiStore";
 import { getCachedOffers, saveOffers } from "../../../../offline/index";
+import { posDebug } from "../../../utils/debug";
 
 declare const frappe: any;
 
@@ -32,7 +33,9 @@ export function useOffers() {
 			})
 			.then((r: any) => {
 				if (r.message) {
-					console.info("LoadOffers");
+					posDebug("offers", "loaded", {
+						count: Array.isArray(r.message) ? r.message.length : 0,
+					});
 					const normalized = normalizeOffers(r.message);
 					saveOffers(normalized);
 					offers.value = normalized;

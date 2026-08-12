@@ -81,6 +81,12 @@ vi.mock("../src/offline/sync/syncState", () => syncStateMocks);
 import { syncCustomersResource } from "../src/offline/sync/adapters/customers";
 import { syncItemsResource } from "../src/offline/sync/adapters/items";
 import { syncStockResource } from "../src/offline/sync/adapters/stock";
+import { buildOfflineProfileScope } from "../src/offline/scope";
+
+const itemScope = () =>
+	buildOfflineProfileScope({ name: "POS-1", warehouse: "Main WH" });
+const customerScope = () =>
+	buildOfflineProfileScope({ name: "POS-1" });
 
 describe("operational offline sync adapters", () => {
 	beforeEach(() => {
@@ -155,7 +161,7 @@ describe("operational offline sync adapters", () => {
 			fetcher,
 		});
 
-		expect(cacheMocks.clearStoredItems).toHaveBeenCalledWith();
+		expect(cacheMocks.clearStoredItems).toHaveBeenCalledWith(itemScope());
 		expect(cacheMocks.clearPriceListCache).toHaveBeenCalledOnce();
 		expect(cacheMocks.clearItemDetailsCache).toHaveBeenCalledOnce();
 		expect(cacheMocks.saveItemsBulk).toHaveBeenCalledWith(
@@ -164,7 +170,7 @@ describe("operational offline sync adapters", () => {
 					item_code: "ITEM-001",
 				}),
 			],
-			"POS-1_Main WH",
+			itemScope(),
 		);
 		expect(cacheMocks.saveItemDetailsCache).toHaveBeenCalledWith(
 			"POS-1",
@@ -185,7 +191,7 @@ describe("operational offline sync adapters", () => {
 		);
 		expect(cacheMocks.deleteStoredItemsByCodes).toHaveBeenCalledWith(
 			["ITEM-002"],
-			"POS-1_Main WH",
+			itemScope(),
 		);
 		expect(cacheMocks.removeItemDetailsCacheEntries).toHaveBeenCalledWith(
 			"POS-1",
@@ -197,7 +203,7 @@ describe("operational offline sync adapters", () => {
 			"Retail",
 		);
 		expect(cacheMocks.getStoredItemsCountByScope).toHaveBeenCalledWith(
-			"POS-1_Main WH",
+			itemScope(),
 		);
 		expect(cacheMocks.setItemsLastSync).toHaveBeenCalledWith(
 			"2026-04-09T10:05:00",
@@ -210,6 +216,7 @@ describe("operational offline sync adapters", () => {
 					profile: "POS-1",
 					company: "Test Co",
 					warehouse: "Main WH",
+					projection: "catalog-image-v1",
 				}),
 			}),
 		);
@@ -280,12 +287,12 @@ describe("operational offline sync adapters", () => {
 		expect(cacheMocks.saveItemsBulk).toHaveBeenNthCalledWith(
 			1,
 			[expect.objectContaining({ item_code: "ITEM-001" })],
-			"POS-1_Main WH",
+			itemScope(),
 		);
 		expect(cacheMocks.saveItemsBulk).toHaveBeenNthCalledWith(
 			2,
 			[expect.objectContaining({ item_code: "ITEM-002" })],
-			"POS-1_Main WH",
+			itemScope(),
 		);
 		expect(cacheMocks.setItemsLastSync).toHaveBeenCalledWith(
 			"2026-05-20T10:05:00",
@@ -346,29 +353,57 @@ describe("operational offline sync adapters", () => {
 		expect(cacheMocks.clearItemDetailsCache).toHaveBeenCalledOnce();
 		expect(cacheMocks.saveItemsBulk).toHaveBeenCalledWith(
 			[expect.objectContaining({ item_code: "ITEM-NEW" })],
-			"POS-1_Main WH",
+			itemScope(),
 		);
 		expect(result.status).toBe("fresh");
 	});
 
-	it("keeps the prior delta watermark when the server reports more changes", async () => {
-		const fetcher = vi.fn(async () => ({
-			schema_version: "2026-05-20",
-			next_watermark: "2026-05-20T11:00:00",
-			has_more: true,
-			changes: [
-				{
-					key: "item::ITEM-CHANGED",
-					modified: "2026-05-20T11:00:00",
-					data: {
-						item_code: "ITEM-CHANGED",
-						item_name: "Changed Item",
-						price_list_rate: 40,
+	it("streams every delta page while keeping the original watermark fixed", async () => {
+		const fetcher = vi.fn(async ({ watermark, startAfter, syncUntil }) => {
+			expect(watermark).toBe("2026-05-20T10:00:00");
+			if (!startAfter) {
+				expect(syncUntil).toBeNull();
+				return {
+					schema_version: "2026-08-08",
+					sync_until: "2026-05-20T11:10:00",
+					next_watermark: "2026-05-20T11:00:00",
+					next_cursor: "ITEM-CHANGED-1",
+					has_more: true,
+					changes: [
+						{
+							key: "item::ITEM-CHANGED-1",
+							modified: "2026-05-20T11:00:00",
+							data: {
+								item_code: "ITEM-CHANGED-1",
+								item_name: "Changed Item One",
+								price_list_rate: 40,
+							},
+						},
+					],
+					deleted: [],
+				};
+			}
+			expect(startAfter).toBe("ITEM-CHANGED-1");
+			expect(syncUntil).toBe("2026-05-20T11:10:00");
+			return {
+				schema_version: "2026-08-08",
+				sync_until: "2026-05-20T11:10:00",
+				next_watermark: "2026-05-20T11:10:00",
+				has_more: false,
+				changes: [
+					{
+						key: "item::ITEM-CHANGED-2",
+						modified: "2026-05-20T11:05:00",
+						data: {
+							item_code: "ITEM-CHANGED-2",
+							item_name: "Changed Item Two",
+							price_list_rate: 45,
+						},
 					},
-				},
-			],
-			deleted: [],
-		}));
+				],
+				deleted: [],
+			};
+		});
 
 		const result = await syncItemsResource({
 			posProfile: {
@@ -382,19 +417,19 @@ describe("operational offline sync adapters", () => {
 			fetcher,
 		});
 
-		expect(fetcher).toHaveBeenCalledOnce();
+		expect(fetcher).toHaveBeenCalledTimes(2);
 		expect(cacheMocks.setItemsLastSync).toHaveBeenCalledWith(
-			"2026-05-20T10:00:00",
+			"2026-05-20T11:10:00",
 		);
 		expect(syncStateMocks.setSyncResourceState).toHaveBeenCalledWith(
 			expect.objectContaining({
 				resourceId: "items",
-				status: "limited",
-				watermark: "2026-05-20T10:00:00",
+				status: "fresh",
+				watermark: "2026-05-20T11:10:00",
 			}),
 		);
-		expect(result.status).toBe("limited");
-		expect(result.watermark).toBe("2026-05-20T10:00:00");
+		expect(result.status).toBe("fresh");
+		expect(result.watermark).toBe("2026-05-20T11:10:00");
 	});
 
 	it("clears stale customer scope before applying delta writes and deletes", async () => {
@@ -443,17 +478,25 @@ describe("operational offline sync adapters", () => {
 			fetcher,
 		});
 
-		expect(cacheMocks.clearCustomerStorage).toHaveBeenCalledOnce();
-		expect(customerMocks.setCustomerStorage).toHaveBeenCalledWith([
-			{
-				name: "CUST-001",
-				customer_name: "Customer One",
-			},
-		]);
+		expect(cacheMocks.clearCustomerStorage).toHaveBeenCalledWith(
+			customerScope(),
+		);
+		expect(customerMocks.setCustomerStorage).toHaveBeenCalledWith(
+			[
+				{
+					name: "CUST-001",
+					customer_name: "Customer One",
+				},
+			],
+			customerScope(),
+		);
 		expect(customerMocks.deleteCustomerStorageByNames).toHaveBeenCalledWith(
 			["CUST-002"],
+			customerScope(),
 		);
-		expect(cacheMocks.getCustomerStorageCount).toHaveBeenCalledOnce();
+		expect(cacheMocks.getCustomerStorageCount).toHaveBeenCalledWith(
+			customerScope(),
+		);
 		expect(cacheMocks.setCustomersLastSync).toHaveBeenCalledWith(
 			"2026-04-09T11:00:00",
 		);
@@ -523,12 +566,16 @@ describe("operational offline sync adapters", () => {
 		});
 
 		expect(fetcher).toHaveBeenCalledTimes(2);
-		expect(customerMocks.setCustomerStorage).toHaveBeenNthCalledWith(1, [
-			expect.objectContaining({ name: "CUST-001" }),
-		]);
-		expect(customerMocks.setCustomerStorage).toHaveBeenNthCalledWith(2, [
-			expect.objectContaining({ name: "CUST-002" }),
-		]);
+		expect(customerMocks.setCustomerStorage).toHaveBeenNthCalledWith(
+			1,
+			[expect.objectContaining({ name: "CUST-001" })],
+			customerScope(),
+		);
+		expect(customerMocks.setCustomerStorage).toHaveBeenNthCalledWith(
+			2,
+			[expect.objectContaining({ name: "CUST-002" })],
+			customerScope(),
+		);
 		expect(cacheMocks.setCustomersLastSync).toHaveBeenCalledWith(
 			"2026-05-20T10:05:00",
 		);
@@ -599,13 +646,16 @@ describe("operational offline sync adapters", () => {
 
 		expect(fetcher).toHaveBeenCalledTimes(2);
 		expect(cacheMocks.clearCustomerStorage).toHaveBeenCalledOnce();
-		expect(customerMocks.setCustomerStorage).toHaveBeenCalledWith([
-			expect.objectContaining({
-				name: "CUST-LOYAL",
-				loyalty_points: 2,
-				conversion_factor: 10,
-			}),
-		]);
+		expect(customerMocks.setCustomerStorage).toHaveBeenCalledWith(
+			[
+				expect.objectContaining({
+					name: "CUST-LOYAL",
+					loyalty_points: 2,
+					conversion_factor: 10,
+				}),
+			],
+			customerScope(),
+		);
 		expect(result.status).toBe("fresh");
 	});
 
@@ -658,18 +708,25 @@ describe("operational offline sync adapters", () => {
 			fetcher,
 		});
 
-		expect(stockMocks.clearLocalStockCache).toHaveBeenCalledOnce();
-		expect(stockMocks.updateLocalStockCache).toHaveBeenCalledWith([
-			{
-				item_code: "ITEM-001",
-				actual_qty: 11,
-				warehouse: "Main WH",
-			},
-		]);
-		expect(stockMocks.removeLocalStockEntries).toHaveBeenCalledWith([
-			"ITEM-002",
-		]);
-		expect(stockMocks.setStockCacheReady).toHaveBeenCalledWith(true);
+		expect(stockMocks.clearLocalStockCache).toHaveBeenCalledWith(itemScope());
+		expect(stockMocks.updateLocalStockCache).toHaveBeenCalledWith(
+			[
+				{
+					item_code: "ITEM-001",
+					actual_qty: 11,
+					warehouse: "Main WH",
+				},
+			],
+			itemScope(),
+		);
+		expect(stockMocks.removeLocalStockEntries).toHaveBeenCalledWith(
+			["ITEM-002"],
+			itemScope(),
+		);
+		expect(stockMocks.setStockCacheReady).toHaveBeenCalledWith(
+			true,
+			itemScope(),
+		);
 		expect(
 			bootstrapSnapshotMocks.refreshBootstrapSnapshotFromCaches,
 		).toHaveBeenCalledWith(
@@ -695,6 +752,73 @@ describe("operational offline sync adapters", () => {
 					company: "Test Co",
 					warehouse: "Main WH",
 				}),
+			}),
+		);
+		expect(result.status).toBe("fresh");
+	});
+
+	it("streams every stock page before exposing the cache as ready", async () => {
+		const fetcher = vi.fn(
+			async ({ watermark, startAfter, syncUntil, limit }) => {
+			expect(watermark).toBe("2026-08-08T08:00:00");
+			expect(limit).toBe(1000);
+			if (!startAfter) {
+				expect(syncUntil).toBeNull();
+				return {
+					schema_version: "2026-08-08",
+					sync_until: "2026-08-08T08:10:00",
+					next_watermark: "2026-08-08T08:05:00",
+					next_cursor: "ITEM-001",
+					has_more: true,
+					changes: [
+						{
+							key: "stock::ITEM-001",
+							data: { item_code: "ITEM-001", actual_qty: 2 },
+						},
+					],
+					deleted: [],
+				};
+			}
+			expect(startAfter).toBe("ITEM-001");
+			expect(syncUntil).toBe("2026-08-08T08:10:00");
+			return {
+				schema_version: "2026-08-08",
+				sync_until: "2026-08-08T08:10:00",
+				next_watermark: "2026-08-08T08:10:00",
+				has_more: false,
+				changes: [
+					{
+						key: "stock::ITEM-002",
+						data: { item_code: "ITEM-002", actual_qty: 4 },
+					},
+				],
+				deleted: [],
+			};
+			},
+		);
+
+		const result = await syncStockResource({
+			posProfile: { name: "POS-1", warehouse: "Main WH" },
+			watermark: "2026-08-08T08:00:00",
+			fetcher,
+		});
+
+		expect(fetcher).toHaveBeenCalledTimes(2);
+		expect(stockMocks.updateLocalStockCache).toHaveBeenNthCalledWith(
+			1,
+			[expect.objectContaining({ item_code: "ITEM-001" })],
+			itemScope(),
+		);
+		expect(stockMocks.updateLocalStockCache).toHaveBeenNthCalledWith(
+			2,
+			[expect.objectContaining({ item_code: "ITEM-002" })],
+			itemScope(),
+		);
+		expect(stockMocks.setStockCacheReady).toHaveBeenCalledTimes(1);
+		expect(syncStateMocks.setSyncResourceState).toHaveBeenCalledWith(
+			expect.objectContaining({
+				resourceId: "stock",
+				watermark: "2026-08-08T08:10:00",
 			}),
 		);
 		expect(result.status).toBe("fresh");

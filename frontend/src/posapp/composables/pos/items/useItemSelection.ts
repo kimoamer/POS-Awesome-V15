@@ -2,7 +2,7 @@ import { ref } from "vue";
 import {
 	findItemIndexByCode,
 	getNextHighlightedIndex,
-} from "../../../utils/itemHighlight.js";
+} from "../../../utils/itemHighlight";
 
 type SelectableItem = {
 	item_code?: string | null;

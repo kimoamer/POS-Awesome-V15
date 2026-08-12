@@ -108,9 +108,9 @@ describe("PaymentRedemption", () => {
 		);
 
 		expect(paymentsSource).toContain("getStoredCustomer");
-		expect(refreshBlock).toContain("const cachedCustomer = await getStoredCustomer(customer);");
+		expect(refreshBlock).toContain("const cachedCustomer = await getStoredCustomer(");
 		expect(refreshBlock).toContain("applyPaymentCustomerInfo(cachedCustomer, customer);");
-		expect(refreshBlock.indexOf("getStoredCustomer(customer)")).toBeLessThan(
+		expect(refreshBlock.indexOf("getStoredCustomer(")).toBeLessThan(
 			refreshBlock.indexOf("if (isOffline())"),
 		);
 	});

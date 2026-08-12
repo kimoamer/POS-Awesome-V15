@@ -182,11 +182,47 @@ def resolve_erpnext_currency_rates(
     }
 
 
-@frappe.whitelist()
-def get_price_list_currency(price_list):
+def _get_price_list_currency(price_list):
     return frappe.db.get_value("Price List", price_list, "currency")
 
 
 @frappe.whitelist()
-def get_available_currencies():
+def get_price_list_currency(price_list, pos_profile=None, pos_opening_shift=None):
+    from posawesome.posawesome.api.utils import get_pos_request_context
+
+    get_pos_request_context(
+        pos_profile,
+        action_flag="posa_allow_multi_currency",
+        doctype="Price List",
+        permission_type="read",
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
+    valid = frappe.db.get_value(
+        "Price List",
+        price_list,
+        ["currency", "selling", "enabled"],
+        as_dict=True,
+    )
+    if not valid or not valid.get("selling") or not valid.get("enabled"):
+        frappe.throw(_("Price List is not available for POS selling."))
+    return valid.get("currency")
+
+
+def _get_available_currencies():
     return frappe.get_all("Currency", filters={"enabled": 1}, fields=["name"])
+
+
+@frappe.whitelist()
+def get_available_currencies(pos_profile=None, pos_opening_shift=None):
+    from posawesome.posawesome.api.utils import get_pos_request_context
+
+    get_pos_request_context(
+        pos_profile,
+        action_flag="posa_allow_multi_currency",
+        doctype="Currency",
+        permission_type="read",
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
+    return _get_available_currencies()

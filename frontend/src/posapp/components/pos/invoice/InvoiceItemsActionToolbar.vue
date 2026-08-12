@@ -230,11 +230,6 @@ const cancelColumnSelection = () => {
 	showColumnSelector.value = false;
 };
 
-const openColumnSelectorFromMenu = () => {
-	moreOpen.value = false;
-	toggleColumnSelection();
-};
-
 const updateSelectedColumns = () => {
 	emit("update:selectedColumns", normalizeColumns(tempSelectedColumns.value));
 	showColumnSelector.value = false;

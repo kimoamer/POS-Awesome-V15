@@ -1,16 +1,11 @@
-import { createApp } from "vue";
+import { createApp, defineAsyncComponent } from "vue";
 // @ts-ignore
 import vuetify from "./plugins/vuetify";
-import "@mdi/font/css/materialdesignicons.css";
-import "@fontsource/roboto/100.css";
-import "@fontsource/roboto/300.css";
 import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
-import "@fontsource/roboto/900.css";
 // @ts-ignore
 import Dexie from "dexie/dist/dexie.mjs";
-import VueDatePicker from "@vuepic/vue-datepicker";
 import "@vuepic/vue-datepicker/dist/main.css";
 import "../../../posawesome/public/css/rtl.css";
 import "../style.css";
@@ -33,6 +28,7 @@ import {
 	scheduleChunkRecoveryStateReset,
 } from "./utils/chunkLoadRecovery";
 import { finalizePendingBundleActivation } from "./utils/bundleVersionActivation";
+import { posDebug } from "./utils/debug";
 import { reconcileBuildChangeOnStartup } from "./utils/buildCacheReconciler";
 import {
 	startupInitPromise,
@@ -45,9 +41,13 @@ import {
 	attachProfilerHelpers,
 	initLongTaskObserver,
 	isPerfEnabled,
-} from "./utils/perf.js";
+} from "./utils/perf";
 
 declare const __BUILD_VERSION__: string;
+
+const VueDatePicker = defineAsyncComponent(
+	() => import("@vuepic/vue-datepicker"),
+);
 
 attachProfilerHelpers();
 
@@ -109,6 +109,36 @@ async function startOptionalRuntimeServices() {
 		document.head.appendChild(link);
 	}
 
+	const iconVersion =
+		typeof __BUILD_VERSION__ !== "undefined" ? __BUILD_VERSION__ : "";
+	const iconHref = `/assets/posawesome/icons/logo-192.png${
+		iconVersion ? `?v=${encodeURIComponent(iconVersion)}` : ""
+	}`;
+	let appIcon = document.querySelector<HTMLLinkElement>(
+		'link[data-posmate-app-icon="favicon"]',
+	);
+	if (!appIcon) {
+		appIcon = document.createElement("link");
+		appIcon.rel = "icon";
+		appIcon.type = "image/png";
+		appIcon.sizes = "192x192";
+		appIcon.dataset.posmateAppIcon = "favicon";
+		document.head.appendChild(appIcon);
+	}
+	appIcon.href = iconHref;
+
+	let appleTouchIcon = document.querySelector<HTMLLinkElement>(
+		'link[data-posmate-app-icon="apple-touch"]',
+	);
+	if (!appleTouchIcon) {
+		appleTouchIcon = document.createElement("link");
+		appleTouchIcon.rel = "apple-touch-icon";
+		appleTouchIcon.sizes = "192x192";
+		appleTouchIcon.dataset.posmateAppIcon = "apple-touch";
+		document.head.appendChild(appleTouchIcon);
+	}
+	appleTouchIcon.href = iconHref;
+
 	if (
 		("serviceWorker" in navigator &&
 			window.location.protocol === "https:") ||
@@ -132,7 +162,7 @@ async function startOptionalRuntimeServices() {
 		navigator.serviceWorker
 			.register(swUrl)
 			.then((registration) => {
-				console.log("SW registered successfully", registration);
+				posDebug("service-worker", "Registered", registration.scope);
 			})
 			.catch((err) => console.error("SW registration failed", err));
 	}
@@ -144,6 +174,7 @@ class PosAppController {
 	app: any;
 	router: any;
 	routerHistory: any;
+	routerDispose: (() => void) | null;
 	$el: any;
 
 	constructor(input: any) {
@@ -151,6 +182,7 @@ class PosAppController {
 		this.$parent = $(document);
 		this.page = parent?.page || parent;
 		this.app = null;
+		this.routerDispose = null;
 		this.make_body();
 	}
 
@@ -159,11 +191,17 @@ class PosAppController {
 	}
 
 	async initializeApp() {
+		document.documentElement.classList.add("posawesome-active");
+		document.documentElement.style.setProperty(
+			"--posa-desk-sidebar-width",
+			"0px",
+		);
 		// Vuetify instance is now imported from plugins/vuetify.ts
 		this.app = createApp(App);
-		const { router, history } = createPosAppRouter();
+		const { router, history, dispose } = createPosAppRouter();
 		this.router = router;
 		this.routerHistory = history;
+		this.routerDispose = dispose;
 		this.app.component("VueDatePicker", VueDatePicker);
 		this.app.use(pinia);
 		this.app.use(this.router);
@@ -212,6 +250,10 @@ class PosAppController {
 	}
 
 	unmount() {
+		document.documentElement.classList.remove("posawesome-active");
+		document.documentElement.style.removeProperty(
+			"--posa-desk-sidebar-width",
+		);
 		if (this.app) {
 			// Clean up router to prevent global navigation interference
 			if (this.router) {
@@ -219,6 +261,8 @@ class PosAppController {
 				this.router.beforeEachCbs = [];
 				this.router.afterEachCbs = [];
 			}
+			this.routerDispose?.();
+			this.routerDispose = null;
 
 			if (
 				this.routerHistory &&
@@ -236,9 +280,9 @@ class PosAppController {
 
 			this.app.unmount();
 			this.app = null;
-			this.router = null;
-			this.routerHistory = null;
-			console.info("POS App unmounted");
+				this.router = null;
+				this.routerHistory = null;
+			posDebug("lifecycle", "POS App unmounted");
 		}
 	}
 

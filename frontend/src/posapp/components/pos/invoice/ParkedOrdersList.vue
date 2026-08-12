@@ -127,7 +127,7 @@ const props = defineProps({
 
 const emit = defineEmits(["resume", "manage-all", "close"]);
 
-const __ = window.__;
+const __ = window.__ || ((text) => text);
 const listRoot = ref(null);
 const cardRefs = ref([]);
 const selectedIndex = ref(0);

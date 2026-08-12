@@ -9,6 +9,7 @@ import {
 	getInvoiceOutboxRows,
 	getPendingInvoiceOutboxCount,
 	getPendingOfflineInvoiceCount,
+	ensureInvoiceOutboxReady,
 	initPromise,
 	memory,
 	saveOfflineInvoice,
@@ -52,6 +53,50 @@ describe("invoice outbox sync resource", () => {
 		expect(await getInvoiceOutboxRows()).toEqual([
 			expect.objectContaining({
 				client_request_id: "outbox-fixed-001",
+				status: "pending",
+			}),
+		]);
+	});
+
+	it("uses the coordinator outbox as the single durable invoice queue", async () => {
+		setInvoiceOutboxMode("coordinator");
+
+		await saveOfflineInvoice({
+			invoice: {
+				name: "OFFLINE-SINV-OUTBOX-SINGLE",
+				customer: "CUST-001",
+				posa_client_request_id: "outbox-single-001",
+				items: [{ item_code: "ITEM-1", item_name: "Item 1", qty: 1 }],
+			},
+			data: { idempotency_key: "outbox-single-001" },
+		});
+
+		expect(await db.table("write_queue").count()).toBe(0);
+		expect(await getPendingInvoiceOutboxCount()).toBe(1);
+		expect(getPendingOfflineInvoiceCount()).toBe(1);
+	});
+
+	it("atomically promotes legacy invoice queue rows before coordinator replay", async () => {
+		setInvoiceOutboxMode("off");
+		await saveOfflineInvoice({
+			invoice: {
+				name: "OFFLINE-SINV-OUTBOX-MIGRATE",
+				customer: "CUST-001",
+				posa_client_request_id: "outbox-migrate-001",
+				items: [{ item_code: "ITEM-1", item_name: "Item 1", qty: 1 }],
+			},
+			data: { idempotency_key: "outbox-migrate-001" },
+		});
+		expect(await db.table("write_queue").count()).toBe(1);
+
+		setInvoiceOutboxMode("coordinator");
+		await ensureInvoiceOutboxReady();
+
+		expect(await db.table("write_queue").count()).toBe(0);
+		expect(await getPendingInvoiceOutboxCount()).toBe(1);
+		expect(await getInvoiceOutboxRows()).toEqual([
+			expect.objectContaining({
+				client_request_id: "outbox-migrate-001",
 				status: "pending",
 			}),
 		]);

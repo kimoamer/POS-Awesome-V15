@@ -1,15 +1,29 @@
 import frappe
 from frappe import _
+from posawesome.posawesome.api.utils import get_pos_request_context
 
 
 @frappe.whitelist()
-def get_last_invoice_rates(customer, item_codes, company=None):
+def get_last_invoice_rates(
+    customer,
+    item_codes,
+    company=None,
+    pos_profile=None,
+    pos_opening_shift=None,
+):
     """
     Get the last invoice rate for a list of items for a specific customer.
     If no customer-specific rate is found, fall back to the overall latest invoice rate for each item.
     """
-    if not company:
-        company = frappe.db.get_default("company")
+    context = get_pos_request_context(
+        pos_profile,
+        company=company,
+        doctype="Sales Invoice",
+        permission_type="read",
+        require_open_shift=True,
+        opening_shift=pos_opening_shift,
+    )
+    company = context.company
 
     if isinstance(customer, dict):
         customer = customer.get("name") or customer.get("value") or str(customer)
@@ -24,6 +38,13 @@ def get_last_invoice_rates(customer, item_codes, company=None):
 
     if not item_codes:
         return []
+    if not isinstance(item_codes, (list, tuple)):
+        frappe.throw(_("Item codes must be a list."))
+    item_codes = list(dict.fromkeys(str(code).strip() for code in item_codes if str(code).strip()))
+    if len(item_codes) > 200:
+        frappe.throw(_("A maximum of 200 item codes can be requested."))
+    if customer and not frappe.db.exists("Customer", customer):
+        frappe.throw(_("Customer was not found."))
 
     latest_rates = {}
 

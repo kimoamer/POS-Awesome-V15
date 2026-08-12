@@ -31,6 +31,8 @@ export type SyncResponse<T = any> = {
 	changes?: SyncChangeRecord<T>[];
 	deleted?: SyncDeleteRecord[];
 	next_watermark?: string | null;
+	next_cursor?: string | null;
+	sync_until?: string | null;
 	has_more?: boolean;
 	next_offset?: number | null;
 	scope?: Record<string, any> | null;
@@ -45,6 +47,7 @@ type PersistSyncStateArgs = {
 	response: SyncResponse;
 	watermark?: string | null;
 	error?: string | null;
+	scopeSignature?: string | null;
 };
 
 type RefreshSnapshotArgs = {
@@ -60,12 +63,19 @@ export type ResourceSyncResult = {
 	response: SyncResponse;
 };
 
-export function buildScopeSignature(posProfile: SyncScopedProfile) {
-	return JSON.stringify({
+export function buildScopeSignature(
+	posProfile: SyncScopedProfile,
+	projectionVersion?: string | null,
+) {
+	const signature: Record<string, string | null> = {
 		profile: posProfile?.name || null,
 		company: posProfile?.company || null,
 		warehouse: posProfile?.warehouse || null,
-	});
+	};
+	if (projectionVersion) {
+		signature.projection = projectionVersion;
+	}
+	return JSON.stringify(signature);
 }
 
 export function resolveWatermark(
@@ -82,6 +92,7 @@ export async function persistResourceSyncState({
 	response,
 	watermark,
 	error = null,
+	scopeSignature = null,
 }: PersistSyncStateArgs) {
 	await setSyncResourceState({
 		resourceId,
@@ -91,7 +102,7 @@ export async function persistResourceSyncState({
 		lastSuccessHash: null,
 		lastError: error,
 		consecutiveFailures: status === "error" ? 1 : 0,
-		scopeSignature: buildScopeSignature(posProfile),
+		scopeSignature: scopeSignature || buildScopeSignature(posProfile),
 		schemaVersion: response?.schema_version || null,
 	});
 }

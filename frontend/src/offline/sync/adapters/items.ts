@@ -12,6 +12,7 @@ import {
 	setItemsLastSync,
 } from "../../cache";
 import { getSyncResourceState } from "../syncState";
+import { buildOfflineProfileScope } from "../../scope";
 import {
 	buildResourceSyncResult,
 	buildScopeSignature,
@@ -29,6 +30,7 @@ type ItemsFetcher = (_args: {
 	customer?: string | null;
 	watermark?: string | null;
 	startAfter?: string | null;
+	syncUntil?: string | null;
 	limit?: number;
 	schemaVersion?: string | null;
 }) => Promise<SyncResponse>;
@@ -43,11 +45,14 @@ type ItemsSyncArgs = {
 };
 
 const ITEM_SYNC_PAGE_SIZE = 1000;
+export const ITEM_SYNC_PROJECTION_VERSION = "catalog-image-v1";
+
+export function buildItemScopeSignature(posProfile: SyncScopedProfile) {
+	return buildScopeSignature(posProfile, ITEM_SYNC_PROJECTION_VERSION);
+}
 
 function buildItemStorageScope(posProfile: SyncScopedProfile) {
-	const profileName = posProfile?.name || "no_profile";
-	const warehouse = posProfile?.warehouse || "no_warehouse";
-	return `${profileName}_${warehouse}`;
+	return buildOfflineProfileScope(posProfile);
 }
 
 function extractChangedItems(response: SyncResponse) {
@@ -94,7 +99,7 @@ function laterWatermark(
 }
 
 async function hasItemScopeChanged(posProfile: SyncScopedProfile) {
-	const nextScopeSignature = buildScopeSignature(posProfile);
+	const nextScopeSignature = buildItemScopeSignature(posProfile);
 	const currentState = await getSyncResourceState("items");
 	if (
 		currentState?.scopeSignature &&
@@ -117,6 +122,7 @@ async function persistItemSyncState(
 		posProfile: args.posProfile,
 		response,
 		watermark,
+		scopeSignature: buildItemScopeSignature(args.posProfile),
 	});
 }
 
@@ -168,6 +174,7 @@ async function fetchAndStoreItemPages({
 	let latestWatermark = watermark;
 	let schemaVersionSeen = schemaVersion || null;
 	let lastResponse: SyncResponse = {};
+	let syncUntil: string | null = null;
 
 	while (true) {
 		const response = await args.fetcher({
@@ -176,10 +183,12 @@ async function fetchAndStoreItemPages({
 			customer: args.customer || null,
 			watermark,
 			startAfter,
+			syncUntil,
 			limit: ITEM_SYNC_PAGE_SIZE,
 			schemaVersion,
 		});
 		lastResponse = response || {};
+		syncUntil = response?.sync_until || syncUntil;
 
 		if (response?.full_resync_required) {
 			return response;
@@ -193,11 +202,12 @@ async function fetchAndStoreItemPages({
 		schemaVersionSeen =
 			response?.schema_version || schemaVersionSeen || null;
 
-		if (!response?.has_more || watermark) {
+		if (!response?.has_more) {
 			break;
 		}
 
-		const nextStartAfter = getLastItemCursor(response);
+		const nextStartAfter =
+			response?.next_cursor || getLastItemCursor(response);
 		if (!nextStartAfter || nextStartAfter === startAfter) {
 			throw new Error("Item sync pagination cursor did not advance");
 		}
@@ -208,10 +218,11 @@ async function fetchAndStoreItemPages({
 		...lastResponse,
 		changes: [],
 		deleted: [],
-		has_more: Boolean(lastResponse?.has_more && watermark),
-		next_watermark:
-			lastResponse?.has_more && watermark ? watermark : latestWatermark,
+		has_more: false,
+		next_cursor: null,
+		next_watermark: latestWatermark,
 		schema_version: schemaVersionSeen,
+		sync_until: syncUntil,
 	};
 }
 
@@ -223,7 +234,7 @@ export async function syncItemsResource(
 	const storageScope = buildItemStorageScope(args.posProfile);
 
 	if (scopeChanged) {
-		await clearStoredItems();
+		await clearStoredItems(storageScope);
 		clearPriceListCache();
 		clearItemDetailsCache();
 	}
@@ -238,7 +249,7 @@ export async function syncItemsResource(
 	if (response?.full_resync_required) {
 		effectiveWatermark = null;
 		if (!scopeChanged) {
-			await clearStoredItems();
+			await clearStoredItems(storageScope);
 			clearPriceListCache();
 			clearItemDetailsCache();
 		}

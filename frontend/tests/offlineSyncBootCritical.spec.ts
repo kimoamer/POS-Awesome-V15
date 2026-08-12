@@ -235,13 +235,16 @@ describe("boot-critical offline sync adapters", () => {
 			exchange_rate: 279.5,
 		});
 		expect(repositoryMocks.currencyRateRepository.clear).toHaveBeenCalledOnce();
-		expect(repositoryMocks.currencyRateRepository.upsertMany).toHaveBeenCalledWith([
-			expect.objectContaining({
-				name: "FX-USD-PKR",
-				profile_name: "POS-1",
-				company: "Test Co",
-			}),
-		]);
+		expect(repositoryMocks.currencyRateRepository.upsertMany).toHaveBeenCalledWith(
+			[
+				expect.objectContaining({
+					name: "FX-USD-PKR",
+					profile_name: "POS-1",
+					company: "Test Co",
+				}),
+			],
+			expect.stringContaining("POS-1"),
+		);
 		expect(cacheMocks.savePaymentMethodCurrencyCache).toHaveBeenCalledWith(
 			"Test Co",
 			{ Cash: "PKR", Card: "USD" },
@@ -271,7 +274,8 @@ describe("boot-critical offline sync adapters", () => {
 					},
 				],
 				has_more: true,
-				next_offset: 1,
+				next_cursor: "currency_options",
+				sync_until: "2026-04-09T10:06:00",
 				next_watermark: null,
 			})
 			.mockResolvedValueOnce({
@@ -298,7 +302,8 @@ describe("boot-critical offline sync adapters", () => {
 					},
 				],
 				has_more: false,
-				next_offset: null,
+				next_cursor: null,
+				sync_until: "2026-04-09T10:06:00",
 				next_watermark: "2026-04-09T10:06:00",
 			});
 
@@ -310,7 +315,11 @@ describe("boot-critical offline sync adapters", () => {
 
 		expect(fetcher).toHaveBeenNthCalledWith(
 			2,
-			expect.objectContaining({ offset: 1, watermark: null }),
+			expect.objectContaining({
+				startAfter: "currency_options",
+				syncUntil: "2026-04-09T10:06:00",
+				watermark: null,
+			}),
 		);
 		expect(cacheMocks.saveCurrencyOptionsCache).toHaveBeenCalledOnce();
 		expect(cacheMocks.saveExchangeRateCache).toHaveBeenCalledOnce();

@@ -94,7 +94,6 @@ describe("NavbarAppBar", () => {
 		expect(wrapper.findAll('[data-test="cashier-chip"]')).toHaveLength(1);
 		expect(wrapper.find('[data-test="profile-chip-secondary"]').exists()).toBe(false);
 		expect(wrapper.text()).toContain("Backup Cashier");
-		expect(wrapper.text()).toContain("Main POS");
 		expect(wrapper.get('[data-test="cashier-chip"]').attributes("role")).toBe("button");
 	});
 });

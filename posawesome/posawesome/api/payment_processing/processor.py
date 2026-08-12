@@ -12,6 +12,10 @@ from posawesome.posawesome.api.idempotency import (
     find_payment_entries_by_client_request_id,
     normalize_client_request_id,
 )
+from posawesome.posawesome.api.utils import (
+    assert_doctype_permission,
+    get_pos_request_context,
+)
 
 
 def _amounts_match(left, right):
@@ -34,6 +38,245 @@ def _get_value(source, key, default=None):
             pass
 
     return getattr(source, key, default)
+
+
+def _throw_invalid_payment(message):
+    """Abort the complete payment transaction with a user-safe validation error."""
+
+    validation_error = getattr(frappe, "ValidationError", None)
+    if validation_error:
+        frappe.throw(message, validation_error)
+    frappe.throw(message)
+
+
+def _profile_payment_methods(profile):
+    return {
+        _get_value(row, "mode_of_payment"): row
+        for row in (_get_value(profile, "payments", []) or [])
+        if _get_value(row, "mode_of_payment")
+    }
+
+
+def _authoritative_invoice_rows(data, party, party_type, company):
+    """Reload selected invoices and discard all client-supplied accounting values."""
+
+    rows = []
+    seen = set()
+    expected_doctype = "Purchase Invoice" if party_type == "Supplier" else "Sales Invoice"
+    party_field = "supplier" if party_type == "Supplier" else "customer"
+    assert_doctype_permission(expected_doctype, "read")
+
+    for requested in data.get("selected_invoices") or []:
+        invoice_name = requested.get("voucher_no") or requested.get("name")
+        voucher_type = requested.get("voucher_type") or expected_doctype
+        if not invoice_name or invoice_name in seen:
+            continue
+        if voucher_type != expected_doctype:
+            _throw_invalid_payment(_("Invoice {0} is not valid for this party type").format(invoice_name))
+
+        invoice = frappe.get_doc(expected_doctype, invoice_name)
+        if (
+            _get_value(invoice, "company") != company
+            or _get_value(invoice, party_field) != party
+            or cint(_get_value(invoice, "docstatus")) != 1
+        ):
+            _throw_invalid_payment(_("Invoice {0} is outside this POS payment scope").format(invoice_name))
+
+        outstanding = flt(_get_value(invoice, "outstanding_amount"))
+        if outstanding <= 0:
+            _throw_invalid_payment(_("Invoice {0} has no outstanding balance").format(invoice_name))
+
+        rows.append(
+            frappe._dict(
+                {
+                    "voucher_no": invoice_name,
+                    "name": invoice_name,
+                    "voucher_type": expected_doctype,
+                    "outstanding_amount": outstanding,
+                    "conversion_rate": flt(_get_value(invoice, "conversion_rate")) or 1,
+                    "due_date": _get_value(invoice, "due_date") or _get_value(invoice, "posting_date"),
+                    "posting_date": _get_value(invoice, "posting_date"),
+                    "currency": _get_value(invoice, "currency"),
+                }
+            )
+        )
+        seen.add(invoice_name)
+
+    return rows
+
+
+def _authoritative_reconciliation_rows(data, party, party_type, company):
+    """Verify every credit/payment entry belongs to the active party and company."""
+
+    rows = []
+    seen = set()
+    for requested in data.get("selected_payments") or []:
+        payment_name = requested.get("name")
+        if not payment_name or payment_name in seen:
+            continue
+
+        is_credit_note = cint(requested.get("is_credit_note")) or requested.get("voucher_type") == "Sales Invoice"
+        doctype = "Sales Invoice" if is_credit_note else "Payment Entry"
+        assert_doctype_permission(doctype, "read")
+        document = frappe.get_doc(doctype, payment_name)
+
+        if _get_value(document, "company") != company or cint(_get_value(document, "docstatus")) != 1:
+            _throw_invalid_payment(_("Payment {0} is outside this POS payment scope").format(payment_name))
+
+        if is_credit_note:
+            if party_type != "Customer" or _get_value(document, "customer") != party or not cint(
+                _get_value(document, "is_return")
+            ):
+                _throw_invalid_payment(_("Credit note {0} does not belong to this customer").format(payment_name))
+            available = abs(flt(_get_value(document, "outstanding_amount")))
+        else:
+            if _get_value(document, "party_type") != party_type or _get_value(document, "party") != party:
+                _throw_invalid_payment(_("Payment {0} does not belong to this party").format(payment_name))
+            available = flt(_get_value(document, "unallocated_amount"))
+
+        if available <= 0:
+            _throw_invalid_payment(_("Payment {0} has no amount available to reconcile").format(payment_name))
+
+        rows.append(
+            frappe._dict(
+                {
+                    "name": payment_name,
+                    "voucher_type": doctype,
+                    "is_credit_note": 1 if is_credit_note else 0,
+                    "unallocated_amount": available,
+                    "outstanding_amount": available,
+                    "amount": min(_requested_reconciled_amount(requested) or available, available),
+                }
+            )
+        )
+        seen.add(payment_name)
+    return rows
+
+
+def _authoritative_mpesa_rows(data, party, company, allowed_methods):
+    rows = []
+    seen = set()
+    requested_rows = data.get("selected_mpesa_payments") or []
+    if requested_rows:
+        assert_doctype_permission("Mpesa Payment Register", "read")
+    for requested in requested_rows:
+        payment_name = requested.get("name")
+        if not payment_name or payment_name in seen:
+            continue
+        document = frappe.get_doc("Mpesa Payment Register", payment_name)
+        if (
+            _get_value(document, "company") != company
+            or _get_value(document, "mode_of_payment") not in allowed_methods
+            or cint(_get_value(document, "docstatus")) not in {0, 1}
+            or (
+                cint(_get_value(document, "docstatus")) == 1
+                and _get_value(document, "customer") != party
+            )
+        ):
+            _throw_invalid_payment(_("M-Pesa payment {0} is outside this POS payment scope").format(payment_name))
+        amount = flt(_get_value(document, "transamount"))
+        if amount <= 0:
+            _throw_invalid_payment(_("M-Pesa payment {0} has no usable amount").format(payment_name))
+        rows.append(frappe._dict({"name": payment_name, "amount": amount}))
+        seen.add(payment_name)
+    return rows
+
+
+def _authorize_payment_request(data):
+    """Resolve the authoritative POS/payment context and normalize unsafe input."""
+
+    profile_selector = data.get("pos_profile_name") or _get_value(data.get("pos_profile"), "name")
+    if not profile_selector:
+        _throw_invalid_payment(_("POS Profile is required"))
+
+    payment_methods = list(data.get("payment_methods") or [])
+    selected_payments = list(data.get("selected_payments") or [])
+    selected_mpesa_payments = list(data.get("selected_mpesa_payments") or [])
+    context = get_pos_request_context(
+        profile_selector,
+        company=data.get("company"),
+        action_flag="posa_use_pos_awesome_payments",
+        doctype="Payment Entry",
+        permission_type="create" if payment_methods else "write",
+        require_open_shift=True,
+        opening_shift=data.get("pos_opening_shift_name"),
+    )
+    profile = context.pos_profile
+
+    if payment_methods:
+        if not cint(_get_value(profile, "posa_allow_make_new_payments")):
+            _throw_invalid_payment(_("Creating new payments is disabled for this POS Profile"))
+        assert_doctype_permission("Payment Entry", "submit")
+    if selected_payments:
+        if not cint(_get_value(profile, "posa_allow_reconcile_payments")):
+            _throw_invalid_payment(_("Payment reconciliation is disabled for this POS Profile"))
+        assert_doctype_permission("Payment Entry", "write")
+    if selected_mpesa_payments and not cint(_get_value(profile, "posa_allow_mpesa_reconcile_payments")):
+        _throw_invalid_payment(_("M-Pesa reconciliation is disabled for this POS Profile"))
+
+    party = data.get("party") or data.get("customer")
+    party_type = data.get("party_type") or "Customer"
+    if party_type not in {"Customer", "Supplier"}:
+        _throw_invalid_payment(_("Only Customer and Supplier payments are supported"))
+    if not party:
+        _throw_invalid_payment(_("Party is required"))
+    assert_doctype_permission(party_type, "read")
+    if not frappe.db.exists(party_type, party):
+        _throw_invalid_payment(_("{0} {1} was not found").format(party_type, party))
+
+    payment_type = data.get("payment_type") or ("Pay" if party_type == "Supplier" else "Receive")
+    if payment_type not in {"Receive", "Pay"}:
+        _throw_invalid_payment(_("Invalid payment type"))
+
+    requested_currency = data.get("currency")
+    profile_currency = _get_value(profile, "currency") or frappe.get_cached_value(
+        "Company", context.company, "default_currency"
+    )
+    if not requested_currency:
+        requested_currency = profile_currency
+    if requested_currency != profile_currency and not cint(_get_value(profile, "posa_allow_multi_currency")):
+        _throw_invalid_payment(_("Multi-currency payments are disabled for this POS Profile"))
+
+    posting_date = data.get("posting_date") or nowdate()
+    if posting_date != nowdate() and not cint(_get_value(profile, "posa_allow_change_posting_date")):
+        _throw_invalid_payment(_("Changing the payment posting date is disabled for this POS Profile"))
+
+    allowed_methods = _profile_payment_methods(profile)
+    normalized_methods = []
+    for payment_method in payment_methods:
+        mode = payment_method.get("mode_of_payment")
+        amount = flt(payment_method.get("amount"))
+        if not mode or mode not in allowed_methods:
+            _throw_invalid_payment(_("Mode of Payment {0} is not allowed by this POS Profile").format(mode or ""))
+        if amount <= 0:
+            _throw_invalid_payment(_("Payment amount must be greater than zero"))
+        normalized_methods.append(frappe._dict({"mode_of_payment": mode, "amount": amount}))
+
+    data.pos_profile = profile
+    data.pos_profile_name = context.profile_name
+    data.pos_opening_shift_name = _get_value(context.opening_shift, "name")
+    data.company = context.company
+    data.currency = requested_currency
+    data.party = party
+    data.customer = party
+    data.party_type = party_type
+    data.payment_type = payment_type
+    data.posting_date = posting_date
+    data.payment_methods = normalized_methods
+    data.selected_invoices = _authoritative_invoice_rows(data, party, party_type, context.company)
+    data.selected_payments = _authoritative_reconciliation_rows(data, party, party_type, context.company)
+    data.selected_mpesa_payments = _authoritative_mpesa_rows(
+        data,
+        party,
+        context.company,
+        set(allowed_methods),
+    )
+    data.total_payment_methods = sum(flt(row.get("amount")) for row in normalized_methods)
+    data.total_selected_payments = sum(_requested_reconciled_amount(row) for row in data.selected_payments)
+    data.total_selected_mpesa_payments = sum(
+        flt(row.get("amount")) for row in data.selected_mpesa_payments
+    )
+    return data, context
 
 
 def _expected_lookup_errors():
@@ -238,39 +481,30 @@ def _partition_completed_reconciliations(selected_payments):
 def process_pos_payment(payload):
     data = json.loads(payload)
     data = frappe._dict(data)
+    data, request_context = _authorize_payment_request(data)
     client_request_id = normalize_client_request_id(data.get("client_request_id"))
-
-    if not data.pos_profile.get("posa_use_pos_awesome_payments"):
-        frappe.throw(_("POS Awesome Payments is not enabled for this POS Profile"))
 
     party = data.get("party") or data.get("customer")
     party_type = data.get("party_type") or "Customer"
     payment_type = data.get("payment_type") or "Receive"
 
-    # validate data
-    if not party:
-        frappe.throw(_("Party is required"))
-    if not data.company:
-        frappe.throw(_("Company is required"))
-    if not data.currency:
-        frappe.throw(_("Currency is required"))
-    if not data.pos_profile_name:
-        frappe.throw(_("POS Profile is required"))
-    if not data.pos_opening_shift_name:
-        frappe.throw(_("POS Opening Shift is required"))
-
     company = data.company
     currency = data.currency
     customer = party
     pos_opening_shift_name = data.pos_opening_shift_name
-    allow_make_new_payments = data.pos_profile.get("posa_allow_make_new_payments")
-    allow_reconcile_payments = data.pos_profile.get("posa_allow_reconcile_payments")
-    allow_mpesa_reconcile_payments = data.pos_profile.get("posa_allow_mpesa_reconcile_payments")
+    allow_make_new_payments = cint(_get_value(request_context.pos_profile, "posa_allow_make_new_payments"))
+    allow_reconcile_payments = cint(_get_value(request_context.pos_profile, "posa_allow_reconcile_payments"))
+    allow_mpesa_reconcile_payments = cint(
+        _get_value(request_context.pos_profile, "posa_allow_mpesa_reconcile_payments")
+    )
     posting_date = data.get("posting_date") or nowdate()
     selected_mpesa_payments = list(data.selected_mpesa_payments or [])
     selected_payments = list(data.selected_payments or [])
     payment_methods = list(data.payment_methods or [])
     existing_entries = find_payment_entries_by_client_request_id(client_request_id)
+    for entry in existing_entries:
+        if entry.get("company") != company or entry.get("party_type") != party_type or entry.get("party") != party:
+            _throw_invalid_payment(_("The payment request identifier belongs to another transaction"))
     matched_existing_entries, pending_payment_methods, unmatched_existing_entries = (
         _partition_payment_methods(
             existing_entries,
@@ -372,11 +606,17 @@ def process_pos_payment(payload):
     ):
         for mpesa_payment in pending_mpesa_payments:
             try:
-                new_mpesa_payment = submit_mpesa_payment(mpesa_payment.get("name"), customer)
+                new_mpesa_payment = submit_mpesa_payment(
+                    mpesa_payment.get("name"),
+                    customer,
+                    request_context.profile_name,
+                    pos_opening_shift_name,
+                )
                 new_payments_entry.append(new_mpesa_payment)
                 all_payments_entry.append(new_mpesa_payment)
-            except Exception as e:
-                errors.append(str(e))
+            except Exception:
+                frappe.log_error(frappe.get_traceback(), "POS M-Pesa Payment Error")
+                raise
 
     # then reconcile selected payments with invoices
     if allow_reconcile_payments and len(pending_selected_payments) > 0 and data.total_selected_payments > 0:
@@ -389,17 +629,15 @@ def process_pos_payment(payload):
                     credit_note_doc = frappe.get_doc("Sales Invoice", payment_name)
                     outstanding_credit = abs(flt(credit_note_doc.outstanding_amount))
                     if outstanding_credit <= 0:
-                        errors.append(_("Credit note {0} is already fully allocated").format(payment_name))
-                        continue
+                        _throw_invalid_payment(_("Credit note {0} is already fully allocated").format(payment_name))
 
                     total_outstanding = sum(inv["outstanding_amount"] for inv in remaining_invoices)
                     if total_outstanding <= 0:
-                        errors.append(
+                        _throw_invalid_payment(
                             _("No outstanding invoices available for allocation of credit note {0}").format(
                                 payment_name
                             )
                         )
-                        continue
 
                     remaining_credit = outstanding_credit
                     note_entries = []
@@ -457,8 +695,7 @@ def process_pos_payment(payload):
 
                     allocated_credit = outstanding_credit - remaining_credit
                     if allocated_credit <= 0:
-                        errors.append(_("No allocation made for credit note {0}").format(payment_name))
-                        continue
+                        _throw_invalid_payment(_("No allocation made for credit note {0}").format(payment_name))
 
                     reconcile_dr_cr_note(note_entries, company)
 
@@ -471,7 +708,7 @@ def process_pos_payment(payload):
                     all_payments_entry.append(credit_note_doc)
 
                     if remaining_credit > 0:
-                        errors.append(
+                        _throw_invalid_payment(
                             _("Credit note {0} still has an unapplied balance of {1}").format(
                                 payment_name,
                                 fmt_money(remaining_credit, currency=credit_note_doc.currency or currency),
@@ -479,36 +716,33 @@ def process_pos_payment(payload):
                         )
 
                 except Exception as e:
-                    errors.append(str(e))
                     frappe.log_error(
                         f"Error allocating credit note {payment_name}: {str(e)}",
                         "POS Payment Error",
                     )
+                    raise
                 continue
 
             try:
                 pe_doc = frappe.get_doc("Payment Entry", payment_name)
                 unallocated = flt(pe_doc.unallocated_amount)
                 if unallocated <= 0:
-                    errors.append(_("Payment {0} is already fully allocated").format(payment_name))
-                    continue
+                    _throw_invalid_payment(_("Payment {0} is already fully allocated").format(payment_name))
 
                 total_outstanding = sum(inv["outstanding_amount"] for inv in remaining_invoices)
                 if total_outstanding <= 0:
-                    errors.append(
+                    _throw_invalid_payment(
                         _("No outstanding invoices available for allocation of payment {0}").format(
                             payment_name
                         )
                     )
-                    continue
 
                 if unallocated > total_outstanding:
-                    errors.append(
+                    _throw_invalid_payment(
                         _("Allocation amount for payment {0} exceeds outstanding invoices").format(
                             payment_name
                         )
                     )
-                    continue
 
                 entry_list = []
                 remaining_amount = unallocated
@@ -551,8 +785,7 @@ def process_pos_payment(payload):
 
                 total_allocated = unallocated - remaining_amount
                 if total_allocated <= 0:
-                    errors.append(_("No allocation made for payment {0}").format(payment_name))
-                    continue
+                    _throw_invalid_payment(_("No allocation made for payment {0}").format(payment_name))
 
                 reconcile_against_document(entry_list)
 
@@ -567,11 +800,11 @@ def process_pos_payment(payload):
                 )
                 all_payments_entry.append(pe_doc)
             except Exception as e:
-                errors.append(str(e))
                 frappe.log_error(
                     f"Error allocating payment {payment_name}: {str(e)}",
                     "POS Payment Error",
                 )
+                raise
 
     # then process the new payments and allocate invoices
     if allow_make_new_payments and len(pending_payment_methods) > 0 and data.total_payment_methods > 0:
@@ -597,7 +830,7 @@ def process_pos_payment(payload):
                     cost_center=data.pos_profile.get("cost_center"),
                     submit=0,
                     client_request_id=client_request_id,
-                    bank_account=payment_method.get("bank_account"),
+                    bank_account=None,
                 )
 
                 party_account = get_party_account(party_type, party, company)
@@ -800,18 +1033,14 @@ def process_pos_payment(payload):
                     if gl_remark not in (payment_entry.remarks or ""):
                         payment_entry.remarks += f"\n{gl_remark}"
 
-                payment_entry.save(ignore_permissions=True)
-                frappe.flags.ignore_permissions = True
-                try:
-                    payment_entry.submit()
-                finally:
-                    frappe.flags.ignore_permissions = False
+                payment_entry.save()
+                payment_entry.submit()
 
                 new_payments_entry.append(payment_entry)
                 all_payments_entry.append(payment_entry)
             except Exception as e:
-                errors.append(str(e))
                 frappe.log_error(f"Error creating payment entry: {str(e)}", "POS Payment Error")
+                raise
 
     # Old allocation logic disabled
     # then show the results
@@ -860,4 +1089,3 @@ def process_pos_payment(payload):
         "exchange_gain_loss_summary": exchange_gain_loss_summary,
         "net_gain_loss": net_gain_loss,
     }
-

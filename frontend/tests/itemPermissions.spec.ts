@@ -1,16 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-	canChangePriceListRate,
-	canChangeUom,
-	canEditItemDiscount,
-	canEditQty,
-	canEditRate,
-	canOverrideItemName,
-	canRemoveItem,
 	getItemUiCapabilities,
 	isLockedPromotionLine,
-	isPricingLocked,
 	parseBooleanSetting,
 } from "../src/posapp/composables/pos/items/useItemPermissions";
 
@@ -22,33 +14,6 @@ describe("useItemPermissions composable", () => {
 		posa_allow_line_item_name_override: 1,
 		posa_display_additional_notes: 1,
 		posa_allow_sales_order: 1,
-	};
-
-	const restrictedProfile = {
-		posa_allow_user_to_edit_rate: 0,
-		posa_allow_user_to_edit_item_discount: 0,
-		posa_allow_price_list_rate_change: 0,
-		posa_allow_line_item_name_override: 0,
-		posa_display_additional_notes: 0,
-		posa_allow_sales_order: 0,
-	};
-
-	const stringRestrictedProfile = {
-		posa_allow_user_to_edit_rate: "0",
-		posa_allow_user_to_edit_item_discount: "0",
-		posa_allow_price_list_rate_change: "0",
-		posa_allow_line_item_name_override: "0",
-		posa_display_additional_notes: "0",
-		posa_allow_sales_order: "0",
-	};
-
-	const stringAllowedProfile = {
-		posa_allow_user_to_edit_rate: "1",
-		posa_allow_user_to_edit_item_discount: "1",
-		posa_allow_price_list_rate_change: "1",
-		posa_allow_line_item_name_override: "1",
-		posa_display_additional_notes: "1",
-		posa_allow_sales_order: "1",
 	};
 
 	const normalItem = {

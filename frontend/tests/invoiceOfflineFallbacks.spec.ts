@@ -78,7 +78,9 @@ describe("invoice offline fallbacks", () => {
 			invoiceType: ref("Invoice"),
 		});
 
-		invoiceDetails.get_addresses();
+		await expect(invoiceDetails.get_addresses()).resolves.toEqual([
+			expect.objectContaining({ name: "ADDR-1" }),
+		]);
 
 		expect(invoiceDetails.addresses.value).toEqual([
 			{
@@ -99,6 +101,7 @@ describe("invoice offline fallbacks", () => {
 			currency: "PKR",
 			selling_price_list: "Retail",
 			posa_decimal_precision: "2",
+			posa_allow_multi_currency: 1,
 		} as any);
 		uiStore.setCompanyDoc({
 			default_currency: "PKR",
@@ -149,6 +152,53 @@ describe("invoice offline fallbacks", () => {
 		]);
 		expect(invoiceCurrency.exchange_rate.value).toBe(1.5);
 		expect(invoiceCurrency.conversion_rate.value).toBe(300);
+	});
+
+	it("does not call protected currency endpoints when multi-currency is disabled", async () => {
+		const offlineCache = await import("../src/offline/cache");
+		const { useUIStore } = await import("../src/posapp/stores/uiStore");
+		const uiStore = useUIStore();
+		uiStore.setPosProfile({
+			name: "POS-1",
+			company: "Test Company",
+			currency: "PKR",
+			selling_price_list: "Retail",
+			posa_decimal_precision: "2",
+			posa_allow_multi_currency: 0,
+			posa_enable_price_list_dropdown: 0,
+		} as any);
+		uiStore.setCompanyDoc({ default_currency: "PKR" });
+
+		// A previous configuration must not leak foreign currencies into a
+		// single-currency register.
+		offlineCache.saveCurrencyOptionsCache("POS-1", [
+			{ value: "PKR", title: "PKR" },
+			{ value: "USD", title: "USD" },
+		]);
+		offlineCache.savePriceListMetaCache("POS-1", {
+			price_lists: ["Retail"],
+			price_list_currency: "USD",
+		});
+
+		const apiCall = vi.fn();
+		(window as any).frappe.call = apiCall;
+		const { useInvoiceCurrency } = await import(
+			"../src/posapp/composables/pos/invoice/useInvoiceCurrency"
+		);
+		const invoiceCurrency = useInvoiceCurrency();
+
+		await expect(
+			invoiceCurrency.fetch_available_currencies(),
+		).resolves.toEqual([{ value: "PKR", title: "PKR" }]);
+		await expect(invoiceCurrency.fetch_price_lists()).resolves.toEqual([
+			"Retail",
+		]);
+
+		expect(apiCall).not.toHaveBeenCalled();
+		expect(invoiceCurrency.selected_currency.value).toBe("PKR");
+		expect(invoiceCurrency.price_list_currency.value).toBe("PKR");
+		expect(invoiceCurrency.exchange_rate.value).toBe(1);
+		expect(invoiceCurrency.conversion_rate.value).toBe(1);
 	});
 
 	it("rebuilds cart rates from the original price-list rate when currency is toggled back", async () => {

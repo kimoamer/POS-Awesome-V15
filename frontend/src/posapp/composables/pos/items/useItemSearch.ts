@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { perfMarkStart, perfMarkEnd } from "../../../utils/perf.js";
+import { perfMarkStart, perfMarkEnd } from "../../../utils/perf";
 
 declare const frappe: any;
 
@@ -192,7 +192,7 @@ export function useItemSearch() {
 			hideZeroRate = false,
 			hideVariants = false,
 			onlyBarcode = false,
-			limit = 50,
+			limit = Number.POSITIVE_INFINITY,
 		} = {},
 	) => {
 		if (!items || !items.length) return [];
@@ -201,14 +201,21 @@ export function useItemSearch() {
 		const needsLocalSearch =
 			!searchAlreadyApplied && term && term.length >= 3;
 
-		// PERF: If no filters needed, just slice and return
+		const effectiveLimit =
+			Number.isFinite(Number(limit)) && Number(limit) > 0
+				? Number(limit)
+				: Number.POSITIVE_INFINITY;
+
+		// PERF: Reuse the store window when no presentation filter is active.
 		if (
 			!needsLocalSearch &&
 			!hideZeroRate &&
 			!hideVariants &&
 			!onlyBarcode
 		) {
-			return items.slice(0, limit);
+			return Number.isFinite(effectiveLimit)
+				? items.slice(0, effectiveLimit)
+				: items;
 		}
 
 		let searchTerms: string[] | null = null;
@@ -284,7 +291,7 @@ export function useItemSearch() {
 
 			result.push(item);
 
-			if (result.length >= limit) {
+			if (result.length >= effectiveLimit) {
 				break;
 			}
 		}

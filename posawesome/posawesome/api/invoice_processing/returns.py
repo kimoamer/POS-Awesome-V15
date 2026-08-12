@@ -9,7 +9,38 @@ from frappe.utils import (
     nowdate,
 )
 from posawesome.posawesome.api.invoice_processing.utils import _get_return_validity_settings
-from posawesome.posawesome.api.utils import log_perf_event
+from posawesome.posawesome.api.utils import (
+    assert_doctype_permission,
+    assert_document_permission,
+    get_pos_request_context,
+    log_perf_event,
+)
+
+
+def _return_context(pos_profile, company=None, doctype="Sales Invoice", require_open_shift=True):
+    if doctype not in {"Sales Invoice", "POS Invoice"}:
+        frappe.throw(_("Invalid invoice type for return."))
+    context = get_pos_request_context(
+        pos_profile,
+        company=company,
+        doctype=doctype,
+        permission_type="read",
+        require_open_shift=require_open_shift,
+    )
+    profile = context.pos_profile
+    expected_doctype = (
+        "POS Invoice"
+        if cint(profile.get("create_pos_invoice_instead_of_sales_invoice"))
+        else "Sales Invoice"
+    )
+    if doctype != expected_doctype:
+        frappe.throw(_("Invoice type is outside the active POS Profile."), frappe.PermissionError)
+    if not (
+        cint(profile.get("posa_allow_return"))
+        or cint(profile.get("posa_allow_returns"))
+    ):
+        frappe.throw(_("Returns are disabled for this POS Profile."), frappe.PermissionError)
+    return context
 
 
 @frappe.whitelist()
@@ -50,6 +81,8 @@ def search_invoices_for_return(
         - has_more: Boolean indicating if there are more invoices to load
     """
     started_at = time.perf_counter()
+    context = _return_context(pos_profile, company=company, doctype=doctype)
+    company = context.company
     enforce_return_validity, _ = _get_return_validity_settings(pos_profile)
 
     # Start with base filters
@@ -99,35 +132,30 @@ def search_invoices_for_return(
     # If any customer search criteria is provided, find matching customers
     customer_ids = []
     if customer_name or customer_id or mobile_no or tax_id:
-        conditions = []
-        params = {}
+        assert_doctype_permission("Customer", "read")
+        from posawesome.posawesome.api.customers import get_customer_groups
 
-        if customer_name:
-            conditions.append("customer_name LIKE %(customer_name)s")
-            params["customer_name"] = f"%{customer_name}%"
-
-        if customer_id:
-            conditions.append("name LIKE %(customer_id)s")
-            params["customer_id"] = f"%{customer_id}%"
-
-        if mobile_no:
-            conditions.append("mobile_no LIKE %(mobile_no)s")
-            params["mobile_no"] = f"%{mobile_no}%"
-
-        if tax_id:
-            conditions.append("tax_id LIKE %(tax_id)s")
-            params["tax_id"] = f"%{tax_id}%"
-
-        # Build the WHERE clause for the query
-        where_clause = " OR ".join(conditions)
-        customer_query = f"""
-        SELECT name
-        FROM `tabCustomer`
-        WHERE {where_clause}
-        LIMIT 100
-    """
-
-        customers = frappe.db.sql(customer_query, params, as_dict=True)
+        or_filters = []
+        for fieldname, value in (
+            ("customer_name", customer_name),
+            ("name", customer_id),
+            ("mobile_no", mobile_no),
+            ("tax_id", tax_id),
+        ):
+            normalized = cstr(value or "").strip()[:140]
+            if normalized:
+                or_filters.append(["Customer", fieldname, "like", f"%{normalized}%"])
+        customer_filters = {"disabled": 0}
+        allowed_groups = get_customer_groups(context.pos_profile)
+        if allowed_groups:
+            customer_filters["customer_group"] = ["in", allowed_groups]
+        customers = frappe.get_list(
+            "Customer",
+            filters=customer_filters,
+            or_filters=or_filters,
+            fields=["name"],
+            limit_page_length=100,
+        )
         customer_ids = [c.name for c in customers]
 
         # If we found matching customers, add them to the filter
@@ -222,9 +250,15 @@ def search_invoices_for_return(
 def get_invoice_for_return(invoice_name, pos_profile=None, doctype="Sales Invoice"):
     """Return one invoice with returnable item quantities after past returns."""
     started_at = time.perf_counter()
+    context = _return_context(pos_profile, doctype=doctype)
     enforce_return_validity, _ = _get_return_validity_settings(pos_profile)
 
-    invoice_doc = frappe.get_cached_doc(doctype, invoice_name)
+    invoice_doc = frappe.get_doc(doctype, invoice_name)
+    assert_document_permission(invoice_doc, "read")
+    if invoice_doc.company != context.company or cint(invoice_doc.docstatus) != 1 or cint(
+        invoice_doc.is_return
+    ):
+        frappe.throw(_("Invoice is outside the active POS return scope."), frappe.PermissionError)
     invoice = {
         "name": invoice_doc.name,
         "doctype": doctype,
@@ -346,10 +380,25 @@ def get_invoice_for_return(invoice_name, pos_profile=None, doctype="Sales Invoic
 
 
 @frappe.whitelist()
-def validate_return_items(original_invoice_name, return_items, doctype="Sales Invoice"):
+def validate_return_items(
+    original_invoice_name,
+    return_items,
+    doctype="Sales Invoice",
+    pos_profile=None,
+):
     """
     Ensure that return items do not exceed the quantity from the original invoice.
     """
+    context = _return_context(pos_profile, doctype=doctype)
+    original_invoice = frappe.get_doc(doctype, original_invoice_name)
+    assert_document_permission(original_invoice, "read")
+    if original_invoice.company != context.company or cint(original_invoice.docstatus) != 1:
+        frappe.throw(_("Original invoice is outside the active POS return scope."), frappe.PermissionError)
+    return _validate_return_items(original_invoice_name, return_items, doctype=doctype)
+
+
+def _validate_return_items(original_invoice_name, return_items, doctype="Sales Invoice"):
+    assert_doctype_permission(doctype, "read")
     meta = frappe.get_meta(doctype)
     item_field = meta.get_field("items")
     item_doctype = item_field.options if item_field else None
@@ -389,7 +438,7 @@ def validate_return_items(original_invoice_name, return_items, doctype="Sales In
 
     for item in return_items:
         item_code = item.get("item_code")
-        return_qty = abs(item.get("qty", 0))
+        return_qty = abs(flt(item.get("qty", 0)))
         if item_code in original_item_qty and return_qty > original_item_qty[item_code]:
             return {
                 "valid": False,

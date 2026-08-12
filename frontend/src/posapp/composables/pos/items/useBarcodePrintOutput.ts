@@ -460,9 +460,14 @@ export function useBarcodePrintOutput() {
 			warehouse: item.warehouseLocation || null,
 		}));
 		try {
-			await frappe.call({
-				method: "posawesome.posawesome.api.barcode_print_log.batch_create_print_logs",
-				args: { entries },
+				await frappe.call({
+					method: "posawesome.posawesome.api.barcode_print_log.batch_create_print_logs",
+					args: {
+						entries,
+						pos_profile: profile?.name || null,
+						pos_opening_shift:
+							uiStore.posOpeningShift?.name || uiStore.posOpeningShift || null,
+					},
 				silent: true,
 			});
 		} catch {

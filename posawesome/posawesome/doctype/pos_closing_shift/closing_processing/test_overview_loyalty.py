@@ -31,6 +31,7 @@ def _install_stubs():
     closing_data_module = types.ModuleType(
         "posawesome.posawesome.doctype.pos_closing_shift.closing_processing.data"
     )
+    api_utils_module = types.ModuleType("posawesome.posawesome.api.utils")
 
     frappe_module._ = lambda text: text
     frappe_module.whitelist = lambda *args, **kwargs: (lambda fn: fn)
@@ -65,6 +66,10 @@ def _install_stubs():
     closing_utils_module.get_base_value = get_base_value
     closing_data_module.get_payments_entries = lambda *args, **kwargs: []
     closing_data_module.get_pos_invoices = lambda *args, **kwargs: []
+    api_utils_module.get_pos_request_context = lambda *args, **kwargs: SimpleNamespace(
+        profile_name="POS-PROFILE-1",
+        company="My Co",
+    )
 
     sys.modules["frappe"] = frappe_module
     sys.modules["frappe.utils"] = frappe_utils_module
@@ -74,6 +79,7 @@ def _install_stubs():
     sys.modules[
         "posawesome.posawesome.doctype.pos_closing_shift.closing_processing.data"
     ] = closing_data_module
+    sys.modules["posawesome.posawesome.api.utils"] = api_utils_module
 
 
 def _load_module():
@@ -87,8 +93,14 @@ def _load_module():
 
 class TestClosingOverviewLoyalty(unittest.TestCase):
     def setUp(self):
+        self._orig_sys_modules = sys.modules.copy()
+        self.addCleanup(self._restore_modules)
         _install_stubs()
         self.module = _load_module()
+
+    def _restore_modules(self):
+        sys.modules.clear()
+        sys.modules.update(self._orig_sys_modules)
 
     def test_loyalty_redemption_excludes_return_adjustments_from_redeemed_totals(self):
         self.module.get_pos_invoices = lambda *args, **kwargs: [

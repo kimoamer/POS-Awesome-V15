@@ -166,6 +166,7 @@ describe("offline sync resource runner", () => {
 			customer: null,
 			watermark: "2026-04-09T09:30:00",
 			startAfter: "ITEM-1000",
+			syncUntil: "2026-04-09T09:45:00",
 			limit: 1000,
 			schemaVersion: "2026-04-09",
 		});
@@ -175,6 +176,7 @@ describe("offline sync resource runner", () => {
 				price_list: "Retail",
 				watermark: "2026-04-09T09:30:00",
 				start_after: "ITEM-1000",
+				sync_until: "2026-04-09T09:45:00",
 				limit: 1000,
 				schema_version: "2026-04-09",
 			}),
@@ -214,14 +216,56 @@ describe("offline sync resource runner", () => {
 		await fetcher({
 			posProfile: { name: "POS-1" },
 			watermark: "old-item-price-watermark",
-			offset: 200,
+			startAfter: "IP-0200",
+			syncUntil: "2026-06-01T10:00:00",
+			limit: 1000,
 			schemaVersion: "2026-04-09",
 		});
 		expect(callOfflineSyncMethod).toHaveBeenCalledWith(
 			"posawesome.posawesome.api.offline_sync.item_prices.sync_item_prices",
 			expect.objectContaining({
 				watermark: "old-item-price-watermark",
-				offset: 200,
+				start_after: "IP-0200",
+				sync_until: "2026-06-01T10:00:00",
+				limit: 1000,
+			}),
+		);
+	});
+
+	it("forwards the stock cursor and page size to the backend endpoint", async () => {
+		const callOfflineSyncMethod = vi.fn(async () => ({
+			changes: [],
+			deleted: [],
+			has_more: false,
+		}));
+
+		await runSupportedOfflineSyncResource({
+			resource: { id: "stock" } as any,
+			posProfile: { name: "POS-1", warehouse: "Main WH" },
+			schemaVersion: "2026-08-08",
+			getPersistedState: vi.fn(async () => ({
+				resourceId: "stock",
+				watermark: "2026-08-08T08:00:00",
+			} as any)),
+			callOfflineSyncMethod,
+		});
+
+		const fetcher = adapterMocks.syncStockResource.mock.calls[0][0].fetcher;
+		await fetcher({
+			posProfile: { name: "POS-1", warehouse: "Main WH" },
+			watermark: "2026-08-08T08:00:00",
+			startAfter: "ITEM-1000",
+			syncUntil: "2026-08-08T08:10:00",
+			limit: 1000,
+			schemaVersion: "2026-08-08",
+		});
+
+		expect(callOfflineSyncMethod).toHaveBeenCalledWith(
+			"posawesome.posawesome.api.offline_sync.stock.sync_stock",
+			expect.objectContaining({
+				start_after: "ITEM-1000",
+				sync_until: "2026-08-08T08:10:00",
+				limit: 1000,
 			}),
 		);
 	});
@@ -246,12 +290,21 @@ describe("offline sync resource runner", () => {
 		await fetcher({
 			posProfile: { name: "POS-1", company: "Test Co" },
 			watermark: null,
-			offset: 0,
+			startAfter: "RULE-0100",
+			syncUntil: "2026-06-01T11:00:00",
+			limit: 1000,
 			schemaVersion: "2026-04-09",
 		});
 		expect(callOfflineSyncMethod).toHaveBeenCalledWith(
 			"posawesome.posawesome.api.offline_sync.pricing_rules.sync_pricing_rules",
-			expect.not.objectContaining({
+			expect.objectContaining({
+				start_after: "RULE-0100",
+				sync_until: "2026-06-01T11:00:00",
+				limit: 1000,
+			}),
+		);
+		expect(callOfflineSyncMethod.mock.calls.at(-1)?.[1]).not.toEqual(
+			expect.objectContaining({
 				customer: expect.anything(),
 				customer_group: expect.anything(),
 			}),

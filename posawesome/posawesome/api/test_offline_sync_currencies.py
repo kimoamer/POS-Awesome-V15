@@ -54,9 +54,7 @@ def _install_stubs():
                 else [from_filter]
             )
             to_currencies = (
-                to_filter[1]
-                if isinstance(to_filter, (list, tuple)) and to_filter[0] == "in"
-                else [to_filter]
+                to_filter[1] if isinstance(to_filter, (list, tuple)) and to_filter[0] == "in" else [to_filter]
             )
             return [
                 AttrDict(
@@ -100,7 +98,7 @@ def _install_stubs():
     sys.modules["frappe"] = frappe_module
 
     invoice_utils_module = types.ModuleType("posawesome.posawesome.api.invoice_processing.utils")
-    invoice_utils_module.get_available_currencies = lambda: [
+    invoice_utils_module._get_available_currencies = lambda: [
         {"name": "PKR"},
         {"name": "USD"},
     ]
@@ -108,11 +106,11 @@ def _install_stubs():
         279.5,
         "2026-04-09",
     )
-    invoice_utils_module.get_price_list_currency = lambda price_list: "PKR"
+    invoice_utils_module._get_price_list_currency = lambda price_list: "PKR"
     sys.modules["posawesome.posawesome.api.invoice_processing.utils"] = invoice_utils_module
 
     payment_utils_module = types.ModuleType("posawesome.posawesome.api.payment_processing.utils")
-    payment_utils_module.get_mode_of_payment_accounts = lambda company, modes: {
+    payment_utils_module._get_mode_of_payment_accounts = lambda company, modes: {
         "Cash": {"account_currency": "PKR"},
         "Card": {"account_currency": "GBP"},
     }
@@ -148,14 +146,21 @@ def _load_module():
 class TestOfflineSyncCurrencies(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls._orig_sys_modules = sys.modules.copy()
         _install_stubs()
         cls.module = _load_module()
+
+    @classmethod
+    def tearDownClass(cls):
+        sys.modules.clear()
+        sys.modules.update(cls._orig_sys_modules)
 
     def test_sync_currency_scope_returns_enabled_currencies_pairs_and_deletes(self):
         response = self.module.sync_currency_scope(
             pos_profile="POS-TEST",
             watermark="2026-04-09T09:59:00",
             currency_pairs='[{"from_currency":"USD","to_currency":"PKR"}]',
+            sync_until="2026-04-09T10:04:00",
         )
 
         self.assertEqual(
@@ -186,13 +191,10 @@ class TestOfflineSyncCurrencies(unittest.TestCase):
             pos_profile="POS-TEST",
             watermark=None,
             currency_pairs=None,
+            sync_until="2026-04-09T10:04:00",
         )
 
-        pair_keys = {
-            row["key"]
-            for row in response["changes"]
-            if row["key"].startswith("exchange_rate::")
-        }
+        pair_keys = {row["key"] for row in response["changes"] if row["key"].startswith("exchange_rate::")}
         self.assertEqual(
             pair_keys,
             {
@@ -209,20 +211,21 @@ class TestOfflineSyncCurrencies(unittest.TestCase):
             pos_profile="POS-TEST",
             watermark=None,
             currency_pairs=None,
-            offset=0,
             limit=2,
+            sync_until="2026-04-09T10:04:00",
         )
         second = self.module.sync_currency_scope(
             pos_profile="POS-TEST",
             watermark=None,
             currency_pairs=None,
-            offset=2,
-            limit=10,
+            start_after=first["next_cursor"],
+            limit=100,
+            sync_until=first["sync_until"],
         )
 
         self.assertTrue(first["has_more"])
-        self.assertEqual(first["next_offset"], 2)
-        self.assertIsNone(first["next_watermark"])
+        self.assertTrue(first["next_cursor"])
+        self.assertEqual(first["sync_until"], "2026-04-09T10:04:00")
         self.assertFalse(second["has_more"])
         self.assertEqual(second["next_watermark"], "2026-04-09T10:04:00")
 
@@ -231,6 +234,7 @@ class TestOfflineSyncCurrencies(unittest.TestCase):
             pos_profile="POS-TEST",
             watermark="2026-04-09T10:04:00",
             currency_pairs='[{"from_currency":"USD","to_currency":"PKR"}]',
+            sync_until="2026-04-09T10:04:00",
         )
 
         self.assertEqual(response["changes"], [])

@@ -3,26 +3,111 @@ import vue from "@vitejs/plugin-vue";
 import path from "path";
 import { fileURLToPath } from "url";
 import { promises as fs } from "fs";
-import frappeVueStyle from "../frappe-vue-style";
 import { viteStaticCopy } from "vite-plugin-static-copy";
 import tailwindcss from "tailwindcss";
 import autoprefixer from "autoprefixer";
-import { buildVersionPayload, getEntryFileName } from "./build-manifest.js";
+import {
+	buildVersionPayload,
+	getChunkFileName,
+	getCssAssetFileNames,
+	getEntryFileName,
+} from "./build-manifest.js";
+import {
+	collectMdiIconNames,
+	getMissingMdiIcons,
+	isPosFontStylesheet,
+	keepOnlyWoff2FontSources,
+	subsetMaterialDesignIconCss,
+} from "./font-optimization.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const buildVersion = process.env.POSAWESOME_BUILD_VERSION || Date.now().toString();
 
+async function readPosSourceFiles(directory) {
+	const sources = [];
+	const entries = await fs.readdir(directory, { withFileTypes: true });
+	for (const entry of entries) {
+		const target = path.join(directory, entry.name);
+		if (entry.isDirectory()) {
+			sources.push(...(await readPosSourceFiles(target)));
+		} else if (/\.(?:ts|vue)$/.test(entry.name)) {
+			sources.push(await fs.readFile(target, "utf8"));
+		}
+	}
+	return sources;
+}
+
+function posawesomeModernFontPlugin() {
+	let mdiIconsPromise = null;
+	return {
+		name: "posawesome-modern-fonts",
+		enforce: "pre",
+		async transform(source, id) {
+			if (!isPosFontStylesheet(id)) return null;
+			let optimized = keepOnlyWoff2FontSources(source);
+			if (id.replace(/\\/g, "/").includes("/@mdi/font/css/materialdesignicons.css")) {
+				mdiIconsPromise ||= readPosSourceFiles(path.resolve(__dirname, "src/posapp"))
+					.then(collectMdiIconNames);
+				const iconNames = await mdiIconsPromise;
+				const missing = getMissingMdiIcons(optimized, iconNames);
+				if (missing.length) {
+					throw new Error(`Unknown Material Design icons: ${missing.join(", ")}`);
+				}
+				optimized = subsetMaterialDesignIconCss(optimized, iconNames);
+			}
+			return {
+				code: optimized,
+				map: null,
+			};
+		},
+	};
+}
+
 function posawesomeBuildVersionPlugin(version) {
 	return {
 		name: "posawesome-build-version",
 		apply: "build",
 		async writeBundle(_options, bundle) {
-			const versionFile = path.resolve(__dirname, "../posawesome/public/dist/js/version.json");
-			await fs.mkdir(path.dirname(versionFile), { recursive: true });
+			const outputDir = path.resolve(__dirname, "../posawesome/public/dist/js");
+			await fs.mkdir(outputDir, { recursive: true });
+
+			const compatibilityFiles = new Map();
+			const loaderFile = getChunkFileName(bundle, "loader");
+			const posawesomeFile = getChunkFileName(bundle, "posawesome");
+			const offlineIndexFile = getChunkFileName(bundle, "offline/index");
+			if (loaderFile) {
+				compatibilityFiles.set("loader.js", `export * from ${JSON.stringify(`./${loaderFile}`)};\n`);
+			}
+			if (posawesomeFile) {
+				compatibilityFiles.set("posawesome.js", `export * from ${JSON.stringify(`./${posawesomeFile}`)};\n`);
+			}
+			if (offlineIndexFile) {
+				compatibilityFiles.set(
+					"offline/index.js",
+					`export * from ${JSON.stringify(`./${path.posix.basename(offlineIndexFile)}`)};\n`,
+				);
+			}
+
+			const cssImports = getCssAssetFileNames(bundle).map(
+				(fileName) => `@import url(${JSON.stringify(`./${fileName}`)});`,
+			);
+			compatibilityFiles.set(
+				"posawesome.css",
+				`${cssImports.join("\n")}\n`,
+			);
+
+			await Promise.all(
+				Array.from(compatibilityFiles, async ([fileName, contents]) => {
+					const target = path.resolve(outputDir, fileName);
+					await fs.mkdir(path.dirname(target), { recursive: true });
+					await fs.writeFile(target, contents, "utf8");
+				}),
+			);
+
 			await fs.writeFile(
-				versionFile,
+				path.resolve(outputDir, "version.json"),
 				JSON.stringify(buildVersionPayload(version, bundle), null, 2),
 				"utf8",
 			);
@@ -33,8 +118,8 @@ function posawesomeBuildVersionPlugin(version) {
 export default defineConfig({
 	base: "/assets/posawesome/dist/js/",
 	plugins: [
+		posawesomeModernFontPlugin(),
 		posawesomeBuildVersionPlugin(buildVersion),
-		frappeVueStyle(),
 		vue(),
 		viteStaticCopy({
 			targets: [
@@ -64,10 +149,12 @@ export default defineConfig({
 	},
 	build: {
 		target: "esnext",
-		modulePreload: false,
+		modulePreload: { polyfill: false },
 		outDir: "../posawesome/public/dist/js",
-		emptyOutDir: true,
-		cssCodeSplit: false,
+		// Keep previous hashed files available so an
+		// active till can finish a lazy-loaded flow while a new release is deployed.
+		emptyOutDir: false,
+		cssCodeSplit: true,
 		rollupOptions: {
 			input: {
 				posawesome: path.resolve(__dirname, "src/posawesome.bundle.ts"),
@@ -86,10 +173,23 @@ export default defineConfig({
 				assetFileNames: "[name]-[hash].[ext]",
 				manualChunks: (id) => {
 					if (id.includes("node_modules")) {
+						if (id.includes("@vuepic/vue-datepicker")) {
+							return "date-picker";
+						}
+						if (id.includes("vue-qrcode-reader")) {
+							return "barcode-camera";
+						}
+						if (id.includes("vue-virtual-scroller")) {
+							return "virtual-scroller";
+						}
 						if (id.includes("vuetify")) {
 							return "vuetify";
 						}
-						if (id.includes("vue")) {
+						if (
+							id.includes("/node_modules/vue/") ||
+							id.includes("/node_modules/@vue/") ||
+							id.includes("/node_modules/pinia/")
+						) {
 							return "vue";
 						}
 						return "vendor";

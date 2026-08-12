@@ -61,8 +61,18 @@ def validate_referral_code(doc):
 
 
 @frappe.whitelist()
-def get_customer_balance(customer, company=None):
-    return customers.get_customer_balance(customer, company)
+def get_customer_balance(
+    customer,
+    company=None,
+    pos_profile=None,
+    pos_opening_shift=None,
+):
+    return customers.get_customer_balance(
+        customer,
+        company,
+        pos_profile=pos_profile,
+        pos_opening_shift=pos_opening_shift,
+    )
 
 
 @frappe.whitelist()

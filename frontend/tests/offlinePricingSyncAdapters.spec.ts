@@ -45,6 +45,10 @@ vi.mock("../src/offline/sync/adapters/common", async () => {
 
 import { syncItemPricesResource } from "../src/offline/sync/adapters/itemPrices";
 import { syncPricingRulesResource } from "../src/offline/sync/adapters/pricingRules";
+import { buildOfflineProfileScope } from "../src/offline/scope";
+
+const profileScope = () =>
+	buildOfflineProfileScope({ name: "POS-1", company: "Test Co" });
 
 describe("offline pricing sync adapters", () => {
 	beforeEach(() => {
@@ -63,7 +67,8 @@ describe("offline pricing sync adapters", () => {
 				],
 				deleted: [],
 				has_more: true,
-				next_offset: 1,
+				next_cursor: "IP-1",
+				sync_until: "2026-06-01T10:05:00",
 				next_watermark: null,
 				scope: { price_lists: ["Retail", "Export"] },
 			})
@@ -76,7 +81,7 @@ describe("offline pricing sync adapters", () => {
 				],
 				deleted: [{ key: "item_price::IP-OLD" }],
 				has_more: false,
-				next_offset: null,
+				sync_until: "2026-06-01T10:05:00",
 				next_watermark: "2026-06-01T10:00:00",
 			});
 
@@ -86,19 +91,25 @@ describe("offline pricing sync adapters", () => {
 			fetcher,
 		});
 
-		expect(repositoryMocks.itemPriceRepository.clear).toHaveBeenCalledOnce();
+		expect(repositoryMocks.itemPriceRepository.clear).toHaveBeenCalledWith(
+			profileScope(),
+		);
 		expect(repositoryMocks.itemPriceRepository.upsertMany).toHaveBeenCalledTimes(
 			2,
 		);
 		expect(
 			repositoryMocks.itemPriceRepository.deleteByNames,
-		).toHaveBeenCalledWith(["IP-OLD"]);
+		).toHaveBeenCalledWith(["IP-OLD"], profileScope());
 		expect(
 			repositoryMocks.itemPriceRepository.deleteOutsidePriceLists,
-		).toHaveBeenCalledWith(["Retail", "Export"]);
+		).toHaveBeenCalledWith(["Retail", "Export"], profileScope());
 		expect(fetcher).toHaveBeenNthCalledWith(
 			2,
-			expect.objectContaining({ offset: 1, watermark: null }),
+			expect.objectContaining({
+				startAfter: "IP-1",
+				syncUntil: "2026-06-01T10:05:00",
+				watermark: null,
+			}),
 		);
 		expect(result.watermark).toBe("2026-06-01T10:00:00");
 	});
@@ -142,12 +153,13 @@ describe("offline pricing sync adapters", () => {
 
 		expect(
 			repositoryMocks.pricingRuleRepository.replaceRuleTargets,
-		).toHaveBeenCalledWith([
-			expect.objectContaining({ rule_name: "RULE-1" }),
-		]);
+		).toHaveBeenCalledWith(
+			[expect.objectContaining({ rule_name: "RULE-1" })],
+			profileScope(),
+		);
 		expect(
 			repositoryMocks.pricingRuleRepository.deleteByRuleNames,
-		).toHaveBeenCalledWith(["RULE-OLD"]);
+		).toHaveBeenCalledWith(["RULE-OLD"], profileScope());
 		expect(cacheMocks.savePricingRulesSnapshot).toHaveBeenCalledWith(
 			[
 				expect.objectContaining({
