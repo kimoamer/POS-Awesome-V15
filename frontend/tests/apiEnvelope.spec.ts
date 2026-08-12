@@ -6,6 +6,7 @@ import api from "../src/posapp/services/api";
 describe("api envelope handling", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
+		delete (window as any).serverOnline;
 		vi.stubGlobal("frappe", {
 			call: vi.fn(),
 		});
@@ -58,6 +59,33 @@ describe("api envelope handling", () => {
 				retryable: true,
 			},
 		});
+	});
+
+	it("does not start a server request while the runtime is offline", async () => {
+		(window as any).serverOnline = false;
+
+		const result = await api.callEnvelope("pos.test.offline");
+
+		expect(result).toMatchObject({
+			ok: false,
+			error: { code: "OFFLINE", retryable: true },
+		});
+		expect(frappe.call).not.toHaveBeenCalled();
+	});
+
+	it("latches server connectivity off after a status-zero transport failure", async () => {
+		(window as any).serverOnline = true;
+		(frappe.call as any).mockImplementation(({ error }: any) => {
+			error({ status: 0, statusText: "error" });
+		});
+
+		const result = await api.callEnvelope("pos.test.dns_failure");
+
+		expect(result).toMatchObject({
+			ok: false,
+			error: { code: "TRANSPORT_ERROR", retryable: true },
+		});
+		expect((window as any).serverOnline).toBe(false);
 	});
 
 	it("normalizes business-rule responses into non-retryable envelopes", async () => {

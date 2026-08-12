@@ -16,7 +16,9 @@
 				]"
 				variant="flat"
 			>
-				<v-card-title class="invoice-management-header px-4 px-sm-6 py-3 py-sm-4 d-flex align-center justify-space-between ga-2">
+				<v-card-title
+					class="invoice-management-header px-4 px-sm-6 py-3 py-sm-4 d-flex align-center justify-space-between ga-2"
+				>
 					<div class="d-flex align-center ga-2 ga-sm-3">
 						<v-btn
 							icon="mdi-arrow-left"
@@ -30,7 +32,9 @@
 							<v-icon color="primary" size="22">mdi-receipt-text-clock-outline</v-icon>
 						</div>
 						<div>
-							<div class="text-h6 font-weight-bold text-primary mb-0">{{ __("Invoice Management") }}</div>
+							<div class="text-h6 font-weight-bold text-primary mb-0">
+								{{ __("Invoice Management") }}
+							</div>
 							<div class="text-caption text-secondary header-subtitle">
 								{{ __("Track recent sales, collect unpaid balances, and reopen saved work") }}
 							</div>
@@ -52,7 +56,10 @@
 						/>
 						<div class="view-toggle-group d-none d-sm-inline-flex">
 							<v-btn
-								:class="['view-toggle-btn', { 'view-toggle-btn--active': viewMode === 'card' }]"
+								:class="[
+									'view-toggle-btn',
+									{ 'view-toggle-btn--active': viewMode === 'card' },
+								]"
 								variant="flat"
 								size="small"
 								prepend-icon="mdi-view-grid-outline"
@@ -61,7 +68,10 @@
 								{{ __("Cards") }}
 							</v-btn>
 							<v-btn
-								:class="['view-toggle-btn', { 'view-toggle-btn--active': viewMode === 'list' }]"
+								:class="[
+									'view-toggle-btn',
+									{ 'view-toggle-btn--active': viewMode === 'list' },
+								]"
 								variant="flat"
 								size="small"
 								prepend-icon="mdi-format-list-bulleted"
@@ -218,12 +228,15 @@
 								</div>
 								<div class="summary-tile">
 									<div class="summary-tile__icon-wrap">
-										<v-icon size="18" color="primary">mdi-calculator-variant-outline</v-icon>
+										<v-icon size="18" color="primary"
+											>mdi-calculator-variant-outline</v-icon
+										>
 									</div>
 									<div class="summary-tile__content">
 										<div class="summary-tile__label">{{ __("Gross Sales") }}</div>
 										<div class="summary-tile__value">
-											{{ currencySymbol(posProfile?.currency) }}{{ formatCurrency(historyTotals.gross) }}
+											{{ currencySymbol(posProfile?.currency)
+											}}{{ formatCurrency(historyTotals.gross) }}
 										</div>
 									</div>
 								</div>
@@ -234,7 +247,8 @@
 									<div class="summary-tile__content">
 										<div class="summary-tile__label">{{ __("Tendered") }}</div>
 										<div class="summary-tile__value">
-											{{ currencySymbol(posProfile?.currency) }}{{ formatCurrency(historyTotals.paid) }}
+											{{ currencySymbol(posProfile?.currency)
+											}}{{ formatCurrency(historyTotals.paid) }}
 										</div>
 									</div>
 								</div>
@@ -245,7 +259,8 @@
 									<div class="summary-tile__content">
 										<div class="summary-tile__label">{{ __("Change Return") }}</div>
 										<div class="summary-tile__value">
-											{{ currencySymbol(posProfile?.currency) }}{{ formatCurrency(historyTotals.change_return) }}
+											{{ currencySymbol(posProfile?.currency)
+											}}{{ formatCurrency(historyTotals.change_return) }}
 										</div>
 									</div>
 								</div>
@@ -256,7 +271,8 @@
 									<div class="summary-tile__content">
 										<div class="summary-tile__label">{{ __("Outstanding") }}</div>
 										<div class="summary-tile__value">
-											{{ currencySymbol(posProfile?.currency) }}{{ formatCurrency(historyTotals.outstanding) }}
+											{{ currencySymbol(posProfile?.currency)
+											}}{{ formatCurrency(historyTotals.outstanding) }}
 										</div>
 									</div>
 								</div>
@@ -276,7 +292,9 @@
 									<div class="empty-state__subtitle">
 										{{
 											historyShowRepairCandidatesOnly
-												? __("No change-allocation invoices match the current filters.")
+												? __(
+														"No change-allocation invoices match the current filters.",
+													)
 												: __("Try changing the date range or status filter.")
 										}}
 									</div>
@@ -379,7 +397,9 @@
 										<div class="invoice-record-card__hero">
 											<div class="d-flex align-center ga-3">
 												<div class="card-doc-icon-wrap">
-													<v-icon color="#0284c7" size="20">mdi-file-document-outline</v-icon>
+													<v-icon color="#0284c7" size="20"
+														>mdi-file-document-outline</v-icon
+													>
 												</div>
 												<div>
 													<div class="invoice-record-card__title-row">
@@ -404,38 +424,65 @@
 													{{ __("Grand Total") }}
 												</div>
 												<div class="invoice-record-card__amount">
-													{{ currencySymbol(invoice.currency) }}{{ formatCurrency(invoice.grand_total) }}
+													{{ currencySymbol(invoice.currency)
+													}}{{ formatCurrency(invoice.grand_total) }}
 												</div>
 											</div>
 										</div>
 
 										<div class="invoice-record-card__metrics">
 											<div class="metric-col metric-col--posting">
-												<v-icon size="16" class="metric-icon">mdi-calendar-outline</v-icon>
+												<v-icon size="16" class="metric-icon"
+													>mdi-calendar-outline</v-icon
+												>
 												<div>
 													<div class="metric-label">{{ __("Posting") }}</div>
-													<div class="metric-value">{{ formatDateTime(invoice.posting_date, invoice.posting_time) }}</div>
+													<div class="metric-value">
+														{{
+															formatDateTime(
+																invoice.posting_date,
+																invoice.posting_time,
+															)
+														}}
+													</div>
 												</div>
 											</div>
 											<div class="metric-col">
-												<v-icon size="16" class="metric-icon">mdi-credit-card-outline</v-icon>
+												<v-icon size="16" class="metric-icon"
+													>mdi-credit-card-outline</v-icon
+												>
 												<div>
 													<div class="metric-label">{{ __("Tendered") }}</div>
-													<div class="metric-value">{{ currencySymbol(invoice.currency) }}{{ formatCurrency(invoice.paid_amount || 0) }}</div>
+													<div class="metric-value">
+														{{ currencySymbol(invoice.currency)
+														}}{{ formatCurrency(invoice.paid_amount || 0) }}
+													</div>
 												</div>
 											</div>
 											<div class="metric-col">
-												<v-icon size="16" class="metric-icon">mdi-clock-outline</v-icon>
+												<v-icon size="16" class="metric-icon"
+													>mdi-clock-outline</v-icon
+												>
 												<div>
 													<div class="metric-label">{{ __("Change Return") }}</div>
-													<div class="metric-value metric-value--orange">{{ currencySymbol(invoice.currency) }}{{ formatCurrency(invoice.change_amount || 0) }}</div>
+													<div class="metric-value metric-value--orange">
+														{{ currencySymbol(invoice.currency)
+														}}{{ formatCurrency(invoice.change_amount || 0) }}
+													</div>
 												</div>
 											</div>
 											<div class="metric-col">
-												<v-icon size="16" class="metric-icon">mdi-clock-outline</v-icon>
+												<v-icon size="16" class="metric-icon"
+													>mdi-clock-outline</v-icon
+												>
 												<div>
 													<div class="metric-label">{{ __("Outstanding") }}</div>
-													<div class="metric-value">{{ currencySymbol(invoice.currency) }}{{ formatCurrency(invoice.outstanding_amount || 0) }}</div>
+													<div class="metric-value">
+														{{ currencySymbol(invoice.currency)
+														}}{{
+															formatCurrency(invoice.outstanding_amount || 0)
+														}}
+													</div>
 												</div>
 											</div>
 										</div>
@@ -459,8 +506,17 @@
 													</button>
 												</template>
 												<v-list density="compact" nav class="pa-1">
-													<v-list-item prepend-icon="mdi-share-variant-outline" title="Share" @click="shareInvoice(invoice)" />
-													<v-list-item v-if="posProfile?.posa_allow_return == 1" prepend-icon="mdi-backup-restore" title="Create Return" @click="createReturn(invoice)" />
+													<v-list-item
+														prepend-icon="mdi-share-variant-outline"
+														title="Share"
+														@click="shareInvoice(invoice)"
+													/>
+													<v-list-item
+														v-if="posProfile?.posa_allow_return == 1"
+														prepend-icon="mdi-backup-restore"
+														title="Create Return"
+														@click="createReturn(invoice)"
+													/>
 												</v-list>
 											</v-menu>
 										</div>
@@ -566,7 +622,9 @@
 									</div>
 									<div class="summary-tile__content">
 										<div class="summary-tile__label">{{ __("Invoices") }}</div>
-										<div class="summary-tile__value">{{ filteredUnpaidSummary.count }}</div>
+										<div class="summary-tile__value">
+											{{ filteredUnpaidSummary.count }}
+										</div>
 									</div>
 								</div>
 								<div class="summary-tile">
@@ -576,7 +634,8 @@
 									<div class="summary-tile__content">
 										<div class="summary-tile__label">{{ __("Paid") }}</div>
 										<div class="summary-tile__value">
-											{{ currencySymbol(posProfile?.currency) }}{{ formatCurrency(filteredUnpaidSummary.total_paid) }}
+											{{ currencySymbol(posProfile?.currency)
+											}}{{ formatCurrency(filteredUnpaidSummary.total_paid) }}
 										</div>
 									</div>
 								</div>
@@ -587,7 +646,8 @@
 									<div class="summary-tile__content">
 										<div class="summary-tile__label">{{ __("Outstanding") }}</div>
 										<div class="summary-tile__value">
-											{{ currencySymbol(posProfile?.currency) }}{{ formatCurrency(filteredUnpaidSummary.total_outstanding) }}
+											{{ currencySymbol(posProfile?.currency)
+											}}{{ formatCurrency(filteredUnpaidSummary.total_outstanding) }}
 										</div>
 									</div>
 								</div>
@@ -597,7 +657,9 @@
 									</div>
 									<div class="summary-tile__content">
 										<div class="summary-tile__label">{{ __("Overdue") }}</div>
-										<div class="summary-tile__value">{{ filteredUnpaidSummary.overdue_count }}</div>
+										<div class="summary-tile__value">
+											{{ filteredUnpaidSummary.overdue_count }}
+										</div>
 									</div>
 								</div>
 							</div>
@@ -677,13 +739,20 @@
 												@click="viewInvoice(item)"
 											/>
 											<v-btn
-												v-if="posProfile?.posa_allow_make_payment && Number(item.outstanding_amount || 0) > 0"
+												v-if="
+													posProfile?.posa_allow_make_payment &&
+													Number(item.outstanding_amount || 0) > 0
+												"
 												icon="mdi-cash-plus"
 												variant="text"
 												size="small"
 												color="success"
 												:disabled="isOffline()"
-												:title="isOffline() ? __('Add Payment disabled offline') : __('Add Payment')"
+												:title="
+													isOffline()
+														? __('Add Payment disabled offline')
+														: __('Add Payment')
+												"
 												:aria-label="__('Add payment to invoice')"
 												@click="openAddPayment(item)"
 											/>
@@ -724,7 +793,9 @@
 										>
 											<div class="d-flex align-center ga-3">
 												<div class="card-doc-icon-wrap">
-													<v-icon color="#f97316" size="20">mdi-clock-alert-outline</v-icon>
+													<v-icon color="#f97316" size="20"
+														>mdi-clock-alert-outline</v-icon
+													>
 												</div>
 												<div>
 													<div class="invoice-record-card__title-row">
@@ -779,7 +850,9 @@
 													</div>
 												</div>
 												<div class="meta-pair">
-													<div class="meta-pair__label">{{ __("Grand Total") }}</div>
+													<div class="meta-pair__label">
+														{{ __("Grand Total") }}
+													</div>
 													<div class="meta-pair__value">
 														{{ currencySymbol(invoice.currency) }}
 														{{ formatCurrency(invoice.grand_total) }}
@@ -819,13 +892,20 @@
 												@click="viewInvoice(invoice)"
 											/>
 											<v-btn
-												v-if="posProfile?.posa_allow_make_payment && Number(invoice.outstanding_amount || 0) > 0"
+												v-if="
+													posProfile?.posa_allow_make_payment &&
+													Number(invoice.outstanding_amount || 0) > 0
+												"
 												icon="mdi-cash-plus"
 												size="small"
 												variant="flat"
 												color="success"
 												:disabled="isOffline()"
-												:title="isOffline() ? __('Add Payment disabled offline') : __('Add Payment')"
+												:title="
+													isOffline()
+														? __('Add Payment disabled offline')
+														: __('Add Payment')
+												"
 												:aria-label="__('Add payment to invoice')"
 												@click="openAddPayment(invoice)"
 											>
@@ -930,7 +1010,8 @@
 									<div class="summary-tile__content">
 										<div class="summary-tile__label">{{ __("Total Draft Value") }}</div>
 										<div class="summary-tile__value">
-											{{ currencySymbol(posProfile?.currency) }}{{ formatCurrency(draftTotals.total) }}
+											{{ currencySymbol(posProfile?.currency)
+											}}{{ formatCurrency(draftTotals.total) }}
 										</div>
 									</div>
 								</div>
@@ -938,7 +1019,12 @@
 
 							<div class="invoices-scroll-area">
 								<div v-if="loading && activeTab === 'drafts'" class="tab-loader">
-									<v-progress-circular indeterminate color="secondary" size="28" width="3" />
+									<v-progress-circular
+										indeterminate
+										color="secondary"
+										size="28"
+										width="3"
+									/>
 									<span>{{ __(currentDraftSourceOption.loadingLabel) }}</span>
 								</div>
 
@@ -1006,10 +1092,14 @@
 										class="invoice-record-card invoice-record-card--draft"
 										variant="flat"
 									>
-										<div class="invoice-record-card__hero invoice-record-card__hero--draft">
+										<div
+											class="invoice-record-card__hero invoice-record-card__hero--draft"
+										>
 											<div class="d-flex align-center ga-3">
 												<div class="card-doc-icon-wrap">
-													<v-icon color="#0284c7" size="20">mdi-file-edit-outline</v-icon>
+													<v-icon color="#0284c7" size="20"
+														>mdi-file-edit-outline</v-icon
+													>
 												</div>
 												<div>
 													<div class="invoice-record-card__title-row">
@@ -1046,24 +1136,42 @@
 
 										<div class="invoice-record-card__metrics">
 											<div class="metric-col metric-col--posting">
-												<v-icon size="16" class="metric-icon">mdi-calendar-outline</v-icon>
+												<v-icon size="16" class="metric-icon"
+													>mdi-calendar-outline</v-icon
+												>
 												<div>
 													<div class="metric-label">{{ __("Posting") }}</div>
-													<div class="metric-value">{{ formatDateTime(invoice.posting_date, invoice.posting_time) }}</div>
+													<div class="metric-value">
+														{{
+															formatDateTime(
+																invoice.posting_date,
+																invoice.posting_time,
+															)
+														}}
+													</div>
 												</div>
 											</div>
 											<div class="metric-col">
-												<v-icon size="16" class="metric-icon">mdi-package-variant-closed</v-icon>
+												<v-icon size="16" class="metric-icon"
+													>mdi-package-variant-closed</v-icon
+												>
 												<div>
-													<div class="metric-label">{{ draftSecondaryMetaLabel(invoice).label }}</div>
-													<div class="metric-value">{{ draftSecondaryMetaLabel(invoice).value }}</div>
+													<div class="metric-label">
+														{{ draftSecondaryMetaLabel(invoice).label }}
+													</div>
+													<div class="metric-value">
+														{{ draftSecondaryMetaLabel(invoice).value }}
+													</div>
 												</div>
 											</div>
 											<div class="metric-col">
 												<v-icon size="16" class="metric-icon">mdi-cash</v-icon>
 												<div>
 													<div class="metric-label">{{ __("Grand Total") }}</div>
-													<div class="metric-value">{{ currencySymbol(invoice.currency) }}{{ formatCurrency(invoice.grand_total) }}</div>
+													<div class="metric-value">
+														{{ currencySymbol(invoice.currency)
+														}}{{ formatCurrency(invoice.grand_total) }}
+													</div>
 												</div>
 											</div>
 										</div>
@@ -1075,10 +1183,17 @@
 												class="card-action-btn"
 												@click="runDraftAction(invoice, action)"
 											>
-												<v-icon size="16">{{ isPrimaryDraftAction(action) ? 'mdi-download-outline' : 'mdi-eye-outline' }}</v-icon>
+												<v-icon size="16">{{
+													isPrimaryDraftAction(action)
+														? "mdi-download-outline"
+														: "mdi-eye-outline"
+												}}</v-icon>
 												<span>{{ draftActionLabel(action) }}</span>
 											</button>
-											<div v-if="canDeleteActiveDraftSource" class="card-action-divider"></div>
+											<div
+												v-if="canDeleteActiveDraftSource"
+												class="card-action-divider"
+											></div>
 											<button
 												v-if="canDeleteActiveDraftSource"
 												class="card-action-btn card-action-btn--danger"
@@ -1158,7 +1273,8 @@
 									<div class="summary-tile__content">
 										<div class="summary-tile__label">{{ __("Return Total Value") }}</div>
 										<div class="summary-tile__value">
-											{{ currencySymbol(posProfile?.currency) }}{{ formatCurrency(returnTotals.total) }}
+											{{ currencySymbol(posProfile?.currency)
+											}}{{ formatCurrency(returnTotals.total) }}
 										</div>
 									</div>
 								</div>
@@ -1236,10 +1352,14 @@
 										class="invoice-record-card invoice-record-card--error"
 										variant="flat"
 									>
-										<div class="invoice-record-card__hero invoice-record-card__hero--return">
+										<div
+											class="invoice-record-card__hero invoice-record-card__hero--return"
+										>
 											<div class="d-flex align-center ga-3">
 												<div class="card-doc-icon-wrap">
-													<v-icon color="#ef4444" size="20">mdi-backup-restore</v-icon>
+													<v-icon color="#ef4444" size="20"
+														>mdi-backup-restore</v-icon
+													>
 												</div>
 												<div>
 													<div class="invoice-record-card__title-row">
@@ -1272,24 +1392,40 @@
 
 										<div class="invoice-record-card__metrics">
 											<div class="metric-col metric-col--posting">
-												<v-icon size="16" class="metric-icon">mdi-calendar-outline</v-icon>
+												<v-icon size="16" class="metric-icon"
+													>mdi-calendar-outline</v-icon
+												>
 												<div>
 													<div class="metric-label">{{ __("Posting") }}</div>
-													<div class="metric-value">{{ formatDateTime(invoice.posting_date, invoice.posting_time) }}</div>
+													<div class="metric-value">
+														{{
+															formatDateTime(
+																invoice.posting_date,
+																invoice.posting_time,
+															)
+														}}
+													</div>
 												</div>
 											</div>
 											<div class="metric-col">
-												<v-icon size="16" class="metric-icon">mdi-link-variant</v-icon>
+												<v-icon size="16" class="metric-icon"
+													>mdi-link-variant</v-icon
+												>
 												<div>
 													<div class="metric-label">{{ __("Against") }}</div>
-													<div class="metric-value">{{ invoice.return_against || "-" }}</div>
+													<div class="metric-value">
+														{{ invoice.return_against || "-" }}
+													</div>
 												</div>
 											</div>
 											<div class="metric-col">
 												<v-icon size="16" class="metric-icon">mdi-cash-refund</v-icon>
 												<div>
 													<div class="metric-label">{{ __("Return Total") }}</div>
-													<div class="metric-value metric-value--orange">{{ currencySymbol(invoice.currency) }}{{ formatCurrency(invoice.grand_total) }}</div>
+													<div class="metric-value metric-value--orange">
+														{{ currencySymbol(invoice.currency)
+														}}{{ formatCurrency(invoice.grand_total) }}
+													</div>
 												</div>
 											</div>
 										</div>
@@ -1364,9 +1500,13 @@
 			]"
 			variant="flat"
 		>
-			<v-card-title class="detail-dialog-header px-6 py-4 d-flex align-center justify-space-between flex-wrap ga-3">
+			<v-card-title
+				class="detail-dialog-header px-6 py-4 d-flex align-center justify-space-between flex-wrap ga-3"
+			>
 				<div>
-					<div class="text-h6 font-weight-bold">{{ selectedInvoiceDetail?.name || __("Invoice Details") }}</div>
+					<div class="text-h6 font-weight-bold">
+						{{ selectedInvoiceDetail?.name || __("Invoice Details") }}
+					</div>
 					<div class="text-subtitle-2 text-secondary">
 						{{ selectedInvoiceDetail?.customer_name || selectedInvoiceDetail?.customer || "" }}
 					</div>
@@ -1419,7 +1559,8 @@
 						<div class="summary-tile__content">
 							<div class="summary-tile__label">{{ __("Grand Total") }}</div>
 							<div class="summary-tile__value">
-								{{ currencySymbol(selectedInvoiceDetail.currency) }}{{ formatCurrency(selectedInvoiceDetail.grand_total) }}
+								{{ currencySymbol(selectedInvoiceDetail.currency)
+								}}{{ formatCurrency(selectedInvoiceDetail.grand_total) }}
 							</div>
 						</div>
 					</div>
@@ -1430,7 +1571,8 @@
 						<div class="summary-tile__content">
 							<div class="summary-tile__label">{{ __("Outstanding") }}</div>
 							<div class="summary-tile__value">
-								{{ currencySymbol(selectedInvoiceDetail.currency) }}{{ formatCurrency(selectedInvoiceDetail.outstanding_amount || 0) }}
+								{{ currencySymbol(selectedInvoiceDetail.currency)
+								}}{{ formatCurrency(selectedInvoiceDetail.outstanding_amount || 0) }}
 							</div>
 						</div>
 					</div>
@@ -1526,12 +1668,7 @@
 				>
 					{{ __("Print") }}
 				</v-btn>
-				<v-btn
-					class="close-dialog-btn"
-					variant="outlined"
-					size="small"
-					@click="detailDialog = false"
-				>
+				<v-btn class="close-dialog-btn" variant="outlined" size="small" @click="detailDialog = false">
 					{{ __("Close") }}
 				</v-btn>
 			</v-card-actions>
@@ -2303,6 +2440,23 @@ export default {
 			if (value.includes("credit")) return "info";
 			return "primary";
 		},
+		unpaidTone(invoice) {
+			if (this.isOverdue(invoice)) return "error";
+			const status = String(invoice?.status || "").toLowerCase();
+			if (status.includes("partly")) return "warning";
+			if (status.includes("unpaid")) return "error";
+			return Number(invoice?.outstanding_amount || 0) > 0 ? "warning" : "info";
+		},
+		unpaidHeroTone(invoice) {
+			return this.unpaidTone(invoice);
+		},
+		unpaidStatusColor(invoice) {
+			return this.unpaidTone(invoice);
+		},
+		unpaidStatusLabel(invoice) {
+			if (this.isOverdue(invoice)) return "Overdue";
+			return String(invoice?.status || "Unpaid");
+		},
 		toneFromStatus(status) {
 			const value = String(status || "").toLowerCase();
 			if (value === "paid") return "success";
@@ -2508,10 +2662,10 @@ export default {
 				if (action === "quote_submit" || action === "order_to_delivery_note") {
 					const result = await commitDocumentFlowAction({
 						action,
-							source: invoice?.source || this.currentDraftSource,
-							record: invoice,
-							posProfile: this.posProfile,
-							posOpeningShift: this.posOpeningShift,
+						source: invoice?.source || this.currentDraftSource,
+						record: invoice,
+						posProfile: this.posProfile,
+						posOpeningShift: this.posOpeningShift,
 					});
 					if (action === "quote_submit") {
 						this.toastStore.show({ title: __("Quotation submitted"), color: "success" });
@@ -2536,10 +2690,10 @@ export default {
 				const prepared = await prepareDocumentFlowAction({
 					action,
 					source: invoice?.source || this.currentDraftSource,
-						record: invoice,
-						currentInvoiceDoctype: this.currentInvoiceDoctype,
-						posProfile: this.posProfile,
-						posOpeningShift: this.posOpeningShift,
+					record: invoice,
+					currentInvoiceDoctype: this.currentInvoiceDoctype,
+					posProfile: this.posProfile,
+					posOpeningShift: this.posOpeningShift,
 				});
 				if (!prepared?.prepared_doc) {
 					this.toastStore.show({ title: __("Unable to prepare document"), color: "error" });
@@ -2562,6 +2716,7 @@ export default {
 			}
 		},
 		async refreshAll() {
+			if (isOffline()) return;
 			this.resetPagination();
 			await Promise.all([this.loadUnpaidInvoices(), this.loadHistory(), this.loadDrafts()]);
 		},
@@ -2667,8 +2822,8 @@ export default {
 							? this.resolveSupervisorProfileScope()
 							: null,
 					resolveCashierProfileScope: () => this.posProfile?.name || null,
-						resolveCashierScope: () => this.currentCashier?.user || null,
-						cashierGrant: this.currentCashierGrant || null,
+					resolveCashierScope: () => this.currentCashier?.user || null,
+					cashierGrant: this.currentCashierGrant || null,
 				});
 				this.draftRecordsBySource = {
 					...this.draftRecordsBySource,
@@ -2700,8 +2855,8 @@ export default {
 				await loadDocumentSourceRecord({
 					source: invoice?.source || this.currentDraftSource,
 					record: invoice,
-						posProfile: this.posProfile,
-						posOpeningShift: this.posOpeningShift,
+					posProfile: this.posProfile,
+					posOpeningShift: this.posOpeningShift,
 					currentInvoiceDoctype: this.currentInvoiceDoctype,
 					invoiceStore: this.invoiceStore,
 					uiStore: this.uiStore,
@@ -2892,7 +3047,8 @@ export default {
 				const response = await fetch(pdf_url, {
 					headers: { "X-Frappe-CSRF-Token": frappe.csrf_token },
 				});
-				if (!response.ok) throw new Error(__("Failed to download invoice. Status: {0}", [response.status]));
+				if (!response.ok)
+					throw new Error(__("Failed to download invoice. Status: {0}", [response.status]));
 				const blob = await response.blob();
 				const file = new File([blob], `${invoice.name}.pdf`, { type: "application/pdf" });
 				if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {

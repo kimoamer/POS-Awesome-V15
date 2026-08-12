@@ -1,5 +1,6 @@
 import {
 	getStoredCustomer,
+	isOffline,
 	getCachedPriceListItems,
 	setCustomerStorage,
 	saveStoredValueSnapshot,
@@ -19,9 +20,7 @@ declare const frappe: any;
 export async function fetch_customer_details(context: any) {
 	try {
 		const customer =
-			typeof context.customer === "string"
-				? context.customer.trim()
-				: "";
+			typeof context.customer === "string" ? context.customer.trim() : "";
 		if (!customer) return;
 		const requestedCustomer = customer;
 
@@ -35,6 +34,7 @@ export async function fetch_customer_details(context: any) {
 		) {
 			context.customer_info = cachedCustomer;
 		}
+		if (isOffline()) return;
 
 		const r = await frappe.call({
 			method: "posawesome.posawesome.api.customers.get_customer_info",
@@ -47,7 +47,8 @@ export async function fetch_customer_details(context: any) {
 					null,
 				pos_profile: context?.pos_profile?.name,
 				pos_opening_shift:
-					context?.pos_opening_shift?.name || context?.pos_opening_shift,
+					context?.pos_opening_shift?.name ||
+					context?.pos_opening_shift,
 			},
 		});
 
@@ -59,18 +60,22 @@ export async function fetch_customer_details(context: any) {
 			context.customer_info = r.message;
 			await setCustomerStorage([r.message], customerScope);
 			if (context?.pos_profile?.company) {
-				const totalCredit = Number(r.message?.stored_value_balance || 0);
+				const totalCredit = Number(
+					r.message?.stored_value_balance || 0,
+				);
 				saveStoredValueSnapshot(
 					customer,
 					context.pos_profile.company,
-					totalCredit > 0 ? [
-						{
-							type: "Snapshot",
-							credit_origin: "offline-customer-cache",
-							total_credit: totalCredit,
-							source_type: "Stored Value Snapshot",
-						},
-					] : [],
+					totalCredit > 0
+						? [
+								{
+									type: "Snapshot",
+									credit_origin: "offline-customer-cache",
+									total_credit: totalCredit,
+									source_type: "Stored Value Snapshot",
+								},
+							]
+						: [],
 				);
 			}
 			const resolvedPriceList =
@@ -102,7 +107,8 @@ export async function fetch_customer_details(context: any) {
 			}
 		}
 	} catch (error) {
-		console.error("Error fetching customer details:", error);
+		if (!isOffline())
+			console.error("Error fetching customer details:", error);
 	}
 }
 
@@ -133,7 +139,8 @@ export function sync_invoice_customer_details(
 	if (context.invoice_doc) {
 		const activeCustomer =
 			typeof context.customer === "string" ? context.customer.trim() : "";
-		context.invoice_doc.customer = activeCustomer || details?.customer || null;
+		context.invoice_doc.customer =
+			activeCustomer || details?.customer || null;
 		if (!details) {
 			details =
 				context.customer_info?.customer === activeCustomer

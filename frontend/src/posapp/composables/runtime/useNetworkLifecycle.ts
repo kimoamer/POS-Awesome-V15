@@ -1,5 +1,6 @@
 import type { Ref } from "vue";
 import { watch } from "vue";
+import { TRANSPORT_UNAVAILABLE_EVENT } from "../../utils/runtimeConnectivity";
 
 type EventBusLike = {
 	emit?: (event: string, ...args: any[]) => void;
@@ -8,6 +9,11 @@ type EventBusLike = {
 type RealtimeLike = {
 	on?: (event: string, handler: (...args: any[]) => void) => void;
 	off?: (event: string, handler?: (...args: any[]) => void) => void;
+	socket?: {
+		connected?: boolean;
+		connect?: () => void;
+		disconnect?: () => void;
+	};
 };
 
 type UseNetworkLifecycleOptions = {
@@ -105,6 +111,15 @@ export function useNetworkLifecycle(options: UseNetworkLifecycleOptions) {
 		options.internetReachable.value = false;
 		options.serverOnline.value = false;
 		(window as any).serverOnline = false;
+		options.realtime?.socket?.disconnect?.();
+	};
+
+	const handleTransportUnavailable = () => {
+		options.internetReachable.value = false;
+		options.serverOnline.value = false;
+		options.serverConnecting.value = false;
+		(window as any).serverOnline = false;
+		options.realtime?.socket?.disconnect?.();
 	};
 
 	const handleVisibilityChange = () => {
@@ -132,6 +147,10 @@ export function useNetworkLifecycle(options: UseNetworkLifecycleOptions) {
 		started = true;
 		window.addEventListener("online", handleOnline);
 		window.addEventListener("offline", handleOffline);
+		window.addEventListener(
+			TRANSPORT_UNAVAILABLE_EVENT,
+			handleTransportUnavailable,
+		);
 		document.addEventListener("visibilitychange", handleVisibilityChange);
 
 		stopWatchers = [
@@ -145,6 +164,9 @@ export function useNetworkLifecycle(options: UseNetworkLifecycleOptions) {
 			}),
 			watch(options.serverOnline, (newVal, oldVal) => {
 				if (newVal && !oldVal) {
+					if (!options.realtime?.socket?.connected) {
+						options.realtime?.socket?.connect?.();
+					}
 					options.eventBus?.emit?.("server-online");
 					void options.onSyncInvoices?.();
 					options.onEvaluateBootstrap?.({ allowPrompt: false });
@@ -178,6 +200,10 @@ export function useNetworkLifecycle(options: UseNetworkLifecycleOptions) {
 		started = false;
 		window.removeEventListener("online", handleOnline);
 		window.removeEventListener("offline", handleOffline);
+		window.removeEventListener(
+			TRANSPORT_UNAVAILABLE_EVENT,
+			handleTransportUnavailable,
+		);
 		document.removeEventListener(
 			"visibilitychange",
 			handleVisibilityChange,

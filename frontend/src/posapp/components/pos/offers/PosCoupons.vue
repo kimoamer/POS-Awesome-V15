@@ -7,7 +7,12 @@
 		<div class="pos-coupons-customer-bar px-3 py-2 border-b">
 			<div v-if="customer" class="d-flex align-center gap-2 text-body-2 text-medium-emphasis">
 				<v-icon size="18" color="primary">mdi-account-check-outline</v-icon>
-				<span>{{ __("Customer") }}: <strong class="text-high-emphasis"><bdi>{{ customer }}</bdi></strong></span>
+				<span
+					>{{ __("Customer") }}:
+					<strong class="text-high-emphasis"
+						><bdi>{{ customer }}</bdi></strong
+					></span
+				>
 			</div>
 			<div v-else class="d-flex align-center gap-2 text-caption text-warning">
 				<v-icon size="18" color="warning">mdi-account-alert-outline</v-icon>
@@ -61,7 +66,10 @@
 
 		<!-- Coupons List -->
 		<div class="pos-coupons-body pa-3 overflow-y-auto">
-			<div v-if="(posa_coupons || []).length === 0" class="pos-coupons-empty pa-6 text-center text-muted">
+			<div
+				v-if="(posa_coupons || []).length === 0"
+				class="pos-coupons-empty pa-6 text-center text-muted"
+			>
 				<v-icon size="40" class="mb-2">mdi-ticket-outline</v-icon>
 				<div class="text-body-2">{{ __("No coupons added") }}</div>
 			</div>
@@ -77,7 +85,9 @@
 					<div class="d-flex align-center justify-space-between gap-3">
 						<div class="pos-coupon-card__info">
 							<div class="d-flex align-center gap-2">
-								<bdi class="pos-coupon-card__code font-weight-bold text-body-1">{{ item.coupon_code }}</bdi>
+								<bdi class="pos-coupon-card__code font-weight-bold text-body-1">{{
+									item.coupon_code
+								}}</bdi>
 								<v-chip
 									size="x-small"
 									:color="item.applied ? 'success' : 'grey'"
@@ -86,7 +96,9 @@
 									{{ item.applied ? __("Applied") : __("Available") }}
 								</v-chip>
 							</div>
-							<div class="pos-coupon-card__meta d-flex align-center gap-2 mt-1 text-caption text-medium-emphasis">
+							<div
+								class="pos-coupon-card__meta d-flex align-center gap-2 mt-1 text-caption text-medium-emphasis"
+							>
 								<span v-if="item.type">{{ __("Type") }}: {{ item.type }}</span>
 								<span v-if="item.pos_offer">• {{ __("Offer") }}: {{ item.pos_offer }}</span>
 							</div>
@@ -103,12 +115,12 @@ import { useCustomersStore } from "../../../stores/customersStore";
 import { useToastStore } from "../../../stores/toastStore";
 import { useUIStore } from "../../../stores/uiStore";
 import { storeToRefs } from "pinia";
-import { getCachedCoupons, saveCoupons } from "../../../../offline/index";
+import { getCachedCoupons, isOffline, saveCoupons } from "../../../../offline/index";
 
 const translate = (value) =>
-	(typeof window !== "undefined" && (window.__ || window.frappe?._)
+	typeof window !== "undefined" && (window.__ || window.frappe?._)
 		? (window.__ || window.frappe._)(value)
-		: value);
+		: value;
 
 export default {
 	inject: {
@@ -185,6 +197,10 @@ export default {
 				});
 				return;
 			}
+			if (isOffline()) {
+				this.validationErrorMessage = __("Coupon validation requires an online connection");
+				return;
+			}
 			const coupons = this.posa_coupons || [];
 			const exist = coupons.find(
 				(el) =>
@@ -248,7 +264,7 @@ export default {
 			});
 		},
 		setActiveGiftCoupons() {
-			if (!this.customer) return;
+			if (!this.customer || isOffline()) return;
 			this.loadingGiftCoupons = true;
 			this.giftCouponError = null;
 			const vm = this;
@@ -424,12 +440,18 @@ export default {
 .pos-coupon-card {
 	border-color: var(--pos-border-light, #e2e8f0) !important;
 	border-radius: var(--pos-radius-sm, 10px) !important;
-	transition: border-color 0.15s ease, background-color 0.15s ease;
+	transition:
+		border-color 0.15s ease,
+		background-color 0.15s ease;
 }
 
 .pos-coupon-card--applied {
 	border-color: var(--pos-primary, #2563eb) !important;
-	background: color-mix(in srgb, var(--pos-primary, #2563eb) 4%, var(--pos-surface-raised, #ffffff)) !important;
+	background: color-mix(
+		in srgb,
+		var(--pos-primary, #2563eb) 4%,
+		var(--pos-surface-raised, #ffffff)
+	) !important;
 }
 
 .add-coupon-btn,

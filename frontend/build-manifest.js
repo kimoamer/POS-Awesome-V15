@@ -26,8 +26,7 @@ export function getChunkFileName(bundle, chunkName) {
 
 export function getCssAssetFileNames(bundle, entryName = "posawesome") {
 	const entry = Object.values(bundle || {}).find(
-		(candidate) =>
-			candidate?.type === "chunk" && candidate?.name === entryName,
+		(candidate) => candidate?.type === "chunk" && candidate?.name === entryName,
 	);
 	const entryCss = [];
 	const visitedChunks = new Set();
@@ -38,11 +37,7 @@ export function getCssAssetFileNames(bundle, entryName = "posawesome") {
 		visitedChunks.add(chunk.fileName);
 		const importedCss = chunk.viteMetadata?.importedCss;
 		if (importedCss) {
-			entryCss.push(
-				...Array.from(importedCss).filter((fileName) =>
-					String(fileName).endsWith(".css"),
-				),
-			);
+			entryCss.push(...Array.from(importedCss).filter((fileName) => String(fileName).endsWith(".css")));
 		}
 		for (const importedChunk of chunk.imports || []) {
 			collectChunkCss(bundle?.[importedChunk]);
@@ -58,9 +53,7 @@ export function getCssAssetFileNames(bundle, entryName = "posawesome") {
 	// the exact entry CSS set through `viteMetadata.importedCss` above.
 	const cssAssets = Object.values(bundle || {}).filter(
 		(entry) =>
-			entry?.type === "asset" &&
-			typeof entry?.fileName === "string" &&
-			entry.fileName.endsWith(".css"),
+			entry?.type === "asset" && typeof entry?.fileName === "string" && entry.fileName.endsWith(".css"),
 	);
 	if (!cssAssets.length) return [];
 	cssAssets.sort((a, b) => (b.source?.length || 0) - (a.source?.length || 0));
@@ -71,13 +64,42 @@ function getCriticalFontAssetFileNames(bundle) {
 	return Object.values(bundle || {})
 		.filter(
 			(entry) =>
-			entry?.type === "asset" &&
-			typeof entry?.fileName === "string" &&
-			/materialdesignicons-webfont.*\.woff2$/i.test(
-				entry.fileName,
-			),
+				entry?.type === "asset" &&
+				typeof entry?.fileName === "string" &&
+				/materialdesignicons-webfont.*\.woff2$/i.test(entry.fileName),
 		)
 		.map((entry) => entry.fileName)
+		.sort();
+}
+
+export function getPrecacheAssetFileNames(bundle, entryName = "posawesome") {
+	const entry = Object.values(bundle || {}).find(
+		(candidate) => candidate?.type === "chunk" && candidate?.name === entryName,
+	);
+	if (!entry) return [];
+
+	const files = new Set();
+	const visitedChunks = new Set();
+	const visit = (chunk) => {
+		if (!chunk || chunk.type !== "chunk" || visitedChunks.has(chunk.fileName)) {
+			return;
+		}
+		visitedChunks.add(chunk.fileName);
+		files.add(chunk.fileName);
+		for (const fileName of chunk.viteMetadata?.importedCss || []) {
+			files.add(fileName);
+		}
+		for (const fileName of chunk.viteMetadata?.importedAssets || []) {
+			files.add(fileName);
+		}
+		for (const importedChunk of [...(chunk.imports || []), ...(chunk.dynamicImports || [])]) {
+			visit(bundle?.[importedChunk]);
+		}
+	};
+	visit(entry);
+
+	return Array.from(files)
+		.filter((fileName) => /\.(?:js|css|woff2?|svg|png|webp)$/i.test(fileName))
 		.sort();
 }
 
@@ -86,11 +108,10 @@ export function buildVersionPayload(version, bundle = {}) {
 	const posawesomeFile = getChunkFileName(bundle, "posawesome");
 	const offlineIndexFile = getChunkFileName(bundle, "offline/index");
 	const cssFiles = getCssAssetFileNames(bundle);
-	const styleUrls = cssFiles.map((fileName) =>
-		toVersionedPublicAssetUrl(fileName, version),
-	);
+	const styleUrls = cssFiles.map((fileName) => toVersionedPublicAssetUrl(fileName, version));
 	const cssUrl = toVersionedPublicAssetUrl("posawesome.css", version);
 	const fontFiles = getCriticalFontAssetFileNames(bundle);
+	const precacheFiles = getPrecacheAssetFileNames(bundle);
 
 	return {
 		version,
@@ -108,6 +129,11 @@ export function buildVersionPayload(version, bundle = {}) {
 				? toPublicAssetUrl(offlineIndexFile)
 				: toPublicAssetUrl("offline/index.js"),
 			fonts: fontFiles.map(toPublicAssetUrl),
+			// Includes the complete import + dynamic-import graph rooted at the
+			// POS entry. This makes checkout, Payments, opening shift and other
+			// lazy UI flows available after the terminal has completed one online
+			// service-worker install.
+			precache: precacheFiles.map(toPublicAssetUrl),
 		},
 	};
 }

@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { buildVersionPayload, getEntryFileName } from "../build-manifest.js";
+import {
+	buildVersionPayload,
+	getEntryFileName,
+	getPrecacheAssetFileNames,
+} from "../build-manifest.js";
 
 describe("build manifest helpers", () => {
 	it("hashes every entry filename so deploys cannot reuse stale URLs", () => {
-		expect(getEntryFileName({ name: "posawesome" })).toBe("[name]-[hash].js");
+		expect(getEntryFileName({ name: "posawesome" })).toBe(
+			"[name]-[hash].js",
+		);
 		expect(getEntryFileName({ name: "loader" })).toBe("[name]-[hash].js");
 		expect(getEntryFileName({ name: "offline/index" })).toBe(
 			"[name]-[hash].js",
@@ -69,6 +75,7 @@ describe("build manifest helpers", () => {
 				fonts: [
 					"/assets/posawesome/dist/js/materialdesignicons-webfont-ICONS.woff2",
 				],
+				precache: ["/assets/posawesome/dist/js/posawesome-AAA999.js"],
 			},
 		});
 		expect(payload.assets.fonts).not.toContain(
@@ -109,6 +116,43 @@ describe("build manifest helpers", () => {
 			"/assets/posawesome/dist/js/vendor-BASE.css?v=split-1",
 			"/assets/posawesome/dist/js/vuetify-UI.css?v=split-1",
 		]);
+		expect(payload.assets.precache).toEqual([
+			"/assets/posawesome/dist/js/posawesome-ENTRY.js",
+			"/assets/posawesome/dist/js/posawesome-SHELL.css",
+			"/assets/posawesome/dist/js/vendor-BASE.css",
+			"/assets/posawesome/dist/js/vuetify-UI.css",
+			"/assets/posawesome/dist/js/vuetify-UI.js",
+		]);
+	});
+
+	it("publishes lazy route chunks and their styles for offline use", () => {
+		const bundle = {
+			"posawesome-ENTRY.js": {
+				type: "chunk",
+				name: "posawesome",
+				fileName: "posawesome-ENTRY.js",
+				dynamicImports: ["Payments-LAZY.js"],
+			},
+			"Payments-LAZY.js": {
+				type: "chunk",
+				name: "Payments",
+				fileName: "Payments-LAZY.js",
+				imports: ["vendor-SHARED.js"],
+				viteMetadata: { importedCss: new Set(["Payments-LAZY.css"]) },
+			},
+			"vendor-SHARED.js": {
+				type: "chunk",
+				name: "vendor",
+				fileName: "vendor-SHARED.js",
+			},
+		};
+
+		expect(getPrecacheAssetFileNames(bundle)).toEqual([
+			"Payments-LAZY.css",
+			"Payments-LAZY.js",
+			"posawesome-ENTRY.js",
+			"vendor-SHARED.js",
+		]);
 	});
 
 	it("falls back to legacy shell paths + cache-busts when bundle lookup fails", () => {
@@ -127,5 +171,6 @@ describe("build manifest helpers", () => {
 			"/assets/posawesome/dist/js/posawesome.css?v=build%20with%20spaces",
 		]);
 		expect(payload.assets.fonts).toEqual([]);
+		expect(payload.assets.precache).toEqual([]);
 	});
 });

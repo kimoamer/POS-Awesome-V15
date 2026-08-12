@@ -23,16 +23,32 @@
 					class="pos-offer-card mb-3 pa-3"
 					:class="{ 'pos-offer-card--applied': item.offer_applied }"
 					:aria-expanded="item.description || item.offer == 'Give Product' ? 'true' : 'false'"
-					:aria-controls="item.description || item.offer == 'Give Product' ? 'offer-details-' + getOfferId(item) : undefined"
+					:aria-controls="
+						item.description || item.offer == 'Give Product'
+							? 'offer-details-' + getOfferId(item)
+							: undefined
+					"
 				>
 					<div class="pos-offer-card__header d-flex align-center justify-space-between gap-3">
 						<div class="pos-offer-card__title-area">
-							<bdi class="pos-offer-card__name font-weight-bold text-body-2">{{ item.name }}</bdi>
+							<bdi class="pos-offer-card__name font-weight-bold text-body-2">{{
+								item.name
+							}}</bdi>
 							<div class="pos-offer-card__meta d-flex align-center gap-1 mt-1">
-								<v-chip size="x-small" variant="flat" color="blue-lighten-5" class="text-blue-darken-3">
+								<v-chip
+									size="x-small"
+									variant="flat"
+									color="blue-lighten-5"
+									class="text-blue-darken-3"
+								>
 									<bdi>{{ item.apply_on || __("Item") }}</bdi>
 								</v-chip>
-								<v-chip size="x-small" variant="flat" color="purple-lighten-5" class="text-purple-darken-3">
+								<v-chip
+									size="x-small"
+									variant="flat"
+									color="purple-lighten-5"
+									class="text-purple-darken-3"
+								>
 									<bdi>{{ item.offer || __("Discount") }}</bdi>
 								</v-chip>
 							</div>
@@ -75,17 +91,35 @@
 						:id="'offer-details-' + getOfferId(item)"
 						class="pos-offer-card__details mt-2 pt-2 border-t"
 					>
-						<div v-if="item.description" class="posa-offer-description text-caption text-medium-emphasis mb-2">
+						<div
+							v-if="item.description"
+							class="posa-offer-description text-caption text-medium-emphasis mb-2"
+						>
 							{{ item.description }}
 						</div>
 						<div v-if="item.offer == 'Give Product'" class="pos-offer-give-item">
-							<div v-if="groupItemLoading[item.apply_item_group]" class="text-caption text-info d-flex align-center gap-1 my-1">
-								<v-progress-circular indeterminate size="16" color="primary"></v-progress-circular>
+							<div
+								v-if="groupItemLoading[item.apply_item_group]"
+								class="text-caption text-info d-flex align-center gap-1 my-1"
+							>
+								<v-progress-circular
+									indeterminate
+									size="16"
+									color="primary"
+								></v-progress-circular>
 								<span>{{ __("Loading group items...") }}</span>
 							</div>
-							<div v-else-if="groupItemError[item.apply_item_group]" class="group-item-error text-caption text-error d-flex align-center justify-space-between gap-1 my-1 pa-2 border rounded">
+							<div
+								v-else-if="groupItemError[item.apply_item_group]"
+								class="group-item-error text-caption text-error d-flex align-center justify-space-between gap-1 my-1 pa-2 border rounded"
+							>
 								<span>{{ groupItemError[item.apply_item_group] }}</span>
-								<v-btn size="x-small" variant="text" color="primary" @click="fetchGroupItems(item.apply_item_group)">
+								<v-btn
+									size="x-small"
+									variant="text"
+									color="primary"
+									@click="fetchGroupItems(item.apply_item_group)"
+								>
 									{{ __("Retry") }}
 								</v-btn>
 							</div>
@@ -120,10 +154,11 @@ import { useCustomersStore } from "../../../stores/customersStore";
 import { useUIStore } from "../../../stores/uiStore";
 import { useToastStore } from "../../../stores/toastStore";
 import { storeToRefs } from "pinia";
+import { isOffline } from "../../../../offline/index";
 const translate = (value) =>
-	(typeof window !== "undefined" && (window.__ || window.frappe?._)
+	typeof window !== "undefined" && (window.__ || window.frappe?._)
 		? (window.__ || window.frappe._)(value)
-		: value);
+		: value;
 export default {
 	inject: {
 		eventBus: { default: null },
@@ -188,6 +223,16 @@ export default {
 		},
 		async fetchGroupItems(group) {
 			if (!group) return;
+			if (isOffline()) {
+				this.groupItemCache[group] = (this.allItems || [])
+					.filter((item) => item?.item_group === group)
+					.map((item) => ({
+						item_code: item.item_code,
+						item_name: item.item_name || item.item_code,
+						rate: item.price_list_rate || item.rate || 0,
+					}));
+				return;
+			}
 			this.groupItemLoading = { ...this.groupItemLoading, [group]: true };
 			this.groupItemError = { ...this.groupItemError, [group]: null };
 			try {
@@ -479,12 +524,18 @@ export default {
 .pos-offer-card {
 	border-color: var(--pos-border-light, #e2e8f0) !important;
 	border-radius: var(--pos-radius-sm, 10px) !important;
-	transition: border-color 0.15s ease, background-color 0.15s ease;
+	transition:
+		border-color 0.15s ease,
+		background-color 0.15s ease;
 }
 
 .pos-offer-card--applied {
 	border-color: var(--pos-primary, #2563eb) !important;
-	background: color-mix(in srgb, var(--pos-primary, #2563eb) 4%, var(--pos-surface-raised, #ffffff)) !important;
+	background: color-mix(
+		in srgb,
+		var(--pos-primary, #2563eb) 4%,
+		var(--pos-surface-raised, #ffffff)
+	) !important;
 }
 
 .pos-offer-action-btn,

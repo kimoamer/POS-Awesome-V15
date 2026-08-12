@@ -1,4 +1,5 @@
 import { useUIStore } from "../../../stores/uiStore";
+import { isOffline } from "../../../../offline/index";
 
 declare const frappe: any;
 
@@ -12,6 +13,7 @@ export function useBundles() {
 		if (cached && now - cached.ts < 60000) {
 			return cached.data;
 		}
+		if (isOffline()) return cached?.data || [];
 		try {
 			const r = await frappe.call({
 				method: "posawesome.posawesome.api.bundles.get_bundle_components",
@@ -19,7 +21,9 @@ export function useBundles() {
 					bundles: [bundleCode],
 					pos_profile: uiStore.posProfile?.name || null,
 					pos_opening_shift:
-						uiStore.posOpeningShift?.name || uiStore.posOpeningShift || null,
+						uiStore.posOpeningShift?.name ||
+						uiStore.posOpeningShift ||
+						null,
 				},
 			});
 			const data =
@@ -27,7 +31,8 @@ export function useBundles() {
 			cache.set(bundleCode, { data, ts: now });
 			return data;
 		} catch (e) {
-			console.error("Failed to fetch bundle components", e);
+			if (!isOffline())
+				console.error("Failed to fetch bundle components", e);
 			return [];
 		}
 	};

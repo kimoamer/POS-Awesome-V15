@@ -30,6 +30,9 @@ function pickAssetUrl(assets, key, fallbackPath, version) {
 }
 
 function getPrecacheUrls(version, assets = {}) {
+	const routeAssets = Array.isArray(assets.precache)
+		? assets.precache.filter((url) => typeof url === "string" && url.trim())
+		: [];
 	const fontAssets = Array.isArray(assets.fonts)
 		? assets.fonts.filter((url) => typeof url === "string" && url.trim())
 		: [];
@@ -45,8 +48,9 @@ function getPrecacheUrls(version, assets = {}) {
 		buildVersionedAssetUrl("/assets/posawesome/dist/js/posapp/workers/itemWorker.js", version),
 		buildVersionedAssetUrl("/assets/posawesome/dist/js/libs/dexie.min.js", version),
 		...fontAssets,
+		...routeAssets,
 		...STATIC_PRECACHE_URLS,
-	];
+	].filter((url, index, urls) => url && urls.indexOf(url) === index);
 }
 
 let cachedCacheName = null;

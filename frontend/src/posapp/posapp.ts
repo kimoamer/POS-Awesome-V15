@@ -29,6 +29,7 @@ import {
 } from "./utils/chunkLoadRecovery";
 import { finalizePendingBundleActivation } from "./utils/bundleVersionActivation";
 import { posDebug } from "./utils/debug";
+import { installGlobalTransportMonitor } from "./utils/runtimeConnectivity";
 import { reconcileBuildChangeOnStartup } from "./utils/buildCacheReconciler";
 import {
 	startupInitPromise,
@@ -50,6 +51,7 @@ const VueDatePicker = defineAsyncComponent(
 );
 
 attachProfilerHelpers();
+installGlobalTransportMonitor();
 
 // Expose Dexie globally for libraries that expect a global Dexie instance
 if (typeof window !== "undefined" && !(window as any).Dexie) {
@@ -280,8 +282,8 @@ class PosAppController {
 
 			this.app.unmount();
 			this.app = null;
-				this.router = null;
-				this.routerHistory = null;
+			this.router = null;
+			this.routerHistory = null;
 			posDebug("lifecycle", "POS App unmounted");
 		}
 	}

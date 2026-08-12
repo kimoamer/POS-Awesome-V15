@@ -3,6 +3,7 @@ import {
 	isDynamicImportFailure,
 	recoverFromChunkLoadError,
 } from "./chunkLoadRecovery";
+import { isRuntimeDisconnected } from "./runtimeConnectivity";
 
 type ErrorKind = "window_error" | "unhandled_rejection" | "vue_error";
 
@@ -110,6 +111,7 @@ function getErrorStack(error: unknown): string | undefined {
 }
 
 function submitClientError(payload: ClientErrorPayload) {
+	if (isRuntimeDisconnected()) return;
 	const args = { payload: JSON.stringify(payload) };
 	if (typeof frappe !== "undefined" && typeof frappe.call === "function") {
 		void frappe
@@ -205,20 +207,26 @@ export function installGlobalErrorHandlers(app: App) {
 		return false;
 	};
 
-	window.addEventListener("error", (event) => {
-		if (isBenignGlobalError(event.error, event.message, event.filename)) {
-			event.preventDefault();
-			return;
-		}
+	window.addEventListener(
+		"error",
+		(event) => {
+			if (
+				isBenignGlobalError(event.error, event.message, event.filename)
+			) {
+				event.preventDefault();
+				return;
+			}
 
-		reportGlobalError("window_error", {
-			message: event.message || getErrorMessage(event.error),
-			stack: getErrorStack(event.error),
-			filename: event.filename,
-			lineno: event.lineno,
-			colno: event.colno,
-		});
-	}, { capture: true });
+			reportGlobalError("window_error", {
+				message: event.message || getErrorMessage(event.error),
+				stack: getErrorStack(event.error),
+				filename: event.filename,
+				lineno: event.lineno,
+				colno: event.colno,
+			});
+		},
+		{ capture: true },
+	);
 
 	window.addEventListener("unhandledrejection", (event) => {
 		const reason = event.reason;

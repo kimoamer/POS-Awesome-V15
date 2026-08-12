@@ -50,6 +50,7 @@ import { storeToRefs } from "pinia";
 import itemService from "../../../services/itemService";
 import { bus } from "../../../bus";
 import { posDebug } from "../../../utils/debug";
+import { isOffline } from "../../../../offline/index";
 
 // @ts-ignore
 const __ = window.__ || ((s) => s);
@@ -226,7 +227,9 @@ export function useInvoiceOffers() {
 		() => uiStore.offers,
 		(newOffers) => {
 			if (Array.isArray(newOffers) && newOffers.length) {
-				posOffers.value = newOffers.map((offer: any) => ensureOfferIdentity(offer));
+				posOffers.value = newOffers.map((offer: any) =>
+					ensureOfferIdentity(offer),
+				);
 				scheduleOfferRefresh();
 			}
 		},
@@ -362,7 +365,9 @@ export function useInvoiceOffers() {
 					: Array.isArray(uiStore.offers)
 						? uiStore.offers
 						: [];
-			const sourceOffers = rawOffers.map((offer: any) => ensureOfferIdentity(offer));
+			const sourceOffers = rawOffers.map((offer: any) =>
+				ensureOfferIdentity(offer),
+			);
 			if (!sourceOffers.length) {
 				offerDebugLog("[useInvoiceOffers] No source offers available");
 				emitBus("update_pos_offers", []);
@@ -1238,7 +1243,12 @@ export function useInvoiceOffers() {
 					!entry.posa_is_replace,
 			);
 		}
-		if (!item && pos_profile.value && pos_profile.value.name) {
+		if (
+			!item &&
+			!isOffline() &&
+			pos_profile.value &&
+			pos_profile.value.name
+		) {
 			// ... fetch from server
 			try {
 				const args: any = {
@@ -1256,7 +1266,7 @@ export function useInvoiceOffers() {
 					allItems.value.push(fetched);
 				}
 			} catch (e) {
-				console.error(e);
+				if (!isOffline()) console.error(e);
 			}
 		}
 		return item || null;
@@ -1516,11 +1526,15 @@ export function useInvoiceOffers() {
 				parseFiniteNumber(offer?.rate, basePrice),
 				0,
 			);
-			const baseDiscount = roundWithFlt(Math.max(basePrice - newBaseRate, 0));
+			const baseDiscount = roundWithFlt(
+				Math.max(basePrice - newBaseRate, 0),
+			);
 			new_item.base_rate = roundWithFlt(newBaseRate);
 			new_item.rate = roundWithFlt(new_item.base_rate / conversionRate);
 			new_item.base_discount_amount = baseDiscount;
-			new_item.discount_amount = roundWithFlt(baseDiscount / conversionRate);
+			new_item.discount_amount = roundWithFlt(
+				baseDiscount / conversionRate,
+			);
 			new_item.discount_percentage = basePrice
 				? roundWithFlt((baseDiscount / basePrice) * 100)
 				: 0;
@@ -1533,15 +1547,25 @@ export function useInvoiceOffers() {
 			const baseDiscount = roundWithFlt((basePrice * percent) / 100);
 			new_item.discount_percentage = roundWithFlt(percent);
 			new_item.base_discount_amount = baseDiscount;
-			new_item.discount_amount = roundWithFlt(baseDiscount / conversionRate);
-			new_item.base_rate = roundWithFlt(Math.max(basePrice - baseDiscount, 0));
+			new_item.discount_amount = roundWithFlt(
+				baseDiscount / conversionRate,
+			);
+			new_item.base_rate = roundWithFlt(
+				Math.max(basePrice - baseDiscount, 0),
+			);
 			new_item.rate = roundWithFlt(new_item.base_rate / conversionRate);
 		} else if (offerDiscountType === "Discount Amount") {
 			const amount = parseFiniteNumber(offer?.discount_amount, 0);
-			const baseDiscount = roundWithFlt(clampNumber(amount, 0, basePrice));
+			const baseDiscount = roundWithFlt(
+				clampNumber(amount, 0, basePrice),
+			);
 			new_item.base_discount_amount = baseDiscount;
-			new_item.discount_amount = roundWithFlt(baseDiscount / conversionRate);
-			new_item.base_rate = roundWithFlt(Math.max(basePrice - baseDiscount, 0));
+			new_item.discount_amount = roundWithFlt(
+				baseDiscount / conversionRate,
+			);
+			new_item.base_rate = roundWithFlt(
+				Math.max(basePrice - baseDiscount, 0),
+			);
 			new_item.rate = roundWithFlt(new_item.base_rate / conversionRate);
 			new_item.discount_percentage = basePrice
 				? roundWithFlt((baseDiscount / basePrice) * 100)
@@ -1597,7 +1621,9 @@ export function useInvoiceOffers() {
 					selectedUomData,
 				);
 				line.conversion_factor = conversionRate;
-				const offerDiscountType = String(offer?.discount_type || "").trim();
+				const offerDiscountType = String(
+					offer?.discount_type || "",
+				).trim();
 				const basePrice = resolveOfferBasePrice(line, conversionRate);
 				line.base_price_list_rate = roundWithFlt(basePrice);
 				line.price_list_rate = roundWithFlt(basePrice / conversionRate);
@@ -1625,7 +1651,9 @@ export function useInvoiceOffers() {
 						0,
 						100,
 					);
-					const baseDiscount = roundWithFlt((basePrice * percent) / 100);
+					const baseDiscount = roundWithFlt(
+						(basePrice * percent) / 100,
+					);
 					line.discount_percentage = roundWithFlt(percent);
 					line.base_discount_amount = baseDiscount;
 					line.discount_amount = roundWithFlt(

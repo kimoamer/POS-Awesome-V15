@@ -1,3 +1,9 @@
+import {
+	isRuntimeDisconnected,
+	isTransportUnavailableError,
+	markTransportUnavailable,
+} from "../utils/runtimeConnectivity";
+
 export interface CallOptions {
 	freeze?: boolean;
 	freeze_message?: string;
@@ -299,6 +305,14 @@ function normalizeTimeoutFailure<T>(requestId: string): ApiEnvelope<T> {
 	});
 }
 
+function normalizeOfflineFailure<T>(requestId: string): ApiEnvelope<T> {
+	return errorEnvelope<T>(requestId, null, {
+		code: "OFFLINE",
+		message: "The POS is offline",
+		retryable: true,
+	});
+}
+
 function normalizeAbortFailure<T>(requestId: string): ApiEnvelope<T> {
 	return errorEnvelope<T>(requestId, null, {
 		code: "ABORTED",
@@ -351,6 +365,10 @@ const api = {
 				settle(normalizeAbortFailure<T>(requestId));
 				return;
 			}
+			if (isRuntimeDisconnected()) {
+				settle(normalizeOfflineFailure<T>(requestId));
+				return;
+			}
 
 			options.signal?.addEventListener("abort", handleAbort, {
 				once: true,
@@ -401,10 +419,16 @@ const api = {
 						);
 					},
 					error: (error: any) => {
+						if (isTransportUnavailableError(error)) {
+							markTransportUnavailable(error);
+						}
 						settle(normalizeTransportFailure<T>(error, requestId));
 					},
 				});
 			} catch (error) {
+				if (isTransportUnavailableError(error)) {
+					markTransportUnavailable(error);
+				}
 				settle(normalizeTransportFailure<T>(error, requestId));
 			}
 		});

@@ -1,4 +1,5 @@
 import { ref, onUnmounted } from "vue";
+import { isOffline } from "../../../offline/index";
 
 export interface ServerStats {
 	cpu: number | null;
@@ -21,6 +22,11 @@ export function useServerStats(pollInterval = 10000, windowSize = 60) {
 	let timer: number | null = null;
 
 	async function fetchServerStats() {
+		if (isOffline()) {
+			loading.value = false;
+			error.value = "Unavailable offline";
+			return;
+		}
 		loading.value = true;
 		error.value = null;
 		try {

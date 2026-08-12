@@ -1,4 +1,5 @@
 import { ref, onUnmounted } from "vue";
+import { isOffline } from "../../../offline/index";
 
 declare const frappe: any;
 
@@ -10,6 +11,11 @@ export function useDatabaseStats(pollInterval = 10000, windowSize = 60) {
 	let timer: number | null = null;
 
 	async function fetchDatabaseStats() {
+		if (isOffline()) {
+			loading.value = false;
+			error.value = "Unavailable offline";
+			return;
+		}
 		loading.value = true;
 		error.value = null;
 		try {

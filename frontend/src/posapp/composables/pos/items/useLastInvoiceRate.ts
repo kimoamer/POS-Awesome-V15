@@ -131,7 +131,8 @@ export function useLastInvoiceRate(context: UseLastInvoiceRateContext = {}) {
 			lastInvoiceRates.value = Object.fromEntries(updatedCache);
 			return lastInvoiceRates.value;
 		} catch (error) {
-			console.error("Failed to fetch last invoice rates", error);
+			if (!isOffline())
+				console.error("Failed to fetch last invoice rates", error);
 			// Fallback to cache even on error
 			lastInvoiceRates.value = Object.fromEntries(cachedForCustomer);
 			return lastInvoiceRates.value;
